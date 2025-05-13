@@ -1,48 +1,266 @@
 """
 Core optimizer module tying together various optimization methods.
 """
-from typing import Dict, List, Optional
+import os
+import sys
+import logging
+from typing import Dict, List, Optional, Tuple, Any
+import numpy as np
 
-from methods.benders_method import BendersOptimizer
-from methods.pulp_method import PulpOptimizer
-from methods.quantum_methods import QuantumBendersOptimizer
-
+try:
+    from .methods.benders_method import BendersOptimizer
+    from .methods.pulp_method import PulpOptimizer
+    from .methods.quantum_enhanced import QuantumEnhancedOptimizer
+    from .methods.quantum_inspired import QuantumInspiredOptimizer
+    from .data_models import OptimizationObjective, OptimizationResult
+except ImportError as e:
+    print(f"Error loading optimization methods: {e}", file=sys.stderr)
+    # Define placeholders to avoid errors
+    BendersOptimizer = PulpOptimizer = QuantumBendersOptimizer = None
+    OptimizationResult = dict
 
 class FoodProductionOptimizer:
-    """
-    Main optimizer class selecting appropriate method.
-    """
-    def __init__(self,
-                 farms: List[str],
-                 foods: Dict[str, Dict[str, float]],
+
+    def __init__(self, 
+                 farms: List[str], 
+                 foods: Dict[str, Dict[str, float]], 
                  food_groups: Dict[str, List[str]],
                  config: Optional[Dict] = None):
+        """Initialize the multi-objective food production optimization model."""
+        logging.basicConfig(level=logging.INFO, 
+                          format='%(asctime)s - %(levelname)s: %(message)s')
+        self.logger = logging.getLogger(__name__)
+        
         self.farms = farms
         self.foods = foods
         self.food_groups = food_groups
         self.config = config or {}
-        # ...existing code for parameter validation and generation...
 
-    def solve_with_benders(self, timeout: Optional[float] = None):
-        return BendersOptimizer(self.farms, self.foods, self.food_groups, self.config).solve(timeout)
+        # Validate inputs and generate parameters
+        self._validate_inputs()
+        self.parameters = self._generate_model_parameters()
+        self.results = []
 
-    def solve_with_pulp(self):
-        return PulpOptimizer(self.farms, self.foods, self.food_groups, self.config).solve()
+    def _validate_inputs(self):
+        """Validate input configurations."""
+        if not self.farms:
+            raise ValueError("At least one farm must be provided")
+        required_keys = [obj.value for obj in OptimizationObjective]
+        for food, scores in self.foods.items():
+            missing_keys = [key for key in required_keys if key not in scores]
+            if missing_keys:
+                raise ValueError(f"Missing keys for food {food}: {missing_keys}")
+            for key, value in scores.items():
+                if not 0 <= value <= 1:
+                    raise ValueError(f"Invalid score range for {food}.{key}: {value}")
+        for group, foods in self.food_groups.items():
+            unknown_foods = set(foods) - set(self.foods.keys())
+            if unknown_foods:
+                raise ValueError(f"Unknown foods in group {group}: {unknown_foods}")
 
-    def solve_with_quantum(self):
-        return QuantumBendersOptimizer(self.farms, self.foods, self.food_groups, self.config).solve()  
+    from .methods.benders_method import optimize_with_benders
+    from .methods.pulp_method import optimize_with_pulp
+    from .methods.quantum_enhanced import optimize_with_quantum_benders
+    from .methods.quantum_inspired import optimize_with_quantum_inspired_benders
 
+    def _calculate_metrics(self, solution) -> Dict[str, float]:
+        """Calculate optimization metrics."""
+        metrics = {}
+        
+        # Calculate objective contributions
+        for obj in OptimizationObjective:
+            metrics[obj.value] = sum(
+                self.parameters['objective_weights'][obj.value] *
+                self.foods[c][obj.value] *
+                area
+                for (f, c), area in solution.items()
+            )
+        
+        # Calculate total area
+        total_area = sum(solution.values())
+        metrics['total_area'] = total_area
+        
+        # Calculate utilization
+        for f in self.farms:
+            farm_area = sum(
+                area for (farm, _), area in solution.items() 
+                if farm == f
+            )
+            metrics[f'utilization_{f}'] = (
+                farm_area / self.parameters['land_availability'][f]
+            )
+        
+        return metrics
 
+    
+
+    
 class SimpleFoodOptimizer(FoodProductionOptimizer):
-    """Simplified optimizer for example usage."""
+    """Simplified version of the FoodProductionOptimizer."""
+    
     def __init__(self):
-        super().__init__([], {}, {}, {'parameters': {}})
-        # ...existing code for loading default data...
-
+        """Initialize with empty parameters to be loaded later."""
+        self.farms = []
+        self.foods = {}
+        self.food_groups = {}
+        self.config = {'parameters': {}}
+        self.parameters = {'weights': {}}
+        self.logger = logging.getLogger(__name__)
+    
     def load_food_data(self):
-        # ...existing load_food_data implementation...
-        pass
-
+        """Load simplified food data for testing."""
+        # Define farms
+        self.farms = ['Farm1', 'Farm2', 'Farm3']
+        
+        # Define foods with nutritional values, etc.
+        self.foods = {
+            'Wheat': {
+                'nutritional_value': 0.7,
+                'nutrient_density': 0.6,
+                'environmental_impact': 0.3,
+                'affordability': 0.8,
+                'sustainability': 0.7
+            },
+            'Corn': {
+                'nutritional_value': 0.6,
+                'nutrient_density': 0.5,
+                'environmental_impact': 0.4,
+                'affordability': 0.9,
+                'sustainability': 0.6
+            },
+            'Rice': {
+                'nutritional_value': 0.8,
+                'nutrient_density': 0.7,
+                'environmental_impact': 0.6,
+                'affordability': 0.7,
+                'sustainability': 0.5
+            },
+            'Soybeans': {
+                'nutritional_value': 0.9,
+                'nutrient_density': 0.8,
+                'environmental_impact': 0.2,
+                'affordability': 0.6,
+                'sustainability': 0.8
+            },
+            'Potatoes': {
+                'nutritional_value': 0.5,
+                'nutrient_density': 0.4,
+                'environmental_impact': 0.3,
+                'affordability': 0.9,
+                'sustainability': 0.7
+            },
+            'Apples': {
+                'nutritional_value': 0.7,
+                'nutrient_density': 0.6,
+                'environmental_impact': 0.2,
+                'affordability': 0.5,
+                'sustainability': 0.8
+            }
+        }
+        
+        # Define food groups
+        self.food_groups = {
+            'Grains': ['Wheat', 'Corn', 'Rice'],
+            'Legumes': ['Soybeans'],
+            'Vegetables': ['Potatoes'],
+            'Fruits': ['Apples']
+        }
+        
+        # Set parameters
+        weights_dict = {
+            'nutritional_value': 0.25,
+            'nutrient_density': 0.25,
+            'environmental_impact': 0.5,
+            'affordability': 0,
+            'sustainability': 0
+        }
+        
+        self.parameters = {
+            'objective_weights': weights_dict,
+            'weights': weights_dict,  # Add weights key as well
+            'land_availability': {
+                'Farm1': 75,
+                'Farm2': 100,
+                'Farm3': 50
+            },
+            'food_groups': self.food_groups
+        }
+        
+        # Update config
+        self.config = {
+            'parameters': self.parameters
+        }
+        
+        self.logger.info(f"Loaded data for {len(self.farms)} farms and {len(self.foods)} foods")
+    
     def calculate_metrics(self, solution):
-        # ...existing calculate_metrics implementation...
-        pass
+        """Calculate optimization metrics."""
+        metrics = {}
+        
+        # Calculate objective contributions
+        nutritional_value = 0
+        nutrient_density = 0
+        affordability = 0
+        sustainability = 0
+        environmental_impact = 0
+        
+        for (farm, food), area in solution.items():
+            nutritional_value += self.foods[food]['nutritional_value'] * area * self.parameters['weights']['nutritional_value']
+            nutrient_density += self.foods[food]['nutrient_density'] * area * self.parameters['weights']['nutrient_density']
+            affordability += self.foods[food]['affordability'] * area * self.parameters['weights']['affordability']
+            sustainability += self.foods[food]['sustainability'] * area * self.parameters['weights']['sustainability']
+            environmental_impact += self.foods[food]['environmental_impact'] * area * self.parameters['weights']['environmental_impact']
+        
+        metrics['nutritional_value'] = nutritional_value
+        metrics['nutrient_density'] = nutrient_density
+        metrics['affordability'] = affordability
+        metrics['sustainability'] = sustainability
+        metrics['environmental_impact'] = -environmental_impact  # Negative because we want to minimize this
+        
+        # Calculate total area and utilization
+        total_area = sum(solution.values())
+        metrics['total_area'] = total_area
+        
+        # Calculate farm utilization
+        for farm in self.farms:
+            farm_area = sum(
+                area for (f, _), area in solution.items() 
+                if f == farm
+            )
+            metrics[f'utilization_{farm}'] = farm_area / self.parameters['land_availability'][farm]
+        
+        return metrics
+
+    def _generate_smart_binary_solution(self, Ny, F, C):
+        """
+        Generate a smart initial solution with at least one food per farm.
+        
+        Args:
+            Ny: Total number of binary variables
+            F: Number of farms
+            C: Number of foods
+            
+        Returns:
+            A binary solution array of shape (Ny, 1)
+        """
+        self.logger.info("Generating smart initial solution")
+        y_sol = np.zeros((Ny, 1))
+        
+        # For each farm, select at least one food with good score
+        for farm_idx in range(F):
+            # Get the food scores for this farm
+            farm = self.farms[farm_idx]
+            food_scores = [(food_idx, self.foods[food]['nutritional_value']) 
+                         for food_idx, food in enumerate(self.foods)]
+            
+            # Sort by score (highest first)
+            food_scores.sort(key=lambda x: x[1], reverse=True)
+            
+            # Select top 2 foods for this farm
+            for i in range(min(2, len(food_scores))):
+                food_idx = food_scores[i][0]
+                pos = farm_idx * C + food_idx
+                y_sol[pos, 0] = 1
+                self.logger.info(f"Selected food {list(self.foods.keys())[food_idx]} for farm {farm}")
+        
+        return y_sol
