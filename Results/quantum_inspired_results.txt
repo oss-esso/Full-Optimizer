@@ -1,0 +1,40 @@
+================================================================================
+ OPTIMIZATION RESULTS - Quantum-Inspired Benders
+================================================================================
+
+CONFIGURATION:
+----------------------------------------
+Farms: ['Farm1', 'Farm2', 'Farm3']
+Objective Value: 54.6750
+Runtime: 5.01 seconds
+
+SOLUTION:
+----------------------------------------
+Farm: Farm1, Food: Wheat, Area: 75.00 hectares
+Farm: Farm2, Food: Apples, Area: 100.00 hectares
+Farm: Farm3, Food: Wheat, Area: 4.00 hectares
+Farm: Farm3, Food: Soybeans, Area: 38.00 hectares
+Farm: Farm3, Food: Potatoes, Area: 4.00 hectares
+Farm: Farm3, Food: Apples, Area: 4.00 hectares
+
+METRICS:
+----------------------------------------
+nutritional_value: 41.0750
+nutrient_density: 35.4500
+affordability: 0.0000
+sustainability: 0.0000
+environmental_impact: -26.6500
+total_area: 225.0000
+utilization_Farm1: 1.0000
+utilization_Farm2: 1.0000
+utilization_Farm3: 1.0000
+
+FARM UTILIZATION:
+----------------------------------------
+Farm1: 75.00 hectares (100.0%)
+Farm2: 100.00 hectares (100.0%)
+Farm3: 50.00 hectares (100.0%)
+
+================================================================================
+ END OF RESULTS
+================================================================================
