@@ -6,7 +6,7 @@ CONFIGURATION:
 ----------------------------------------
 Farms: ['Farm1', 'Farm2', 'Farm3']
 Objective Value: 67.1250
-Runtime: 1.68 seconds
+Runtime: 2.18 seconds
 
 SOLUTION:
 ----------------------------------------
