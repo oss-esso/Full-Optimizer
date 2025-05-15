@@ -62,6 +62,7 @@ class FoodProductionOptimizer:
     from .methods.pulp_method import optimize_with_pulp
     from .methods.quantum_enhanced import optimize_with_quantum_benders
     from .methods.quantum_inspired import optimize_with_quantum_inspired_benders
+    from .methods.quantum_enhanced_merge import optimize_with_quantum_benders_merge
 
     def _calculate_metrics(self, solution) -> Dict[str, float]:
         """Calculate optimization metrics."""
@@ -264,3 +265,29 @@ class SimpleFoodOptimizer(FoodProductionOptimizer):
                 self.logger.info(f"Selected food {list(self.foods.keys())[food_idx]} for farm {farm}")
         
         return y_sol
+
+    def solve(self, method: str, f: np.ndarray, A: np.ndarray, b: np.ndarray, C: np.ndarray, c: np.ndarray, debug: bool = False) -> np.ndarray:
+        """
+        Solve the optimization problem using the specified method.
+        Possible methods are:
+        - 'pulp': Uses PuLP solver
+        - 'benders': Uses Benders decomposition
+        - 'quantum-enhanced': Uses quantum-enhanced Benders decomposition
+        - 'quantum-inspired': Uses quantum-inspired Benders decomposition
+        - 'quantum-enhanced-merge': Uses quantum-enhanced Benders with advanced merging
+        """
+        # Choose optimization method
+        if method == 'pulp':
+            result = optimize_with_pulp(f, A, b, C, c, self.solver_params, debug=debug)
+        elif method == 'benders':
+            result = optimize_with_benders(f, A, b, C, c, self.solver_params, debug=debug)
+        elif method == 'quantum-enhanced':
+            result = optimize_with_quantum_benders(f, A, b, C, c, self.solver_params, debug=debug)
+        elif method == 'quantum-inspired':
+            result = optimize_with_quantum_inspired_benders(f, A, b, C, c, self.solver_params, debug=debug)
+        elif method == 'quantum-enhanced-merge':
+            result = optimize_with_quantum_benders_merge(f, A, b, C, c, self.solver_params, debug=debug)
+        else:
+            raise ValueError(f"Unknown optimization method: {method}")
+        
+        return result

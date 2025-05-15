@@ -463,11 +463,18 @@ class ScaledQAOASolver:
                 'method': 'qaoa_squared'
             }
             
+            # Collect subgraph solutions if available
+            subgraph_solutions = []
+            if hasattr(self, 'qaoa_squared') and self.qaoa_squared is not None:
+                if hasattr(self.qaoa_squared, 'subgraph_solutions'):
+                    subgraph_solutions = self.qaoa_squared.subgraph_solutions
+            
             return {
                 'solution': self.solution,
                 'objective': self.energy,
                 'runtime': runtime,
-                'metrics': self.metrics
+                'metrics': self.metrics,
+                'subgraph_solutions': subgraph_solutions
             }
         else:
             self.logger.error("QAOA² failed to return a valid solution")
@@ -755,63 +762,83 @@ def solve_benders_master_with_scaled_qaoa(f_coeffs, D_matrix, d_vector,
                 optimization_method=optimization_method
             )
             
-            # Report on the subgraphs created
+            # Extract and store subgraph solutions if available
+            subgraph_solutions = []
             if hasattr(solver, 'qaoa_squared') and solver.qaoa_squared is not None:
                 qaoa_squared = solver.qaoa_squared
                 subgraphs = qaoa_squared.subgraphs if hasattr(qaoa_squared, 'subgraphs') else []
                 
-                print(f"\nQAOA² PARTITIONING REPORT:")
-                print(f"  Number of subgraphs: {len(subgraphs)}")
-                
-                for i, subgraph in enumerate(subgraphs):
-                    print(f"  Subgraph {i+1}:")
-                    print(f"    Nodes: {len(subgraph.nodes())}")
-                    print(f"    Edges: {len(subgraph.edges())}")
-                    print(f"    Size: {len(subgraph.nodes())} qubits")
-                
-                # Try to visualize the partitioning
-                try:
-                    import matplotlib.pyplot as plt
-                    import networkx as nx
-                    
-                    # Create a visualization of all subgraphs
-                    plt.figure(figsize=(12, 10))
-                    
-                    # Use same layout for consistent visualization
-                    pos = nx.spring_layout(solver.graph, seed=42)
-                    
-                    # Draw the original graph with light gray edges
-                    nx.draw_networkx_edges(solver.graph, pos, alpha=0.1, edge_color='gray')
-                    
-                    # Generate colors for subgraphs
-                    colors = plt.cm.tab10.colors
-                    
-                    # Draw each subgraph with a different color
+                # Extract solutions from each subgraph
+                if hasattr(qaoa_squared, 'subgraph_solutions'):
+                    subgraph_solutions = qaoa_squared.subgraph_solutions
+                else:
+                    # Try to reconstruct from the available data
                     for i, subgraph in enumerate(subgraphs):
-                        color = colors[i % len(colors)]
-                        nx.draw_networkx_nodes(subgraph, pos, 
-                                             node_color=color, 
-                                             node_size=80,
-                                             alpha=0.8,
-                                             label=f"Subgraph {i+1}: {len(subgraph.nodes())} qubits")
-                        nx.draw_networkx_edges(subgraph, pos, 
-                                             edge_color=color,
-                                             alpha=0.6)
-                    
-                    plt.title(f"QAOA² Partitioning - {len(subgraphs)} Subgraphs")
-                    plt.legend(loc='upper right', bbox_to_anchor=(1.1, 1.05))
-                    plt.axis('off')
-                    
-                    # Save the visualization
-                    try:
-                        plt.savefig("qaoa_squared_partitioning.png", bbox_inches='tight')
-                        print(f"Partitioning visualization saved to qaoa_squared_partitioning.png")
-                    except Exception as e:
-                        print(f"Could not save partitioning visualization: {e}")
-                    
-                    plt.close()
-                except Exception as viz_error:
-                    print(f"Could not visualize partitioning: {viz_error}")
+                        if hasattr(qaoa_squared, f'subgraph_{i}_solution'):
+                            sub_sol = getattr(qaoa_squared, f'subgraph_{i}_solution')
+                            sub_vars = list(subgraph.nodes())
+                            subgraph_solutions.append({
+                                'id': i,
+                                'variables': sub_vars,
+                                'solution': sub_sol
+                            })
+            
+            # Include subgraph solutions in result
+            if result and subgraph_solutions:
+                result['subgraph_solutions'] = subgraph_solutions
+            
+            print(f"\nQAOA² PARTITIONING REPORT:")
+            print(f"  Number of subgraphs: {len(subgraphs)}")
+            
+            for i, subgraph in enumerate(subgraphs):
+                print(f"  Subgraph {i+1}:")
+                print(f"    Nodes: {len(subgraph.nodes())}")
+                print(f"    Edges: {len(subgraph.edges())}")
+                print(f"    Size: {len(subgraph.nodes())} qubits")
+            
+            # Try to visualize the partitioning
+            try:
+                import matplotlib.pyplot as plt
+                import networkx as nx
+                
+                # Create a visualization of all subgraphs
+                plt.figure(figsize=(12, 10))
+                
+                # Use same layout for consistent visualization
+                pos = nx.spring_layout(solver.graph, seed=42)
+                
+                # Draw the original graph with light gray edges
+                nx.draw_networkx_edges(solver.graph, pos, alpha=0.1, edge_color='gray')
+                
+                # Generate colors for subgraphs
+                colors = plt.cm.tab10.colors
+                
+                # Draw each subgraph with a different color
+                for i, subgraph in enumerate(subgraphs):
+                    color = colors[i % len(colors)]
+                    nx.draw_networkx_nodes(subgraph, pos, 
+                                         node_color=color, 
+                                         node_size=80,
+                                         alpha=0.8,
+                                         label=f"Subgraph {i+1}: {len(subgraph.nodes())} qubits")
+                    nx.draw_networkx_edges(subgraph, pos, 
+                                         edge_color=color,
+                                         alpha=0.6)
+                
+                plt.title(f"QAOA² Partitioning - {len(subgraphs)} Subgraphs")
+                plt.legend(loc='upper right', bbox_to_anchor=(1.1, 1.05))
+                plt.axis('off')
+                
+                # Save the visualization
+                try:
+                    plt.savefig("qaoa_squared_partitioning.png", bbox_inches='tight')
+                    print(f"Partitioning visualization saved to qaoa_squared_partitioning.png")
+                except Exception as e:
+                    print(f"Could not save partitioning visualization: {e}")
+                
+                plt.close()
+            except Exception as viz_error:
+                print(f"Could not visualize partitioning: {viz_error}")
         elif method.startswith('z2lgt'):
             # Extract the specific Z2LGT method
             z2lgt_method = method.split('_', 1)[1] if '_' in method else 'quantum_inspired'
