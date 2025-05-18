@@ -305,6 +305,10 @@ def optimize_with_quantum_benders_merge(self, use_qaoa_squared=True, max_qubits=
     UB = np.inf
     y_sol = y_init.copy()
     quantum_bounds = {'lower': [], 'upper': []}
+    best_x_sol = None  # Initialize best_x_sol
+    best_y_sol = y_init.copy() # Initialize best_y_sol with initial y
+    best_obj_value = -np.inf # Initialize with a very small number for maximization
+    found_feasible = False # Track if any feasible solution is found
     
     # Set modified convergence parameters for the quantum approach
     quantum_eps = benders.eps * 1.5  # Tighter tolerance

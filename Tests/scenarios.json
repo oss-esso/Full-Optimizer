@@ -1,0 +1,27 @@
+{
+    "small": {
+      "num_farms": 3,
+      "num_foods": 6,
+      "land_availability_range": [50, 100],
+      "min_planting_area_range": [5, 15],
+      "max_percentage_per_crop": 0.4
+    },
+    "medium": {
+      "num_farms": 5,
+      "num_foods": 10,
+      "land_availability_range": [70, 150],
+      "min_planting_area_range": [8, 20],
+      "max_percentage_per_crop": 0.3,
+      "social_benefit": 0.3
+    },
+    "large": {
+      "num_farms": 8,
+      "num_foods": 15,
+      "land_availability_range": [100, 200],
+      "min_planting_area_range": [10, 25],
+      "max_percentage_per_crop": 0.25,
+      "social_benefit": 0.4,
+      "min_foods_per_group": 2,
+      "max_foods_per_farm": 6
+    }
+  }
