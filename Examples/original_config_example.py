@@ -8,6 +8,8 @@ import time
 import logging
 import numpy as np
 import pandas as pd
+import matplotlib
+# matplotlib.use('Agg')  # Set the backend to Agg for PDF generation
 import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Dict, List, Tuple, Optional, Set, Any, Union
@@ -36,6 +38,8 @@ sys.path.insert(0, parent_dir)  # Add parent directory to path
 # First, patch the OptimizationObjective into the src.optimizer module
 import src.optimizer
 src.optimizer.OptimizationObjective = OptimizationObjective
+
+from src.optimizer import SimpleFoodOptimizer
 
 # Also patch the parameter generation method to use our provided config directly
 def patched_generate_parameters(self):
@@ -149,7 +153,7 @@ def log_optimization_results(result: OptimizationResult,
 
 def plot_convergence_comparison(results, save_path=None):
     """Plot a comparison of convergence between all Benders variants."""
-    plt.figure(figsize=(14, 10))
+    fig = plt.figure(figsize=(14, 10))
     
     colors = {
         'Benders': ('b', 'r'), 
@@ -183,12 +187,12 @@ def plot_convergence_comparison(results, save_path=None):
         plt.tight_layout()
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
     
-    return plt
+    plt.close(fig) # Close the figure
 
 def plot_method_comparison(results, save_path=None):
     """Plot a comparison of the results from all optimization methods."""
     # Create figure
-    plt.figure(figsize=(14, 10))
+    fig = plt.figure(figsize=(14, 10))
     plt.subplots_adjust(hspace=0.4)
     
     # List of all methods
@@ -234,216 +238,8 @@ def plot_method_comparison(results, save_path=None):
         plt.tight_layout()
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
     
-    return plt
+    plt.close(fig) # Close the figure
 
-def load_food_data():
-    """Load food data from Excel file for optimization."""
-    # Define these explicitly based on our OptimizationObjective enum
-    SCORE_COLUMNS = [obj.value for obj in OptimizationObjective]
-    
-    # Load Excel data
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_dir = os.path.dirname(script_dir)
-    excel_path = os.path.join(parent_dir, 'Inputs', 'Combined_Food_Data.xlsx')
-    print(f"Attempting to load food data from: {excel_path}")
-    
-    try:
-        food_data_df = pd.read_excel(excel_path)
-        print("Successfully loaded Excel data.")
-        print("\nActual Excel Columns Found:", food_data_df.columns.tolist())
-        print("-" * 40)
-    except FileNotFoundError:
-        print(f"\n❌ Error: Excel file not found at the expected path.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n❌ Error reading Excel file: {e}")
-        sys.exit(1)
-    
-    # Define Column Mapping
-    column_mapping = {
-        'Food_Name': 'Food_Name',
-        'food_group': 'Food_Group',
-        'nutritional_value': 'nutritional_value',
-        'nutrient_density': 'nutrient_density',
-        'environmental_impact': 'environmental_impact',
-        'affordability': 'affordability',
-        'sustainability': 'sustainability'
-    }
-
-    # Check if all required mapped columns exist
-    required_csv_columns = list(column_mapping.keys())
-    missing_csv_cols = [col for col in required_csv_columns if col not in food_data_df.columns]
-    if missing_csv_cols:
-        print(f"\n❌ Error: The following required columns were not found in the Excel file: {missing_csv_cols}")
-        sys.exit(1)
-
-    # Select sample foods dynamically (2 per food group)
-    food_name_col = 'Food_Name'
-    food_group_col = 'food_group'
-    if food_name_col not in food_data_df.columns or food_group_col not in food_data_df.columns:
-        print(f"\n❌ Error: Required columns '{food_name_col}' or '{food_group_col}' not found in the Excel file.")
-        sys.exit(1)
-    
-    selected_df = food_data_df.groupby(food_group_col).apply(
-        lambda x: x.sample(min(len(x), 2))
-    ).reset_index(drop=True)
-    selected_food_names = selected_df[food_name_col].tolist()
-    print(f"\nDynamically selected sample foods for optimization ({len(selected_food_names)} total): {selected_food_names}")
-
-    # Filter and rename DataFrame
-    filtered_df = food_data_df[food_data_df[column_mapping['Food_Name']].isin(selected_food_names)][required_csv_columns].copy()
-    filtered_df.rename(columns=column_mapping, inplace=True)
-
-    # Convert score columns to numeric and fill missing
-    for col in SCORE_COLUMNS:
-        filtered_df[col] = pd.to_numeric(filtered_df[col], errors='coerce')
-    if filtered_df[SCORE_COLUMNS].isnull().values.any():
-        print("\n⚠️ Warning: Found missing or non-numeric score values. Filling with 0.")
-        filtered_df.fillna(0, inplace=True)
-
-    # Build foods and food_groups dictionaries
-    foods = {}
-    for _, row in filtered_df.iterrows():
-        food_name = row['Food_Name']
-        foods[food_name] = {key: float(row[key]) for key in SCORE_COLUMNS}
-    
-    food_groups = {}
-    for _, row in filtered_df.iterrows():
-        group = row['Food_Group'] if pd.notna(row['Food_Group']) else 'Unknown Group'
-        food = row['Food_Name']
-        food_groups.setdefault(group, []).append(food)
-    
-    if not foods:
-        print("\n❌ Error: No valid food data could be extracted. Exiting.")
-        sys.exit(1)
-
-    print("\n--- Extracted Data ---")
-    first_food_key = next(iter(foods))
-    print(f"Foods Dictionary (first item example): {first_food_key}: {foods[first_food_key]}")
-    print(f"Food Groups Dictionary: {food_groups}")
-    print("-" * 40)
-    
-    # Default configuration
-    config = {
-        'parameters': {
-            'land_availability': {
-                'Farm1': 50,  # L_f for Farm1
-                'Farm2': 75,   # L_f for Farm2
-                'Farm3': 100,
-                'Farm4': 80,
-                'Farm5': 50,
-            },
-            'social_benefit': {
-                'Farm1': 0.20,   
-                'Farm2': 0.25,   
-                'Farm3': 0.15,
-                'Farm4': 0.20,
-                'Farm5': 0.10,
-            },
-            "minimum_planting_area": {
-                "Mango": 0.000929,
-                "Papaya": 0.000400,
-                "Orange": 0.005810,
-                "Banana": 0.005950,
-                "Guava": 0.000929,
-                "Watermelon": 0.000334,
-                "Apple": 0.003720,
-                "Avocado": 0.008360,
-                "Durian": 0.010000,
-                "Corn": 0.000183,
-                "Potato": 0.000090,
-                "Tofu": 0.000010,
-                "Tempeh": 0.000010,
-                "Peanuts": 0.000030,
-                "Chickpeas": 0.000020,
-                "Pumpkin": 0.000100,
-                "Spinach": 0.000090,
-                "Tomatoes": 0.000105,
-                "Long bean": 0.000090,
-                "Cabbage": 0.000250,
-                "Eggplant": 0.000360,
-                "Cucumber": 0.000500,
-                "Egg": 0.000019,
-                "Beef": 0.728400,
-                "Lamb": 0.025000,
-                "Pork": 0.016200,
-                "Chicken": 0.001000
-            },
-            "max_percentage_per_crop": {
-                "Mango": 0.20,
-                "Papaya": 0.20,
-                "Orange": 0.20,
-                "Banana": 0.20,
-                "Guava": 0.20,
-                "Watermelon": 0.15,
-                "Apple": 0.20,
-                "Avocado": 0.20,
-                "Durian": 0.15,
-                "Corn": 0.30,
-                "Potato": 0.25,
-                "Tofu": 0.25,
-                "Tempeh": 0.25,
-                "Peanuts": 0.25,
-                "Chickpeas": 0.25,
-                "Pumpkin": 0.20,
-                "Spinach": 0.35,
-                "Tomatoes": 0.35,
-                "Long bean": 0.10,
-                "Cabbage": 0.30,
-                "Eggplant": 0.30,
-                "Cucumber": 0.30,
-                "Egg": 0.50,
-                "Beef": 0.30,
-                "Lamb": 0.30,
-                "Pork": 0.30,
-                "Chicken": 0.50
-            },
-            "food_group_constraints": {
-                "Fruits": {
-                    "min_foods": 1,
-                    "max_foods": 5
-                },
-                "Starchy staples": {
-                    "min_foods": 1,
-                    "max_foods": 2
-                },
-                "Pulses, nuts, and seeds": {
-                    "min_foods": 1,
-                    "max_foods": 3
-                },
-                "Vegetables": {
-                    "min_foods": 1,
-                    "max_foods": 3
-                },
-                "Animal-source foods": {
-                    "min_foods": 1,
-                    "max_foods": 3
-                }
-            },
-            'objective_weights': {
-                'nutritional_value': 0.25,
-                'nutrient_density': 0.2,
-                'environmental_impact': 0.25,
-                'affordability': 0.15,
-                'sustainability': 0.15
-            }
-        },
-        'benders_tolerance': 0.001,
-        'benders_max_iterations': 100,
-        'pulp_time_limit': 120,
-        'use_multi_cut': True,
-        'use_trust_region': True,
-        'use_anticycling': True,
-        'use_norm_cuts': True,
-        'quantum_settings': {
-            'max_qubits': 20,
-            'use_qaoa_squared': True,
-            'force_qaoa_squared': True
-        }
-    }
-
-    farms = list(config['parameters']['land_availability'].keys())
-    return farms, foods, food_groups, config
 
 def plot_solution(result: OptimizationResult, 
                  farms: List[str], 
@@ -452,6 +248,26 @@ def plot_solution(result: OptimizationResult,
                  save_path: Optional[str] = None):
     """Plot the optimization solution with enhanced styling."""
     plot_logger = logging.getLogger(__name__) # Define logger for this function
+
+    # === Start: Added Detailed Debugging ===
+    plot_logger.info(f"DEBUG: PLOT_SOLUTION called. Target save_path: {os.path.basename(save_path) if save_path else 'None'}")
+    if result:
+        plot_logger.info(f"DEBUG: PLOT_SOLUTION - result object received.")
+        if hasattr(result, 'solution'):
+            plot_logger.info(f"DEBUG: PLOT_SOLUTION - result has 'solution' attribute.")
+            plot_logger.info(f"DEBUG: PLOT_SOLUTION - result.solution type: {type(result.solution)}")
+            if result.solution is not None:
+                plot_logger.info(f"DEBUG: PLOT_SOLUTION - result.solution is not None. Length: {len(result.solution)}")
+                plot_logger.info(f"DEBUG: PLOT_SOLUTION - result.solution content (first 50 chars): {str(result.solution)[:50]}")
+                if not result.solution: # Check if it's empty
+                    plot_logger.warning("DEBUG: PLOT_SOLUTION - result.solution is an empty dictionary (falsy).")
+            else:
+                plot_logger.warning("DEBUG: PLOT_SOLUTION - result.solution is None.")
+        else:
+            plot_logger.warning("DEBUG: PLOT_SOLUTION - result does NOT have 'solution' attribute.")
+    else:
+        plot_logger.warning("DEBUG: PLOT_SOLUTION - result object is None.")
+    # === End: Added Detailed Debugging ===
 
     # Set style and context
     sns.set_style("whitegrid")
@@ -488,10 +304,20 @@ def plot_solution(result: OptimizationResult,
             results_dir = os.path.dirname(save_path)
             if results_dir and not os.path.exists(results_dir):
                 os.makedirs(results_dir, exist_ok=True)
+            
+            # Specific debug for PuLP plot saving
+            is_pulp_plot_placeholder = "pulp_solution" in os.path.basename(save_path)
+            if is_pulp_plot_placeholder:
+                plot_logger.info(f"DEBUG: PLOT_SOLUTION Attempting to save PuLP PLACEHOLDER plot to {save_path}")
+            
             plt.savefig(save_path, bbox_inches='tight', dpi=300)
+            
+            if is_pulp_plot_placeholder:
+                plot_logger.info(f"DEBUG: PLOT_SOLUTION Successfully saved PuLP PLACEHOLDER plot to {save_path}")
             plot_logger.info(f"Placeholder plot saved to {save_path}")
         else:
             plt.show()
+        plt.close(fig) # Close the figure
         return
     
     # Color palette configuration
@@ -621,10 +447,19 @@ def plot_solution(result: OptimizationResult,
         results_dir = os.path.dirname(save_path)
         if results_dir and not os.path.exists(results_dir):
             os.makedirs(results_dir, exist_ok=True)
+
+        is_pulp_plot = "pulp_solution" in os.path.basename(save_path)
+        if is_pulp_plot:
+            plot_logger.info(f"DEBUG: PLOT_SOLUTION Attempting to save ACTUAL PuLP plot to {save_path}")
+        
         plt.savefig(save_path, bbox_inches='tight', dpi=300)
+        
+        if is_pulp_plot:
+            plot_logger.info(f"DEBUG: PLOT_SOLUTION Successfully saved ACTUAL PuLP plot to {save_path}")
         plot_logger.info(f"Solution plot saved to {save_path}")
     else:
         plt.show()
+    plt.close(fig) # Close the figure
 
 def main():
     """Run optimization using the original configuration from OQI_benders_vs_pulp.py."""
@@ -632,29 +467,27 @@ def main():
     print(" FOOD PRODUCTION OPTIMIZATION - ORIGINAL CONFIGURATION")
     print("=" * 80)
     
-    # Create results directory
+    # Create results directory for text files
     results_dir = os.path.join(os.path.dirname(current_dir), "Results")
     os.makedirs(results_dir, exist_ok=True)
+    
+    # Create plots directory for PDFs
+    plots_dir = os.path.join(os.path.dirname(current_dir), "Plots for PPT")
+    os.makedirs(plots_dir, exist_ok=True)
+
+    # Initialize solution paths
+    solution_path_pulp = os.path.join(plots_dir, "pulp_solution.png")
+    solution_path_benders = os.path.join(plots_dir, "benders_solution.png")
+    solution_path_qe = os.path.join(plots_dir, "quantum_enhanced_solution.png")
+    solution_path_qem = os.path.join(plots_dir, "quantum_enhanced_merge_solution.png")
 
     # Load food data from Excel
     print("\nLoading food data from Excel...")
-    farms, foods, food_groups, config = load_food_data()
     
-    # Create the optimizer
+    # Create the optimizer with the loaded data
     print("\nCreating food production optimizer with original configuration...")
-    optimizer = FoodProductionOptimizer(
-        farms=farms,
-        foods=foods,
-        food_groups=food_groups,
-        config=config
-    )
-    
-    # Fix parameter compatibility - ensure both 'weights' and 'objective_weights' exist
-    if 'objective_weights' in optimizer.parameters and 'weights' not in optimizer.parameters:
-        optimizer.parameters['weights'] = optimizer.parameters['objective_weights']
-    elif 'weights' in optimizer.parameters and 'objective_weights' not in optimizer.parameters:
-        optimizer.parameters['objective_weights'] = optimizer.parameters['weights']
-    
+    optimizer = SimpleFoodOptimizer(complexity_level='intermediate')
+    optimizer.load_food_data()
     # Dictionary to store results from all methods
     all_results = {}
     
@@ -663,88 +496,29 @@ def main():
     print(" METHOD 1: PULP DIRECT SOLVER")
     print("=" * 80)
     
-    start_time = time.time()
-    pulp_result = optimizer.optimize_with_pulp()  # Using standard name throughout
-    runtime = time.time() - start_time
-    pulp_result.runtime = runtime
     
-    # Ensure required fields for visualization
-    if not hasattr(pulp_result, 'metrics') or not pulp_result.metrics:
-        pulp_result.metrics = {}
+    # Solve with PuLP
+    start_time_pulp = time.time()
+    pulp_result = optimizer.optimize_with_pulp()
+    runtime_pulp = time.time() - start_time_pulp
     
-    # Fill in missing metrics with basic values if solution exists but metrics don't
-    if hasattr(pulp_result, 'solution') and pulp_result.solution and len(pulp_result.solution) > 0:
-        if not pulp_result.metrics:
-            # Calculate basic metrics if none exist
-            pulp_result.metrics = optimizer.calculate_metrics(pulp_result.solution)
+    # Update runtime
+    pulp_result.runtime = runtime_pulp
     
-    print(f"Status: {pulp_result.status}")
-    print(f"Objective Value: {pulp_result.objective_value:.4f}")
-    print(f"Runtime: {runtime:.2f} seconds")
+    # Save PuLP results
+    log_file_pulp = os.path.join(plots_dir, "pulp_results.txt")
+    log_optimization_results(pulp_result, optimizer.farms, optimizer.parameters, 
+                           'pulp', 'PuLP Direct Solver', log_file_pulp)
     
-    # Debug output to inspect the pulp_result object
-    print("\nDEBUG - PuLP Result Object:")
-    print(f"Has 'solution' attribute: {hasattr(pulp_result, 'solution')}")
-    if hasattr(pulp_result, 'solution'):
-        print(f"Solution type: {type(pulp_result.solution)}")
-        print(f"Solution is empty: {not pulp_result.solution}")
-        print(f"Solution length: {len(pulp_result.solution) if pulp_result.solution else 0}")
-    print(f"Has 'metrics' attribute: {hasattr(pulp_result, 'metrics')}")
-    if hasattr(pulp_result, 'metrics'):
-        print(f"Metrics: {pulp_result.metrics}")
-    
-    # Print solution summary
-    if pulp_result.solution:
-        print("\nLand Allocation:")
-        for (farm, food), area in pulp_result.solution.items():
-            print(f"{farm}: {food} - {area:.2f} hectares")
-    else:
-        print("\nWARNING: No valid solution found.")
+    # Plot PuLP solution
+    plot_solution(pulp_result, optimizer.farms, optimizer.foods, optimizer.parameters, save_path=solution_path_pulp)
     
     # Store results and log to file
     all_results['PuLP'] = {
         'result': pulp_result,
         'objective_value': pulp_result.objective_value if pulp_result.objective_value else 0.0,
-        'runtime': runtime
+        'runtime': runtime_pulp
     }
-    
-    log_file = os.path.join(results_dir, "pulp_results.txt")
-    log_optimization_results(pulp_result, optimizer.farms, optimizer.parameters, 
-                           'pulp', 'PuLP Direct Solver', log_file)
-    
-    # Debug PuLP solution before plotting
-    print("\nDEBUG - PuLP Solution Before Plotting:")
-    print(f"Solution type: {type(pulp_result.solution)}")
-    if pulp_result.solution:
-        print(f"Solution length: {len(pulp_result.solution)}")
-        print(f"First few items: {list(pulp_result.solution.items())[:3]}")
-    else:
-        print("PuLP solution is empty or None.")
-    
-    print(f"Metrics type: {type(pulp_result.metrics)}")
-    if hasattr(pulp_result, 'metrics') and pulp_result.metrics:
-        print(f"Metrics: {pulp_result.metrics}")
-    else:
-        print("PuLP metrics is empty or None.")
-    
-    # Ensure there is at least one data point for farm utilization if missing
-    if not pulp_result.metrics:
-        pulp_result.metrics = {}
-    if not any(key.startswith('utilization_') for key in pulp_result.metrics):
-        print("Adding minimum utilization data for plotting...")
-        for farm in optimizer.farms:
-            farm_area = 0
-            if pulp_result.solution:
-                farm_area = sum(area for (f, _), area in pulp_result.solution.items() if f == farm)
-            pulp_result.metrics[f'utilization_{farm}'] = farm_area / optimizer.parameters['land_availability'][farm]
-    
-    # Plot PuLP solution - always attempt to plot regardless of solution status
-    solution_path_pulp = os.path.join(results_dir, "pulp_solution.png")
-    try:
-        plot_solution(pulp_result, optimizer.farms, optimizer.foods, optimizer.parameters, save_path=solution_path_pulp)
-        print(f"PuLP solution visualization saved to: {solution_path_pulp}")
-    except Exception as e:
-        print(f"WARNING: Failed to generate PuLP solution visualization: {str(e)}")
     
     # 2. Solve with classical Benders decomposition
     print("\n" + "=" * 80)
@@ -781,7 +555,7 @@ def main():
                            'benders', 'Benders Decomposition', log_file)
     
     # Plot Benders solution
-    solution_path_benders = os.path.join(results_dir, "benders_solution.png")
+    solution_path_benders = os.path.join(plots_dir, "benders_solution.png")
     try:
         plot_solution(benders_result, optimizer.farms, optimizer.foods, optimizer.parameters, save_path=solution_path_benders)
         print(f"Benders solution visualization saved to: {solution_path_benders}")
@@ -823,7 +597,7 @@ def main():
                            'quantum_enhanced', 'Quantum-Enhanced Benders', log_file)
     
     # Plot Quantum-Enhanced solution
-    solution_path_qe = os.path.join(results_dir, "quantum_enhanced_solution.png")
+    solution_path_qe = os.path.join(plots_dir, "quantum_enhanced_solution.png")
     try:
         plot_solution(qe_result, optimizer.farms, optimizer.foods, optimizer.parameters, save_path=solution_path_qe)
         print(f"Quantum-Enhanced solution visualization saved to: {solution_path_qe}")
@@ -873,7 +647,7 @@ def main():
                            'quantum_enhanced_merge', 'Quantum-Enhanced Benders with Merge', log_file)
     
     # Plot Quantum-Enhanced-Merge solution
-    solution_path_qem = os.path.join(results_dir, "quantum_enhanced_merge_solution.png")
+    solution_path_qem = os.path.join(plots_dir, "quantum_enhanced_merge_solution.png")
     try:
         plot_solution(qem_result, optimizer.farms, optimizer.foods, optimizer.parameters, save_path=solution_path_qem)
         print(f"Quantum-Enhanced-Merge solution visualization saved to: {solution_path_qem}")
@@ -900,11 +674,11 @@ def main():
     print(f"  Quantum-Enhanced-Merge:  {all_results['Quantum-Enhanced-Merge']['runtime']:.2f} seconds")
     
     # Generate visualization comparing all methods
-    method_comparison_path = os.path.join(results_dir, "method_comparison.png")
+    method_comparison_path = os.path.join(plots_dir, "method_comparison.png")
     plot_method_comparison(all_results, method_comparison_path)
     
     # Generate convergence comparison for Benders variants
-    convergence_comparison_path = os.path.join(results_dir, "convergence_comparison.png")
+    convergence_comparison_path = os.path.join(plots_dir, "convergence_comparison.png")
     plot_convergence_comparison(all_results, convergence_comparison_path)
     
     print(f"\nResults have been saved to: {results_dir}")

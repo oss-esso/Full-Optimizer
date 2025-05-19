@@ -64,6 +64,23 @@ def optimize_with_quantum_benders(self, use_qaoa_squared=True, max_qubits=20, fo
     self.logger.info(f"  Number of continuous variables (Nx): {Nx}")
     self.logger.info(f"  Number of binary variables (Ny): {Ny}")
     
+    # Get weight parameters - be flexible with naming
+    weights = {}
+    if 'objective_weights' in self.parameters:
+        weights = self.parameters['objective_weights']
+    elif 'weights' in self.parameters:
+        weights = self.parameters['weights']
+    else:
+        # Default equal weights
+        weights = {
+            'nutritional_value': 0.2,
+            'nutrient_density': 0.2,
+            'environmental_impact': 0.2,
+            'affordability': 0.2,
+            'sustainability': 0.2
+        }
+        self.logger.warning("No weights found in parameters, using default equal weights.")
+    
     # Build objective coefficient vectors first
     self.logger.info("Building objective function components:")
     c = np.zeros((Nx, 1))
@@ -74,7 +91,6 @@ def optimize_with_quantum_benders(self, use_qaoa_squared=True, max_qubits=20, fo
             pos = fi * C + food_idx
             
             food_data = self.foods[food]
-            weights = self.parameters['objective_weights']
             
             pos_score = (
                 weights['nutritional_value'] * food_data['nutritional_value'] +

@@ -8,10 +8,11 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
 try:
-    from .methods.benders_method import BendersOptimizer
-    from .methods.pulp_method import PulpOptimizer
-    from .methods.quantum_enhanced import QuantumEnhancedOptimizer
-    from .methods.quantum_inspired import QuantumInspiredOptimizer
+    from .methods.benders_method import optimize_with_benders
+    from .methods.pulp_method import optimize_with_pulp
+    from .methods.quantum_enhanced import optimize_with_quantum_benders
+    from .methods.quantum_inspired import optimize_with_quantum_inspired_benders
+    from .methods.quantum_enhanced_merge import optimize_with_quantum_benders_merge
     from .data_models import OptimizationObjective, OptimizationResult
 except ImportError as e:
     print(f"Error loading optimization methods: {e}", file=sys.stderr)
@@ -99,101 +100,40 @@ class FoodProductionOptimizer:
 class SimpleFoodOptimizer(FoodProductionOptimizer):
     """Simplified version of the FoodProductionOptimizer."""
     
-    def __init__(self):
-        """Initialize with empty parameters to be loaded later."""
+    def __init__(self, complexity_level: str = 'simple'):
+        """
+        Initialize with empty parameters to be loaded later.
+        
+        Args:
+            complexity_level (str): One of 'simple', 'intermediate', or 'full'
+        """
         self.farms = []
         self.foods = {}
         self.food_groups = {}
         self.config = {'parameters': {}}
         self.parameters = {'weights': {}}
         self.logger = logging.getLogger(__name__)
+        self.complexity_level = complexity_level
     
-    def load_food_data(self):
-        """Load simplified food data for testing."""
-        # Define farms
-        self.farms = ['Farm1', 'Farm2', 'Farm3']
+    def load_food_data(self) -> Tuple[List[str], Dict[str, Dict[str, float]], Dict[str, List[str]], Dict]:
+        """
+        Load food data based on specified complexity level.
         
-        # Define foods with nutritional values, etc.
-        self.foods = {
-            'Wheat': {
-                'nutritional_value': 0.7,
-                'nutrient_density': 0.6,
-                'environmental_impact': 0.3,
-                'affordability': 0.8,
-                'sustainability': 0.7
-            },
-            'Corn': {
-                'nutritional_value': 0.6,
-                'nutrient_density': 0.5,
-                'environmental_impact': 0.4,
-                'affordability': 0.9,
-                'sustainability': 0.6
-            },
-            'Rice': {
-                'nutritional_value': 0.8,
-                'nutrient_density': 0.7,
-                'environmental_impact': 0.6,
-                'affordability': 0.7,
-                'sustainability': 0.5
-            },
-            'Soybeans': {
-                'nutritional_value': 0.9,
-                'nutrient_density': 0.8,
-                'environmental_impact': 0.2,
-                'affordability': 0.6,
-                'sustainability': 0.8
-            },
-            'Potatoes': {
-                'nutritional_value': 0.5,
-                'nutrient_density': 0.4,
-                'environmental_impact': 0.3,
-                'affordability': 0.9,
-                'sustainability': 0.7
-            },
-            'Apples': {
-                'nutritional_value': 0.7,
-                'nutrient_density': 0.6,
-                'environmental_impact': 0.2,
-                'affordability': 0.5,
-                'sustainability': 0.8
-            }
-        }
+        Returns:
+            Tuple containing farms, foods, food_groups, and config
+        """
+        from .scenarios import load_food_data as scenarios_load_food_data
+        farms, foods, food_groups, config = scenarios_load_food_data(self.complexity_level)
         
-        # Define food groups
-        self.food_groups = {
-            'Grains': ['Wheat', 'Corn', 'Rice'],
-            'Legumes': ['Soybeans'],
-            'Vegetables': ['Potatoes'],
-            'Fruits': ['Apples']
-        }
+        # Update instance variables
+        self.farms = farms
+        self.foods = foods
+        self.food_groups = food_groups
+        self.config = config
+        self.parameters = config['parameters']
         
-        # Set parameters
-        weights_dict = {
-            'nutritional_value': 0.25,
-            'nutrient_density': 0.25,
-            'environmental_impact': 0.5,
-            'affordability': 0,
-            'sustainability': 0
-        }
-        
-        self.parameters = {
-            'objective_weights': weights_dict,
-            'weights': weights_dict,  # Add weights key as well
-            'land_availability': {
-                'Farm1': 75,
-                'Farm2': 100,
-                'Farm3': 50
-            },
-            'food_groups': self.food_groups
-        }
-        
-        # Update config
-        self.config = {
-            'parameters': self.parameters
-        }
-        
-        self.logger.info(f"Loaded data for {len(self.farms)} farms and {len(self.foods)} foods")
-    
+        return farms, foods, food_groups, config
+
     def calculate_metrics(self, solution):
         """Calculate optimization metrics."""
         metrics = {}

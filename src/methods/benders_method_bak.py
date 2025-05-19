@@ -325,36 +325,6 @@ def optimize_with_benders(self):
             
             self.logger.info(f"Global constraint: At least {F} fruits/vegetables across all farms")
         
-        # Add global constraint to ensure at least 5 different food types in total
-        self.logger.info("Adding food variety constraint:")
-        
-        # Create a constraint for each food type that counts if it's selected by any farm
-        for food_idx, food in enumerate(self.foods):
-            # Create a row that will be 1 if food is selected by any farm, 0 otherwise
-            food_selection_row = np.zeros(Ny)
-            for fi in range(F):
-                pos = fi * C + food_idx
-                food_selection_row[pos] = 1.0/F  # Scale by 1/F so each food counts as exactly 1
-            
-            # Add this row to the D matrix
-            D = np.vstack((D, food_selection_row))
-            d = np.vstack((d, np.array([[0.0]])))  # Start with 0 as lower bound
-            n += 1
-        
-        # Add a separate constraint that requires total sum of food selections >= 5
-        # This is the overall constraint that ensures at least 5 different food types
-        food_variety_row = np.zeros(Ny)
-        for food_idx in range(C):
-            for fi in range(F):
-                pos = fi * C + food_idx
-                food_variety_row[pos] = 1.0/F  # Scale by 1/F so each food counts only once
-        
-        D = np.vstack((D, food_variety_row))
-        d = np.vstack((d, np.array([[5.0]])))  # Require at least 5 different foods
-        n += 1
-        
-        self.logger.info("Global constraint: At least 5 different food types must be used in total")
-        
         # Set problem data with relaxed constraints
         benders.set_problem_data(A=A, B=B, b=b, c=c, f=f, D=D, d=d, y_init=y_init)
         

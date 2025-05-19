@@ -532,7 +532,11 @@ class QAOASquared:
         
         # Determine number of subgraphs based on problem size and max_qubits
         n = len(self.graph.nodes())
-        self.num_subgraphs = max(1, n // self.max_qubits + (1 if n % self.max_qubits else 0))
+        # Only split if number of nodes exceeds max_qubits
+        if n > self.max_qubits:
+            self.num_subgraphs = max(2, n // (self.max_qubits - 2) + (1 if n % (self.max_qubits - 2) else 0))
+        else:
+            self.num_subgraphs = 1  # No splitting needed if graph is small enough
         
         self.logger.info(f"Automatically determined {self.num_subgraphs} subgraphs")
         
@@ -565,15 +569,45 @@ class QAOASquared:
         else:
             raise ValueError(f"Unknown partition method: {self.partition_method}")
         
-        # Log partitioning results
-        self.logger.info(f"Partitioned into {len(subgraphs)} subgraphs")
+        # Post-process: Check if any subgraph exceeds the maximum qubit limit
+        # If so, split it further
+        final_subgraphs = []
         for i, sg in enumerate(subgraphs):
+            if len(sg.nodes()) > self.max_qubits:
+                self.logger.warning(f"Subgraph {i} has {len(sg.nodes())} nodes, exceeding max_qubits={self.max_qubits}")
+                self.logger.info(f"Further splitting subgraph {i} to meet max_qubits constraint")
+                
+                # Create a new partitioner for just this subgraph
+                sub_partitioner = GraphPartitioner(sg, self.max_qubits)
+                
+                # Determine how many pieces to split into
+                n_sub = len(sg.nodes())
+                sub_parts = max(2, n_sub // (self.max_qubits - 2) + (1 if n_sub % (self.max_qubits - 2) else 0))
+                
+                # Split this subgraph further
+                if self.partition_method == 'metis':
+                    try:
+                        sub_subgraphs = sub_partitioner.metis_partition(sub_parts)
+                    except:
+                        sub_subgraphs = sub_partitioner.random_partition(sub_parts)
+                else:
+                    sub_subgraphs = sub_partitioner.random_partition(sub_parts)
+                
+                # Add these smaller subgraphs
+                final_subgraphs.extend(sub_subgraphs)
+                self.logger.info(f"  Split subgraph {i} into {len(sub_subgraphs)} smaller subgraphs")
+            else:
+                final_subgraphs.append(sg)
+        
+        # Log final partitioning results
+        self.logger.info(f"Final partition: {len(final_subgraphs)} subgraphs")
+        for i, sg in enumerate(final_subgraphs):
             self.logger.info(f"  Subgraph {i}: {len(sg.nodes())} nodes, {len(sg.edges())} edges")
         
         self.partition_time = time.time() - start_time
         self.logger.info(f"Partitioning took {self.partition_time:.2f} seconds")
         
-        return subgraphs
+        return final_subgraphs
     
     def solve(self, optimization_method: str = 'COBYLA'):
         """

@@ -76,21 +76,6 @@ def optimize_with_pulp(self):
                     min_foods = 1  # Require at least 1 food from each group
                     model += pulp.lpSum([y[farm, food] for farm in self.farms for food in foods]) >= min_foods, f"Min_Foods_{group}"
         
-        # Add a global constraint to ensure at least 5 different food types are selected across all farms
-        # Create binary indicator variables for whether each food is selected at all
-        food_selected = {}
-        for food in self.foods:
-            food_selected[food] = pulp.LpVariable(f"food_selected_{food}", cat='Binary')
-            # If any farm grows this food, the indicator is 1
-            for farm in self.farms:
-                model += food_selected[food] >= y[farm, food], f"Food_Selected_Lower_{food}_{farm}"
-            # Ensure the indicator is 0 if no farm grows this food
-            model += food_selected[food] * len(self.farms) <= pulp.lpSum([y[farm, food] for farm in self.farms]), f"Food_Selected_Upper_{food}"
-            
-        # Ensure at least 5 different foods are selected in total
-        model += pulp.lpSum([food_selected[food] for food in self.foods]) >= 5, "Global_Min_Different_Foods"
-        self.logger.info("Added constraint: At least 5 different food types must be selected in total")
-        
         # 3. Linking constraints - x and y
         for farm in self.farms:
             for food in self.foods:
