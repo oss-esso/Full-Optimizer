@@ -12,18 +12,18 @@ try:
     if os.path.exists(my_functions_path):
         sys.path.append(os.path.dirname(my_functions_path))
         from my_functions.benders import Benders
-        from my_functions.qubo_converter import solve_benders_master_with_mean_field, convert_benders_master_to_qubo
-        from my_functions.mean_field_base import qubo_to_ising
+        # from my_functions.qubo_converter import solve_benders_master_with_mean_field, convert_benders_master_to_qubo
+        # from my_functions.mean_field_base import qubo_to_ising
     else:
         print(f"Warning: 'my_functions' directory not found at {my_functions_path}", file=sys.stderr)
         Benders = None
-        solve_benders_master_with_mean_field = None
-        qubo_to_ising = None
+        # solve_benders_master_with_mean_field = None
+        # qubo_to_ising = None
 except ImportError as e:
     print(f"Error importing quantum methods: {e}", file=sys.stderr)
     Benders = None
-    solve_benders_master_with_mean_field = None
-    qubo_to_ising = None
+    # solve_benders_master_with_mean_field = None
+    # qubo_to_ising = None
 
 # Import from parent directory
 from ..data_models import OptimizationResult, OptimizationObjective

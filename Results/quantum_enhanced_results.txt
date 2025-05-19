@@ -4,41 +4,69 @@
 
 CONFIGURATION:
 ----------------------------------------
-Farms: ['Farm1', 'Farm2', 'Farm3']
-Objective Value: 39.2000
-Runtime: 5.76 seconds
+Farms: ['Farm1', 'Farm2', 'Farm3', 'Farm4', 'Farm5']
+Objective Value: 101.0748
+Runtime: 11.19 seconds
 
 SOLUTION:
 ----------------------------------------
-Farm: Farm1, Food: Corn, Area: 25.00 hectares
-Farm: Farm1, Food: Rice, Area: 25.00 hectares
-Farm: Farm1, Food: Potatoes, Area: 25.00 hectares
-Farm: Farm2, Food: Wheat, Area: 4.00 hectares
+Farm: Farm1, Food: Papaya, Area: 4.00 hectares
+Farm: Farm1, Food: Avocado, Area: 4.00 hectares
+Farm: Farm1, Food: Potato, Area: 4.00 hectares
+Farm: Farm1, Food: Peanuts, Area: 4.00 hectares
+Farm: Farm1, Food: Cucumber, Area: 4.00 hectares
+Farm: Farm1, Food: Egg, Area: 4.00 hectares
+Farm: Farm1, Food: Pork, Area: 26.00 hectares
+Farm: Farm2, Food: Papaya, Area: 4.00 hectares
 Farm: Farm2, Food: Corn, Area: 4.00 hectares
-Farm: Farm2, Food: Rice, Area: 4.00 hectares
-Farm: Farm2, Food: Soybeans, Area: 80.00 hectares
-Farm: Farm2, Food: Potatoes, Area: 4.00 hectares
-Farm: Farm2, Food: Apples, Area: 4.00 hectares
-Farm: Farm3, Food: Corn, Area: 25.00 hectares
-Farm: Farm3, Food: Rice, Area: 25.00 hectares
+Farm: Farm2, Food: Potato, Area: 4.00 hectares
+Farm: Farm2, Food: Tofu, Area: 4.00 hectares
+Farm: Farm2, Food: Peanuts, Area: 4.00 hectares
+Farm: Farm2, Food: Pumpkin, Area: 4.00 hectares
+Farm: Farm2, Food: Cucumber, Area: 4.00 hectares
+Farm: Farm2, Food: Egg, Area: 4.00 hectares
+Farm: Farm2, Food: Pork, Area: 43.00 hectares
+Farm: Farm3, Food: Papaya, Area: 4.00 hectares
+Farm: Farm3, Food: Corn, Area: 4.00 hectares
+Farm: Farm3, Food: Tofu, Area: 4.00 hectares
+Farm: Farm3, Food: Peanuts, Area: 4.00 hectares
+Farm: Farm3, Food: Pumpkin, Area: 4.00 hectares
+Farm: Farm3, Food: Cucumber, Area: 4.00 hectares
+Farm: Farm3, Food: Egg, Area: 4.00 hectares
+Farm: Farm3, Food: Pork, Area: 72.00 hectares
+Farm: Farm4, Food: Avocado, Area: 4.00 hectares
+Farm: Farm4, Food: Corn, Area: 4.00 hectares
+Farm: Farm4, Food: Tofu, Area: 4.00 hectares
+Farm: Farm4, Food: Cucumber, Area: 4.00 hectares
+Farm: Farm4, Food: Egg, Area: 64.00 hectares
+Farm: Farm5, Food: Papaya, Area: 4.00 hectares
+Farm: Farm5, Food: Corn, Area: 4.00 hectares
+Farm: Farm5, Food: Potato, Area: 4.00 hectares
+Farm: Farm5, Food: Tofu, Area: 4.00 hectares
+Farm: Farm5, Food: Peanuts, Area: 4.00 hectares
+Farm: Farm5, Food: Pumpkin, Area: 30.00 hectares
 
 METRICS:
 ----------------------------------------
-nutritional_value: 41.9250
-nutrient_density: 36.3000
-affordability: 0.0000
-sustainability: 0.0000
-environmental_impact: -40.3500
-total_area: 225.0000
+nutritional_value: 48.7716
+nutrient_density: 31.4547
+environmental_impact: 0.3638
+affordability: 10.6006
+sustainability: 2.7112
+total_area: 355.0000
 utilization_Farm1: 1.0000
 utilization_Farm2: 1.0000
 utilization_Farm3: 1.0000
+utilization_Farm4: 1.0000
+utilization_Farm5: 1.0000
 
 FARM UTILIZATION:
 ----------------------------------------
-Farm1: 75.00 hectares (100.0%)
-Farm2: 100.00 hectares (100.0%)
-Farm3: 50.00 hectares (100.0%)
+Farm1: 50.00 hectares (100.0%)
+Farm2: 75.00 hectares (100.0%)
+Farm3: 100.00 hectares (100.0%)
+Farm4: 80.00 hectares (100.0%)
+Farm5: 50.00 hectares (100.0%)
 
 ================================================================================
  END OF RESULTS

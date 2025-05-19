@@ -4,41 +4,44 @@
 
 CONFIGURATION:
 ----------------------------------------
-Farms: ['Farm1', 'Farm2', 'Farm3']
-Objective Value: 67.1250
-Runtime: 1.64 seconds
+Farms: ['Farm1', 'Farm2', 'Farm3', 'Farm4', 'Farm5']
+Objective Value: 108.6539
+Runtime: 2.04 seconds
 
 SOLUTION:
 ----------------------------------------
-Farm: Farm1, Food: Wheat, Area: 4.00 hectares
-Farm: Farm1, Food: Soybeans, Area: 63.00 hectares
-Farm: Farm1, Food: Potatoes, Area: 4.00 hectares
-Farm: Farm1, Food: Apples, Area: 4.00 hectares
-Farm: Farm2, Food: Wheat, Area: 4.00 hectares
-Farm: Farm2, Food: Rice, Area: 4.00 hectares
-Farm: Farm2, Food: Soybeans, Area: 88.00 hectares
-Farm: Farm2, Food: Apples, Area: 4.00 hectares
-Farm: Farm3, Food: Corn, Area: 4.00 hectares
-Farm: Farm3, Food: Soybeans, Area: 42.00 hectares
-Farm: Farm3, Food: Potatoes, Area: 4.00 hectares
+Farm: Farm1, Food: Pumpkin, Area: 4.00 hectares
+Farm: Farm1, Food: Pork, Area: 46.00 hectares
+Farm: Farm2, Food: Pumpkin, Area: 4.00 hectares
+Farm: Farm2, Food: Pork, Area: 71.00 hectares
+Farm: Farm3, Food: Pumpkin, Area: 4.00 hectares
+Farm: Farm3, Food: Pork, Area: 96.00 hectares
+Farm: Farm4, Food: Pumpkin, Area: 4.00 hectares
+Farm: Farm4, Food: Pork, Area: 76.00 hectares
+Farm: Farm5, Food: Pumpkin, Area: 4.00 hectares
+Farm: Farm5, Food: Pork, Area: 46.00 hectares
 
 METRICS:
 ----------------------------------------
-nutritional_value: 48.6250
-nutrient_density: 43.0000
-affordability: 0.0000
-sustainability: 0.0000
-environmental_impact: -24.5000
-total_area: 225.0000
+nutritional_value: 51.8523
+nutrient_density: 36.9702
+environmental_impact: 0.0840
+affordability: 18.9113
+sustainability: 1.0042
+total_area: 355.0000
 utilization_Farm1: 1.0000
 utilization_Farm2: 1.0000
 utilization_Farm3: 1.0000
+utilization_Farm4: 1.0000
+utilization_Farm5: 1.0000
 
 FARM UTILIZATION:
 ----------------------------------------
-Farm1: 75.00 hectares (100.0%)
-Farm2: 100.00 hectares (100.0%)
-Farm3: 50.00 hectares (100.0%)
+Farm1: 50.00 hectares (100.0%)
+Farm2: 75.00 hectares (100.0%)
+Farm3: 100.00 hectares (100.0%)
+Farm4: 80.00 hectares (100.0%)
+Farm5: 50.00 hectares (100.0%)
 
 ================================================================================
  END OF RESULTS

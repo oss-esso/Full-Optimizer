@@ -31,8 +31,22 @@ def optimize_with_pulp(self):
                 x[farm, food] = pulp.LpVariable(f"x_{farm}_{food}", lowBound=0)
                 y[farm, food] = pulp.LpVariable(f"y_{farm}_{food}", cat='Binary')
         
-        # Get weight parameters
-        weights = self.parameters['weights']
+        # Get weight parameters - be flexible with naming
+        weights = {}
+        if 'objective_weights' in self.parameters:
+            weights = self.parameters['objective_weights']
+        elif 'weights' in self.parameters:
+            weights = self.parameters['weights']
+        else:
+            # Default equal weights
+            weights = {
+                'nutritional_value': 0.2,
+                'nutrient_density': 0.2,
+                'environmental_impact': 0.2,
+                'affordability': 0.2,
+                'sustainability': 0.2
+            }
+            self.logger.warning("No weights found in parameters, using default equal weights.")
         
         # Objective function: maximize weighted sum of food scores
         objective = pulp.lpSum([
@@ -113,7 +127,8 @@ def optimize_with_pulp(self):
         if model.status == pulp.LpStatusOptimal:
             for farm in self.farms:
                 for food in self.foods:
-                    if y[farm, food].value() > 0.5 and x[farm, food].value() > 1.0:  # Only include if significant area
+                    # Include all non-zero solutions, even small areas
+                    if x[farm, food].value() is not None and x[farm, food].value() > 0.01:  # Reduce threshold to 0.01
                         solution[(farm, food)] = x[farm, food].value()
                         self.logger.info(f"Farm {farm}, Food {food}: {x[farm, food].value():.2f} hectares")
         

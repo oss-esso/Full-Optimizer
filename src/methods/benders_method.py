@@ -47,7 +47,7 @@ def optimize_with_benders(self):
         # Calculate food scores
         food_scores = {}
         for food, attrs in self.foods.items():
-            weights = self.parameters['weights']
+            weights = self.parameters['objective_weights']
             score = (
                 weights['nutritional_value'] * attrs['nutritional_value'] +
                 weights['nutrient_density'] * attrs['nutrient_density'] +
@@ -117,7 +117,7 @@ def optimize_with_benders(self):
                 
                 # Calculate the score for this farm-food combination
                 food_data = self.foods[food]
-                weights = self.parameters['weights']
+                weights = self.parameters['objective_weights']
                 
                 pos_score = (
                     weights['nutritional_value'] * food_data['nutritional_value'] +
