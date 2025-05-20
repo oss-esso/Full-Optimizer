@@ -25,8 +25,11 @@ except ImportError as e:
     # solve_benders_master_with_mean_field = None
     # qubo_to_ising = None
 
-# Import from parent directory
-from ..data_models import OptimizationResult, OptimizationObjective
+# Add parent directory to path for absolute imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Use absolute import instead of relative import
+from data_models import OptimizationResult, OptimizationObjective
 
 def optimize_with_quantum_benders(self, use_qaoa_squared=True, max_qubits=20, force_qaoa_squared=True):
     """

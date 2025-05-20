@@ -1,0 +1,60 @@
+================================================================================
+ OPTIMIZATION RESULTS - PuLP Method 2 Solver
+================================================================================
+
+CONFIGURATION:
+----------------------------------------
+Farms: ['Farm1', 'Farm2', 'Farm3', 'Farm4', 'Farm5']
+Objective Value: 91.2068
+Runtime: 0.13 seconds
+
+SOLUTION:
+----------------------------------------
+Farm: Farm1, Food: Beef, Area: 0.01 hectares
+Farm: Farm1, Food: Lamb, Area: 0.02 hectares
+Farm: Farm1, Food: Cabbage, Area: 15.46 hectares
+Farm: Farm1, Food: Potato, Area: 34.50 hectares
+Farm: Farm2, Food: Beef, Area: 0.01 hectares
+Farm: Farm2, Food: Tomatoes, Area: 1.00 hectares
+Farm: Farm2, Food: Tofu, Area: 1.00 hectares
+Farm: Farm2, Food: Cabbage, Area: 17.62 hectares
+Farm: Farm2, Food: Lamb, Area: 20.86 hectares
+Farm: Farm2, Food: Peanuts, Area: 34.50 hectares
+Farm: Farm3, Food: Beef, Area: 0.01 hectares
+Farm: Farm3, Food: Lamb, Area: 0.02 hectares
+Farm: Farm3, Food: Corn, Area: 1.00 hectares
+Farm: Farm3, Food: Cabbage, Area: 98.96 hectares
+Farm: Farm4, Food: Beef, Area: 0.01 hectares
+Farm: Farm4, Food: Lamb, Area: 0.02 hectares
+Farm: Farm4, Food: Cabbage, Area: 79.96 hectares
+Farm: Farm5, Food: Durian, Area: 0.99 hectares
+Farm: Farm5, Food: Beef, Area: 0.94 hectares
+Farm: Farm5, Food: Lamb, Area: 13.57 hectares
+Farm: Farm5, Food: Papaya, Area: 34.50 hectares
+
+METRICS:
+----------------------------------------
+nutritional_value: 207.1494
+nutrient_density: 161.0129
+environmental_impact: 2.4979
+affordability: 22.5095
+sustainability: 29.7493
+calculated_objective: 91.2043
+total_area: 354.9854
+utilization_Farm1: 0.9999
+utilization_Farm2: 1.0000
+utilization_Farm3: 1.0000
+utilization_Farm4: 1.0000
+utilization_Farm5: 1.0000
+
+FARM UTILIZATION:
+----------------------------------------
+Farm1: 50.00 hectares (100.0%)
+Farm2: 75.00 hectares (100.0%)
+Farm3: 100.00 hectares (100.0%)
+Farm4: 80.00 hectares (100.0%)
+Farm5: 50.00 hectares (100.0%)
+
+================================================================================
+ END OF RESULTS
+================================================================================

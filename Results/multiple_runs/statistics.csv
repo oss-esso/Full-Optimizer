@@ -1,2 +1,0 @@
-Method,Mean Objective,Std Objective,Mean Runtime,Std Runtime,Success Rate,Min Objective,Max Objective,Mean Gap,Std Gap,Mean Max Violation,Std Max Violation,Mean Inf Norm X,Std Inf Norm X,Mean One Norm Y,Std One Norm Y,Mean Memory Peak,Std Memory Peak
-Quantum-Enhanced,206.75991566655756,35.48032509479193,26.31522455215454,1.9203947779211854,0.0,145.198447641205,250.64957196271797,,,,,,,,,239974809.6,37986816.92648692

@@ -18,7 +18,13 @@ from typing import Dict, List, Tuple
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
-import json
+
+# Ensure paths are correctly set up
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)  # Full Optimizer directory
+sys.path.insert(0, parent_dir)  # Add parent directory to path
+
+from src.scenarios import load_food_data
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, 
@@ -26,257 +32,14 @@ logging.basicConfig(level=logging.INFO,
                    datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
-# Ensure paths are correctly set up
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)  # Full Optimizer directory
-sys.path.insert(0, parent_dir)  # Add parent directory to path
-
 # Import optimizer
 try:
     from src.optimizer import SimpleFoodOptimizer
+    from src.Qoptimizer import SimpleFoodOptimizer as Qoptimizer
     from src.data_models import OptimizationResult
 except ImportError as e:
-    try:
-        # Try alternative import paths
-        from src.optimizer import FoodProductionOptimizer
-        # Define SimpleFoodOptimizer here to avoid import errors
-        class SimpleFoodOptimizer(FoodProductionOptimizer):
-            def __init__(self):
-                self.farms = []
-                self.foods = {}
-                self.food_groups = {}
-                self.config = {'parameters': {}}
-                self.parameters = {'weights': {}}
-                self.logger = logging.getLogger(__name__)
-                
-            def load_food_data(self):
-                """Load simplified food data for testing."""
-                # Simple implementation to make tests run
-                self.farms = ['Farm1', 'Farm2', 'Farm3']
-                self.foods = {'Wheat': {}, 'Corn': {}, 'Rice': {}, 'Soybeans': {}, 'Potatoes': {}, 'Apples': {}}
-                self.food_groups = {'Grains': ['Wheat', 'Corn', 'Rice']}
-                self.parameters = {
-                    'weights': {},
-                    'land_availability': {farm: 100 for farm in self.farms},
-                    'minimum_planting_area': {food: 10 for food in self.foods},
-                    'max_percentage_per_crop': {food: 0.4 for food in self.foods},
-                    'social_benefit': {farm: 0.2 for farm in self.farms},
-                    'food_group_constraints': {group: {'min_foods': 1, 'max_foods': len(foods)} 
-                                             for group, foods in self.food_groups.items()}
-                }
-                
-            # Add stub implementations of optimization methods
-            def optimize_with_benders(self):
-                """Simple stub implementation of Benders method."""
-                return OptimizationResult(
-                    status="optimal", 
-                    objective_value=100.0, 
-                    solution={('Farm1', 'Wheat'): 20.0, ('Farm2', 'Corn'): 30.0},
-                    metrics={'utilization_Farm1': 0.2, 'utilization_Farm2': 0.3},
-                    runtime=1.0
-                )
-                
-            def optimize_with_pulp(self):
-                """Simple stub implementation of PuLP method."""
-                return OptimizationResult(
-                    status="optimal", 
-                    objective_value=120.0, 
-                    solution={('Farm1', 'Wheat'): 25.0, ('Farm2', 'Corn'): 35.0},
-                    metrics={'utilization_Farm1': 0.25, 'utilization_Farm2': 0.35},
-                    runtime=0.5
-                )
-                
-            def optimize_with_quantum_inspired_benders(self):
-                """Simple stub implementation of quantum-inspired method."""
-                return OptimizationResult(
-                    status="optimal", 
-                    objective_value=110.0, 
-                    solution={('Farm1', 'Wheat'): 22.0, ('Farm2', 'Corn'): 32.0},
-                    metrics={'utilization_Farm1': 0.22, 'utilization_Farm2': 0.32},
-                    runtime=1.5
-                )
-                
-            def optimize_with_quantum_benders(self, use_qaoa_squared=True, max_qubits=20, force_qaoa_squared=False):
-                """Simple stub implementation of quantum-enhanced method."""
-                # Simulate QAOA² decomposition data if params require it
-                benders_data = {}
-                if force_qaoa_squared or (max_qubits < 20 and use_qaoa_squared):
-                    # Generate synthetic graph data for a larger, more realistic QUBO graph
-                    # Create more nodes for realistic representation
-                    n_nodes = 120  # Similar to the example image
-                    nodes = [i for i in range(n_nodes)]
-                    edges = []
-                    partition = {}
-                    
-                    # Create 3 main partitions with different sizes
-                    partition_sizes = {
-                        0: 55,  # First subgraph: 55 nodes
-                        1: 35,  # Second subgraph: 35 nodes
-                        2: 30   # Third subgraph: 30 nodes
-                    }
-                    
-                    # Assign nodes to partitions
-                    node_idx = 0
-                    for part_id, size in partition_sizes.items():
-                        for _ in range(size):
-                            if node_idx < n_nodes:
-                                partition[str(node_idx)] = part_id
-                                node_idx += 1
-                    
-                    # For any remaining nodes
-                    for i in range(node_idx, n_nodes):
-                        partition[str(i)] = i % len(partition_sizes)
-                    
-                    # Create realistic QUBO graph connectivity
-                    # Dense connections within partitions, sparse between
-                    edge_count = 0
-                    for i in range(n_nodes):
-                        for j in range(i+1, n_nodes):
-                            part_i = partition.get(str(i), 0)
-                            part_j = partition.get(str(j), 0)
-                            
-                            # Create dense connections within partitions
-                            if part_i == part_j:
-                                # 90% connection density within same partition
-                                if np.random.random() < 0.7:
-                                    weight = np.random.uniform(0.5, 1.0)
-                                    edges.append((i, j, weight))
-                                    edge_count += 1
-                            # Create sparse connections between different partitions
-                            else:
-                                # 10% connection density between partitions
-                                if np.random.random() < 0.1:
-                                    weight = np.random.uniform(0.05, 0.3)
-                                    edges.append((i, j, weight))
-                                    edge_count += 1
-                    
-                    # Store graph metadata
-                    graph_metadata = {
-                        'num_nodes': n_nodes,
-                        'num_edges': edge_count,
-                        'node_distribution': partition_sizes
-                    }
-                    
-                    benders_data['qaoa_decomposition'] = {
-                        'total_qubits': n_nodes,
-                        'num_subproblems': len(partition_sizes),
-                        'max_subproblem_qubits': max(partition_sizes.values()),
-                        'time_for_decomposition': 1.2,
-                        'graph_data': {
-                            'nodes': nodes,
-                            'edges': edges,
-                            'partition': partition,
-                            'metadata': graph_metadata
-                        }
-                    }
-                
-                return OptimizationResult(
-                    status="optimal", 
-                    objective_value=115.0, 
-                    solution={('Farm1', 'Wheat'): 23.0, ('Farm2', 'Corn'): 33.0},
-                    metrics={'utilization_Farm1': 0.23, 'utilization_Farm2': 0.33},
-                    runtime=2.0,
-                    benders_data=benders_data
-                )
-                
-            def optimize_with_quantum_benders_merge(self, use_qaoa_squared=True, max_qubits=20, force_qaoa_squared=False):
-                """Simple stub implementation of quantum-enhanced with merge method."""
-                # Simulate QAOA² decomposition data if params require it
-                benders_data = {}
-                if force_qaoa_squared or (max_qubits < 20 and use_qaoa_squared):
-                    # Generate synthetic graph data for a larger, more realistic QUBO graph
-                    # Create more nodes for realistic representation
-                    n_nodes = 120  # Similar to the example image
-                    nodes = [i for i in range(n_nodes)]
-                    edges = []
-                    partition = {}
-                    
-                    # Create 5 partitions with different sizes (like in the second example image)
-                    partition_sizes = {
-                        0: 70,   # First subgraph: 70 nodes (blue)
-                        1: 15,   # Second subgraph: 15 nodes
-                        2: 15,   # Third subgraph: 15 nodes 
-                        3: 50,   # Fourth subgraph: 50 nodes (red)
-                        4: 20    # Fifth subgraph could have remaining nodes
-                    }
-                    
-                    # Adjust to make sure sum equals n_nodes
-                    total = sum(partition_sizes.values())
-                    if total > n_nodes:
-                        # Scale down if too many
-                        scale = n_nodes / total
-                        partition_sizes = {k: int(v * scale) for k, v in partition_sizes.items()}
-                        # Assign any remaining nodes to the last partition
-                        remaining = n_nodes - sum(partition_sizes.values())
-                        partition_sizes[4] += remaining
-                    
-                    # Assign nodes to partitions
-                    node_idx = 0
-                    for part_id, size in partition_sizes.items():
-                        for _ in range(size):
-                            if node_idx < n_nodes:
-                                partition[str(node_idx)] = part_id
-                                node_idx += 1
-                    
-                    # For any remaining nodes
-                    for i in range(node_idx, n_nodes):
-                        partition[str(i)] = i % len(partition_sizes)
-                    
-                    # Create realistic QUBO graph connectivity
-                    # Dense connections within partitions, sparse between
-                    edge_count = 0
-                    for i in range(n_nodes):
-                        for j in range(i+1, n_nodes):
-                            part_i = partition.get(str(i), 0)
-                            part_j = partition.get(str(j), 0)
-                            
-                            # Create dense connections within partitions
-                            if part_i == part_j:
-                                # Higher connection density within same partition
-                                if np.random.random() < 0.7:
-                                    weight = np.random.uniform(0.5, 1.0)
-                                    edges.append((i, j, weight))
-                                    edge_count += 1
-                            # Create sparse connections between different partitions
-                            else:
-                                # Lower connection density between partitions
-                                if np.random.random() < 0.1:
-                                    weight = np.random.uniform(0.05, 0.3)
-                                    edges.append((i, j, weight))
-                                    edge_count += 1
-                    
-                    # Store graph metadata
-                    graph_metadata = {
-                        'num_nodes': n_nodes,
-                        'num_edges': edge_count,
-                        'node_distribution': partition_sizes
-                    }
-                    
-                    benders_data['qaoa_decomposition'] = {
-                        'total_qubits': n_nodes,
-                        'num_subproblems': len(partition_sizes),
-                        'max_subproblem_qubits': max(partition_sizes.values()),
-                        'time_for_decomposition': 1.5,
-                        'graph_data': {
-                            'nodes': nodes,
-                            'edges': edges,
-                            'partition': partition,
-                            'metadata': graph_metadata
-                        }
-                    }
-                
-                return OptimizationResult(
-                    status="optimal", 
-                    objective_value=118.0, 
-                    solution={('Farm1', 'Wheat'): 24.0, ('Farm2', 'Corn'): 34.0},
-                    metrics={'utilization_Farm1': 0.24, 'utilization_Farm2': 0.34},
-                    runtime=2.5,
-                    benders_data=benders_data
-                )
-    except ImportError as e2:
-        print(f"Error importing optimizer components: {e}\nSecondary error: {e2}")
-        print("Please ensure 'src' directory is in the Python path and contains the necessary files.")
-        sys.exit(1)
+    print(f"Error importing optimizer components: {e}")
+
 
 # Define OptimizationResult class if not imported
 @dataclass
@@ -329,152 +92,49 @@ def calculate_solution_metrics(result: SolverResult, pulp_result: SolverResult) 
     
     return result
 
-# Define scenario configuration helper function at module level
-def configure_optimizer_for_scenario(optimizer, scenario_config=None, quantum_options=None, scenarios_arg=None):
-    """Configure optimizer based on scenario settings."""
-    # Skip if no specific config needed
-    if not scenario_config:
-        return optimizer
-        
-    # Apply scenario-specific configuration
-    if isinstance(optimizer, SimpleFoodOptimizer):
-        # Already loaded basic data, now we need to enhance it
-        
-        # If medium or large scenarios, generate more diverse data
-        if scenarios_arg and scenarios_arg.lower() in ['medium', 'large']:
-            # Make sure all required parameter dictionaries exist
-            if 'social_benefit' not in optimizer.parameters:
-                optimizer.parameters['social_benefit'] = {}
-            if 'land_availability' not in optimizer.parameters:
-                optimizer.parameters['land_availability'] = {}
-            if 'minimum_planting_area' not in optimizer.parameters:
-                optimizer.parameters['minimum_planting_area'] = {}
-            if 'max_percentage_per_crop' not in optimizer.parameters:
-                optimizer.parameters['max_percentage_per_crop'] = {}
-            if 'food_group_constraints' not in optimizer.parameters:
-                optimizer.parameters['food_group_constraints'] = {}
-            
-            # Extend farms list if needed
-            current_farms = list(optimizer.farms)
-            farms_needed = scenario_config.get('num_farms', len(current_farms))
-            
-            if len(current_farms) < farms_needed:
-                for i in range(len(current_farms) + 1, farms_needed + 1):
-                    farm_name = f'Farm{i}'
-                    optimizer.farms.append(farm_name)
-                    # Add land availability
-                    min_land, max_land = scenario_config.get('land_availability_range', (50, 100))
-                    optimizer.parameters['land_availability'][farm_name] = np.random.uniform(min_land, max_land)
-                    # Add social benefit requirement
-                    optimizer.parameters['social_benefit'][farm_name] = scenario_config.get('social_benefit', 0.2)
-            
-            # Extend foods list if needed
-            current_foods = list(optimizer.foods.keys())
-            foods_needed = scenario_config.get('num_foods', len(current_foods))
-            
-            if len(current_foods) < foods_needed:
-                # Additional foods to potentially add
-                additional_foods = [
-                    ('Barley', 'Grains'), ('Oats', 'Grains'), ('Quinoa', 'Grains'),
-                    ('Lentils', 'Legumes'), ('Chickpeas', 'Legumes'), ('Peas', 'Legumes'),
-                    ('Tomatoes', 'Vegetables'), ('Carrots', 'Vegetables'), ('Spinach', 'Vegetables'),
-                    ('Oranges', 'Fruits'), ('Bananas', 'Fruits'), ('Grapes', 'Fruits')
-                ]
-                
-                # Add foods until we reach the desired number
-                for i in range(len(current_foods), foods_needed):
-                    if i - len(current_foods) < len(additional_foods):
-                        food_name, food_group = additional_foods[i - len(current_foods)]
-                        
-                        # Generate random food attributes
-                        optimizer.foods[food_name] = {
-                            'nutritional_value': np.random.uniform(0.5, 0.9),
-                            'nutrient_density': np.random.uniform(0.4, 0.8),
-                            'environmental_impact': np.random.uniform(0.2, 0.7),
-                            'affordability': np.random.uniform(0.5, 0.9),
-                            'sustainability': np.random.uniform(0.5, 0.8)
-                        }
-                        
-                        # Add to food group
-                        if food_group not in optimizer.food_groups:
-                            optimizer.food_groups[food_group] = []
-                        if food_name not in optimizer.food_groups[food_group]:
-                            optimizer.food_groups[food_group].append(food_name)
-                        
-                        # Add minimum planting area
-                        min_area, max_area = scenario_config.get('min_planting_area_range', (5, 15))
-                        optimizer.parameters['minimum_planting_area'][food_name] = np.random.uniform(min_area, max_area)
-                        
-                        # Add max percentage per crop
-                        optimizer.parameters['max_percentage_per_crop'][food_name] = scenario_config.get('max_percentage_per_crop', 0.4)
-            
-            # Update food group constraints if specified
-            if 'min_foods_per_group' in scenario_config:
-                for group in optimizer.food_groups:
-                    if group not in optimizer.parameters['food_group_constraints']:
-                        optimizer.parameters['food_group_constraints'][group] = {'min_foods': 1, 'max_foods': len(optimizer.food_groups[group])}
-                    optimizer.parameters['food_group_constraints'][group]['min_foods'] = scenario_config['min_foods_per_group']
-            
-            # Set quantum specific parameters for QAOA² testing
-            if quantum_options:
-                logger.info(f"Setting quantum parameters: {quantum_options}")
-                optimizer.quantum_options = quantum_options
-        
-    return optimizer
+
 
 def run_single_test(method: str, pulp_result: SolverResult = None, scenario_config_param=None, quantum_options_param=None, scenarios_arg_param=None) -> SolverResult:
     """Run a single test with the specified solver method."""
     process = psutil.Process()
     initial_memory = process.memory_info().rss
     
-    optimizer = SimpleFoodOptimizer()
+    
+    # Determine complexity level based on scenario argument
+    complexity_level = 'simple'
+    if scenarios_arg_param:
+        if scenarios_arg_param.lower() == 'medium':
+            complexity_level = 'intermediate'
+        elif scenarios_arg_param.lower() == 'large':
+            complexity_level = 'full'
+    # Call load_food_data from scenarios.py
+
+     # Choose the appropriate optimizer based on method
+    if method in ['Quantum-Enhanced', 'Quantum-Enhanced-Merge', 'Quantum-Inspired']:
+        # Use the quantum optimizer for quantum methods
+        optimizer = Qoptimizer(complexity_level=complexity_level)
+    else:
+        # Use the regular optimizer for classical methods
+        optimizer = SimpleFoodOptimizer(complexity_level=complexity_level)
+
     optimizer.load_food_data()
     
-    # Apply scenario configuration using the passed parameters
-    optimizer = configure_optimizer_for_scenario(
-        optimizer, 
-        scenario_config=scenario_config_param, 
-        quantum_options=quantum_options_param,
-        scenarios_arg=scenarios_arg_param
-    )
     
     start_time = time.time()
     
+    # Use the method-specific optimization function
     if method == 'Benders':
-        result = optimizer.optimize_with_benders()
+        result = optimizer.solve('benders')
     elif method == 'PuLP':
-        result = optimizer.optimize_with_pulp()
+        result = optimizer.solve('pulp')
     elif method == 'Quantum-Inspired':
         result = optimizer.optimize_with_quantum_inspired_benders()
     elif method == 'Quantum-Enhanced':
         # Pass specific quantum options for QAOA if provided
-        if hasattr(optimizer, 'quantum_options') and optimizer.quantum_options:
-            # Extract specific params
-            use_qaoa_squared = optimizer.quantum_options.get('use_qaoa_squared', True)
-            max_qubits = optimizer.quantum_options.get('max_qubits', 20)
-            force_qaoa_squared = optimizer.quantum_options.get('force_qaoa_squared', True)
-            result = optimizer.optimize_with_quantum_benders(
-                use_qaoa_squared=use_qaoa_squared,
-                max_qubits=max_qubits,
-                force_qaoa_squared=force_qaoa_squared
-            )
-        else:
-            # Use default params
-            result = optimizer.optimize_with_quantum_benders()
+        result = optimizer.optimize_with_quantum_benders()
     elif method == 'Quantum-Enhanced-Merge':
         # The merge version also takes quantum options
-        if hasattr(optimizer, 'quantum_options') and optimizer.quantum_options:
-            # Extract specific params
-            use_qaoa_squared = optimizer.quantum_options.get('use_qaoa_squared', True)
-            max_qubits = optimizer.quantum_options.get('max_qubits', 20)
-            force_qaoa_squared = optimizer.quantum_options.get('force_qaoa_squared', True)
-            result = optimizer.optimize_with_quantum_benders_merge(
-                use_qaoa_squared=use_qaoa_squared,
-                max_qubits=max_qubits,
-                force_qaoa_squared=force_qaoa_squared
-            )
-        else:
-            result = optimizer.optimize_with_quantum_benders_merge()
+        result = optimizer.optimize_with_quantum_benders_merge()
     else:
         raise ValueError(f"Unknown method: {method}")
     
@@ -1659,31 +1319,30 @@ def main():
     scenario_config = {}
     quantum_options = {}
     
-    # Load scenario configurations from JSON file
-    scenarios_file_path = os.path.join(current_dir, "scenarios.json")
+    # Load scenario configurations from src/scenarios.py
     try:
-        with open(scenarios_file_path, 'r') as f:
-            all_scenario_configs = json.load(f)
-    except FileNotFoundError:
-        logger.error(f"Scenarios configuration file not found: {scenarios_file_path}")
-        sys.exit(1)
-    except json.JSONDecodeError:
-        logger.error(f"Error decoding JSON from scenarios file: {scenarios_file_path}")
+        all_scenario_configs = {
+            'small': load_food_data('simple')[3],
+            'medium': load_food_data('intermediate')[3],
+            'large': load_food_data('full')[3]
+        }
+    except Exception as e:
+        logger.error(f"Failed to load scenario configurations from src/scenarios.py: {e}")
         sys.exit(1)
 
     # Configure based on selected scenario
     selected_scenario_key = args.scenarios.lower()
     if selected_scenario_key in all_scenario_configs:
         scenario_config = all_scenario_configs[selected_scenario_key]
-        logger.info(f"Using {selected_scenario_key.upper()} scenario configuration from {scenarios_file_path}")
+        logger.info(f"Using {selected_scenario_key.upper()} scenario configuration")
         if selected_scenario_key == 'large':
             logger.info("QAOA² will be used for decomposition in LARGE scenario")
     else:
-        logger.warning(f"Unknown scenario '{args.scenarios}' in {scenarios_file_path}. Defaulting to 'small'.")
+        logger.warning(f"Unknown scenario '{args.scenarios}' in src/scenarios.py. Defaulting to 'small'.")
         if 'small' in all_scenario_configs:
             scenario_config = all_scenario_configs['small']
         else:
-            logger.error(f"'small' scenario not found in {scenarios_file_path} for fallback. Please define it.")
+            logger.error(f"'small' scenario not found in src/scenarios.py for fallback. Please define it.")
             sys.exit(1)
     
     # Parse any quantum parameters provided
@@ -1829,4 +1488,4 @@ def main():
     print(f"python {__file__} --methods quantum-enhanced --runs 10 --scenarios large --decomposition_detail --quantum_params max_qubits=25,force_qaoa_squared=True")
 
 if __name__ == "__main__":
-    main() 
+    main()

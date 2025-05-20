@@ -8,16 +8,13 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
 try:
-    from .methods.benders_method import optimize_with_benders
-    from .methods.pulp_method import optimize_with_pulp
-    from .methods.quantum_enhanced import optimize_with_quantum_benders
-    from .methods.quantum_inspired import optimize_with_quantum_inspired_benders
-    from .methods.quantum_enhanced_merge import optimize_with_quantum_benders_merge
+    from .methods.benders_method import BendersDecompositionOptimizer
+    from .methods.pulp_method import FoodProductionOptimizer as PulpOptimizer
     from .data_models import OptimizationObjective, OptimizationResult
 except ImportError as e:
     print(f"Error loading optimization methods: {e}", file=sys.stderr)
     # Define placeholders to avoid errors
-    BendersOptimizer = PulpOptimizer = QuantumBendersOptimizer = None
+    BendersDecompositionOptimizer = PulpOptimizer = None
     OptimizationResult = dict
 
 class FoodProductionOptimizer:
@@ -58,12 +55,46 @@ class FoodProductionOptimizer:
             unknown_foods = set(foods) - set(self.foods.keys())
             if unknown_foods:
                 raise ValueError(f"Unknown foods in group {group}: {unknown_foods}")
-
-    from .methods.benders_method import optimize_with_benders
-    from .methods.pulp_method import optimize_with_pulp
-    from .methods.quantum_enhanced import optimize_with_quantum_benders
-    from .methods.quantum_inspired import optimize_with_quantum_inspired_benders
-    from .methods.quantum_enhanced_merge import optimize_with_quantum_benders_merge
+    
+    def _generate_model_parameters(self) -> Dict:
+        """Generate model parameters with default values."""
+        # Get configuration or use defaults
+        config = self.config.get('parameters', {})
+        
+        return {
+            'land_availability': config.get('land_availability', {
+                farm: np.random.uniform(10, 100)                # L_f: Total land available at farm f (hectares)
+                for farm in self.farms
+            }),
+            'minimum_planting_area': config.get('minimum_planting_area', {
+                food: np.random.uniform(1, 5)                  # Use self.foods which now comes from CSV
+                for food in self.foods.keys()                  # NEW: Iterate over keys of loaded foods
+            }),
+            'food_group_constraints': config.get('food_group_constraints', {
+                group: {
+                    'min_foods': 1,
+                    'max_foods': len(foods_in_group)
+                }
+                for group, foods_in_group in self.food_groups.items()
+            }),
+            'weights': config.get('weights', {
+                obj.value: 1.0 / len(OptimizationObjective)    # w_i: Weights for each objective (sum = 1)
+                for obj in OptimizationObjective
+            }),
+            'max_percentage_per_crop': config.get('max_percentage_per_crop', {
+                c: 1.0  # default allow 100% if not specified
+                for c in self.foods.keys()
+            }),
+            'social_benefit': config.get('social_benefit', {
+                f: 0.2            # default to 20% if not specified
+                for f in self.farms
+            }),
+            'min_utilization': config.get('min_utilization', 0.2),
+            'global_min_different_foods': config.get('global_min_different_foods', 5),
+            'min_foods_per_farm': config.get('min_foods_per_farm', 1),
+            'max_foods_per_farm': config.get('max_foods_per_farm', 8),
+            'min_total_land_usage_percentage': config.get('min_total_land_usage_percentage', 0.5)
+        }
 
     def _calculate_metrics(self, solution) -> Dict[str, float]:
         """Calculate optimization metrics."""
@@ -72,7 +103,7 @@ class FoodProductionOptimizer:
         # Calculate objective contributions
         for obj in OptimizationObjective:
             metrics[obj.value] = sum(
-                self.parameters['objective_weights'][obj.value] *
+                self.parameters['weights'][obj.value] *
                 self.foods[c][obj.value] *
                 area
                 for (f, c), area in solution.items()
@@ -93,10 +124,39 @@ class FoodProductionOptimizer:
             )
         
         return metrics
-
     
+    def solve(self, method: str, debug: bool = False) -> OptimizationResult:
+        """
+        Solve the optimization problem using the specified method.
+        Possible methods are:
+        - 'pulp': Uses PuLP solver
+        - 'benders': Uses Benders decomposition
+        """
+        # Choose optimization method
+        if method == 'pulp':
+            # Create PulpOptimizer and call optimize_with_pulp method
+            pulp_optimizer = PulpOptimizer(
+                farms=self.farms, 
+                foods=self.foods, 
+                food_groups=self.food_groups, 
+                config=self.config
+            )
+            result = pulp_optimizer.optimize_with_pulp()
+        elif method == 'benders':
+            # Create BendersDecompositionOptimizer and call solve_with_benders method
+            benders_optimizer = BendersDecompositionOptimizer(
+                farms=self.farms, 
+                foods=self.foods, 
+                food_groups=self.food_groups, 
+                config=self.config
+            )
+            result = benders_optimizer.solve_with_benders()
+        else:
+            raise ValueError(f"Unknown or unsupported optimization method: {method}. " 
+                           f"Supported methods are: 'pulp', 'benders'")
+        
+        return result
 
-    
 class SimpleFoodOptimizer(FoodProductionOptimizer):
     """Simplified version of the FoodProductionOptimizer."""
     
@@ -205,29 +265,3 @@ class SimpleFoodOptimizer(FoodProductionOptimizer):
                 self.logger.info(f"Selected food {list(self.foods.keys())[food_idx]} for farm {farm}")
         
         return y_sol
-
-    def solve(self, method: str, f: np.ndarray, A: np.ndarray, b: np.ndarray, C: np.ndarray, c: np.ndarray, debug: bool = False) -> np.ndarray:
-        """
-        Solve the optimization problem using the specified method.
-        Possible methods are:
-        - 'pulp': Uses PuLP solver
-        - 'benders': Uses Benders decomposition
-        - 'quantum-enhanced': Uses quantum-enhanced Benders decomposition
-        - 'quantum-inspired': Uses quantum-inspired Benders decomposition
-        - 'quantum-enhanced-merge': Uses quantum-enhanced Benders with advanced merging
-        """
-        # Choose optimization method
-        if method == 'pulp':
-            result = optimize_with_pulp(f, A, b, C, c, self.solver_params, debug=debug)
-        elif method == 'benders':
-            result = optimize_with_benders(f, A, b, C, c, self.solver_params, debug=debug)
-        elif method == 'quantum-enhanced':
-            result = optimize_with_quantum_benders(f, A, b, C, c, self.solver_params, debug=debug)
-        elif method == 'quantum-inspired':
-            result = optimize_with_quantum_inspired_benders(f, A, b, C, c, self.solver_params, debug=debug)
-        elif method == 'quantum-enhanced-merge':
-            result = optimize_with_quantum_benders_merge(f, A, b, C, c, self.solver_params, debug=debug)
-        else:
-            raise ValueError(f"Unknown optimization method: {method}")
-        
-        return result

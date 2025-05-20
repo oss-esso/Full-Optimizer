@@ -228,7 +228,9 @@ def _load_full_food_data() -> Tuple[List[str], Dict[str, Dict[str, float]], Dict
     """Load food data and configuration from Excel for optimization."""
     # Locate Excel file
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    excel_path = r"G:\Il mio Drive\OQI_Project\Inputs\Combined_Food_Data.xlsx"
+    # Determine drive letter from the script directory (e.g., "G:" or "H:")
+    drive = script_dir.split(os.sep)[0]
+    excel_path = os.path.join(drive, "\\Il mio Drive", "OQI_Project", "Inputs", "Combined_Food_Data.xlsx")
     print(f"Loading food data from: {excel_path}")
     
     # Read Excel
@@ -280,52 +282,52 @@ def _load_full_food_data() -> Tuple[List[str], Dict[str, Dict[str, float]], Dict
         food_groups.setdefault(fg, []).append(row['Food_Name'])
     
     # Default config parameters
-    config = {
-        'parameters': {
-            'land_availability': {
-                'Farm1': 50, 'Farm2': 75, 'Farm3': 100, 'Farm4': 80, 'Farm5': 50
-            },
-            'social_benefit': {
-                'Farm1': 0.20,   
-                'Farm2': 0.25,   
-                'Farm3': 0.15,
-                'Farm4': 0.20,
-                'Farm5': 0.10,
-            },
-            'minimum_planting_area': {
-                "Mango": 0.000929, "Papaya": 0.000400, "Orange": 0.005810, "Banana": 0.005950,
-                "Guava": 0.000929, "Watermelon": 0.000334, "Apple": 0.003720, "Avocado": 0.008360,
-                "Durian": 0.010000, "Corn": 0.000183, "Potato": 0.000090, "Tofu": 0.000010,
-                "Tempeh": 0.000010, "Peanuts": 0.000030, "Chickpeas": 0.000020, "Pumpkin": 0.000100,
-                "Spinach": 0.000090, "Tomatoes": 0.000105, "Long bean": 0.000090, "Cabbage": 0.000250,
-                "Eggplant": 0.000360, "Cucumber": 0.000500, "Egg": 0.000019, "Beef": 0.728400,
-                "Lamb": 0.025000, "Pork": 0.016200, "Chicken": 0.001000
-            },
-            'max_percentage_per_crop': {
-                "Mango": 0.20, "Papaya": 0.20, "Orange": 0.20, "Banana": 0.20,
-                "Guava": 0.20, "Watermelon": 0.15, "Apple": 0.20, "Avocado": 0.20,
-                "Durian": 0.15, "Corn": 0.30, "Potato": 0.25, "Tofu": 0.25,
-                "Tempeh": 0.25, "Peanuts": 0.25, "Chickpeas": 0.25, "Pumpkin": 0.20,
-                "Spinach": 0.35, "Tomatoes": 0.35, "Long bean": 0.10,
-                "Cabbage": 0.30, "Eggplant": 0.30, "Cucumber": 0.30, "Egg": 0.50,
-                "Beef": 0.30, "Lamb": 0.30, "Pork": 0.30, "Chicken": 0.50
-            },
-            'food_group_constraints': {
-                g: {'min_foods': max(1, len(lst)//2), 'max_foods': len(lst)}
-                for g, lst in food_groups.items()
-            },
-            'weights': {
-                'nutritional_value': 0.25,
-                'nutrient_density': 0.2,
-                'environmental_impact': 0.25,
-                'affordability': 0.15,
-                'sustainability': 0.15
-            }
+    parameters = {
+        'land_availability': {
+            'Farm1': 50, 'Farm2': 75, 'Farm3': 100, 'Farm4': 80, 'Farm5': 50
+        },
+        'social_benefit': {
+            'Farm1': 0.20,   
+            'Farm2': 0.25,   
+            'Farm3': 0.15,
+            'Farm4': 0.20,
+            'Farm5': 0.10,
+        },
+        'minimum_planting_area': {
+            "Mango": 0.000929, "Papaya": 0.000400, "Orange": 0.005810, "Banana": 0.005950,
+            "Guava": 0.000929, "Watermelon": 0.000334, "Apple": 0.003720, "Avocado": 0.008360,
+            "Durian": 0.010000, "Corn": 0.000183, "Potato": 0.000090, "Tofu": 0.000010,
+            "Tempeh": 0.000010, "Peanuts": 0.000030, "Chickpeas": 0.000020, "Pumpkin": 0.000100,
+            "Spinach": 0.000090, "Tomatoes": 0.000105, "Long bean": 0.000090, "Cabbage": 0.000250,
+            "Eggplant": 0.000360, "Cucumber": 0.000500, "Egg": 0.000019, "Beef": 0.728400,
+            "Lamb": 0.025000, "Pork": 0.016200, "Chicken": 0.001000
+        },
+        'max_percentage_per_crop': {
+            "Mango": 1.0, "Papaya": 1.0, "Orange": 1.0, "Banana": 1.0,
+            "Guava": 1.0, "Watermelon": 1.0, "Apple": 1.0, "Avocado": 1.0,
+            "Durian": 1.0, "Corn": 1.0, "Potato": 1.0, "Tofu": 1.0,
+            "Tempeh": 1.0, "Peanuts": 1.0, "Chickpeas": 0.5, "Pumpkin": 1.0,
+            "Spinach": 1.0, "Tomatoes": 1.0, "Long bean": 0.10,
+            "Cabbage": 1.0, "Eggplant": 1.0, "Cucumber": 1.0, "Egg": 1.0,
+            "Beef": 1.0, "Lamb": 1.0, "Pork": 1.0, "Chicken": 1.0
+        },
+        'food_group_constraints': {
+            g: {'min_foods': 1, 'max_foods': len(lst)}
+            for g, lst in food_groups.items()
+        },
+        'weights': {
+            'nutritional_value': 0.25,
+            'nutrient_density': 0.2,
+            'environmental_impact': 0.25,
+            'affordability': 0.15,
+            'sustainability': 0.15
         }
     }
     
+    
     # Add solver settings to config
-    config.update({
+    config = {
+        'parameters': parameters,
         'benders_tolerance': 1e-3,  # Tighter convergence tolerance
         'benders_max_iterations': 100,  # More iterations allowed
         'pulp_time_limit': 120,  # 2 minutes time limit for PuLP
@@ -338,7 +340,7 @@ def _load_full_food_data() -> Tuple[List[str], Dict[str, Dict[str, float]], Dict
             'use_qaoa_squared': True,
             'force_qaoa_squared': True
         }
-    })
+    }
 
     logger.info(f"Loaded full data for {len(farms)} farms and {len(foods)} foods. Parameters generated.")
     

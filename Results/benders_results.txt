@@ -5,33 +5,31 @@
 CONFIGURATION:
 ----------------------------------------
 Farms: ['Farm1', 'Farm2', 'Farm3']
-Objective Value: 64.2775
-Runtime: 2.16 seconds
+Objective Value: 115.7770
+Runtime: 3.15 seconds
 
 SOLUTION:
 ----------------------------------------
-Farm: Farm1, Food: Wheat, Area: 4.00 hectares
+Farm: Farm1, Food: Wheat, Area: 8.00 hectares
 Farm: Farm1, Food: Soybeans, Area: 63.00 hectares
 Farm: Farm1, Food: Potatoes, Area: 4.00 hectares
-Farm: Farm1, Food: Apples, Area: 4.00 hectares
-Farm: Farm2, Food: Wheat, Area: 4.00 hectares
-Farm: Farm2, Food: Corn, Area: 2.98 hectares
-Farm: Farm2, Food: Soybeans, Area: 88.00 hectares
-Farm: Farm2, Food: Apples, Area: 5.02 hectares
-Farm: Farm3, Food: Wheat, Area: 4.00 hectares
-Farm: Farm3, Food: Corn, Area: 8.00 hectares
-Farm: Farm3, Food: Rice, Area: 4.00 hectares
-Farm: Farm3, Food: Soybeans, Area: 26.00 hectares
+Farm: Farm2, Food: Wheat, Area: 8.00 hectares
+Farm: Farm2, Food: Soybeans, Area: 76.00 hectares
+Farm: Farm2, Food: Potatoes, Area: 4.00 hectares
+Farm: Farm2, Food: Apples, Area: 12.00 hectares
+Farm: Farm3, Food: Wheat, Area: 8.00 hectares
+Farm: Farm3, Food: Corn, Area: 6.40 hectares
+Farm: Farm3, Food: Soybeans, Area: 31.60 hectares
 Farm: Farm3, Food: Potatoes, Area: 4.00 hectares
-Farm: Farm3, Food: Apples, Area: 4.00 hectares
 
 METRICS:
 ----------------------------------------
-nutritional_value: 47.6504
-nutrient_density: 42.0254
-affordability: 0.0000
-sustainability: 0.0000
-environmental_impact: -25.3983
+nutritional_value: 188.5800
+nutrient_density: 166.0800
+environmental_impact: 49.8800
+affordability: 144.1200
+sustainability: 175.1200
+calculated_objective: 115.7770
 total_area: 225.0000
 utilization_Farm1: 1.0000
 utilization_Farm2: 1.0000

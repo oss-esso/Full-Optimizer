@@ -466,6 +466,8 @@ def main():
     print("\n" + "=" * 80)
     print(" FOOD PRODUCTION OPTIMIZATION - ORIGINAL CONFIGURATION")
     print("=" * 80)
+
+    complexity_level = 'intermediate'
     
     # Create results directory for text files
     results_dir = os.path.join(os.path.dirname(current_dir), "Results")
@@ -486,7 +488,7 @@ def main():
     
     # Create the optimizer with the loaded data
     print("\nCreating food production optimizer with original configuration...")
-    optimizer = SimpleFoodOptimizer(complexity_level='intermediate')
+    optimizer = SimpleFoodOptimizer(complexity_level=complexity_level)
     optimizer.load_food_data()
     # Dictionary to store results from all methods
     all_results = {}
@@ -499,7 +501,7 @@ def main():
     
     # Solve with PuLP
     start_time_pulp = time.time()
-    pulp_result = optimizer.optimize_with_pulp()
+    pulp_result = optimizer.solve('pulp')
     runtime_pulp = time.time() - start_time_pulp
     
     # Update runtime
@@ -526,7 +528,7 @@ def main():
     print("=" * 80)
     
     start_time = time.time()
-    benders_result = optimizer.optimize_with_benders()
+    benders_result = optimizer.solve('benders')
     runtime = time.time() - start_time
     benders_result.runtime = runtime
     
@@ -547,7 +549,7 @@ def main():
         'result': benders_result,
         'objective_value': benders_result.objective_value if benders_result.objective_value else 0.0,
         'runtime': runtime,
-        'benders_data': benders_result.benders_data
+        'benders_data': benders_result.benders_data if hasattr(benders_result, 'benders_data') else {}
     }
     
     log_file = os.path.join(results_dir, "benders_results.txt")
@@ -561,6 +563,13 @@ def main():
         print(f"Benders solution visualization saved to: {solution_path_benders}")
     except Exception as e:
         print(f"WARNING: Failed to generate Benders solution visualization: {str(e)}")
+
+
+    from src.Qoptimizer import SimpleFoodOptimizer as Qoptimizer
+
+    optimizer = Qoptimizer(complexity_level=complexity_level)
+    optimizer.load_food_data()
+
     
     # 3. Solve with quantum-enhanced Benders
     print("\n" + "=" * 80)

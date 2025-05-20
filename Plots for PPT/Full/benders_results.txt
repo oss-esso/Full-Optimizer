@@ -1,0 +1,54 @@
+================================================================================
+ OPTIMIZATION RESULTS - Benders Decomposition Solver
+================================================================================
+
+CONFIGURATION:
+----------------------------------------
+Farms: ['Farm1', 'Farm2', 'Farm3', 'Farm4', 'Farm5']
+Objective Value: 97.9146
+Runtime: 3.67 seconds
+
+SOLUTION:
+----------------------------------------
+Farm: Farm1, Food: Avocado, Area: 4.45 hectares
+Farm: Farm1, Food: Tempeh, Area: 4.25 hectares
+Farm: Farm1, Food: Long bean, Area: 41.30 hectares
+Farm: Farm2, Food: Tempeh, Area: 6.24 hectares
+Farm: Farm2, Food: Long bean, Area: 68.76 hectares
+Farm: Farm3, Food: Avocado, Area: 5.14 hectares
+Farm: Farm3, Food: Long bean, Area: 77.11 hectares
+Farm: Farm3, Food: Egg, Area: 17.75 hectares
+Farm: Farm4, Food: Avocado, Area: 4.33 hectares
+Farm: Farm4, Food: Tempeh, Area: 4.56 hectares
+Farm: Farm4, Food: Long bean, Area: 71.10 hectares
+Farm: Farm5, Food: Avocado, Area: 3.82 hectares
+Farm: Farm5, Food: Potato, Area: 17.75 hectares
+Farm: Farm5, Food: Tempeh, Area: 2.70 hectares
+Farm: Farm5, Food: Long bean, Area: 25.73 hectares
+
+METRICS:
+----------------------------------------
+nutritional_value: 196.2015
+nutrient_density: 142.6024
+environmental_impact: 1.9719
+affordability: 109.8855
+sustainability: 29.0257
+calculated_objective: 97.9145
+total_area: 354.9993
+utilization_Farm1: 1.0000
+utilization_Farm2: 1.0000
+utilization_Farm3: 1.0000
+utilization_Farm4: 1.0000
+utilization_Farm5: 1.0000
+
+FARM UTILIZATION:
+----------------------------------------
+Farm1: 50.00 hectares (100.0%)
+Farm2: 75.00 hectares (100.0%)
+Farm3: 100.00 hectares (100.0%)
+Farm4: 80.00 hectares (100.0%)
+Farm5: 50.00 hectares (100.0%)
+
+================================================================================
+ END OF RESULTS
+================================================================================

@@ -5,41 +5,44 @@
 CONFIGURATION:
 ----------------------------------------
 Farms: ['Farm1', 'Farm2', 'Farm3']
-Objective Value: 50.6250
-Runtime: 0.06 seconds
+Objective Value: 61.0251
+Runtime: 0.08 seconds
 
 SOLUTION:
 ----------------------------------------
-Farm: Farm1, Food: Wheat, Area: 22.50 hectares
-Farm: Farm1, Food: Soybeans, Area: 22.50 hectares
-Farm: Farm1, Food: Potatoes, Area: 7.50 hectares
-Farm: Farm1, Food: Apples, Area: 22.50 hectares
-Farm: Farm2, Food: Wheat, Area: 30.00 hectares
-Farm: Farm2, Food: Soybeans, Area: 30.00 hectares
-Farm: Farm2, Food: Potatoes, Area: 10.00 hectares
-Farm: Farm2, Food: Apples, Area: 30.00 hectares
-Farm: Farm3, Food: Wheat, Area: 15.00 hectares
-Farm: Farm3, Food: Soybeans, Area: 15.00 hectares
-Farm: Farm3, Food: Potatoes, Area: 5.00 hectares
-Farm: Farm3, Food: Apples, Area: 15.00 hectares
+Farm: Farm1, Food: Wheat, Area: 3.35 hectares
+Farm: Farm1, Food: Corn, Area: 2.83 hectares
+Farm: Farm1, Food: Soybeans, Area: 64.04 hectares
+Farm: Farm1, Food: Potatoes, Area: 2.98 hectares
+Farm: Farm1, Food: Apples, Area: 1.80 hectares
+Farm: Farm2, Food: Wheat, Area: 7.29 hectares
+Farm: Farm2, Food: Corn, Area: 2.83 hectares
+Farm: Farm2, Food: Soybeans, Area: 67.99 hectares
+Farm: Farm2, Food: Potatoes, Area: 2.98 hectares
+Farm: Farm2, Food: Apples, Area: 18.91 hectares
+Farm: Farm3, Food: Wheat, Area: 3.35 hectares
+Farm: Farm3, Food: Corn, Area: 2.83 hectares
+Farm: Farm3, Food: Soybeans, Area: 25.47 hectares
+Farm: Farm3, Food: Potatoes, Area: 16.54 hectares
 
 METRICS:
 ----------------------------------------
-nutritional_value: 41.6250
-nutrient_density: 36.0000
-affordability: 0.0000
-sustainability: 0.0000
-environmental_impact: -27.0000
-total_area: 224.9997
+nutritional_value: 182.3923
+nutrient_density: 160.0720
+environmental_impact: 49.9905
+affordability: 143.9514
+sustainability: 173.2126
+calculated_objective: 60.6208
+total_area: 223.2030
 utilization_Farm1: 1.0000
 utilization_Farm2: 1.0000
-utilization_Farm3: 1.0000
+utilization_Farm3: 0.9641
 
 FARM UTILIZATION:
 ----------------------------------------
 Farm1: 75.00 hectares (100.0%)
 Farm2: 100.00 hectares (100.0%)
-Farm3: 50.00 hectares (100.0%)
+Farm3: 48.20 hectares (96.4%)
 
 ================================================================================
  END OF RESULTS

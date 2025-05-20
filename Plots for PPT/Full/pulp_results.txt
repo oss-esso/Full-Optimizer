@@ -1,0 +1,53 @@
+================================================================================
+ OPTIMIZATION RESULTS - PuLP Direct Solver
+================================================================================
+
+CONFIGURATION:
+----------------------------------------
+Farms: ['Farm1', 'Farm2', 'Farm3', 'Farm4', 'Farm5']
+Objective Value: 96.1285
+Runtime: 0.14 seconds
+
+SOLUTION:
+----------------------------------------
+Farm: Farm1, Food: Tempeh, Area: 1.00 hectares
+Farm: Farm1, Food: Eggplant, Area: 1.00 hectares
+Farm: Farm1, Food: Pork, Area: 48.00 hectares
+Farm: Farm2, Food: Lamb, Area: 0.43 hectares
+Farm: Farm2, Food: Watermelon, Area: 1.00 hectares
+Farm: Farm2, Food: Pork, Area: 4.58 hectares
+Farm: Farm2, Food: Tomatoes, Area: 34.50 hectares
+Farm: Farm2, Food: Apple, Area: 34.49 hectares
+Farm: Farm3, Food: Lamb, Area: 0.57 hectares
+Farm: Farm3, Food: Corn, Area: 1.00 hectares
+Farm: Farm3, Food: Pork, Area: 98.43 hectares
+Farm: Farm4, Food: Pork, Area: 11.00 hectares
+Farm: Farm4, Food: Chickpeas, Area: 34.50 hectares
+Farm: Farm4, Food: Potato, Area: 34.50 hectares
+Farm: Farm5, Food: Pork, Area: 50.00 hectares
+
+METRICS:
+----------------------------------------
+nutritional_value: 48.2917
+nutrient_density: 30.4698
+environmental_impact: 0.3505
+affordability: 14.8217
+sustainability: 2.8943
+total_area: 354.9900
+utilization_Farm1: 1.0000
+utilization_Farm2: 1.0000
+utilization_Farm3: 1.0000
+utilization_Farm4: 1.0000
+utilization_Farm5: 0.9999
+
+FARM UTILIZATION:
+----------------------------------------
+Farm1: 50.00 hectares (100.0%)
+Farm2: 75.00 hectares (100.0%)
+Farm3: 100.00 hectares (100.0%)
+Farm4: 80.00 hectares (100.0%)
+Farm5: 50.00 hectares (100.0%)
+
+================================================================================
+ END OF RESULTS
+================================================================================
