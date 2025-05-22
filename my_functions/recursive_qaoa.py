@@ -597,4 +597,216 @@ def solve_benders_master_with_qaoa(f_coeffs: np.ndarray,
         "objective": final_master_objective, # Objective value from QAOA
         "metrics": qaoa_metrics_output,
         "error": None # No error in this path
-    } 
+    }
+
+# --- Recursive QAOA Implementation ---
+def recursive_qaoa_solve(Q_matrix: np.ndarray,
+                        linear_coeffs_c: np.ndarray,
+                        offset_b: float = 0.0,
+                        recursion_threshold: int = 10,
+                        qaoa_params: dict = None,
+                        logger: logging.Logger = None) -> dict:
+    """
+    Recursively solve a QUBO problem using QAOA by decomposing large problems into smaller subproblems.
+    Args:
+        Q_matrix: QUBO quadratic matrix
+        linear_coeffs_c: QUBO linear coefficients
+        offset_b: QUBO offset
+        recursion_threshold: Max problem size to solve directly with QAOA
+        qaoa_params: Parameters for QAOASolver
+        logger: Optional logger
+    Returns:
+        Dictionary with solution, objective, and recursion info
+    """
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    n = Q_matrix.shape[0]
+    logger.info(f"Recursive QAOA called on problem size {n}")
+
+    if n <= recursion_threshold:
+        logger.info(f"Problem size {n} <= threshold {recursion_threshold}, solving directly with QAOA.")
+        solver = QAOASolver(
+            qaoa_depth=qaoa_params.get('qaoa_depth', 3) if qaoa_params else 3,
+            num_shots=qaoa_params.get('num_shots', 1024) if qaoa_params else 1024,
+            backend=qaoa_params.get('backend', None) if qaoa_params else None,
+            optimizer_method=qaoa_params.get('optimizer_method', 'COBYLA') if qaoa_params else 'COBYLA',
+            max_iter=qaoa_params.get('max_iter', 200) if qaoa_params else 200,
+            use_simulator_fallback=qaoa_params.get('use_simulator_fallback', True) if qaoa_params else True
+        )
+        result = solver.solve(Q_matrix, linear_coeffs_c, offset_b)
+        result['recursion_level'] = 0
+        return result
+
+    # --- Partitioning logic (placeholder: split variables in half) ---
+    logger.info(f"Partitioning problem of size {n} for recursion.")
+    split_idx = n // 2
+    idx_A = list(range(split_idx))
+    idx_B = list(range(split_idx, n))
+
+    # Extract submatrices for A and B
+    Q_A = Q_matrix[np.ix_(idx_A, idx_A)]
+    c_A = linear_coeffs_c[idx_A] if linear_coeffs_c is not None else None
+    Q_B = Q_matrix[np.ix_(idx_B, idx_B)]
+    c_B = linear_coeffs_c[idx_B] if linear_coeffs_c is not None else None
+
+    # For simplicity, ignore cross-terms for now (Q_AB)
+    # In a real implementation, you would handle Q_AB and combine solutions more carefully
+
+    logger.info(f"Recursively solving subproblem A (size {len(idx_A)})")
+    result_A = recursive_qaoa_solve(Q_A, c_A, offset_b=0.0, recursion_threshold=recursion_threshold, qaoa_params=qaoa_params, logger=logger)
+    logger.info(f"Recursively solving subproblem B (size {len(idx_B)})")
+    result_B = recursive_qaoa_solve(Q_B, c_B, offset_b=0.0, recursion_threshold=recursion_threshold, qaoa_params=qaoa_params, logger=logger)
+
+    # Combine solutions (naive concatenation)
+    solution_A = result_A.get('solution', {})
+    solution_B = result_B.get('solution', {})
+    combined_solution = {**{i: solution_A.get(i, 0) for i in range(len(idx_A))},
+                        **{i+split_idx: solution_B.get(i, 0) for i in range(len(idx_B))}}
+
+    # Compute energy for combined solution
+    bitstring = ''.join(str(combined_solution[i]) for i in range(n))
+    energy = calculate_qubo_energy(Q_matrix, linear_coeffs_c, offset_b, bitstring, n)
+
+    logger.info(f"Combined recursive solution energy: {energy}")
+    return {
+        'solution': combined_solution,
+        'objective': energy,
+        'bitstring': bitstring,
+        'recursion_level': 1 + max(result_A.get('recursion_level', 0), result_B.get('recursion_level', 0)),
+        'subresults': {'A': result_A, 'B': result_B}
+    }
+
+# --- Recursive QAOA for Benders Master Problem ---
+def solve_benders_master_with_recursive_qaoa(f_coeffs: np.ndarray,
+                                          D_matrix: np.ndarray,
+                                          d_vector: np.ndarray,
+                                          optimality_cuts: List[np.ndarray],
+                                          feasibility_cuts: List[np.ndarray],
+                                          B_matrix: np.ndarray,
+                                          b_vector: np.ndarray,
+                                          Ny: int,
+                                          config: Dict[str, Any],
+                                          qaoa_params: Dict[str, Any] = None) -> Dict[str, Any]:
+    """
+    Solve the Benders master problem using recursive QAOA algorithm.
+    
+    This function has the same signature as solve_benders_master_with_qaoa, but uses
+    recursive QAOA internally for solving larger problems more efficiently.
+    
+    Args:
+        f_coeffs: Coefficients of the master problem objective
+        D_matrix: Matrix D for constraints D*y >= d
+        d_vector: Vector d for constraints D*y >= d
+        optimality_cuts: List of optimality cuts (each cut is a row vector)
+        feasibility_cuts: List of feasibility cuts (each cut is a row vector)
+        B_matrix: Matrix B for constraints B*y >= b
+        b_vector: Vector b for constraints B*y >= b
+        Ny: Number of binary variables in the master problem
+        config: Configuration parameters for the QUBO conversion
+        qaoa_params: Configuration parameters for the recursive QAOA solver
+        
+    Returns:
+        Dictionary containing the solution and metrics
+    """
+    from .qubo_converter import convert_benders_master_to_qubo
+    
+    logger = logging.getLogger(__name__)
+    
+    if not has_qaoa:
+        logger.error("OpenQuantumComputing QAOA package not available. Cannot solve master problem with recursive QAOA.")
+        return {"error": "QAOA package not available", "solution": None, "objective": float('-inf')}
+
+    logger.info("Solving Benders master problem with recursive QAOA")
+    
+    # Default QAOA/recursion parameters if not provided
+    recursive_qaoa_config = {
+        'qaoa_depth': 3,
+        'num_shots': 1024,
+        'backend': None,
+        'optimizer_method': 'COBYLA',
+        'max_iter': 100,
+        'use_simulator_fallback': True,
+        'recursion_threshold': 10  # Default recursion threshold
+    }
+    if qaoa_params:
+        recursive_qaoa_config.update(qaoa_params)
+
+    logger.info(f"Recursive QAOA parameters for master problem: {recursive_qaoa_config}")
+
+    # Convert Benders master problem to QUBO (same as in solve_benders_master_with_qaoa)
+    qubo_model = convert_benders_master_to_qubo(
+        f_coeffs=f_coeffs,
+        D_matrix=D_matrix,
+        d_vector=d_vector,
+        optimality_cuts=optimality_cuts,
+        feasibility_cuts=feasibility_cuts,
+        B_matrix=B_matrix,
+        b_vector=b_vector,
+        Ny=Ny,
+        config=config
+    )
+    
+    # Use recursive_qaoa_solve instead of QAOASolver.solve
+    recursion_threshold = recursive_qaoa_config.pop('recursion_threshold', 10)
+    qaoa_result = recursive_qaoa_solve(
+        Q_matrix=qubo_model.Q,
+        linear_coeffs_c=qubo_model.c,
+        offset_b=qubo_model.offset,
+        recursion_threshold=recursion_threshold,
+        qaoa_params=recursive_qaoa_config,
+        logger=logger
+    )
+
+    # Ensure qaoa_result is a dictionary, even if an error occurred
+    if not isinstance(qaoa_result, dict):
+        logger.error(f"recursive_qaoa_solve() returned non-dict type: {type(qaoa_result)}. Critical error.")
+        return {"error": "recursive_qaoa_solve() critical failure", "solution": None, "objective": float('-inf')}
+
+    # Log the raw result for debugging
+    logger.debug(f"Raw result from recursive_qaoa_solve(): {qaoa_result}")
+
+    if qaoa_result.get("error"):
+        logger.error(f"Error from recursive QAOA solver: {qaoa_result['error']}")
+        return qaoa_result
+
+    # Process the solution if no error
+    final_solution_vars = qaoa_result.get("solution")
+    final_master_objective = qaoa_result.get("objective", float('-inf'))
+
+    if final_solution_vars is None:
+        logger.error("Recursive QAOA solver did not return a 'solution' dictionary. Critical fallback.")
+        return {"error": "Recursive QAOA solution missing", "solution": None, "objective": float('-inf')}
+
+    # Convert solution dictionary to numpy array for Benders
+    y_solution_np = np.zeros(Ny)
+    for idx, val in final_solution_vars.items():
+        if 0 <= int(idx) < Ny:  # Ensure idx is treated as integer
+            y_solution_np[int(idx)] = val
+        else:
+            logger.warning(f"Solution index {idx} out of bounds for Ny={Ny}")
+            
+    logger.info(f"Recursive QAOA master solution objective: {final_master_objective}")
+    logger.info(f"Recursive QAOA master solution (y vector sum): {np.sum(y_solution_np)}")
+
+    # Prepare metrics to be returned
+    num_qaoa_qubits = qaoa_result.get("num_qubits", Ny)
+    actual_qaoa_depth = qaoa_result.get("qaoa_depth", recursive_qaoa_config.get('qaoa_depth', 3))
+
+    # Add recursive QAOA specific metrics
+    qaoa_metrics_output = {
+        "num_variables": num_qaoa_qubits,
+        "num_qubits": num_qaoa_qubits,
+        "qaoa_depth": actual_qaoa_depth,
+        "optimizer_iterations": qaoa_result.get("optimizer_iterations", 0),
+        "info": qaoa_result.get("info", ""),
+        "counts": qaoa_result.get("counts", {}),
+        "recursion_level": qaoa_result.get("recursion_level", 0),
+        "recursion_threshold": recursion_threshold
+    }
+    
+    return {
+        "solution": y_solution_np,
+        "objective": final_master_objective,
+        "metrics": qaoa_metrics_output,
+        "error": None
+    }

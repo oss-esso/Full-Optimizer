@@ -13,6 +13,7 @@ try:
     from .methods.quantum_enhanced import optimize_with_quantum_benders
     from .methods.quantum_inspired import optimize_with_quantum_inspired_benders
     from .methods.quantum_enhanced_merge import optimize_with_quantum_benders_merge
+    from .methods.recursive_qaoa_merge import optimize_with_recursive_qaoa_merge
     from .data_models import OptimizationObjective, OptimizationResult
 except ImportError as e:
     print(f"Error loading optimization methods: {e}", file=sys.stderr)
@@ -64,6 +65,7 @@ class FoodProductionOptimizer:
     from .methods.quantum_enhanced import optimize_with_quantum_benders
     from .methods.quantum_inspired import optimize_with_quantum_inspired_benders
     from .methods.quantum_enhanced_merge import optimize_with_quantum_benders_merge
+    from .methods.recursive_qaoa_merge import optimize_with_recursive_qaoa_merge
 
     def _calculate_metrics(self, solution) -> Dict[str, float]:
         """Calculate optimization metrics."""
@@ -215,6 +217,7 @@ class SimpleFoodOptimizer(FoodProductionOptimizer):
         - 'quantum-enhanced': Uses quantum-enhanced Benders decomposition
         - 'quantum-inspired': Uses quantum-inspired Benders decomposition
         - 'quantum-enhanced-merge': Uses quantum-enhanced Benders with advanced merging
+        - 'recursive-qaoa': Uses recursive QAOA Benders with advanced merging
         """
         # Choose optimization method
         if method == 'pulp':
@@ -227,6 +230,8 @@ class SimpleFoodOptimizer(FoodProductionOptimizer):
             result = optimize_with_quantum_inspired_benders(f, A, b, C, c, self.solver_params, debug=debug)
         elif method == 'quantum-enhanced-merge':
             result = optimize_with_quantum_benders_merge(f, A, b, C, c, self.solver_params, debug=debug)
+        elif method == 'recursive-qaoa':
+            result = optimize_with_recursive_qaoa_merge(f, A, b, C, c, self.solver_params, debug=debug)
         else:
             raise ValueError(f"Unknown optimization method: {method}")
         
