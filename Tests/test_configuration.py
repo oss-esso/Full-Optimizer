@@ -110,7 +110,7 @@ def run_single_test(method: str, pulp_result: SolverResult = None, scenario_conf
     # Call load_food_data from scenarios.py
 
      # Choose the appropriate optimizer based on method
-    if method in ['Quantum-Enhanced', 'Quantum-Enhanced-Merge', 'Quantum-Inspired']:
+    if method in ['Quantum-Enhanced', 'Quantum-Enhanced-Merge', 'Quantum-Inspired', 'RQAOA']:
         # Use the quantum optimizer for quantum methods
         optimizer = Qoptimizer(complexity_level=complexity_level)
     else:
@@ -135,6 +135,9 @@ def run_single_test(method: str, pulp_result: SolverResult = None, scenario_conf
     elif method == 'Quantum-Enhanced-Merge':
         # The merge version also takes quantum options
         result = optimizer.optimize_with_quantum_benders_merge()
+    elif method == 'RQAOA':
+        # Use the RQAOA method with quantum options if provided
+        result = optimizer.optimize_with_recursive_qaoa_merge()
     else:
         raise ValueError(f"Unknown method: {method}")
     
@@ -496,7 +499,8 @@ def plot_convergence(results: Dict[str, List[SolverResult]], save_dir: str):
         'Benders': 'orange',
         'Quantum-Inspired': 'green',
         'Quantum-Enhanced': 'red',
-        'Quantum-Enhanced-Merge': 'purple'
+        'Quantum-Enhanced-Merge': 'purple',
+        'RQAOA': 'brown'
     }
     
     # Prepare convergence data for each method
@@ -550,6 +554,18 @@ def plot_convergence(results: Dict[str, List[SolverResult]], save_dir: str):
                     value = start_value + progress * (final_obj - start_value)
                     # More noise for quantum methods
                     noise = np.random.normal(0, final_obj * 0.05 * (1 - progress))
+                    value = max(0, value + noise)
+                    run_convergence.append(value)
+
+            elif method == 'RQAOA':
+                # RQAOA has a unique convergence pattern
+                start_value = final_obj * 0.2
+                for i in range(iterations):
+                    # RQAOA has a more complex convergence
+                    progress = 1 - np.exp(-0.6 * (i + 1))
+                    value = start_value + progress * (final_obj - start_value)
+                    # Moderate noise for RQAOA
+                    noise = np.random.normal(0, final_obj * 0.02 * (1 - progress))
                     value = max(0, value + noise)
                     run_convergence.append(value)
             
@@ -1291,7 +1307,7 @@ def main():
     os.makedirs(results_dir, exist_ok=True)
     
     # Determine which methods to run
-    available_methods = ['pulp', 'benders', 'quantum-inspired', 'quantum-enhanced', 'quantum-enhanced-merge']
+    available_methods = ['pulp', 'benders', 'quantum-inspired', 'quantum-enhanced', 'quantum-enhanced-merge', 'rqaoa']
     if args.methods.lower() == 'all':
         selected_methods = available_methods
     elif args.methods.lower() == 'all/noinspired':
@@ -1307,13 +1323,24 @@ def main():
                 sys.exit(1)
     
     # Convert to proper format for the functions
-    methods = [method.capitalize() if method != 'pulp' else 'PuLP' for method in selected_methods]
-    if 'Quantum-enhanced' in methods:
-        methods[methods.index('Quantum-enhanced')] = 'Quantum-Enhanced'
-    if 'Quantum-inspired' in methods:
-        methods[methods.index('Quantum-inspired')] = 'Quantum-Inspired'
-    if 'Quantum-enhanced-merge' in methods:
-        methods[methods.index('Quantum-enhanced-merge')] = 'Quantum-Enhanced-Merge'
+    methods = []
+    for method in selected_methods:
+        if method == 'pulp':
+            methods.append('PuLP')
+        elif method == 'benders':
+            methods.append('Benders')
+        elif method == 'quantum-inspired':
+            methods.append('Quantum-Inspired')
+        elif method == 'quantum-enhanced':
+            methods.append('Quantum-Enhanced')
+        elif method == 'quantum-enhanced-merge':
+            methods.append('Quantum-Enhanced-Merge')
+        elif method == 'rqaoa':
+            methods.append('RQAOA')
+        else:
+            # Fallback: capitalize first letter
+            methods.append(method.capitalize())
+    
     
     # Parse scenario parameter and set up appropriate test configuration
     scenario_config = {}
