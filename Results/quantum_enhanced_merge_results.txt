@@ -5,54 +5,54 @@
 CONFIGURATION:
 ----------------------------------------
 Farms: ['Farm1', 'Farm2', 'Farm3', 'Farm4', 'Farm5']
-Objective Value: 91.2787
-Runtime: 8.97 seconds
+Objective Value: 115.8741
+Runtime: 9.14 seconds
 
 SOLUTION:
 ----------------------------------------
-Farm: Farm1, Food: Orange, Area: 4.00 hectares
-Farm: Farm1, Food: Apple, Area: 4.00 hectares
+Farm: Farm1, Food: Watermelon, Area: 4.00 hectares
 Farm: Farm1, Food: Corn, Area: 4.00 hectares
 Farm: Farm1, Food: Potato, Area: 4.00 hectares
-Farm: Farm1, Food: Tomatoes, Area: 26.00 hectares
-Farm: Farm1, Food: Eggplant, Area: 4.00 hectares
-Farm: Farm1, Food: Beef, Area: 4.00 hectares
-Farm: Farm2, Food: Orange, Area: 4.00 hectares
-Farm: Farm2, Food: Corn, Area: 4.00 hectares
-Farm: Farm2, Food: Tomatoes, Area: 4.00 hectares
-Farm: Farm2, Food: Eggplant, Area: 4.00 hectares
-Farm: Farm2, Food: Beef, Area: 4.00 hectares
-Farm: Farm2, Food: Chickpeas, Area: 55.00 hectares
-Farm: Farm3, Food: Orange, Area: 4.00 hectares
-Farm: Farm3, Food: Apple, Area: 4.00 hectares
+Farm: Farm1, Food: Tofu, Area: 4.00 hectares
+Farm: Farm1, Food: Spinach, Area: 22.00 hectares
+Farm: Farm1, Food: Egg, Area: 4.00 hectares
+Farm: Farm1, Food: Chicken, Area: 4.00 hectares
+Farm: Farm1, Food: Chickpeas, Area: 4.00 hectares
+Farm: Farm2, Food: Watermelon, Area: 4.00 hectares
+Farm: Farm2, Food: Avocado, Area: 4.00 hectares
+Farm: Farm2, Food: Potato, Area: 4.00 hectares
+Farm: Farm2, Food: Egg, Area: 4.00 hectares
+Farm: Farm2, Food: Chickpeas, Area: 59.00 hectares
+Farm: Farm3, Food: Watermelon, Area: 4.00 hectares
 Farm: Farm3, Food: Corn, Area: 4.00 hectares
 Farm: Farm3, Food: Potato, Area: 4.00 hectares
-Farm: Farm3, Food: Eggplant, Area: 4.00 hectares
-Farm: Farm3, Food: Beef, Area: 4.00 hectares
-Farm: Farm3, Food: Lamb, Area: 76.00 hectares
-Farm: Farm4, Food: Apple, Area: 4.00 hectares
+Farm: Farm3, Food: Tofu, Area: 4.00 hectares
+Farm: Farm3, Food: Spinach, Area: 76.00 hectares
+Farm: Farm3, Food: Egg, Area: 4.00 hectares
+Farm: Farm3, Food: Chickpeas, Area: 4.00 hectares
+Farm: Farm4, Food: Watermelon, Area: 4.00 hectares
+Farm: Farm4, Food: Avocado, Area: 4.00 hectares
+Farm: Farm4, Food: Corn, Area: 4.00 hectares
 Farm: Farm4, Food: Potato, Area: 4.00 hectares
-Farm: Farm4, Food: Tomatoes, Area: 4.00 hectares
-Farm: Farm4, Food: Beef, Area: 4.00 hectares
-Farm: Farm4, Food: Lamb, Area: 4.00 hectares
-Farm: Farm4, Food: Chickpeas, Area: 60.00 hectares
-Farm: Farm5, Food: Orange, Area: 4.00 hectares
-Farm: Farm5, Food: Apple, Area: 4.00 hectares
+Farm: Farm4, Food: Cabbage, Area: 56.00 hectares
+Farm: Farm4, Food: Chicken, Area: 4.00 hectares
+Farm: Farm4, Food: Chickpeas, Area: 4.00 hectares
+Farm: Farm5, Food: Watermelon, Area: 4.00 hectares
+Farm: Farm5, Food: Avocado, Area: 4.00 hectares
 Farm: Farm5, Food: Corn, Area: 4.00 hectares
 Farm: Farm5, Food: Potato, Area: 4.00 hectares
-Farm: Farm5, Food: Tempeh, Area: 4.00 hectares
-Farm: Farm5, Food: Tomatoes, Area: 4.00 hectares
-Farm: Farm5, Food: Eggplant, Area: 4.00 hectares
-Farm: Farm5, Food: Beef, Area: 4.00 hectares
-Farm: Farm5, Food: Lamb, Area: 18.00 hectares
+Farm: Farm5, Food: Spinach, Area: 22.00 hectares
+Farm: Farm5, Food: Egg, Area: 4.00 hectares
+Farm: Farm5, Food: Chicken, Area: 4.00 hectares
+Farm: Farm5, Food: Chickpeas, Area: 4.00 hectares
 
 METRICS:
 ----------------------------------------
-nutritional_value: 46.8478
-nutrient_density: 26.9514
-affordability: 9.0213
-sustainability: 4.4497
-environmental_impact: -2.8363
+nutritional_value: 57.6339
+nutrient_density: 38.7001
+affordability: 7.0866
+sustainability: 5.0498
+environmental_impact: -0.6254
 total_area: 355.0000
 utilization_Farm1: 1.0000
 utilization_Farm2: 1.0000

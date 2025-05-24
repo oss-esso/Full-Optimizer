@@ -5,39 +5,37 @@
 CONFIGURATION:
 ----------------------------------------
 Farms: ['Farm1', 'Farm2', 'Farm3', 'Farm4', 'Farm5']
-Objective Value: 92.6503
-Runtime: 0.71 seconds
+Objective Value: 104.7430
+Runtime: 0.62 seconds
 
 SOLUTION:
 ----------------------------------------
-Farm: Farm1, Food: Corn, Area: 4.00 hectares
-Farm: Farm1, Food: Eggplant, Area: 4.00 hectares
-Farm: Farm1, Food: Beef, Area: 4.00 hectares
-Farm: Farm1, Food: Lamb, Area: 38.00 hectares
-Farm: Farm2, Food: Apple, Area: 4.00 hectares
+Farm: Farm1, Food: Potato, Area: 4.00 hectares
+Farm: Farm1, Food: Tofu, Area: 4.00 hectares
+Farm: Farm1, Food: Chickpeas, Area: 42.00 hectares
+Farm: Farm2, Food: Watermelon, Area: 4.00 hectares
+Farm: Farm2, Food: Corn, Area: 4.00 hectares
 Farm: Farm2, Food: Potato, Area: 4.00 hectares
-Farm: Farm2, Food: Tomatoes, Area: 4.00 hectares
-Farm: Farm2, Food: Eggplant, Area: 4.00 hectares
-Farm: Farm2, Food: Chickpeas, Area: 59.00 hectares
-Farm: Farm3, Food: Apple, Area: 4.00 hectares
-Farm: Farm3, Food: Corn, Area: 4.00 hectares
+Farm: Farm2, Food: Spinach, Area: 59.00 hectares
+Farm: Farm2, Food: Egg, Area: 4.00 hectares
+Farm: Farm3, Food: Watermelon, Area: 4.00 hectares
+Farm: Farm3, Food: Avocado, Area: 4.00 hectares
 Farm: Farm3, Food: Potato, Area: 4.00 hectares
-Farm: Farm3, Food: Lamb, Area: 88.00 hectares
-Farm: Farm4, Food: Corn, Area: 4.00 hectares
+Farm: Farm3, Food: Egg, Area: 4.00 hectares
+Farm: Farm3, Food: Chickpeas, Area: 84.00 hectares
+Farm: Farm4, Food: Avocado, Area: 4.00 hectares
 Farm: Farm4, Food: Potato, Area: 4.00 hectares
-Farm: Farm4, Food: Lamb, Area: 72.00 hectares
-Farm: Farm5, Food: Orange, Area: 4.00 hectares
-Farm: Farm5, Food: Tomatoes, Area: 4.00 hectares
-Farm: Farm5, Food: Beef, Area: 4.00 hectares
-Farm: Farm5, Food: Lamb, Area: 38.00 hectares
+Farm: Farm4, Food: Egg, Area: 72.00 hectares
+Farm: Farm5, Food: Tofu, Area: 4.00 hectares
+Farm: Farm5, Food: Cabbage, Area: 46.00 hectares
 
 METRICS:
 ----------------------------------------
-nutritional_value: 49.6235
-nutrient_density: 32.3400
-affordability: 5.4316
-sustainability: 2.3680
-environmental_impact: -1.2082
+nutritional_value: 53.4634
+nutrient_density: 33.8391
+affordability: 8.9973
+sustainability: 5.0301
+environmental_impact: -0.6557
 total_area: 355.0000
 utilization_Farm1: 1.0000
 utilization_Farm2: 1.0000
