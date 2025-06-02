@@ -1,0 +1,463 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Production Optimization - Comprehensive Comparison Report</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f8f9fa; }
+        .container { max-width: 1200px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; text-align: center; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        h2 { color: #34495e; border-left: 4px solid #3498db; padding-left: 15px; }
+        h3 { color: #2c3e50; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 20px 0; }
+        .summary-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+        .summary-card h3 { margin: 0 0 10px 0; font-size: 1.2em; }
+        .summary-card .value { font-size: 2em; font-weight: bold; margin: 10px 0; }
+        .summary-card .unit { font-size: 0.9em; opacity: 0.9; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #3498db; color: white; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        tr:hover { background-color: #e8f4fd; }
+        .metric-positive { color: #27ae60; font-weight: bold; }
+        .metric-negative { color: #e74c3c; font-weight: bold; }
+        .status-success { color: #27ae60; font-weight: bold; }
+        .status-error { color: #e74c3c; font-weight: bold; }
+        .config-box { background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .food-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0; }
+        .food-card { background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #3498db; }
+        .farm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin: 15px 0; }
+        .farm-card { background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #e67e22; }
+        .progress-bar { background-color: #ecf0f1; border-radius: 10px; overflow: hidden; margin: 5px 0; }
+        .progress-fill { height: 20px; background: linear-gradient(90deg, #3498db, #2ecc71); color: white; text-align: center; line-height: 20px; font-size: 12px; font-weight: bold; }
+        .timestamp { text-align: center; color: #7f8c8d; font-style: italic; margin-bottom: 30px; }
+        .section { margin: 40px 0; }
+        .highlight { background-color: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107; margin: 10px 0; }
+        .image-container { text-align: center; margin: 20px 0; }
+        .image-container img { max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍃 Food Production Optimization</h1>
+        <h1>Comprehensive Comparison Report</h1>
+        <div class="timestamp">Generated on 2025-06-01 19:34:41</div>
+        
+        <div class="section">
+            <h2>📊 Executive Summary</h2>
+            <div class="summary-grid">
+
+                <div class="summary-card">
+                    <h3>Methods Tested</h3>
+                    <div class="value">4</div>
+                    <div class="unit">4 successful</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Best Objective</h3>
+                    <div class="value">73.13</div>
+                    <div class="unit">by Basic_SA</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Fastest Method</h3>
+                    <div class="value">0.003s</div>
+                    <div class="unit">Basic_SA</div>
+                </div>
+                <div class="summary-card">
+                    <h3>Problem Size</h3>
+                    <div class="value">3 × 6</div>
+                    <div class="unit">farms × foods</div>
+                </div>
+
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>⚙️ Problem Configuration</h2>
+            <div class="config-box">
+
+                <p><strong>Complexity Level:</strong> simple</p>
+                <p><strong>Farms:</strong> Farm1, Farm2, Farm3 (3 total)</p>
+                <p><strong>Foods:</strong> Wheat, Corn, Rice, Soybeans, Potatoes, Apples (6 total)</p>
+                <p><strong>Land Availability:</strong>
+ Farm1: 75 ha, Farm2: 100 ha, Farm3: 50 ha
+                </p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Objective Value Comparison</h2>
+            <table>
+                <tr>
+                    <th>Method</th>
+                    <th>Objective Value</th>
+                    <th>Runtime (s)</th>
+                    <th>Status</th>
+                    <th>Relative Performance</th>
+                    <th>Gap from Best</th>
+                    <th>Solution Pairs</th>
+                </tr>
+
+                <tr>
+                    <td><strong>PuLP</strong></td>
+                    <td>50.525</td>
+                    <td>0.064</td>
+                    <td class="status-success">optimal</td>
+                    <td class="">69.1%</td>
+                    <td>22.600</td>
+                    <td>15</td>
+                </tr>
+
+                <tr>
+                    <td><strong>Basic_SA</strong></td>
+                    <td>73.125</td>
+                    <td>0.003</td>
+                    <td class="status-error">OPTIMAL</td>
+                    <td class="metric-positive">100.0%</td>
+                    <td>0.000</td>
+                    <td>18</td>
+                </tr>
+
+                <tr>
+                    <td><strong>Enhanced_SA</strong></td>
+                    <td>73.125</td>
+                    <td>0.005</td>
+                    <td class="status-error">OPTIMAL</td>
+                    <td class="metric-positive">100.0%</td>
+                    <td>0.000</td>
+                    <td>18</td>
+                </tr>
+
+                <tr>
+                    <td><strong>Benders</strong></td>
+                    <td>67.237</td>
+                    <td>1.423</td>
+                    <td class="status-error">suboptimal</td>
+                    <td class="">92.0%</td>
+                    <td>5.888</td>
+                    <td>11</td>
+                </tr>
+
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>📈 Detailed Metrics Comparison</h2>
+            <table>
+<tr><th>Method</th><th>Nutritional Value</th><th>Nutrient Density</th><th>Environmental Impact</th><th>Affordability</th><th>Sustainability</th><th>Total Area</th><th>Utilization Farm1</th><th>Utilization Farm2</th><th>Utilization Farm3</th><th>Total Foods Selected</th><th>Sa Iterations</th><th>Wall Time</th><th>Farms Count</th><th>Foods Count</th><th>Initial Temperature</th><th>Final Temperature</th><th>Cooling Rate</th><th>Method</th></tr><tr><td><strong>PuLP</strong></td><td>41.6500</td><td>36.0250</td><td>27.1500</td><td>0.0000</td><td>0.0000</td><td>225.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>nan</td></tr><tr><td><strong>Basic_SA</strong></td><td>50.6250</td><td>45.0000</td><td>22.5000</td><td>0.0000</td><td>0.0000</td><td>225.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>3.0000</td><td>200.0000</td><td>0.0031</td><td>3.0000</td><td>6.0000</td><td>100.0000</td><td>0.0000</td><td>0.9500</td><td>simulated_annealing</td></tr><tr><td><strong>Enhanced_SA</strong></td><td>50.6250</td><td>45.0000</td><td>22.5000</td><td>0.0000</td><td>0.0000</td><td>225.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>3.0000</td><td>200.0000</td><td>0.0041</td><td>3.0000</td><td>6.0000</td><td>100.0000</td><td>0.0000</td><td>0.9500</td><td>simulated_annealing</td></tr><tr><td><strong>Benders</strong></td><td>48.2625</td><td>42.6375</td><td>-23.6625</td><td>0.0000</td><td>0.0000</td><td>225.0000</td><td>1.0000</td><td>1.0000</td><td>1.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>nan</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>🥬 Food Selection Analysis</h2>
+
+            <div class="highlight">
+                <strong>Foods selected by ALL methods:</strong> Soybeans
+            </div>
+
+            <h3>Food Selection Frequency</h3>
+            <div class="food-grid">
+
+                <div class="food-card">
+                    <strong>Soybeans</strong><br>
+                    Selected by 12/4 methods
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 300.0%">300%</div>
+                    </div>
+                </div>
+
+                <div class="food-card">
+                    <strong>Potatoes</strong><br>
+                    Selected by 6/4 methods
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 150.0%">150%</div>
+                    </div>
+                </div>
+
+                <div class="food-card">
+                    <strong>Apples</strong><br>
+                    Selected by 6/4 methods
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 150.0%">150%</div>
+                    </div>
+                </div>
+
+                <div class="food-card">
+                    <strong>Wheat</strong><br>
+                    Selected by 5/4 methods
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 125.0%">125%</div>
+                    </div>
+                </div>
+
+                <div class="food-card">
+                    <strong>Rice</strong><br>
+                    Selected by 1/4 methods
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 25.0%">25%</div>
+                    </div>
+                </div>
+
+                <div class="food-card">
+                    <strong>Corn</strong><br>
+                    Selected by 0/4 methods
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 0.0%">0%</div>
+                    </div>
+                </div>
+</div><h3>Method-Specific Food Selections</h3>
+            <div class="food-card">
+                <strong>PuLP</strong><br>
+                <em>Selected foods:</em> Apples, Potatoes, Rice, Soybeans, Wheat<br>
+<em>Unique to this method:</em> Rice</div>
+            <div class="food-card">
+                <strong>Basic_SA</strong><br>
+                <em>Selected foods:</em> Soybeans<br>
+</div>
+            <div class="food-card">
+                <strong>Enhanced_SA</strong><br>
+                <em>Selected foods:</em> Soybeans<br>
+</div>
+            <div class="food-card">
+                <strong>Benders</strong><br>
+                <em>Selected foods:</em> Apples, Potatoes, Soybeans, Wheat<br>
+</div></div>
+        <div class="section">
+            <h2>🚜 Farm Utilization Analysis</h2>
+            <div class="farm-grid">
+
+                <div class="farm-card">
+                    <h3>PuLP</h3>
+                    <p><strong>Overall Utilization:</strong> 100.0%</p>
+                    <p><strong>Total Used:</strong> 225.0 ha / 225.0 ha</p>
+                    <h4>Farm-by-Farm Breakdown:</h4>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm1:</strong> 75.0 / 75.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100.0%">100.0%</div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm2:</strong> 100.0 / 100.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100.0%">100.0%</div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm3:</strong> 50.0 / 50.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100.0%">100.0%</div>
+                        </div>
+                    </div>
+</div>
+                <div class="farm-card">
+                    <h3>Basic_SA</h3>
+                    <p><strong>Overall Utilization:</strong> 100.0%</p>
+                    <p><strong>Total Used:</strong> 225.0 ha / 225.0 ha</p>
+                    <h4>Farm-by-Farm Breakdown:</h4>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm1:</strong> 75.0 / 75.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100.0%">100.0%</div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm2:</strong> 100.0 / 100.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100.0%">100.0%</div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm3:</strong> 50.0 / 50.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100.0%">100.0%</div>
+                        </div>
+                    </div>
+</div>
+                <div class="farm-card">
+                    <h3>Enhanced_SA</h3>
+                    <p><strong>Overall Utilization:</strong> 100.0%</p>
+                    <p><strong>Total Used:</strong> 225.0 ha / 225.0 ha</p>
+                    <h4>Farm-by-Farm Breakdown:</h4>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm1:</strong> 75.0 / 75.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100.0%">100.0%</div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm2:</strong> 100.0 / 100.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100.0%">100.0%</div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm3:</strong> 50.0 / 50.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 100.0%">100.0%</div>
+                        </div>
+                    </div>
+</div>
+                <div class="farm-card">
+                    <h3>Benders</h3>
+                    <p><strong>Overall Utilization:</strong> 100.0%</p>
+                    <p><strong>Total Used:</strong> 225.0 ha / 225.0 ha</p>
+                    <h4>Farm-by-Farm Breakdown:</h4>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm1:</strong> 75.0 / 75.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 99.9999999955996%">100.0%</div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm2:</strong> 100.0 / 100.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 99.99999999622929%">100.0%</div>
+                        </div>
+                    </div>
+
+                    <div style="margin: 10px 0;">
+                        <strong>Farm3:</strong> 50.0 / 50.0 ha
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 99.9999999946781%">100.0%</div>
+                        </div>
+                    </div>
+</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔍 Detailed Solution Analysis</h2>
+
+                <div class="config-box">
+                    <h3>PuLP - Detailed Solution</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 15px 0;">
+                        <div>
+                            <strong>Total Area:</strong> 225.00 ha<br>
+                            <strong>Allocation Pairs:</strong> 15<br>
+                            <strong>Farms Used:</strong> 3/3<br>
+                            <strong>Foods Used:</strong> 5/6
+                        </div>
+                        <div>
+                            <strong>Top Food Allocations:</strong><br>
+Soybeans: 67.5 ha<br>Apples: 67.5 ha<br>Wheat: 66.5 ha<br>Potatoes: 22.5 ha<br>Rice: 1.0 ha<br>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-box">
+                    <h3>Basic_SA - Detailed Solution</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 15px 0;">
+                        <div>
+                            <strong>Total Area:</strong> 225.00 ha<br>
+                            <strong>Allocation Pairs:</strong> 18<br>
+                            <strong>Farms Used:</strong> 3/3<br>
+                            <strong>Foods Used:</strong> 6/6
+                        </div>
+                        <div>
+                            <strong>Top Food Allocations:</strong><br>
+Soybeans: 225.0 ha<br>Wheat: 0.0 ha<br>Corn: 0.0 ha<br>Rice: 0.0 ha<br>Potatoes: 0.0 ha<br>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-box">
+                    <h3>Enhanced_SA - Detailed Solution</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 15px 0;">
+                        <div>
+                            <strong>Total Area:</strong> 225.00 ha<br>
+                            <strong>Allocation Pairs:</strong> 18<br>
+                            <strong>Farms Used:</strong> 3/3<br>
+                            <strong>Foods Used:</strong> 6/6
+                        </div>
+                        <div>
+                            <strong>Top Food Allocations:</strong><br>
+Soybeans: 225.0 ha<br>Wheat: 0.0 ha<br>Corn: 0.0 ha<br>Rice: 0.0 ha<br>Potatoes: 0.0 ha<br>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-box">
+                    <h3>Benders - Detailed Solution</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 15px 0;">
+                        <div>
+                            <strong>Total Area:</strong> 225.00 ha<br>
+                            <strong>Allocation Pairs:</strong> 11<br>
+                            <strong>Farms Used:</strong> 3/3<br>
+                            <strong>Foods Used:</strong> 4/6
+                        </div>
+                        <div>
+                            <strong>Top Food Allocations:</strong><br>
+Soybeans: 189.7 ha<br>Apples: 12.0 ha<br>Potatoes: 12.0 ha<br>Wheat: 11.3 ha<br>
+                        </div>
+                    </div>
+                </div>
+</div>
+        <div class="section">
+            <h2>📊 Visual Comparison</h2>
+            <div class="image-container">
+                <img src="comprehensive_comparison_plots.png" alt="Comprehensive Comparison Plots">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🏆 Key Findings & Recommendations</h2>
+            <div class="config-box">
+
+                <h3>Performance Summary:</h3>
+                <ul>
+                    <li><strong>Best Objective Value:</strong> Basic_SA (73.125)</li>
+                    <li><strong>Fastest Execution:</strong> Basic_SA (0.003s)</li>
+                    <li><strong>Most Consistent:</strong> Enhanced SA (good balance of quality and speed)</li>
+                </ul>
+                
+                <h3>Method Characteristics:</h3>
+                <ul>
+                    <li><strong>PuLP:</strong> Exact solution, good for smaller problems, moderate speed</li>
+                    <li><strong>Basic SA:</strong> Fast heuristic, good baseline performance</li>
+                    <li><strong>Enhanced SA:</strong> Improved heuristic with advanced features</li>
+                    <li><strong>Benders:</strong> Handles large problems, may find better solutions but slower</li>
+                </ul>
+                
+                <h3>Recommendations:</h3>
+                <ul>
+                    <li>For <strong>quick analysis:</strong> Use Enhanced SA</li>
+                    <li>For <strong>exact solutions:</strong> Use PuLP (if problem size allows)</li>
+                    <li>For <strong>large problems:</strong> Use Benders decomposition</li>
+                    <li>For <strong>real-time applications:</strong> Use Basic or Enhanced SA</li>
+                </ul>
+
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>ℹ️ Technical Notes</h2>
+            <div class="config-box">
+                <ul>
+                    <li>All methods use the same problem data and constraints</li>
+                    <li>Simulated Annealing methods use stochastic optimization</li>
+                    <li>Results may vary between runs for SA methods</li>
+                    <li>PuLP provides exact solutions for linear/mixed-integer problems</li>
+                    <li>Benders decomposition is most effective for large-scale problems</li>
+                </ul>
+            </div>
+        </div>
+        
+        <footer style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #7f8c8d;">
+            Food Production Optimization System | Generated automatically
+        </footer>
+    </div>
+</body>
+</html>

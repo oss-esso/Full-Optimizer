@@ -590,7 +590,7 @@ def plot_convergence(results: Dict[str, List[SolverResult]], save_dir: str):
             iterations_x, 
             mean_values - std_values, 
             mean_values + std_values,
-            alpha=0.2,
+            alpha=0.1,  # Reduced opacity
             color=method_colors.get(method)
         )
     
@@ -627,7 +627,7 @@ def plot_convergence(results: Dict[str, List[SolverResult]], save_dir: str):
                 iterations_x, 
                 np.maximum(0, mean_gaps - std_gaps),  # Ensure non-negative
                 mean_gaps + std_gaps,
-                alpha=0.2,
+                alpha=0.1,  # Reduced opacity
                 color=method_colors.get(method)
             )
         
@@ -1267,7 +1267,7 @@ def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Test optimization methods')
     parser.add_argument('--methods', type=str, default='all',
-                        help='Comma-separated list of methods to test. Options: pulp,benders,quantum-inspired,quantum-enhanced,quantum-enhanced-merge,all,all/noinspired')
+                        help='Comma-separated list of methods to test. Options: pulp,benders,quantum-inspired,quantum-enhanced,quantum-enhanced-merge,rqaoa,all,all/noinspired')
     parser.add_argument('--runs', type=int, default=50,
                         help='Number of runs per method')
     parser.add_argument('--scenarios', type=str, default='small',

@@ -2,7 +2,7 @@ QAOA² Graph Metrics for Quantum-Enhanced
 ========================================
 
 Total Nodes: 120
-Total Edges: 1559
+Total Edges: 1545
 Number of Subproblems: 5
 
 Partition Sizes:
@@ -12,8 +12,8 @@ Partition Sizes:
   Subgraph 3: 24 qubits
   Subgraph 4: 24 qubits
 
-Graph Density: 0.2183
+Graph Density: 0.2164
 
 Connectivity Analysis:
-  Intra-partition edges: 957 (61.4%)
-  Inter-partition edges: 602 (38.6%)
+  Intra-partition edges: 970 (62.8%)
+  Inter-partition edges: 575 (37.2%)

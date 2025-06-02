@@ -317,6 +317,7 @@ class FoodProductionOptimizer:
         solution = {}
         if model.status == pulp.LpStatusOptimal:
             self.logger.info("Model is optimal. Extracting solution from PuLP model...")
+            total_extracted_value = 0.0
             for farm in self.farms:
                 farm_total = 0
                 for food in self.foods:
@@ -324,14 +325,20 @@ class FoodProductionOptimizer:
                     x_val = x[farm, food].value()
                     y_val = y[farm, food].value()
                     
-                    if x_val is not None and x_val > 0.01:  # Include if non-negligible area
+                    # Log all variable values for debugging
+                    if x_val is not None:
+                        self.logger.debug(f"  Variable x[{farm}, {food}]: {x_val:.6f}")
+                    
+                    # Use a much smaller threshold to capture small but meaningful values
+                    if x_val is not None and x_val > 1e-6:  # Include if non-negligible area (lowered threshold)
                         # Verify this assignment doesn't exceed land availability
                         if farm_total + x_val <= self.parameters['land_availability'][farm]:
                             solution[(farm, food)] = x_val
                             farm_total += x_val
-                            self.logger.info(f"  Farm {farm}, Food {food}: {x_val:.2f} hectares (y={y_val})")
+                            total_extracted_value += x_val
+                            self.logger.info(f"  Farm {farm}, Food {food}: {x_val:.6f} hectares (y={y_val})")
                         else:
-                            self.logger.warning(f"  Rejecting assignment that would exceed land availability: Farm {farm}, Food {food}: {x_val:.2f} hectares")
+                            self.logger.warning(f"  Rejecting assignment that would exceed land availability: Farm {farm}, Food {food}: {x_val:.6f} hectares")
                 
                 # Log total land allocated for this farm
                 self.logger.info(f"  Total land allocated for {farm}: {farm_total:.2f} hectares")
@@ -339,6 +346,11 @@ class FoodProductionOptimizer:
                 available = self.parameters['land_availability'][farm]
                 if farm_total > available * 1.001:  # Allow for small floating point error
                     self.logger.error(f"  ERROR: Total allocation for {farm} ({farm_total:.2f}) exceeds available land ({available:.2f})")
+            
+            # Log extraction summary
+            self.logger.info(f"Solution extraction complete: {len(solution)} assignments, total area: {total_extracted_value:.6f}")
+            if len(solution) == 0:
+                self.logger.warning("No solution assignments extracted! This may indicate all variable values are below threshold.")
         elif obj_value is not None and obj_value > 0:
             self.logger.warning("Model is not optimal but has a positive objective value. Solution may not respect all constraints.")
             # For non-optimal solutions, strictly enforce the land availability constraint

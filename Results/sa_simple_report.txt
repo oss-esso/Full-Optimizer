@@ -1,0 +1,43 @@
+SIMULATED ANNEALING - SIMPLE SCENARIO REPORT
+==================================================
+
+PROBLEM SUMMARY:
+  Farms: 3 (Farm1, Farm2, Farm3)
+  Foods: 6 (Wheat, Corn, Rice, Soybeans, Potatoes, Apples)
+
+BASIC SIMULATED ANNEALING RESULTS:
+  Objective Value: -127.500000
+  Status: OPTIMAL
+  Runtime: 0.006 seconds
+  Foods Selected: 9
+  Method: simulated_annealing
+
+BASIC SA SOLUTION:
+  Farm-Food Assignments:
+    Farm1:
+      Soybeans (25.0), Potatoes (25.0), Apples (25.0)
+    Farm2:
+      Wheat (33.3), Rice (33.3), Potatoes (33.3)
+    Farm3:
+      Wheat (16.7), Rice (16.7), Potatoes (16.7)
+
+ENHANCED SIMULATED ANNEALING RESULTS:
+  Objective Value: -172.500000
+  Status: OPTIMAL
+  Runtime: 0.002 seconds
+  Foods Selected: 9
+  Method: simulated_annealing
+
+ENHANCED SA SOLUTION:
+  Farm-Food Assignments:
+    Farm1:
+      Corn (25.0), Potatoes (25.0), Apples (25.0)
+    Farm2:
+      Corn (33.3), Soybeans (33.3), Apples (33.3)
+    Farm3:
+      Wheat (16.7), Soybeans (16.7), Apples (16.7)
+
+COMPARISON:
+  Improvement: 35.29%
+  Runtime Ratio: 0.37x
+  Better Solution: Enhanced

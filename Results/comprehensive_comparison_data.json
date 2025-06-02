@@ -1,0 +1,201 @@
+{
+  "timestamp": "2025-06-01T19:34:41.476018",
+  "problem_config": {
+    "complexity_level": "simple",
+    "farms": [
+      "Farm1",
+      "Farm2",
+      "Farm3"
+    ],
+    "foods": [
+      "Wheat",
+      "Corn",
+      "Rice",
+      "Soybeans",
+      "Potatoes",
+      "Apples"
+    ],
+    "land_availability": {
+      "Farm1": 75,
+      "Farm2": 100,
+      "Farm3": 50
+    },
+    "weights": {
+      "nutritional_value": 0.25,
+      "nutrient_density": 0.25,
+      "affordability": 0,
+      "sustainability": 0,
+      "environmental_impact": 0.5
+    }
+  },
+  "results": {
+    "PuLP": {
+      "status": "SUCCESS",
+      "runtime": 0.06418895721435547,
+      "error": null,
+      "objective_value": 50.525,
+      "solution": {
+        "Farm1-Wheat": 22.5,
+        "Farm1-Rice": 0.0001,
+        "Farm1-Soybeans": 22.5,
+        "Farm1-Potatoes": 7.4999,
+        "Farm1-Apples": 22.5,
+        "Farm2-Wheat": 29.0,
+        "Farm2-Rice": 0.0001,
+        "Farm2-Soybeans": 30.0,
+        "Farm2-Potatoes": 10.9999,
+        "Farm2-Apples": 30.0,
+        "Farm3-Wheat": 15.0,
+        "Farm3-Rice": 0.9998,
+        "Farm3-Soybeans": 15.0,
+        "Farm3-Potatoes": 4.0002,
+        "Farm3-Apples": 15.0
+      },
+      "metrics": {
+        "nutritional_value": 41.65,
+        "nutrient_density": 36.025,
+        "environmental_impact": 27.15,
+        "affordability": 0.0,
+        "sustainability": 0.0,
+        "total_area": 225.0,
+        "utilization_Farm1": 1.0,
+        "utilization_Farm2": 1.0,
+        "utilization_Farm3": 1.0
+      },
+      "solution_count": 15
+    },
+    "Basic_SA": {
+      "status": "SUCCESS",
+      "runtime": 0.003099203109741211,
+      "error": null,
+      "objective_value": 73.12500000000001,
+      "solution": {
+        "Farm1-Soybeans": 75.0,
+        "Farm1-Wheat": 0.0,
+        "Farm1-Corn": 0.0,
+        "Farm1-Rice": 0.0,
+        "Farm1-Potatoes": 0.0,
+        "Farm1-Apples": 0.0,
+        "Farm2-Soybeans": 100.0,
+        "Farm2-Wheat": 0.0,
+        "Farm2-Corn": 0.0,
+        "Farm2-Rice": 0.0,
+        "Farm2-Potatoes": 0.0,
+        "Farm2-Apples": 0.0,
+        "Farm3-Soybeans": 50.0,
+        "Farm3-Wheat": 0.0,
+        "Farm3-Corn": 0.0,
+        "Farm3-Rice": 0.0,
+        "Farm3-Potatoes": 0.0,
+        "Farm3-Apples": 0.0
+      },
+      "metrics": {
+        "nutritional_value": 50.625,
+        "nutrient_density": 45.0,
+        "environmental_impact": 22.5,
+        "affordability": 0.0,
+        "sustainability": 0.0,
+        "total_area": 225.0,
+        "utilization_Farm1": 1.0,
+        "utilization_Farm2": 1.0,
+        "utilization_Farm3": 1.0,
+        "total_foods_selected": 3,
+        "sa_iterations": 200,
+        "wall_time": 0.003099203109741211,
+        "farms_count": 3,
+        "foods_count": 6,
+        "initial_temperature": 100.0,
+        "final_temperature": 1e-06,
+        "cooling_rate": 0.95,
+        "method": "simulated_annealing"
+      },
+      "solution_count": 18
+    },
+    "Enhanced_SA": {
+      "status": "SUCCESS",
+      "runtime": 0.004651546478271484,
+      "error": null,
+      "objective_value": 73.12500000000001,
+      "solution": {
+        "Farm1-Soybeans": 75.0,
+        "Farm1-Wheat": 0.0,
+        "Farm1-Corn": 0.0,
+        "Farm1-Rice": 0.0,
+        "Farm1-Potatoes": 0.0,
+        "Farm1-Apples": 0.0,
+        "Farm2-Soybeans": 100.0,
+        "Farm2-Wheat": 0.0,
+        "Farm2-Corn": 0.0,
+        "Farm2-Rice": 0.0,
+        "Farm2-Potatoes": 0.0,
+        "Farm2-Apples": 0.0,
+        "Farm3-Soybeans": 50.0,
+        "Farm3-Wheat": 0.0,
+        "Farm3-Corn": 0.0,
+        "Farm3-Rice": 0.0,
+        "Farm3-Potatoes": 0.0,
+        "Farm3-Apples": 0.0
+      },
+      "metrics": {
+        "nutritional_value": 50.625,
+        "nutrient_density": 45.0,
+        "environmental_impact": 22.5,
+        "affordability": 0.0,
+        "sustainability": 0.0,
+        "total_area": 225.0,
+        "utilization_Farm1": 1.0,
+        "utilization_Farm2": 1.0,
+        "utilization_Farm3": 1.0,
+        "total_foods_selected": 3,
+        "sa_iterations": 200,
+        "wall_time": 0.004116535186767578,
+        "farms_count": 3,
+        "foods_count": 6,
+        "initial_temperature": 100.0,
+        "final_temperature": 1e-06,
+        "cooling_rate": 0.95,
+        "method": "simulated_annealing"
+      },
+      "solution_count": 18
+    },
+    "Benders": {
+      "status": "SUCCESS",
+      "runtime": 1.4230122566223145,
+      "error": null,
+      "objective_value": 67.2374999874919,
+      "solution": {
+        "Farm1-Wheat": 5.462967957530071,
+        "Farm1-Soybeans": 61.537032022849395,
+        "Farm1-Potatoes": 4.000000003688168,
+        "Farm1-Apples": 4.000000012632052,
+        "Farm2-Wheat": 5.7870320573054554,
+        "Farm2-Soybeans": 86.21296792494377,
+        "Farm2-Potatoes": 4.000000003956703,
+        "Farm2-Apples": 4.000000010023369,
+        "Farm3-Soybeans": 41.99999998229765,
+        "Farm3-Potatoes": 4.00000000347028,
+        "Farm3-Apples": 4.000000011571127
+      },
+      "metrics": {
+        "nutritional_value": 48.262499994245694,
+        "nutrient_density": 42.63749999448899,
+        "affordability": 0.0,
+        "sustainability": 0.0,
+        "environmental_impact": -23.662500000324343,
+        "total_area": 224.99999999026807,
+        "utilization_Farm1": 0.999999999955996,
+        "utilization_Farm2": 0.9999999999622929,
+        "utilization_Farm3": 0.999999999946781
+      },
+      "solution_count": 11
+    }
+  },
+  "summary": {
+    "total_methods": 4,
+    "successful_methods": 4,
+    "best_objective": 73.12500000000001,
+    "fastest_runtime": 0.003099203109741211,
+    "best_method": "Basic_SA",
+    "fastest_method": "Basic_SA"
+  }
+}

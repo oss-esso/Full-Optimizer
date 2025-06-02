@@ -14,14 +14,19 @@
 - Success Rate: 100.0%
 
 #### Quantum-Enhanced
-- Mean: 108.9480 ± 8.2373
-- Range: [84.9950, 122.5100]
-- Success Rate: 88.0%
+- Mean: 110.3370 ± 8.3324
+- Range: [88.2550, 122.5000]
+- Success Rate: 82.0%
 
 #### Quantum-Enhanced-Merge
-- Mean: 116.1603 ± 5.1858
-- Range: [102.5900, 122.7850]
+- Mean: 116.3915 ± 4.6989
+- Range: [106.7850, 122.8100]
 - Success Rate: 68.0%
+
+#### RQAOA
+- Mean: 105.0898 ± 5.4582
+- Range: [92.8050, 119.1550]
+- Success Rate: 100.0%
 
 ### Solution Differences (compared to PuLP)
 #### Benders
@@ -31,41 +36,53 @@
 - One Norm Y: 177.2000 ± 0.0000
 
 #### Quantum-Enhanced
-- Gap: 0.0705 ± 0.0526
-- Max Violation: 63.4600 ± 15.3987
-- Infinity Norm X: 63.4600 ± 15.3987
-- One Norm Y: 283.5800 ± 53.3062
+- Gap: 0.0802 ± 0.0518
+- Max Violation: 58.3600 ± 13.8133
+- Infinity Norm X: 58.3600 ± 13.8133
+- One Norm Y: 270.4800 ± 47.5048
 
 #### Quantum-Enhanced-Merge
-- Gap: 0.1099 ± 0.0476
-- Max Violation: 49.0600 ± 7.2412
-- Infinity Norm X: 49.0600 ± 7.2412
-- One Norm Y: 234.0200 ± 31.2145
+- Gap: 0.1113 ± 0.0449
+- Max Violation: 50.3600 ± 8.0945
+- Infinity Norm X: 50.3600 ± 8.0945
+- One Norm Y: 234.8400 ± 28.1268
+
+#### RQAOA
+- Gap: 0.0421 ± 0.0303
+- Max Violation: 70.6600 ± 13.7949
+- Infinity Norm X: 70.6600 ± 13.7949
+- One Norm Y: 312.1200 ± 35.8692
 
 ## Performance Metrics
 
 ### Runtime
 #### PuLP
-- Mean: 0.25 ± 0.09 seconds
+- Mean: 0.16 ± 0.05 seconds
 
 #### Benders
-- Mean: 9.39 ± 1.65 seconds
+- Mean: 5.55 ± 0.57 seconds
 
 #### Quantum-Enhanced
-- Mean: 5.09 ± 2.33 seconds
+- Mean: 2.48 ± 0.62 seconds
 
 #### Quantum-Enhanced-Merge
-- Mean: 4.93 ± 2.36 seconds
+- Mean: 2.24 ± 0.66 seconds
+
+#### RQAOA
+- Mean: 1.94 ± 0.28 seconds
 
 ### Resource Utilization
 #### PuLP
-- Memory Peak: 0.20 ± 0.25 MB
+- Memory Peak: 0.10 ± 0.18 MB
 
 #### Benders
-- Memory Peak: 0.90 ± 1.07 MB
+- Memory Peak: 0.51 ± 0.91 MB
 
 #### Quantum-Enhanced
-- Memory Peak: 69.17 ± 44.28 MB
+- Memory Peak: 45.27 ± 23.11 MB
 
 #### Quantum-Enhanced-Merge
-- Memory Peak: 68.61 ± 44.67 MB
+- Memory Peak: 45.21 ± 23.07 MB
+
+#### RQAOA
+- Memory Peak: 0.61 ± 0.86 MB

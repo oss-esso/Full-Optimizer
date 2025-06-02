@@ -14,6 +14,7 @@ try:
     from .methods.quantum_inspired import optimize_with_quantum_inspired_benders
     from .methods.quantum_enhanced_merge import optimize_with_quantum_benders_merge
     from .methods.recursive_qaoa_merge import optimize_with_recursive_qaoa_merge
+    from .methods.simulated_annealing_method import optimize_with_simulated_annealing_benders
     from .data_models import OptimizationObjective, OptimizationResult
 except ImportError as e:
     print(f"Error loading optimization methods: {e}", file=sys.stderr)
@@ -218,6 +219,7 @@ class SimpleFoodOptimizer(FoodProductionOptimizer):
         - 'quantum-inspired': Uses quantum-inspired Benders decomposition
         - 'quantum-enhanced-merge': Uses quantum-enhanced Benders with advanced merging
         - 'recursive-qaoa': Uses recursive QAOA Benders with advanced merging
+        - 'simulated-annealing': Uses simulated annealing Benders decomposition
         """
         # Choose optimization method
         if method == 'pulp':
@@ -232,7 +234,18 @@ class SimpleFoodOptimizer(FoodProductionOptimizer):
             result = optimize_with_quantum_benders_merge(f, A, b, C, c, self.solver_params, debug=debug)
         elif method == 'recursive-qaoa':
             result = optimize_with_recursive_qaoa_merge(f, A, b, C, c, self.solver_params, debug=debug)
+        elif method == 'simulated-annealing':
+            result = optimize_with_simulated_annealing_benders(self, debug=debug)
         else:
             raise ValueError(f"Unknown optimization method: {method}")
         
         return result
+
+# Bind optimization methods to SimpleFoodOptimizer class
+SimpleFoodOptimizer.optimize_with_benders = optimize_with_benders
+SimpleFoodOptimizer.optimize_with_pulp = optimize_with_pulp
+SimpleFoodOptimizer.optimize_with_quantum_benders = optimize_with_quantum_benders
+SimpleFoodOptimizer.optimize_with_quantum_inspired_benders = optimize_with_quantum_inspired_benders
+SimpleFoodOptimizer.optimize_with_quantum_benders_merge = optimize_with_quantum_benders_merge
+SimpleFoodOptimizer.optimize_with_recursive_qaoa_merge = optimize_with_recursive_qaoa_merge
+SimpleFoodOptimizer.optimize_with_simulated_annealing_benders = optimize_with_simulated_annealing_benders
