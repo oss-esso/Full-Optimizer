@@ -272,10 +272,14 @@ def _load_full_food_data() -> Tuple[List[str], Dict[str, Dict[str, float]], Dict
     for obj in objectives:
         filt[obj] = pd.to_numeric(filt[obj], errors='coerce').fillna(0.0)
 
-    # Build structures
+    # Build structures without profitability
     farms = ['Farm1', 'Farm2', 'Farm3', 'Farm4', 'Farm5']
-    foods = {row['Food_Name']: {obj: float(row[obj]) for obj in objectives}
-             for _, row in filt.iterrows()}
+    foods = {}
+    for _, row in filt.iterrows():
+        food_dict = {obj: float(row[obj]) for obj in objectives}
+        # No longer adding profitability
+        foods[row['Food_Name']] = food_dict
+    
     food_groups: Dict[str, List[str]] = {}
     for _, row in filt.iterrows():
         fg = row['Food_Group'] or 'Unknown'
@@ -345,3 +349,17 @@ def _load_full_food_data() -> Tuple[List[str], Dict[str, Dict[str, float]], Dict
     logger.info(f"Loaded full data for {len(farms)} farms and {len(foods)} foods. Parameters generated.")
     
     return farms, foods, food_groups, config
+
+# Test scenario output
+if __name__ == "__main__":
+    complexity = 'intermediate'
+    farms, foods, food_groups, config = load_food_data(complexity)
+    
+    # Display scenario details
+    num_farms = len(farms)
+    num_foods = len(foods)
+    problem_size = "N/A"  # Placeholder for problem size
+    print(f"Scenario Details:")
+    print(f"  Farms: {num_farms} ({farms})")
+    print(f"  Foods: {num_foods} ({list(foods.keys())})")
+    print(f"  Problem Size: {problem_size} variables")

@@ -1,0 +1,413 @@
+{
+  "timestamp": "2025-06-12T12:32:46.445581",
+  "test_summary": {
+    "total_complexity_levels": 5,
+    "analysis_duration": 0.0013880729675292969,
+    "budget_tested": 100.0
+  },
+  "dwave_analysis": {
+    "analysis_timestamp": 1749724366.4007542,
+    "analysis_duration": 0.0013880729675292969,
+    "budget_usd": 100.0,
+    "estimations": {
+      "tiny": "CostEstimation(complexity_level='tiny', num_variables=6, estimated_qubits=6, estimated_qpu_time_us=2424000.0, estimated_cost_usd=4.848, num_reads=1000, is_feasible=True, warnings=[], recommendations=['Problem is small enough for classical solvers - consider alternatives'])",
+      "small": "CostEstimation(complexity_level='small', num_variables=40, estimated_qubits=40, estimated_qpu_time_us=2424000.0, estimated_cost_usd=4.848, num_reads=1000, is_feasible=True, warnings=[], recommendations=['Problem is small enough for classical solvers - consider alternatives'])",
+      "medium": "CostEstimation(complexity_level='medium', num_variables=150, estimated_qubits=195, estimated_qpu_time_us=2424000.0, estimated_cost_usd=4.848, num_reads=1000, is_feasible=True, warnings=[], recommendations=['Good candidate for quantum annealing'])",
+      "large": "CostEstimation(complexity_level='large', num_variables=750, estimated_qubits=975, estimated_qpu_time_us=2424000.0, estimated_cost_usd=4.848, num_reads=1000, is_feasible=True, warnings=[], recommendations=['Large problem - monitor embedding quality and chain breaks'])",
+      "enterprise": "CostEstimation(complexity_level='enterprise', num_variables=2500, estimated_qubits=3250, estimated_qpu_time_us=2424000.0, estimated_cost_usd=4.848, num_reads=1000, is_feasible=True, warnings=[], recommendations=['Large problem - monitor embedding quality and chain breaks'])"
+    },
+    "summary": {
+      "total_levels_analyzed": 5,
+      "feasible_levels": [
+        "tiny",
+        "small",
+        "medium",
+        "large",
+        "enterprise"
+      ],
+      "affordable_levels": [
+        "tiny",
+        "small",
+        "medium",
+        "large",
+        "enterprise"
+      ],
+      "cost_range": {
+        "min": 4.848,
+        "max": 4.848,
+        "mean": 4.848
+      }
+    },
+    "recommendations": [
+      "Maximum affordable complexity: 'enterprise'"
+    ],
+    "sampler_info": {
+      "simulator_available": true,
+      "qpu_configured": false,
+      "qpu_available": false
+    }
+  },
+  "scenario_data": {
+    "simple": {
+      "farms": [
+        "Farm1",
+        "Farm2",
+        "Farm3"
+      ],
+      "foods": [
+        "Wheat",
+        "Corn",
+        "Rice",
+        "Soybeans",
+        "Potatoes",
+        "Apples"
+      ],
+      "problem_size": 18,
+      "config": {
+        "parameters": {
+          "weights": {
+            "nutritional_value": 0.25,
+            "nutrient_density": 0.25,
+            "affordability": 0,
+            "sustainability": 0,
+            "environmental_impact": 0.5
+          },
+          "land_availability": {
+            "Farm1": 75,
+            "Farm2": 100,
+            "Farm3": 50
+          },
+          "food_groups": {
+            "Grains": [
+              "Wheat",
+              "Corn",
+              "Rice"
+            ],
+            "Legumes": [
+              "Soybeans"
+            ],
+            "Vegetables": [
+              "Potatoes"
+            ],
+            "Fruits": [
+              "Apples"
+            ]
+          }
+        }
+      }
+    },
+    "intermediate": {
+      "farms": [
+        "Farm1",
+        "Farm2",
+        "Farm3"
+      ],
+      "foods": [
+        "Wheat",
+        "Corn",
+        "Rice",
+        "Soybeans",
+        "Potatoes",
+        "Apples"
+      ],
+      "problem_size": 18,
+      "config": {
+        "parameters": {
+          "weights": {
+            "nutritional_value": 0.25,
+            "nutrient_density": 0.2,
+            "affordability": 0.15,
+            "sustainability": 0.15,
+            "environmental_impact": 0.25
+          },
+          "land_availability": {
+            "Farm1": 75,
+            "Farm2": 100,
+            "Farm3": 50
+          },
+          "minimum_planting_area": {
+            "Wheat": 10,
+            "Corn": 8,
+            "Rice": 12,
+            "Soybeans": 7,
+            "Potatoes": 5,
+            "Apples": 15
+          },
+          "max_percentage_per_crop": {
+            "Wheat": 0.4,
+            "Corn": 0.4,
+            "Rice": 0.4,
+            "Soybeans": 0.4,
+            "Potatoes": 0.4,
+            "Apples": 0.4
+          },
+          "social_benefit": {
+            "Farm1": 0.2,
+            "Farm2": 0.2,
+            "Farm3": 0.2
+          },
+          "food_group_constraints": {
+            "Grains": {
+              "min_foods": 1,
+              "max_foods": 3
+            },
+            "Legumes": {
+              "min_foods": 1,
+              "max_foods": 1
+            },
+            "Vegetables": {
+              "min_foods": 1,
+              "max_foods": 1
+            },
+            "Fruits": {
+              "min_foods": 1,
+              "max_foods": 1
+            }
+          }
+        },
+        "benders_tolerance": 0.001,
+        "benders_max_iterations": 100,
+        "pulp_time_limit": 120,
+        "use_multi_cut": true,
+        "use_trust_region": true,
+        "use_anticycling": true,
+        "use_norm_cuts": true,
+        "quantum_settings": {
+          "max_qubits": 20,
+          "use_qaoa_squared": true,
+          "force_qaoa_squared": true
+        }
+      }
+    },
+    "full": {
+      "farms": [
+        "Farm1",
+        "Farm2",
+        "Farm3",
+        "Farm4",
+        "Farm5"
+      ],
+      "foods": [
+        "Orange",
+        "Watermelon",
+        "Corn",
+        "Potato",
+        "Tempeh",
+        "Peanuts",
+        "Tomatoes",
+        "Cucumber",
+        "Pork",
+        "Chicken"
+      ],
+      "problem_size": 50,
+      "config": {
+        "parameters": {
+          "land_availability": {
+            "Farm1": 50,
+            "Farm2": 75,
+            "Farm3": 100,
+            "Farm4": 80,
+            "Farm5": 50
+          },
+          "social_benefit": {
+            "Farm1": 0.2,
+            "Farm2": 0.25,
+            "Farm3": 0.15,
+            "Farm4": 0.2,
+            "Farm5": 0.1
+          },
+          "minimum_planting_area": {
+            "Mango": 0.000929,
+            "Papaya": 0.0004,
+            "Orange": 0.00581,
+            "Banana": 0.00595,
+            "Guava": 0.000929,
+            "Watermelon": 0.000334,
+            "Apple": 0.00372,
+            "Avocado": 0.00836,
+            "Durian": 0.01,
+            "Corn": 0.000183,
+            "Potato": 9e-05,
+            "Tofu": 1e-05,
+            "Tempeh": 1e-05,
+            "Peanuts": 3e-05,
+            "Chickpeas": 2e-05,
+            "Pumpkin": 0.0001,
+            "Spinach": 9e-05,
+            "Tomatoes": 0.000105,
+            "Long bean": 9e-05,
+            "Cabbage": 0.00025,
+            "Eggplant": 0.00036,
+            "Cucumber": 0.0005,
+            "Egg": 1.9e-05,
+            "Beef": 0.7284,
+            "Lamb": 0.025,
+            "Pork": 0.0162,
+            "Chicken": 0.001
+          },
+          "max_percentage_per_crop": {
+            "Mango": 1.0,
+            "Papaya": 1.0,
+            "Orange": 1.0,
+            "Banana": 1.0,
+            "Guava": 1.0,
+            "Watermelon": 1.0,
+            "Apple": 1.0,
+            "Avocado": 1.0,
+            "Durian": 1.0,
+            "Corn": 1.0,
+            "Potato": 1.0,
+            "Tofu": 1.0,
+            "Tempeh": 1.0,
+            "Peanuts": 1.0,
+            "Chickpeas": 0.5,
+            "Pumpkin": 1.0,
+            "Spinach": 1.0,
+            "Tomatoes": 1.0,
+            "Long bean": 0.1,
+            "Cabbage": 1.0,
+            "Eggplant": 1.0,
+            "Cucumber": 1.0,
+            "Egg": 1.0,
+            "Beef": 1.0,
+            "Lamb": 1.0,
+            "Pork": 1.0,
+            "Chicken": 1.0
+          },
+          "food_group_constraints": {
+            "Fruits": {
+              "min_foods": 1,
+              "max_foods": 2
+            },
+            "Starchy staples": {
+              "min_foods": 1,
+              "max_foods": 2
+            },
+            "Pulses, nuts, and seeds": {
+              "min_foods": 1,
+              "max_foods": 2
+            },
+            "Vegetables": {
+              "min_foods": 1,
+              "max_foods": 2
+            },
+            "Animal-source foods": {
+              "min_foods": 1,
+              "max_foods": 2
+            }
+          },
+          "weights": {
+            "nutritional_value": 0.25,
+            "nutrient_density": 0.2,
+            "environmental_impact": 0.25,
+            "affordability": 0.15,
+            "sustainability": 0.15
+          }
+        },
+        "benders_tolerance": 0.001,
+        "benders_max_iterations": 100,
+        "pulp_time_limit": 120,
+        "use_multi_cut": true,
+        "use_trust_region": true,
+        "use_anticycling": true,
+        "use_norm_cuts": true,
+        "quantum_settings": {
+          "max_qubits": 20,
+          "use_qaoa_squared": true,
+          "force_qaoa_squared": true
+        }
+      }
+    }
+  },
+  "solver_validation": [
+    {
+      "problem": "Tiny Problem",
+      "size": 6,
+      "optimal_energy": -22.821328415663515,
+      "best_sa_energy": -22.821328415663515,
+      "avg_sa_energy": -22.821328415663515,
+      "energy_gap": 0.0,
+      "success_rate": 100.0,
+      "optimal_sample": {
+        "0": "1",
+        "1": "1",
+        "2": "1",
+        "3": "1",
+        "4": "1",
+        "5": "1"
+      }
+    },
+    {
+      "problem": "Small Problem",
+      "size": 15,
+      "optimal_energy": -33.77738938803675,
+      "best_sa_energy": -33.77738938803676,
+      "avg_sa_energy": -33.77738938803675,
+      "energy_gap": 7.105427357601002e-15,
+      "success_rate": 100.0,
+      "optimal_sample": {
+        "0": "0",
+        "1": "1",
+        "2": "1",
+        "3": "1",
+        "4": "0",
+        "5": "1",
+        "6": "1",
+        "7": "1",
+        "8": "0",
+        "9": "0",
+        "10": "1",
+        "11": "1",
+        "12": "0",
+        "13": "0",
+        "14": "1"
+      }
+    },
+    {
+      "problem": "Simple Scenario",
+      "size": 18,
+      "optimal_energy": -34.24559043649561,
+      "best_sa_energy": -34.24559043649562,
+      "avg_sa_energy": -34.24559043649562,
+      "energy_gap": 7.105427357601002e-15,
+      "success_rate": 100.0,
+      "optimal_sample": {
+        "0": "0",
+        "1": "1",
+        "2": "1",
+        "3": "1",
+        "4": "0",
+        "5": "0",
+        "6": "1",
+        "7": "1",
+        "8": "1",
+        "9": "0",
+        "10": "0",
+        "11": "0",
+        "12": "1",
+        "13": "1",
+        "14": "0",
+        "15": "0",
+        "16": "0",
+        "17": "1"
+      }
+    }
+  ],
+  "recommendations": {
+    "for_beginners": [
+      "Start with 'tiny' or 'small' complexity levels",
+      "Use simulated annealing for initial testing",
+      "Budget $10-25 for initial quantum experiments"
+    ],
+    "for_researchers": [
+      "Medium complexity problems are good for research",
+      "Budget $25-100 for comprehensive studies",
+      "Consider QAOA\u00b2 for larger problems"
+    ],
+    "for_enterprises": [
+      "Large problems require significant QPU budget",
+      "Consider hybrid classical-quantum approaches",
+      "Budget $100+ for production workloads"
+    ]
+  }
+}

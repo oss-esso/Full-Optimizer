@@ -100,6 +100,49 @@ class DWaveConfig:
     reduce_intersample_correlation: bool = True
     reinitialize_state: bool = True
     postprocess: str = 'optimization'  # 'sampling' or 'optimization'
+    
+    # Cost estimation settings
+    estimate_cost_only: bool = False  # If True, only estimate cost without solving
+    max_budget_usd: float = 100.0  # Maximum budget for QPU usage
+    warn_cost_threshold: float = 10.0  # Warn if estimated cost exceeds this
+
+
+@dataclass
+class ComplexityLevel:
+    """Defines different complexity levels for problem estimation."""
+    name: str
+    num_farms: int
+    num_foods: int
+    num_nutrients: int
+    num_constraints: int
+    description: str
+    
+    @property
+    def total_variables(self) -> int:
+        """Calculate total number of variables for this complexity level."""
+        return self.num_farms * self.num_foods
+    
+    @property
+    def estimated_qubits(self) -> int:
+        """Estimate number of qubits needed (including auxiliary variables)."""
+        base_vars = self.total_variables
+        # Add auxiliary variables for constraints and penalties
+        aux_vars = min(self.num_constraints * 3, base_vars)  # Conservative estimate
+        return base_vars + aux_vars
+
+
+@dataclass
+class CostEstimation:
+    """Cost estimation results for D-Wave QPU usage."""
+    complexity_level: str
+    num_variables: int
+    estimated_qubits: int
+    estimated_qpu_time_us: float
+    estimated_cost_usd: float
+    num_reads: int
+    is_feasible: bool
+    warnings: List[str]
+    recommendations: List[str]
 
 
 class DWaveQPUAdapter:
@@ -110,6 +153,57 @@ class DWaveQPUAdapter:
     and D-Wave's quantum processing units, enabling quantum annealing approaches
     for the food production optimization problem.
     """
+    
+    # Predefined complexity levels for testing and estimation
+    COMPLEXITY_LEVELS = {
+        'tiny': ComplexityLevel(
+            name='tiny',
+            num_farms=2,
+            num_foods=3,
+            num_nutrients=5,
+            num_constraints=8,
+            description='Minimal test case for algorithm validation'
+        ),
+        'small': ComplexityLevel(
+            name='small',
+            num_farms=5,
+            num_foods=8,
+            num_nutrients=12,
+            num_constraints=25,
+            description='Small-scale optimization suitable for prototyping'
+        ),
+        'medium': ComplexityLevel(
+            name='medium',
+            num_farms=10,
+            num_foods=15,
+            num_nutrients=20,
+            num_constraints=50,
+            description='Medium-scale optimization for regional planning'
+        ),
+        'large': ComplexityLevel(
+            name='large',
+            num_farms=25,
+            num_foods=30,
+            num_nutrients=30,
+            num_constraints=100,
+            description='Large-scale optimization for national planning'
+        ),
+        'enterprise': ComplexityLevel(
+            name='enterprise',
+            num_farms=50,
+            num_foods=50,
+            num_nutrients=40,
+            num_constraints=200,
+            description='Enterprise-scale optimization for global planning'
+        )
+    }
+    
+    # D-Wave pricing estimates (approximate, as of 2024)
+    DWAVE_PRICING = {
+        'cost_per_second': 0.00015,  # USD per microsecond of QPU time
+        'minimum_charge': 0.001,     # Minimum charge per problem
+        'overhead_factor': 1.2,      # Factor for programming and readout overhead
+    }
     
     def __init__(self, config: Optional[DWaveConfig] = None, logger: Optional[logging.Logger] = None):
         """
@@ -137,7 +231,9 @@ class DWaveQPUAdapter:
             'embedding_retries': 0,
             'problem_sizes': [],
             'energies': [],
-            'num_occurrences': []
+            'num_occurrences': [],
+            'cost_estimates': [],
+            'actual_costs': []
         }
         
         # Problem cache for efficiency
@@ -257,7 +353,22 @@ class DWaveQPUAdapter:
         start_time = time.time()
         
         try:
-            # Convert Benders master problem to QUBO
+            # Check if we should only estimate cost
+            if self.config.estimate_cost_only:
+                problem_size = f_coeffs.shape[0]
+                estimation = self.estimate_qpu_cost(problem_size)
+                
+                self.logger.info(f"Cost estimation only: {problem_size} variables, "
+                               f"~${estimation.estimated_cost_usd:.4f}")
+                
+                return {
+                    'cost_estimation': estimation,
+                    'estimation_only': True,
+                    'recommendations': estimation.recommendations,
+                    'warnings': estimation.warnings
+                }
+            
+            # Proceed with normal solving
             self.logger.info("Converting Benders master problem to QUBO for D-Wave...")
             
             if config is None:
@@ -267,6 +378,20 @@ class DWaveQPUAdapter:
                     "eta_num_bits": 6,
                     "penalty_coefficient": 10000.0,
                     "penalty_slack_num_bits": 4
+                }
+            
+            # Get cost estimation before solving
+            problem_size = f_coeffs.shape[0]
+            cost_estimation = self.estimate_qpu_cost(problem_size)
+            
+            # Check if cost exceeds budget
+            if cost_estimation.estimated_cost_usd > self.config.max_budget_usd:
+                self.logger.warning(f"Estimated cost (${cost_estimation.estimated_cost_usd:.4f}) "
+                                  f"exceeds budget (${self.config.max_budget_usd})")
+                return {
+                    "error": "Cost exceeds budget",
+                    "cost_estimation": cost_estimation,
+                    "suggested_action": "Use simulated annealing or reduce problem size"
                 }
             
             qubo_model = convert_benders_master_to_qubo(
@@ -326,14 +451,16 @@ class DWaveQPUAdapter:
             # Calculate objective value
             objective_value = float(f_coeffs.T.dot(original_solution.reshape(-1, 1))[0, 0])
             
-            # Update metrics
+            # Update metrics with cost information
             wall_time = time.time() - start_time
             self.metrics['successful_calls'] += 1
             self.metrics['total_wall_time'] += wall_time
             self.metrics['problem_sizes'].append(problem_size)
             self.metrics['energies'].append(result['energy'])
+            self.metrics['cost_estimates'].append(cost_estimation.estimated_cost_usd)
             
-            self.logger.info(f"D-Wave solution found in {wall_time:.2f}s with energy {result['energy']:.6f}")
+            self.logger.info(f"D-Wave solution found in {wall_time:.2f}s with energy {result['energy']:.6f}, "
+                           f"estimated cost: ${cost_estimation.estimated_cost_usd:.4f}")
             
             return {
                 'solution': original_solution,
@@ -344,6 +471,7 @@ class DWaveQPUAdapter:
                 'timing': result.get('timing', {}),
                 'wall_time': wall_time,
                 'problem_size': problem_size,
+                'cost_estimation': cost_estimation,
                 'qubo_matrix': Q_full,
                 'bqm_info': {
                     'num_variables': len(bqm.variables),
@@ -567,6 +695,236 @@ class DWaveQPUAdapter:
             self.logger.error(traceback.format_exc())
             return {"error": str(e)}
     
+    def estimate_qpu_cost(self, 
+                         problem_size: int, 
+                         num_reads: Optional[int] = None,
+                         complexity_level: Optional[str] = None) -> CostEstimation:
+        """
+        Estimate the cost of running a problem on D-Wave QPU.
+        
+        Args:
+            problem_size: Number of variables in the problem
+            num_reads: Number of annealing cycles (uses config default if None)
+            complexity_level: Name of complexity level (for reference)
+            
+        Returns:
+            CostEstimation object with detailed cost analysis
+        """
+        if num_reads is None:
+            num_reads = self.config.num_reads
+        
+        warnings = []
+        recommendations = []
+        
+        # Estimate qubits needed (including overhead for embedding)
+        estimated_qubits = problem_size
+        if problem_size > 100:
+            # Add embedding overhead for larger problems
+            embedding_overhead = min(problem_size * 0.3, 1000)
+            estimated_qubits += int(embedding_overhead)
+        
+        # Check feasibility based on QPU limits - FIXED: More realistic limits
+        max_qubits = 5000  # Current D-Wave systems can handle this
+        is_feasible = estimated_qubits <= max_qubits
+        
+        if not is_feasible:
+            warnings.append(f"Problem may exceed QPU capacity ({estimated_qubits} > {max_qubits} qubits)")
+            recommendations.append("Consider problem decomposition or use classical algorithms")
+        
+        # Estimate QPU time - FIXED: More realistic pricing
+        base_annealing_time = self.config.annealing_time  # microseconds
+        programming_time = self.config.programming_thermalization
+        readout_time = self.config.readout_thermalization
+        
+        total_time_per_read = base_annealing_time + programming_time + readout_time
+        total_qpu_time = total_time_per_read * num_reads
+        
+        # Apply overhead factor
+        total_qpu_time *= self.DWAVE_PRICING['overhead_factor']
+        
+        # FIXED: Correct cost calculation (convert microseconds to seconds)
+        total_qpu_time_seconds = total_qpu_time / 1_000_000  # Convert microseconds to seconds
+        cost_usd = max(
+            total_qpu_time_seconds * 2.0,  # More realistic $2 per second of QPU time
+            self.DWAVE_PRICING['minimum_charge']
+        )
+        
+        # Add cost warnings and recommendations
+        if cost_usd > self.config.warn_cost_threshold:
+            warnings.append(f"Estimated cost (${cost_usd:.4f}) exceeds warning threshold")
+            
+        if cost_usd > self.config.max_budget_usd:
+            warnings.append(f"Estimated cost (${cost_usd:.4f}) exceeds budget (${self.config.max_budget_usd})")
+            recommendations.append("Reduce num_reads or use simulated annealing")
+            # Don't mark as infeasible just because of budget
+        
+        # Size-based recommendations
+        if problem_size < 50:
+            recommendations.append("Problem is small enough for classical solvers - consider alternatives")
+        elif problem_size < 200:
+            recommendations.append("Good candidate for quantum annealing")
+        else:
+            recommendations.append("Large problem - monitor embedding quality and chain breaks")
+        
+        return CostEstimation(
+            complexity_level=complexity_level or 'custom',
+            num_variables=problem_size,
+            estimated_qubits=estimated_qubits,
+            estimated_qpu_time_us=total_qpu_time,
+            estimated_cost_usd=cost_usd,
+            num_reads=num_reads,
+            is_feasible=is_feasible,  # Based on QPU capacity, not budget
+            warnings=warnings,
+            recommendations=recommendations
+        )
+    
+    def estimate_all_complexity_levels(self) -> Dict[str, CostEstimation]:
+        """
+        Estimate costs for all predefined complexity levels.
+        
+        Returns:
+            Dictionary mapping complexity level names to cost estimations
+        """
+        estimations = {}
+        
+        for level_name, level_config in self.COMPLEXITY_LEVELS.items():
+            estimation = self.estimate_qpu_cost(
+                problem_size=level_config.total_variables,
+                complexity_level=level_name
+            )
+            estimations[level_name] = estimation
+            
+            self.logger.info(f"Complexity '{level_name}': {level_config.total_variables} vars, "
+                           f"~${estimation.estimated_cost_usd:.4f}, feasible={estimation.is_feasible}")
+        
+        return estimations
+    
+    def get_complexity_recommendation(self, 
+                                    num_farms: int, 
+                                    num_foods: int,
+                                    budget_usd: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Get complexity level recommendation based on problem size and budget.
+        
+        Args:
+            num_farms: Number of farms in the problem
+            num_foods: Number of food types
+            budget_usd: Available budget (uses config default if None)
+            
+        Returns:
+            Dictionary with recommendation and analysis
+        """
+        if budget_usd is None:
+            budget_usd = self.config.max_budget_usd
+        
+        problem_size = num_farms * num_foods
+        estimation = self.estimate_qpu_cost(problem_size)
+        
+        # Find closest predefined complexity level
+        closest_level = None
+        min_diff = float('inf')
+        
+        for level_name, level_config in self.COMPLEXITY_LEVELS.items():
+            diff = abs(level_config.total_variables - problem_size)
+            if diff < min_diff:
+                min_diff = diff
+                closest_level = level_name
+        
+        recommendation = {
+            'problem_size': problem_size,
+            'estimated_cost': estimation.estimated_cost_usd,
+            'is_affordable': estimation.estimated_cost_usd <= budget_usd,
+            'closest_complexity_level': closest_level,
+            'complexity_description': self.COMPLEXITY_LEVELS[closest_level].description if closest_level else None,
+            'estimation': estimation,
+            'alternatives': []
+        }
+        
+        # Suggest alternatives if not affordable
+        if not recommendation['is_affordable']:
+            recommendation['alternatives'].extend([
+                'Use simulated annealing (free)',
+                'Reduce problem size',
+                'Use classical optimization methods'
+            ])
+        
+        # Suggest smaller complexity levels that fit budget
+        affordable_levels = []
+        for level_name, level_config in self.COMPLEXITY_LEVELS.items():
+            level_est = self.estimate_qpu_cost(level_config.total_variables)
+            if level_est.estimated_cost_usd <= budget_usd:
+                affordable_levels.append({
+                    'level': level_name,
+                    'size': level_config.total_variables,
+                    'cost': level_est.estimated_cost_usd,
+                    'description': level_config.description
+                })
+        
+        recommendation['affordable_levels'] = sorted(affordable_levels, key=lambda x: x['cost'], reverse=True)
+        
+        return recommendation
+    
+    def run_free_complexity_analysis(self) -> Dict[str, Any]:
+        """
+        Run a complete free analysis of all complexity levels without using QPU resources.
+        
+        Returns:
+            Comprehensive analysis report
+        """
+        self.logger.info("Running free complexity analysis for D-Wave quantum annealing...")
+        
+        analysis_start = time.time()
+        
+        # Estimate all complexity levels
+        estimations = self.estimate_all_complexity_levels()
+        
+        # Calculate summary statistics
+        total_costs = [est.estimated_cost_usd for est in estimations.values()]
+        feasible_levels = [name for name, est in estimations.items() if est.is_feasible]
+        affordable_levels = [name for name, est in estimations.items() 
+                           if est.estimated_cost_usd <= self.config.max_budget_usd]
+        
+        # Generate recommendations
+        recommendations = []
+        if not affordable_levels:
+            recommendations.append("All complexity levels exceed budget - use simulated annealing")
+        else:
+            max_affordable = max(affordable_levels, key=lambda x: estimations[x].num_variables)
+            recommendations.append(f"Maximum affordable complexity: '{max_affordable}'")
+        
+        if len(feasible_levels) < len(estimations):
+            recommendations.append("Some complexity levels may not fit on current QPU hardware")
+        
+        # Create detailed report
+        report = {
+            'analysis_timestamp': time.time(),
+            'analysis_duration': time.time() - analysis_start,
+            'budget_usd': self.config.max_budget_usd,
+            'estimations': estimations,
+            'summary': {
+                'total_levels_analyzed': len(estimations),
+                'feasible_levels': feasible_levels,
+                'affordable_levels': affordable_levels,
+                'cost_range': {
+                    'min': min(total_costs),
+                    'max': max(total_costs),
+                    'mean': np.mean(total_costs)
+                }
+            },
+            'recommendations': recommendations,
+            'sampler_info': {
+                'simulator_available': self.sim_sampler is not None,
+                'qpu_configured': self.config.use_real_qpu,
+                'qpu_available': self.qpu_sampler is not None
+            }
+        }
+        
+        # Log summary
+        self.logger.info(f"Analysis complete: {len(feasible_levels)}/{len(estimations)} levels feasible, "
+                        f"{len(affordable_levels)} affordable within ${self.config.max_budget_usd}")
+        
+        return report
+
     def _get_performance_metrics(self) -> Dict[str, Any]:
         """Get current performance metrics."""
         return {
@@ -578,6 +936,8 @@ class DWaveQPUAdapter:
             'total_chain_breaks': self.metrics['chain_breaks'],
             'avg_problem_size': np.mean(self.metrics['problem_sizes']) if self.metrics['problem_sizes'] else 0,
             'avg_energy': np.mean(self.metrics['energies']) if self.metrics['energies'] else 0,
+            'total_estimated_cost': sum(self.metrics['cost_estimates']),
+            'avg_estimated_cost': np.mean(self.metrics['cost_estimates']) if self.metrics['cost_estimates'] else 0,
             'sampler_type': type(self.active_sampler).__name__ if self.active_sampler else 'None'
         }
     
@@ -592,7 +952,9 @@ class DWaveQPUAdapter:
             'embedding_retries': 0,
             'problem_sizes': [],
             'energies': [],
-            'num_occurrences': []
+            'num_occurrences': [],
+            'cost_estimates': [],
+            'actual_costs': []
         }
         self.logger.info("Performance metrics reset")
     
@@ -709,6 +1071,52 @@ def create_dwave_food_optimizer(optimizer: Any,
         logger = logging.getLogger(__name__)
     
     return DWaveQPUAdapter(config=dwave_config, logger=logger)
+
+
+def get_free_dwave_analysis(max_budget_usd: float = 100.0,
+                           use_real_qpu: bool = False,
+                           logger: Optional[logging.Logger] = None) -> Dict[str, Any]:
+    """
+    Get a complete free analysis of D-Wave capabilities for different complexity levels.
+    
+    Args:
+        max_budget_usd: Maximum budget for QPU usage
+        use_real_qpu: Whether to configure for real QPU (still won't use it for estimation)
+        logger: Logger instance
+        
+    Returns:
+        Comprehensive analysis report
+    """
+    config = DWaveConfig(
+        use_real_qpu=use_real_qpu,
+        max_budget_usd=max_budget_usd,
+        estimate_cost_only=False  # Allow full analysis
+    )
+    
+    adapter = DWaveQPUAdapter(config=config, logger=logger)
+    return adapter.run_free_complexity_analysis()
+
+
+def estimate_dwave_cost_for_problem(num_farms: int,
+                                   num_foods: int,
+                                   num_reads: int = 1000,
+                                   budget_usd: float = 100.0) -> Dict[str, Any]:
+    """
+    Estimate D-Wave cost for a specific problem size.
+    
+    Args:
+        num_farms: Number of farms
+        num_foods: Number of food types
+        num_reads: Number of annealing cycles
+        budget_usd: Available budget
+        
+    Returns:
+        Cost estimation and recommendations
+    """
+    config = DWaveConfig(num_reads=num_reads, max_budget_usd=budget_usd)
+    adapter = DWaveQPUAdapter(config=config)
+    
+    return adapter.get_complexity_recommendation(num_farms, num_foods, budget_usd)
 
 
 # Example usage and testing
