@@ -1,0 +1,205 @@
+{
+  "timestamp": "2025-06-16T15:44:12.077663",
+  "test_summary": {
+    "simple_problem": true,
+    "cpu_solver": true,
+    "hybrid_solver": false,
+    "complexity_tests": true,
+    "full_scenario": true,
+    "scaling_analysis": true
+  },
+  "simple_problem": {
+    "farms": [
+      "Farm_A",
+      "Farm_B"
+    ],
+    "foods": {
+      "Wheat": {
+        "nutritional_value": 0.7,
+        "nutrient_density": 0.6,
+        "affordability": 0.9,
+        "sustainability": 0.8,
+        "environmental_impact": 0.3,
+        "calories_per_kg": 3000,
+        "protein_g_per_kg": 120,
+        "cost_per_kg": 2.5
+      },
+      "Corn": {
+        "nutritional_value": 0.6,
+        "nutrient_density": 0.5,
+        "affordability": 0.8,
+        "sustainability": 0.7,
+        "environmental_impact": 0.4,
+        "calories_per_kg": 3600,
+        "protein_g_per_kg": 90,
+        "cost_per_kg": 3.0
+      },
+      "Beans": {
+        "nutritional_value": 0.9,
+        "nutrient_density": 0.8,
+        "affordability": 0.7,
+        "sustainability": 0.9,
+        "environmental_impact": 0.2,
+        "calories_per_kg": 1400,
+        "protein_g_per_kg": 220,
+        "cost_per_kg": 4.0
+      }
+    },
+    "food_groups": {
+      "grains": [
+        "Wheat",
+        "Corn"
+      ],
+      "legumes": [
+        "Beans"
+      ]
+    },
+    "config": {
+      "land_availability": {
+        "Farm_A": 100,
+        "Farm_B": 80
+      },
+      "min_production": {
+        "Wheat": 50,
+        "Corn": 30,
+        "Beans": 20
+      },
+      "max_production": {
+        "Wheat": 200,
+        "Corn": 150,
+        "Beans": 100
+      },
+      "weights": {
+        "nutritional_value": 0.25,
+        "nutrient_density": 0.2,
+        "affordability": 0.2,
+        "sustainability": 0.2,
+        "environmental_impact": 0.15
+      }
+    },
+    "complexity": "micro",
+    "description": "Simple 2-farm, 3-crop test case for D-Wave validation"
+  },
+  "complexity_results": {
+    "micro": {
+      "energy": -2.6740058820059054,
+      "solve_time": 3.3782811164855957,
+      "estimation": "CostEstimation(complexity_level='micro', num_variables=6, estimated_qubits=6, estimated_qpu_time_us=484800.0, estimated_cost_usd=1.212, num_reads=200, is_feasible=True, warnings=[], recommendations=['Small problem - classical solvers may be faster'])",
+      "success": true
+    },
+    "tiny": {
+      "energy": -2.6740058820059054,
+      "solve_time": 3.390974760055542,
+      "estimation": "CostEstimation(complexity_level='tiny', num_variables=6, estimated_qubits=6, estimated_qpu_time_us=484800.0, estimated_cost_usd=1.212, num_reads=200, is_feasible=True, warnings=[], recommendations=['Small problem - classical solvers may be faster'])",
+      "success": true
+    },
+    "small": {
+      "energy": -17.54495070354421,
+      "solve_time": 110.85396552085876,
+      "estimation": "CostEstimation(complexity_level='small', num_variables=40, estimated_qubits=40, estimated_qpu_time_us=484800.0, estimated_cost_usd=1.212, num_reads=200, is_feasible=True, warnings=[], recommendations=['Small problem - classical solvers may be faster'])",
+      "success": true
+    }
+  },
+  "full_scenario": {
+    "estimation": "CostEstimation(complexity_level='full', num_variables=50, estimated_qubits=50, estimated_qpu_time_us=1212000.0, estimated_cost_usd=3.03, num_reads=500, is_feasible=True, warnings=[], recommendations=['Good candidate for quantum annealing'])",
+    "skipped": true,
+    "reason": "cost_or_feasibility"
+  },
+  "scaling_analysis": {
+    "simple": {
+      "benchmark_results": [
+        [
+          2,
+          0.10602331161499023
+        ],
+        [
+          4,
+          0.23276948928833008
+        ],
+        [
+          8,
+          0.6586945056915283
+        ],
+        [
+          12,
+          1.257270336151123
+        ]
+      ],
+      "exponent": 1.3858294082626166,
+      "intercept": 0.03784037434913477,
+      "full_size": 18,
+      "predicted_time": 2.077538004588815,
+      "estimated_cost": 0.0,
+      "plot_path": "g:\\Il mio Drive\\OQI_Project\\Results\\dwave_scaling_analysis_1750081418.png",
+      "sampler_type": "SimulatedAnnealingSampler"
+    },
+    "intermediate": {
+      "benchmark_results": [
+        [
+          2,
+          0.11721467971801758
+        ],
+        [
+          4,
+          0.23905420303344727
+        ],
+        [
+          8,
+          0.9602177143096924
+        ],
+        [
+          12,
+          1.171102523803711
+        ]
+      ],
+      "exponent": 1.3830414995633449,
+      "intercept": 0.042361095002958045,
+      "full_size": 18,
+      "predicted_time": 2.307071985266998,
+      "estimated_cost": 0.0,
+      "plot_path": "g:\\Il mio Drive\\OQI_Project\\Results\\dwave_scaling_analysis_1750081434.png",
+      "sampler_type": "SimulatedAnnealingSampler"
+    },
+    "full": {
+      "benchmark_results": [
+        [
+          4,
+          0.24205446243286133
+        ],
+        [
+          12,
+          0.9565155506134033
+        ],
+        [
+          24,
+          2.6928629875183105
+        ],
+        [
+          36,
+          5.828208684921265
+        ]
+      ],
+      "exponent": 1.426722399167786,
+      "intercept": 0.03111895495324638,
+      "full_size": 50,
+      "predicted_time": 8.260066897527201,
+      "estimated_cost": 0.0,
+      "plot_path": "g:\\Il mio Drive\\OQI_Project\\Results\\dwave_scaling_analysis_1750081447.png",
+      "sampler_type": "SimulatedAnnealingSampler"
+    }
+  },
+  "recommendations": [
+    "\u2713 CPU solver (SimulatedAnnealing) is working - safe fallback available",
+    "\u26a0\ufe0f  Hybrid solver not available - check Leap access",
+    "\u2713 Best performing scenario: simple (2.078s predicted)",
+    "\ud83d\udcb0 Total estimated cost for all scenarios: $0.0000"
+  ],
+  "business_summary": {
+    "recommended_scenario": "simple",
+    "budget_estimate": 100,
+    "scaling_outlook": "Excellent - Polynomial scaling suitable for larger problems",
+    "fastest_solve_time": 2.077538004588815,
+    "total_scenarios_tested": 3,
+    "feasibility_rating": "High"
+  }
+}

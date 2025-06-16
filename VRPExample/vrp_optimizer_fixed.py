@@ -227,7 +227,6 @@ class VRPQuantumOptimizer:
             # Simple capacity check
             current_passengers = sum(1 for loc in routes[vehicle_id] if loc.startswith("pickup")) - \
                                sum(1 for loc in routes[vehicle_id] if loc.startswith("dropoff"))
-            
             if current_passengers + request.passengers <= self.instance.vehicles[vehicle_id].capacity:
                 routes[vehicle_id].append(request.pickup_location)
                 routes[vehicle_id].append(request.dropoff_location)
@@ -244,7 +243,7 @@ class VRPQuantumOptimizer:
         return routes
 
     def optimize_with_pyvrp_classical(self) -> VRPResult:
-        """Optimize VRP using pyVRP - exactly matching debug scenario approach."""
+        """Optimize VRP using pyVRP with proper ride pooling constraint handling."""
         if not PYVRP_AVAILABLE:
             self.logger.error("pyVRP not available for classical benchmarking")
             return VRPResult(
@@ -255,37 +254,91 @@ class VRPQuantumOptimizer:
                 runtime=0.0
             )
         
+        # Check if this is a ride pooling scenario
+        is_ride_pooling = bool(self.instance.ride_requests)
+        if is_ride_pooling:
+            self.logger.warning("pyVRP does not natively support ride pooling constraints")
+            self.logger.warning("Using simplified approach: treating ride requests as delivery pairs")
+        
         self.logger.info("Starting VRP optimization with pyVRP classical solver")
         start_time = time.time()
         
         try:
-            # Use the direct Model API approach exactly like debug scenario
+            # Use the direct Model API approach
             m = Model()
             
             # Get vehicle capacity from the first vehicle
             vehicle_capacity = list(self.instance.vehicles.values())[0].capacity
             
-            # Add vehicle type
-            m.add_vehicle_type(len(self.instance.vehicles), capacity=vehicle_capacity)
+            # For ride pooling, we need more vehicles due to the pairing constraints
+            num_vehicles = len(self.instance.vehicles)
+            if is_ride_pooling:
+                # Increase vehicle count for ride pooling since pyVRP can't enforce pairing
+                num_vehicles = min(num_vehicles, len(self.instance.ride_requests))
+                self.logger.info(f"Ride pooling mode: limiting to {num_vehicles} vehicles for {len(self.instance.ride_requests)} ride requests")
             
-            # Add depot
+            # Add vehicle type
+            m.add_vehicle_type(num_vehicles, capacity=vehicle_capacity)
+            
+            # Add depot(s)
             depot_locations = [loc_id for loc_id in self.instance.location_ids if loc_id.startswith("depot")]
-            depot_id = depot_locations[0] if depot_locations else self.instance.location_ids[0]
+            if not depot_locations:
+                depot_locations = [self.instance.location_ids[0]]  # Fallback to first location
+            
+            depot_id = depot_locations[0]  # Use first depot for pyVRP
             depot_location = self.instance.locations[depot_id]
             depot = m.add_depot(x=int(depot_location.x), y=int(depot_location.y))
             
-            # Add clients (non-depot locations)
-            client_locations = [loc_id for loc_id in self.instance.location_ids if not loc_id.startswith("depot")]
-            clients = []
-            for loc_id in client_locations:
-                location = self.instance.locations[loc_id]
-                demand = getattr(location, 'demand', 1)
-                client = m.add_client(
-                    x=int(location.x),
-                    y=int(location.y),
-                    delivery=demand if demand > 0 else 0
-                )
-                clients.append(client)
+            # Handle ride pooling scenarios differently
+            if is_ride_pooling:
+                # For ride pooling: add pickup-dropoff pairs as precedence constraints
+                clients = []
+                client_locations = []
+                
+                for request in self.instance.ride_requests:
+                    pickup_loc = self.instance.locations[request.pickup_location]
+                    dropoff_loc = self.instance.locations[request.dropoff_location]
+                    
+                    # Add pickup as client with positive demand (passengers get on)
+                    pickup_client = m.add_client(
+                        x=int(pickup_loc.x),
+                        y=int(pickup_loc.y),
+                        delivery=0,  # No delivery at pickup
+                        pickup=request.passengers  # Pickup passengers
+                    )
+                    clients.append(pickup_client)
+                    client_locations.append(request.pickup_location)
+                    
+                    # Add dropoff as client with negative demand (passengers get off)
+                    dropoff_client = m.add_client(
+                        x=int(dropoff_loc.x),
+                        y=int(dropoff_loc.y),
+                        delivery=request.passengers,  # Deliver passengers
+                        pickup=0
+                    )
+                    clients.append(dropoff_client)
+                    client_locations.append(request.dropoff_location)
+                    
+                    # Add precedence constraint: pickup must come before dropoff
+                    try:
+                        m.add_precedence(pickup_client, dropoff_client)
+                    except AttributeError:
+                        # pyVRP version doesn't support precedence constraints
+                        self.logger.warning("pyVRP version doesn't support precedence constraints")
+                        self.logger.warning("Ride pooling constraints cannot be properly enforced")
+            else:
+                # Standard VRP: add all non-depot locations as clients
+                client_locations = [loc_id for loc_id in self.instance.location_ids if not loc_id.startswith("depot")]
+                clients = []
+                for loc_id in client_locations:
+                    location = self.instance.locations[loc_id]
+                    demand = getattr(location, 'demand', 1)
+                    client = m.add_client(
+                        x=int(location.x),
+                        y=int(location.y),
+                        delivery=demand if demand > 0 else 0
+                    )
+                    clients.append(client)
             
             # Add edges with Manhattan distance
             for frm in m.locations:
@@ -316,14 +369,19 @@ class VRPQuantumOptimizer:
             # Convert to our format
             routes = self._convert_model_solution_to_routes(result, client_locations, depot_id)
             metrics = self._calculate_vrp_metrics(routes)
-            
-            # Add pyVRP specific metrics
+              # Add pyVRP specific metrics
             metrics.update({
                 'pyvrp_cost': pyvrp_objective,
                 'pyvrp_num_routes': pyvrp_num_routes,
                 'pyvrp_runtime': runtime,
                 'pyvrp_distance': pyvrp_objective,
             })
+            
+            # Add warning for ride pooling scenarios
+            if is_ride_pooling:
+                metrics['pyvrp_warning'] = "pyVRP constraints not enforced - solution may violate ride pooling requirements"
+                self.logger.warning("pyVRP solution for ride pooling may not respect pickup-dropoff pairing constraints")
+            
             
             obj_value = -pyvrp_objective
             

@@ -450,18 +450,26 @@ def run_scenario_analysis():
                 instance, classical_result,
                 save_path=os.path.join(results_dir, f"{scenario_name}_classical_solution.png")
             )
-            
-            # Create GPS map visualizations for realistic scenarios
+              # Create GPS map visualizations for realistic scenarios
             try:
                 from vrp_map_visualization import create_all_map_visualizations
                 
-                # Create maps for the best solution
-                best_result = min([quantum_result, pyvrp_result, classical_result], 
-                                key=lambda r: r.metrics.get('total_distance', float('inf')))
+                # For ride pooling scenarios, prefer classical solution for maps since pyVRP
+                # doesn't properly enforce ride pooling constraints
+                is_ride_pooling = bool(instance.ride_requests)
+                if is_ride_pooling:
+                    best_result = classical_result
+                    logger.info(f"Using classical solution for {scenario_name} map (ride pooling constraints)")
+                else:
+                    # For non-ride pooling scenarios, use the solution with lowest distance
+                    best_result = min([quantum_result, pyvrp_result, classical_result], 
+                                    key=lambda r: r.metrics.get('total_distance', float('inf')))
+                    logger.info(f"Using best distance solution for {scenario_name} map")
                 
                 map_files = create_all_map_visualizations(instance, best_result, results_dir, scenario_name)
                 if map_files:
                     logger.info(f"Created {len(map_files)} map visualizations for {scenario_name}")
+                
                 
             except ImportError:
                 logger.info("Map visualization dependencies not available. Install folium, contextily, geopandas for GPS maps.")
@@ -474,16 +482,23 @@ def run_scenario_analysis():
                 'classical': classical_result,
                 'instance': instance
             }
-            
-            # Print summary with actual distances
+              # Print summary with actual distances
             quantum_dist = quantum_result.metrics.get('total_distance', 0)
             pyvrp_dist = pyvrp_result.metrics.get('pyvrp_distance', pyvrp_result.metrics.get('total_distance', 0))
             classical_dist = classical_result.metrics.get('total_distance', 0)
             
             logger.info(f"Scenario {scenario_name} completed:")
             logger.info(f"  Quantum - Distance: {quantum_dist:.2f}, Runtime: {quantum_result.runtime:.2f}s")
-            logger.info(f"  pyVRP - Distance: {pyvrp_dist:.2f}, Runtime: {pyvrp_result.runtime:.2f}s, Cost: {pyvrp_result.metrics.get('pyvrp_cost', 0)}")
+            
+            # Add warning for pyVRP if constraints aren't enforced
+            pyvrp_warning = pyvrp_result.metrics.get('pyvrp_warning', '')
+            if pyvrp_warning:
+                logger.info(f"  pyVRP - Distance: {pyvrp_dist:.2f}, Runtime: {pyvrp_result.runtime:.2f}s, Cost: {pyvrp_result.metrics.get('pyvrp_cost', 0)} [WARNING: {pyvrp_warning}]")
+            else:
+                logger.info(f"  pyVRP - Distance: {pyvrp_dist:.2f}, Runtime: {pyvrp_result.runtime:.2f}s, Cost: {pyvrp_result.metrics.get('pyvrp_cost', 0)}")
+            
             logger.info(f"  Classical - Distance: {classical_dist:.2f}, Runtime: {classical_result.runtime:.2f}s")
+            
             
         except Exception as e:
             logger.error(f"Error processing scenario {scenario_name}: {str(e)}")

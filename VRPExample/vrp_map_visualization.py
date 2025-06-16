@@ -29,9 +29,8 @@ class VRPMapVisualizer:
     """Enhanced VRP visualizer with real GPS map backgrounds."""
     
     def __init__(self):
-        self.colors = ['red', 'blue', 'green', 'purple', 'orange', 'darkred', 'lightred', 
-                      'beige', 'darkblue', 'darkgreen', 'cadetblue', 'darkpurple', 'white', 
-                      'pink', 'lightblue', 'lightgreen', 'gray', 'black', 'lightgray']
+        # Generate colors for up to 100 vehicles using HSV color space
+        self.colors = self._generate_vehicle_colors(100)
         
         # Try to import routing service for street-following routes
         try:
@@ -57,14 +56,32 @@ class VRPMapVisualizer:
         except ImportError:
             self.has_routing = False
             logger.warning("Requests not available - using straight lines for routes")
-        
-        # Check for folium plugins availability
+          # Check for folium plugins availability
         try:
             import folium.plugins
             self.has_folium_plugins = True
         except (ImportError, AttributeError):
             self.has_folium_plugins = False
             logger.warning("Folium plugins not available - using simplified routes")
+    
+    def _generate_vehicle_colors(self, n):
+        """Generate n visually distinct colors using matplotlib's tab20, tab20b, and tab20c colormaps."""
+        import matplotlib.pyplot as plt
+        import matplotlib.colors as mcolors
+        import numpy as np
+        # Try to use tab20, tab20b, tab20c for up to 60, then fall back to hsv
+        base_maps = [plt.get_cmap('tab20'), plt.get_cmap('tab20b'), plt.get_cmap('tab20c')]
+        colors = []
+        for cmap in base_maps:
+            for i in range(cmap.N):
+                colors.append(mcolors.rgb2hex(cmap(i)))
+                if len(colors) >= n:
+                    return colors[:n]
+        # If more colors needed, use HSV
+        if len(colors) < n:
+            hsv_colors = [mcolors.rgb2hex(plt.cm.hsv(i / n)) for i in range(n - len(colors))]
+            colors.extend(hsv_colors)
+        return colors[:n]
     
     def _get_street_route(self, start_coords, end_coords):
         """Get actual street route between two points using OSRM."""
@@ -171,17 +188,55 @@ class VRPMapVisualizer:
                     location=[location.lat, location.lon],
                     popup=popup_text,
                     tooltip=f"Depot: {loc_id}",
-                    icon=folium.Icon(color='red', icon='home', prefix='fa')
-                ).add_to(m)
+                    icon=folium.Icon(color='red', icon='home', prefix='fa')                ).add_to(m)
         
         # Add customer markers and routes with street following
-        route_colors = ['blue', 'green', 'purple', 'orange', 'darkred']
+        route_colors = ['blue', 'green', 'purple', 'orange', 'darkred', 'black', 'gray', 'pink', 'lightblue', 'lightgreen']
+          # Store route information for legend
+        route_info = {}
         
         for i, (vehicle_id, route) in enumerate(result.routes.items()):
             if len(route) <= 2:  # Skip empty routes
                 continue
                 
             color = route_colors[i % len(route_colors)]
+            
+            # Calculate route metrics for legend
+            route_distance = 0
+            route_time = 0
+            customer_count = len([loc for loc in route if not loc.startswith("depot")])
+            
+            # Calculate distance and time if available
+            if hasattr(result, 'route_metrics') and vehicle_id in result.route_metrics:
+                route_metrics = result.route_metrics[vehicle_id]
+                route_distance = route_metrics.get('distance', 0)
+                route_time = route_metrics.get('time', 0)
+            else:
+                # Fallback: estimate from locations if coordinates available
+                for j in range(len(route) - 1):
+                    start_loc = instance.locations.get(route[j])
+                    end_loc = instance.locations.get(route[j + 1])
+                    if (start_loc and end_loc and 
+                        hasattr(start_loc, 'lat') and hasattr(start_loc, 'lon') and
+                        hasattr(end_loc, 'lat') and hasattr(end_loc, 'lon')):
+                        # Simple Haversine distance approximation
+                        import math
+                        lat1, lon1 = math.radians(start_loc.lat), math.radians(start_loc.lon)
+                        lat2, lon2 = math.radians(end_loc.lat), math.radians(end_loc.lon)
+                        dlat, dlon = lat2 - lat1, lon2 - lon1
+                        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+                        distance = 6371 * 2 * math.asin(math.sqrt(a))  # Earth radius in km
+                        route_distance += distance
+                        route_time += distance / 50 * 3600  # Assume 50 km/h average speed for time estimate
+            
+            # Store route information for legend
+            route_info[vehicle_id] = {
+                'color': color,
+                'distance': route_distance,
+                'time': route_time,
+                'customers': customer_count,
+                'route_sequence': route
+            }
             
             # Add customer markers first
             for j, loc_id in enumerate(route):
@@ -237,16 +292,17 @@ class VRPMapVisualizer:
                     leg_route = self._get_street_route(start_coords, end_coords)
                     all_route_segments.append((leg_route, f"Route: {route[j]} → {route[j+1]}"))
             
-            # Add route segments to map
+            # Add route segments to map with unique IDs for highlighting
             for segment, popup_text in all_route_segments:
                 try:
-                    # Each segment is its own polyline
+                    # Each segment is its own polyline with vehicle-specific class
                     folium.PolyLine(
                         locations=segment,
                         color=color,
                         weight=4,
                         opacity=0.8,
-                        popup=popup_text
+                        popup=popup_text,
+                        className=f'route-{vehicle_id}'  # Add class for JavaScript targeting
                     ).add_to(m)
                     
                     # Add direction arrow at the end of each segment if plugins available
@@ -276,21 +332,186 @@ class VRPMapVisualizer:
         # Add layer control
         folium.LayerControl().add_to(m)
         
+        # Create color-coded legend for vehicles with interactive functionality
+        legend_html = '''
+        <div style="position: fixed; 
+                    bottom: 50px; left: 50px; width: 300px; height: auto; max-height: 400px;
+                    background-color: white; border:2px solid grey; z-index:9999; 
+                    font-size:14px; padding: 10px;
+                    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+                    border-radius: 5px;
+                    overflow-y: auto; overflow-x: hidden;
+                    "><h4 style="margin-top:0; margin-bottom:10px;">Vehicle Routes Legend</h4>
+        <div style="max-height: 320px; overflow-y: auto; overflow-x: hidden; padding-right: 5px;">
+        '''
+        
+        # Add each vehicle's information to the legend with click handlers
+        for vehicle_id, info in route_info.items():
+            time_hours = info['time'] / 3600 if info['time'] > 0 else 0
+            hours = int(time_hours)
+            minutes = int((time_hours - hours) * 60)
+            time_str = f"{hours}h {minutes}m" if time_hours > 0 else "N/A"
+            
+            legend_html += f'''
+            <div class="legend-item" data-vehicle="{vehicle_id}" 
+                 style="margin-bottom: 8px; padding: 5px; border-radius: 3px; cursor: pointer; 
+                        transition: background-color 0.3s;" 
+                 onmouseover="this.style.backgroundColor='#f0f0f0'" 
+                 onmouseout="this.style.backgroundColor='white'"
+                 onclick="toggleRouteHighlight('{vehicle_id}', '{info['color']}')">
+                <span style="display: inline-block; width: 20px; height: 20px; 
+                           background-color: {info['color']}; margin-right: 8px; 
+                           border: 1px solid #000; vertical-align: middle;"></span>
+                <strong>{vehicle_id}</strong><br>
+                <span style="margin-left: 28px; font-size: 12px;">
+                    📍 {info['customers']} customers<br>
+                    📏 {info['distance']:.1f} km<br>
+                    ⏱️ {time_str}<br>
+                </span>
+            </div>
+            '''
+        
+        # Close the scrollable content div and add total runtime
+        legend_html += '''
+        </div>
+        <hr style="margin: 10px 0;">
+        <div style="font-size: 12px; text-align: center;">
+            <strong>Total Runtime: ''' + f"{result.runtime * 1000:.1f}ms" + '''</strong>
+        </div>
+        <div style="font-size: 11px; text-align: center; color: #666; margin-top: 5px;">
+            <em>Click vehicle names to highlight routes</em>
+        </div>
+        </div>
+        '''
+        
+        # Add JavaScript for route highlighting
+        javascript_code = '''
+        <script>
+        var highlightedVehicle = null;
+        var originalStyles = {};
+        
+        function toggleRouteHighlight(vehicleId, vehicleColor) {
+            // Get all route elements
+            var allRoutes = document.querySelectorAll('path[stroke]');
+            
+            // If clicking the same vehicle, toggle off
+            if (highlightedVehicle === vehicleId) {
+                resetAllRoutes();
+                highlightedVehicle = null;
+                updateLegendStyles();
+                return;
+            }
+            
+            // Store original styles if first time
+            if (Object.keys(originalStyles).length === 0) {
+                allRoutes.forEach(function(route) {
+                    var stroke = route.getAttribute('stroke');
+                    var strokeWidth = route.getAttribute('stroke-width');
+                    var strokeOpacity = route.getAttribute('stroke-opacity');
+                    originalStyles[route] = {
+                        stroke: stroke,
+                        strokeWidth: strokeWidth,
+                        strokeOpacity: strokeOpacity
+                    };
+                });
+            }
+            
+            // Reset all routes to dimmed state
+            allRoutes.forEach(function(route) {
+                route.setAttribute('stroke-opacity', '0.2');
+                route.setAttribute('stroke-width', '2');
+            });
+            
+            // Highlight selected vehicle's routes
+            allRoutes.forEach(function(route) {
+                var stroke = route.getAttribute('stroke');
+                if (stroke === vehicleColor) {
+                    route.setAttribute('stroke-opacity', '1.0');
+                    route.setAttribute('stroke-width', '6');
+                    route.style.zIndex = '1000';
+                }
+            });
+            
+            highlightedVehicle = vehicleId;
+            updateLegendStyles();
+        }
+        
+        function resetAllRoutes() {
+            var allRoutes = document.querySelectorAll('path[stroke]');
+            allRoutes.forEach(function(route) {
+                if (originalStyles[route]) {
+                    route.setAttribute('stroke', originalStyles[route].stroke);
+                    route.setAttribute('stroke-width', originalStyles[route].strokeWidth);
+                    route.setAttribute('stroke-opacity', originalStyles[route].strokeOpacity);
+                    route.style.zIndex = '';
+                }
+            });
+        }
+        
+        function updateLegendStyles() {
+            var legendItems = document.querySelectorAll('.legend-item');
+            legendItems.forEach(function(item) {
+                var vehicleId = item.getAttribute('data-vehicle');
+                if (highlightedVehicle === vehicleId) {
+                    item.style.backgroundColor = '#e6f3ff';
+                    item.style.border = '2px solid #007acc';
+                    item.style.fontWeight = 'bold';
+                } else if (highlightedVehicle !== null) {
+                    item.style.backgroundColor = '#f5f5f5';
+                    item.style.border = '1px solid #ccc';
+                    item.style.opacity = '0.6';
+                    item.style.fontWeight = 'normal';
+                } else {
+                    item.style.backgroundColor = 'white';
+                    item.style.border = 'none';
+                    item.style.opacity = '1.0';
+                    item.style.fontWeight = 'normal';
+                }
+            });
+        }
+        
+        // Add double-click to reset
+        document.addEventListener('dblclick', function() {
+            if (highlightedVehicle !== null) {
+                resetAllRoutes();
+                highlightedVehicle = null;
+                updateLegendStyles();
+            }
+        });
+        </script>
+        '''
+        
+        # Add legend and JavaScript to map
+        m.get_root().html.add_child(folium.Element(legend_html))
+        m.get_root().html.add_child(folium.Element(javascript_code))
+        
         # Add map title with routing info and time estimates
         routing_info = "Routes follow actual streets using OSRM routing" if self.has_routing else "Routes use straight lines"
         
-        # Format time if available
+        # Calculate total time from route info
+        total_route_time = sum(info['time'] for info in route_info.values())
+        total_route_distance = sum(info['distance'] for info in route_info.values())
+        
+        # Format total route time
         time_info = ""
-        if 'total_time' in result.metrics and result.metrics['total_time'] > 0:
+        if total_route_time > 0:
+            time_hours = total_route_time / 3600
+            hours = int(time_hours)
+            minutes = int((time_hours - hours) * 60)
+            time_info = f" | Total Travel Time: {hours}h {minutes}m"
+        elif 'total_time' in result.metrics and result.metrics['total_time'] > 0:
             time_hours = result.metrics['total_time'] / 3600
             hours = int(time_hours)
             minutes = int((time_hours - hours) * 60)
             time_info = f" | Time-on-Route: {hours}h {minutes}m"
         
+        # Use calculated distance if available, otherwise fall back to metrics
+        display_distance = total_route_distance if total_route_distance > 0 else result.metrics.get("total_distance", 0)
+        
         title_html = f'''
         <h3 align="center" style="font-size:16px"><b>VRP Solution: {instance.name}</b></h3>
-        <p align="center">Distance: {result.metrics.get("total_distance", 0):.2f} | 
-        Vehicles: {result.metrics.get("vehicles_used", 0)}{time_info} | 
+        <p align="center">Total Distance: {display_distance:.2f} km | 
+        Active Vehicles: {len(route_info)}{time_info} | 
         Runtime: {result.runtime:.2f}s</p>
         <p align="center" style="font-size:12px">
         <i>{routing_info}</i></p>
@@ -638,5 +859,7 @@ def enhance_existing_plot_with_gps_info(instance, save_path: str):
                     f.write(f"{loc_id}: {maps_url}\n")
         
         return gps_info_path
+    
+    return None
     
     return None
