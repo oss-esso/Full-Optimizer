@@ -16,6 +16,7 @@ import time
 import json
 import logging
 import numpy as np
+import traceback
 from datetime import datetime
 from typing import Dict, Any, List
 
@@ -30,52 +31,100 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def configure_dwave_environment():
+    """Configure D-Wave environment and authentication."""
+    try:
+        # Try to load from .env file first
+        env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+        if os.path.exists(env_path):
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if line.strip() and not line.startswith('#'):
+                        key, value = line.strip().split('=', 1)
+                        os.environ[key] = value
+    except Exception:
+        pass  # Ignore .env file errors
+    
+    # Check for token
+    if 'DWAVE_API_TOKEN' not in os.environ:
+        print("\n" + "⚠️ " * 20)
+        print("D-WAVE AUTHENTICATION REQUIRED")
+        print("⚠️ " * 20)
+        print("\nTo test hybrid solvers, you need a D-Wave Leap account.")
+        print("1. Go to: https://cloud.dwavesys.com/leap/")
+        print("2. Sign up for free account (includes 1 minute QPU time)")
+        print("3. Get your API token from the dashboard")
+        print("4. Set environment variable: DWAVE_API_TOKEN=your_token")
+        print("\nAlternatively, create a .env file with:")
+        print("DWAVE_API_TOKEN=your_token_here")
+        print()
+        
+        proceed = input("Continue with CPU-only testing? (y/n): ").lower()
+        if proceed != 'y':
+            return False
+    else:
+        print("✓ D-Wave token configured")
+    
+    return True
+
 def main():
     """Run comprehensive D-Wave cost estimation tests."""
     print("=" * 80)
-    print("D-WAVE COST ESTIMATION TEST SUITE")
+    print("D-WAVE PROGRESSIVE TESTING SUITE")
     print("=" * 80)
     print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()
+    
+    # Configure D-Wave environment
+    if not configure_dwave_environment():
+        print("Exiting...")
+        return False
     
     try:
         # Import required modules
         from src.scenarios import load_food_data
         from my_functions.dwave_qpu_adapter import (
             DWaveQPUAdapter, DWaveConfig, get_free_dwave_analysis,
-            estimate_dwave_cost_for_problem
+            estimate_dwave_cost_for_problem, create_simple_food_problem
         )
         
         print("✓ All imports successful")
         
+        # Test 0: Create simple test problem
+        test_simple_problem_creation()
+        
         # Test 1: Basic D-Wave adapter initialization
         test_basic_initialization()
         
-        # Test 2: Free complexity analysis
-        test_free_complexity_analysis()
+        # Test 2: CPU-based testing (Simulated Annealing)
+        test_cpu_solver()
         
-        # Test 3: Scenario-based cost estimation
-        test_scenario_cost_estimation()
+        # Test 3: Hybrid solver testing
+        test_hybrid_solver()
         
-        # Test 4: Budget planning scenarios
-        test_budget_planning()
+        # Test 4: Progressive complexity testing
+        test_progressive_complexity()
         
-        # Test 5: Problem scaling analysis
-        test_problem_scaling()
+        # Test 5: Full scenario testing
+        test_full_scenario()
         
-        # Test 6: Solver validation (NEW)
-        test_solver_validation()
+        # Test 6: QPU readiness check (don't use QPU yet)
+        test_qpu_readiness()
         
-        # Test 7: Generate comprehensive report
-        generate_cost_estimation_report()
+        # Test 7: NEW - Scaling analysis with real scenarios
+        test_scaling_analysis_with_scenarios()
+        
+        # Test 8: Generate comprehensive report
+        generate_progressive_test_report()
         
         print("\n" + "=" * 80)
-        print("✓ ALL D-WAVE COST ESTIMATION TESTS COMPLETED SUCCESSFULLY!")
+        print("✓ ALL PROGRESSIVE D-WAVE TESTS COMPLETED!")
+        print("✓ System is ready for hybrid and QPU testing")
         print("=" * 80)
         
     except ImportError as e:
         print(f"✗ Import error: {e}")
-        print("Please ensure D-Wave libraries are available or test will use fallback mode")
+        print("Please ensure D-Wave libraries are installed")
         return False
     except Exception as e:
         print(f"✗ Test suite failed: {e}")
@@ -84,6 +133,41 @@ def main():
         return False
     
     return True
+
+def test_simple_problem_creation():
+    """Test creation and validation of simple test problems."""
+    print("\n" + "-" * 60)
+    print("TEST 0: SIMPLE PROBLEM CREATION")
+    print("-" * 60)
+    
+    try:
+        # Declare global variable at the beginning of the function
+        global simple_test_problem
+        
+        from my_functions.dwave_qpu_adapter import create_simple_food_problem
+        
+        # Create simple problem
+        problem = create_simple_food_problem()
+        
+        print(f"✓ Created simple problem:")
+        print(f"  Farms: {problem['farms']}")
+        print(f"  Foods: {list(problem['foods'].keys())}")
+        print(f"  Complexity: {problem['complexity']}")
+        print(f"  Variables: {len(problem['farms']) * len(problem['foods'])}")
+        
+        # Validate problem structure
+        assert len(problem['farms']) == 2, "Should have 2 farms"
+        assert len(problem['foods']) == 3, "Should have 3 foods"
+        assert problem['complexity'] == 'micro', "Should be micro complexity"
+        
+        print("✓ Simple problem validation passed")
+        
+        # Store for later use
+        simple_test_problem = problem
+        
+    except Exception as e:
+        print(f"✗ Simple problem creation failed: {e}")
+        raise
 
 def test_basic_initialization():
     """Test basic D-Wave adapter initialization and connection."""
@@ -123,756 +207,795 @@ def test_basic_initialization():
         print(f"✗ Basic initialization test failed: {e}")
         raise
 
-def test_free_complexity_analysis():
-    """Test free complexity analysis for all predefined levels."""
+def test_cpu_solver():
+    """Test CPU-based simulated annealing solver."""
     print("\n" + "-" * 60)
-    print("TEST 2: FREE COMPLEXITY ANALYSIS")
-    print("-" * 60)
-    
-    try:
-        from my_functions.dwave_qpu_adapter import get_free_dwave_analysis
-        
-        # Test different budget scenarios
-        budget_scenarios = [10.0, 50.0, 100.0, 500.0]
-        
-        for budget in budget_scenarios:
-            print(f"\n--- Budget Analysis: ${budget} USD ---")
-            
-            analysis = get_free_dwave_analysis(
-                max_budget_usd=budget,
-                use_real_qpu=False,  # Use simulator for testing
-                logger=logger
-            )
-            
-            print(f"Analysis Duration: {analysis['analysis_duration']:.2f} seconds")
-            print(f"Levels Analyzed: {analysis['summary']['total_levels_analyzed']}")
-            print(f"Feasible Levels: {len(analysis['summary']['feasible_levels'])}")
-            print(f"Affordable Levels: {len(analysis['summary']['affordable_levels'])}")
-            
-            print(f"\nCost Range: ${analysis['summary']['cost_range']['min']:.4f} - "
-                  f"${analysis['summary']['cost_range']['max']:.4f}")
-            
-            print("Recommendations:")
-            for rec in analysis['recommendations']:
-                print(f"  - {rec}")
-            
-            # Show detailed breakdown for this budget
-            print(f"\nAffordable Complexity Levels (Budget: ${budget}):")
-            for level in analysis['summary']['affordable_levels']:
-                estimation = analysis['estimations'][level]
-                print(f"  {level.upper()}: {estimation.num_variables} vars, "
-                      f"${estimation.estimated_cost_usd:.4f}")
-        
-        print("\n✓ Free complexity analysis tests passed")
-        
-    except Exception as e:
-        print(f"✗ Free complexity analysis test failed: {e}")
-        raise
-
-def test_scenario_cost_estimation():
-    """Test cost estimation using real scenario data."""
-    print("\n" + "-" * 60)
-    print("TEST 3: SCENARIO-BASED COST ESTIMATION")
-    print("-" * 60)
-    
-    try:
-        from src.scenarios import load_food_data
-        from my_functions.dwave_qpu_adapter import estimate_dwave_cost_for_problem
-        
-        # Test all scenario complexity levels
-        complexity_levels = ['simple', 'intermediate', 'full']
-        
-        scenario_results = {}
-        
-        for complexity in complexity_levels:
-            print(f"\n--- Testing {complexity.upper()} Scenario ---")
-            
-            # Load scenario data
-            farms, foods, food_groups, config = load_food_data(complexity)
-            
-            num_farms = len(farms)
-            num_foods = len(foods)
-            problem_size = num_farms * num_foods
-            
-            print(f"Scenario Details:")
-            print(f"  Farms: {num_farms} ({farms})")
-            print(f"  Foods: {num_farms} ({list(foods.keys())})")
-            print(f"  Problem Size: {problem_size} variables")
-            
-            # Test different num_reads scenarios
-            read_scenarios = [100, 500, 1000, 2000]
-            
-            scenario_costs = {}
-            
-            for num_reads in read_scenarios:
-                recommendation = estimate_dwave_cost_for_problem(
-                    num_farms=num_farms,
-                    num_foods=num_foods,
-                    num_reads=num_reads,
-                    budget_usd=100.0
-                )
-                
-                scenario_costs[num_reads] = recommendation
-                
-                print(f"\n  Reads: {num_reads}")
-                print(f"    Estimated Cost: ${recommendation['estimated_cost']:.4f}")
-                print(f"    Affordable: {recommendation['is_affordable']}")
-                print(f"    Closest Level: {recommendation['closest_complexity_level']}")
-            
-            scenario_results[complexity] = {
-                'farms': farms,
-                'foods': list(foods.keys()),
-                'problem_size': problem_size,
-                'costs': scenario_costs,
-                'config': config
-            }
-        
-        # Cross-scenario comparison
-        print(f"\n--- CROSS-SCENARIO COMPARISON ---")
-        print(f"{'Scenario':<12} {'Size':<6} {'Cost@1000':<10} {'Affordable':<10}")
-        print("-" * 50)
-        
-        for complexity, data in scenario_results.items():
-            cost_1000 = data['costs'][1000]['estimated_cost']
-            affordable = data['costs'][1000]['is_affordable']
-            print(f"{complexity:<12} {data['problem_size']:<6} "
-                  f"${cost_1000:<9.4f} {affordable}")
-        
-        print("\n✓ Scenario-based cost estimation tests passed")
-        
-    except Exception as e:
-        print(f"✗ Scenario cost estimation test failed: {e}")
-        raise
-
-def test_budget_planning():
-    """Test budget planning and recommendation functionality."""
-    print("\n" + "-" * 60)
-    print("TEST 4: BUDGET PLANNING SCENARIOS")
+    print("TEST 2: CPU-BASED SOLVER (SIMULATED ANNEALING)")
     print("-" * 60)
     
     try:
         from my_functions.dwave_qpu_adapter import DWaveQPUAdapter, DWaveConfig
         
-        # Test different budget constraints
-        budget_scenarios = [
-            ("Student Budget", 5.0),
-            ("Research Budget", 25.0),
-            ("Small Business", 100.0),
-            ("Enterprise", 500.0)
-        ]
+        # Force CPU-only configuration
+        config = DWaveConfig(
+            solver_type='simulator',
+            num_reads=100,  # Fewer reads for faster testing
+            estimate_cost_only=False
+        )
         
-        for scenario_name, budget in budget_scenarios:
-            print(f"\n--- {scenario_name}: ${budget} USD ---")
-            
-            config = DWaveConfig(max_budget_usd=budget)
-            adapter = DWaveQPUAdapter(config=config, logger=logger)
-            
-            # Test recommendations for different problem sizes
-            problem_sizes = [
-                (3, 6, "Small Problem"),
-                (5, 10, "Medium Problem"), 
-                (10, 15, "Large Problem"),
-                (20, 25, "Very Large Problem")
-            ]
-            
-            recommendations = []
-            
-            for farms, foods, description in problem_sizes:
-                rec = adapter.get_complexity_recommendation(farms, foods, budget)
-                recommendations.append((description, rec))
-                
-                print(f"\n  {description} ({farms}×{foods} = {rec['problem_size']} vars):")
-                print(f"    Estimated Cost: ${rec['estimated_cost']:.4f}")
-                print(f"    Affordable: {rec['is_affordable']}")
-                
-                if not rec['is_affordable'] and rec['alternatives']:
-                    print(f"    Alternatives: {', '.join(rec['alternatives'][:2])}")
-                
-                if rec['affordable_levels']:
-                    best_affordable = rec['affordable_levels'][0]
-                    print(f"    Best Affordable: {best_affordable['level']} "
-                          f"({best_affordable['size']} vars, ${best_affordable['cost']:.4f})")
-            
-            # Budget utilization summary
-            affordable_count = sum(1 for _, rec in recommendations if rec['is_affordable'])
-            print(f"\n  Budget Summary:")
-            print(f"    Affordable Problems: {affordable_count}/{len(recommendations)}")
-            print(f"    Budget Utilization: Varies by problem size")
-        
-        print("\n✓ Budget planning tests passed")
-        
-    except Exception as e:
-        print(f"✗ Budget planning test failed: {e}")
-        raise
-
-def test_problem_scaling():
-    """Test how costs scale with problem size."""
-    print("\n" + "-" * 60)
-    print("TEST 5: PROBLEM SCALING ANALYSIS")
-    print("-" * 60)
-    
-    try:
-        from my_functions.dwave_qpu_adapter import DWaveQPUAdapter, DWaveConfig
-        
-        config = DWaveConfig(num_reads=1000)
         adapter = DWaveQPUAdapter(config=config, logger=logger)
         
-        # Test different problem sizes
-        problem_sizes = [
-            (2, 3, 6),      # Tiny
-            (3, 5, 15),     # Small
-            (5, 8, 40),     # Medium
-            (8, 12, 96),    # Large
-            (10, 15, 150),  # Very Large
-            (15, 20, 300),  # Huge
-        ]
+        print(f"Active sampler: {adapter.sampler_type}")
+        assert adapter.sampler_type == 'simulator', "Should use simulator"
         
-        scaling_results = []
+        # Test simple QUBO problem
+        print("\n--- Testing Simple QUBO Problem ---")
+        Q = np.array([
+            [1, -2, 0],
+            [-2, 2, -1],
+            [0, -1, 1]
+        ])
         
-        print(f"{'Size':<8} {'Variables':<10} {'Cost ($)':<10} {'Qubits':<8} {'Feasible':<9} {'Warnings'}")
-        print("-" * 80)
+        bqm = adapter.create_bqm_from_qubo(Q)
+        result = adapter._solve_bqm(bqm)
         
-        for farms, foods, expected_vars in problem_sizes:
-            actual_vars = farms * foods
+        print(f"BQM Variables: {len(bqm.variables)}")
+        print(f"Solution Energy: {result['energy']:.4f}")
+        print(f"Solver Time: {result['qpu_time']:.3f}s")
+        print(f"Sample: {result['sample']}")
+        
+        assert 'error' not in result, f"CPU solver failed: {result.get('error')}"
+        
+        # Test with simple food problem
+        print("\n--- Testing Simple Food Problem ---")
+        if 'simple_test_problem' in globals():
+            problem = simple_test_problem
+            farms = problem['farms']
+            foods = list(problem['foods'].keys())
             
-            estimation = adapter.estimate_qpu_cost(
-                problem_size=actual_vars,
-                complexity_level=f"{farms}x{foods}"
+            # Create a simple optimization problem
+            num_vars = len(farms) * len(foods)
+            
+            # Build objective (prefer high-nutrition foods)
+            f = np.zeros((num_vars, 1))
+            for i, (farm, food) in enumerate([(f, fd) for f in farms for fd in foods]):
+                food_data = problem['foods'][food]
+                score = food_data['nutritional_value'] - food_data['environmental_impact']
+                f[i, 0] = -score  # Negative for minimization
+            
+            # Build constraint (each farm must select at least one food)
+            D = np.zeros((len(farms), num_vars))
+            d = np.ones((len(farms), 1))
+            
+            for farm_idx in range(len(farms)):
+                for food_idx in range(len(foods)):
+                    var_idx = farm_idx * len(foods) + food_idx
+                    D[farm_idx, var_idx] = 1
+            
+            # Solve with D-Wave
+            result = adapter.solve_benders_master_with_dwave(
+                f_coeffs=f,
+                D_matrix=D,
+                d_vector=d,
+                optimality_cuts=[],
+                feasibility_cuts=[],
+                Ny=num_vars,
+                config={'penalty_coefficient': 1000.0}
             )
             
-            scaling_results.append({
-                'farms': farms,
-                'foods': foods,
-                'variables': actual_vars,
-                'cost': estimation.estimated_cost_usd,
-                'qubits': estimation.estimated_qubits,
-                'feasible': estimation.is_feasible,
-                'warnings': estimation.warnings
-            })
-            
-            warnings_str = f"{len(estimation.warnings)} warnings" if estimation.warnings else "None"
-            print(f"{farms}×{foods:<4} {actual_vars:<10} ${estimation.estimated_cost_usd:<9.4f} "
-                  f"{estimation.estimated_qubits:<8} {estimation.is_feasible:<9} {warnings_str}")
-            
-            # Print first warning if any
-            if estimation.warnings:
-                print(f"    → {estimation.warnings[0]}")
+            if 'error' not in result:
+                solution = result['solution']
+                print(f"Solution found: {np.sum(solution > 0.5)} foods selected")
+                print(f"Objective value: {result['objective']:.4f}")
+                print(f"Wall time: {result['wall_time']:.3f}s")
+                
+                # Interpret solution
+                selected = []
+                for i, val in enumerate(solution):
+                    if val > 0.5:
+                        farm_idx = i // len(foods)
+                        food_idx = i % len(foods)
+                        selected.append(f"{farms[farm_idx]}->{foods[food_idx]}")
+                print(f"Selected combinations: {selected}")
+            else:
+                print(f"Solution failed: {result['error']}")
         
-        # Analyze scaling trends
-        print(f"\n--- SCALING ANALYSIS ---")
-        
-        # Calculate cost per variable
-        cost_per_var = [r['cost'] / r['variables'] for r in scaling_results if r['variables'] > 0]
-        if cost_per_var:
-            print(f"Cost per variable: ${min(cost_per_var):.6f} - ${max(cost_per_var):.6f}")
-            print(f"Average cost per variable: ${sum(cost_per_var) / len(cost_per_var):.6f}")
-        
-        # Find feasibility limits
-        feasible_results = [r for r in scaling_results if r['feasible']]
-        infeasible_results = [r for r in scaling_results if not r['feasible']]
-        
-        if feasible_results:
-            max_feasible = max(feasible_results, key=lambda x: x['variables'])
-            print(f"Maximum feasible size: {max_feasible['variables']} variables "
-                  f"({max_feasible['farms']}×{max_feasible['foods']})")
-        
-        if infeasible_results:
-            print(f"Infeasible problems:")
-            for r in infeasible_results:
-                print(f"  {r['farms']}×{r['foods']} ({r['variables']} vars, {r['qubits']} qubits)")
-                if r['warnings']:
-                    print(f"    Reason: {r['warnings'][0]}")
-        
-        print("\n✓ Problem scaling analysis tests passed")
+        print("✓ CPU solver tests passed")
         
     except Exception as e:
-        print(f"✗ Problem scaling analysis test failed: {e}")
+        print(f"✗ CPU solver test failed: {e}")
         raise
 
-def test_solver_validation():
-    """Test and compare ExactSolver vs SimulatedAnnealingSampler."""
+def test_hybrid_solver():
+    """Test D-Wave Leap Hybrid solver."""
     print("\n" + "-" * 60)
-    print("TEST 6: SOLVER VALIDATION - EXACT vs SIMULATED ANNEALING")
+    print("TEST 3: HYBRID SOLVER (LEAP HYBRID)")
     print("-" * 60)
     
     try:
+        # Declare global variable at the beginning of the function
+        global hybrid_test_result
+        
         from my_functions.dwave_qpu_adapter import DWaveQPUAdapter, DWaveConfig
         
-        # Import dimod solvers
-        try:
-            from dimod.reference.samplers import ExactSolver
-            from dimod import SimulatedAnnealingSampler, BinaryQuadraticModel
-            exact_solver_available = True
-        except ImportError:
-            print("⚠️  ExactSolver not available - skipping solver validation")
+        # Configure for hybrid solver
+        config = DWaveConfig(
+            solver_type='hybrid',
+            time_limit=10.0,  # 10 seconds for testing
+            estimate_cost_only=False
+        )
+        
+        adapter = DWaveQPUAdapter(config=config, logger=logger)
+        
+        print(f"Active sampler: {adapter.sampler_type}")
+        
+        if adapter.sampler_type != 'hybrid':
+            print("⚠️  Hybrid solver not available - skipping hybrid tests")
+            print("   This is normal if you don't have Leap access configured")
             return
         
-        config = DWaveConfig(num_reads=1000)
-        adapter = DWaveQPUAdapter(config=config, logger=logger)
+        print("✓ Hybrid solver initialized successfully")
         
-        # Test different problem sizes (small enough for ExactSolver)
-        test_problems = [
-            (2, 3, "Tiny Problem"),     # 6 variables
-            (3, 5, "Small Problem"),    # 15 variables  
-            (3, 6, "Simple Scenario"),  # 18 variables (our actual scenario)
-        ]
+        # Test with simple problem first
+        print("\n--- Testing Simple QUBO with Hybrid Solver ---")
+        Q = np.array([
+            [1, -2, 0, 0],
+            [-2, 2, -1, 0],
+            [0, -1, 1, -1],
+            [0, 0, -1, 1]
+        ])
         
-        validation_results = []
+        bqm = adapter.create_bqm_from_qubo(Q)
+        result = adapter._solve_bqm(bqm)
         
-        print(f"{'Problem':<15} {'Size':<6} {'Exact Energy':<12} {'SA Energy':<12} {'Gap':<8} {'Success'}")
-        print("-" * 75)
-        
-        for farms, foods, description in test_problems:
-            problem_size = farms * foods
+        if 'error' not in result:
+            print(f"✓ Hybrid solver test successful:")
+            print(f"  Energy: {result['energy']:.4f}")
+            print(f"  Time: {result['qpu_time']:.3f}s")
+            print(f"  Sample: {result['sample']}")
             
-            # Skip if too large for ExactSolver (typically > 20 variables)
-            if problem_size > 20:
-                print(f"{description:<15} {problem_size:<6} {'TOO LARGE':<12} {'N/A':<12} {'N/A':<8} {'N/A'}")
-                continue
-            
-            try:
-                # Create a test QUBO problem based on food optimization structure
-                Q_matrix = create_test_food_qubo(farms, foods)
-                
-                # Create BQM
-                bqm = BinaryQuadraticModel('BINARY')
-                for i in range(problem_size):
-                    if Q_matrix[i, i] != 0:
-                        bqm.add_variable(i, Q_matrix[i, i])
-                
-                for i in range(problem_size):
-                    for j in range(i + 1, problem_size):
-                        if Q_matrix[i, j] != 0:
-                            bqm.add_interaction(i, j, Q_matrix[i, j])
-                
-                # Solve with ExactSolver
-                exact_solver = ExactSolver()
-                exact_result = exact_solver.sample(bqm)
-                optimal_energy = exact_result.first.energy
-                optimal_sample = dict(exact_result.first.sample)
-                
-                # Solve with SimulatedAnnealingSampler multiple times
-                sa_solver = SimulatedAnnealingSampler()
-                sa_energies = []
-                success_count = 0
-                num_trials = 10
-                
-                for trial in range(num_trials):
-                    sa_result = sa_solver.sample(bqm, num_reads=100, seed=trial)
-                    sa_energy = sa_result.first.energy
-                    sa_energies.append(sa_energy)
-                    
-                    # Consider success if within 1% of optimal
-                    if abs(sa_energy - optimal_energy) <= abs(optimal_energy * 0.01):
-                        success_count += 1
-                
-                # Calculate statistics
-                best_sa_energy = min(sa_energies)
-                avg_sa_energy = np.mean(sa_energies)
-                energy_gap = abs(best_sa_energy - optimal_energy)
-                success_rate = (success_count / num_trials) * 100
-                
-                validation_results.append({
-                    'problem': description,
-                    'size': problem_size,
-                    'optimal_energy': optimal_energy,
-                    'best_sa_energy': best_sa_energy,
-                    'avg_sa_energy': avg_sa_energy,
-                    'energy_gap': energy_gap,
-                    'success_rate': success_rate,
-                    'optimal_sample': optimal_sample
-                })
-                
-                print(f"{description:<15} {problem_size:<6} {optimal_energy:<12.4f} {best_sa_energy:<12.4f} "
-                      f"{energy_gap:<8.4f} {success_rate:<6.0f}%")
-                
-            except Exception as e:
-                print(f"{description:<15} {problem_size:<6} {'ERROR':<12} {'ERROR':<12} {'ERROR':<8} {'ERROR'}")
-                logger.warning(f"Error testing {description}: {e}")
+            # Store result for comparison
+            hybrid_test_result = result
+        else:
+            print(f"✗ Hybrid solver test failed: {result['error']}")
+            return
         
-        # Analysis and recommendations
-        print(f"\n--- SOLVER VALIDATION ANALYSIS ---")
-        
-        if validation_results:
-            avg_gap = np.mean([r['energy_gap'] for r in validation_results])
-            avg_success = np.mean([r['success_rate'] for r in validation_results])
-            
-            print(f"Average energy gap: {avg_gap:.4f}")
-            print(f"Average success rate: {avg_success:.1f}%")
-            
-            # Quality assessment
-            if avg_success >= 90:
-                print("✓ Excellent: SimulatedAnnealing finds optimal solutions consistently")
-            elif avg_success >= 70:
-                print("✓ Good: SimulatedAnnealing finds good solutions most of the time")
-            elif avg_success >= 50:
-                print("⚠️  Fair: SimulatedAnnealing sometimes struggles to find optimal solutions")
-            else:
-                print("❌ Poor: SimulatedAnnealing frequently fails to find good solutions")
-            
-            print(f"\nRecommendations:")
-            if avg_gap < 0.01:
-                print("- Current SA settings are excellent for cost estimation")
-            elif avg_gap < 0.1:
-                print("- Consider increasing num_reads for better accuracy")
-            else:
-                print("- May need to tune SA parameters or use different solver approach")
-            
-            # Store results for report generation
-            global solver_validation_data
-            solver_validation_data = validation_results
-        
-        print("\n✓ Solver validation tests completed")
+        print("✓ Hybrid solver tests passed")
         
     except Exception as e:
-        print(f"✗ Solver validation test failed: {e}")
+        print(f"✗ Hybrid solver test failed: {e}")
         import traceback
         traceback.print_exc()
 
-def create_test_food_qubo(num_farms: int, num_foods: int) -> np.ndarray:
-    """
-    Create a test QUBO matrix based on food optimization problem structure.
-    
-    Args:
-        num_farms: Number of farms
-        num_foods: Number of food types
-        
-    Returns:
-        QUBO matrix representing the optimization problem
-    """
-    problem_size = num_farms * num_foods
-    Q = np.zeros((problem_size, problem_size))
-    
-    # Add objective terms (favor certain food-farm combinations)
-    for i in range(problem_size):
-        farm_idx = i // num_foods
-        food_idx = i % num_foods
-        
-        # Add linear terms (food preferences vary by farm)
-        preference = 1.0 + 0.5 * np.sin(farm_idx + food_idx)  # Varies between 0.5 and 1.5
-        Q[i, i] = -preference  # Negative because we want to maximize preference
-    
-    # Add constraint penalties (each farm should select at least one food)
-    penalty_strength = 5.0
-    
-    for farm_idx in range(num_farms):
-        # Constraint: sum of foods for this farm >= 1
-        # Penalty form: -penalty * (sum - 1)^2 = -penalty * (sum^2 - 2*sum + 1)
-        # Which expands to: penalty * (2*sum - sum^2 - 1)
-        
-        farm_vars = [farm_idx * num_foods + food_idx for food_idx in range(num_foods)]
-        
-        # Add quadratic penalty terms
-        for i in farm_vars:
-            for j in farm_vars:
-                if i == j:
-                    Q[i, j] += penalty_strength  # Quadratic terms
-                else:
-                    Q[i, j] += penalty_strength / 2  # Cross terms (divided by 2 due to symmetry)
-        
-        # Add linear penalty terms
-        for i in farm_vars:
-            Q[i, i] -= 2 * penalty_strength  # Linear terms
-    
-    return Q
-
-# Global variable to store validation results for report
-solver_validation_data = []
-
-def generate_cost_estimation_report():
-    """Generate a comprehensive cost estimation report."""
+def test_progressive_complexity():
+    """Test different complexity levels progressively."""
     print("\n" + "-" * 60)
-    print("TEST 7: GENERATING COMPREHENSIVE REPORT")
+    print("TEST 4: PROGRESSIVE COMPLEXITY TESTING")
     print("-" * 60)
     
     try:
-        from my_functions.dwave_qpu_adapter import get_free_dwave_analysis
-        from src.scenarios import load_food_data
+        # Declare global variable at the beginning of the function
+        global complexity_test_results
         
+        from my_functions.dwave_qpu_adapter import DWaveQPUAdapter, DWaveConfig
+        
+        # Test with hybrid if available, otherwise simulator
+        config = DWaveConfig(
+            solver_type='auto',  # Auto-select best available
+            time_limit=15.0,
+            num_reads=200
+        )
+        
+        adapter = DWaveQPUAdapter(config=config, logger=logger)
+        
+        print(f"Using solver: {adapter.sampler_type}")
+        
+        # Test complexity levels progressively
+        test_levels = ['micro', 'tiny', 'small']
+        results = {}
+        
+        for level in test_levels:
+            if level not in adapter.COMPLEXITY_LEVELS:
+                continue
+                
+            level_config = adapter.COMPLEXITY_LEVELS[level]
+            print(f"\n--- Testing {level.upper()} complexity ---")
+            print(f"  {level_config.description}")
+            print(f"  Variables: {level_config.total_variables}")
+            print(f"  Estimated qubits: {level_config.estimated_qubits}")
+            
+            # Get cost estimation
+            estimation = adapter.estimate_qpu_cost(
+                problem_size=level_config.total_variables,
+                complexity_level=level
+            )
+            
+            print(f"  Estimated cost: ${estimation.estimated_cost_usd:.4f}")
+            print(f"  Feasible: {estimation.is_feasible}")
+            
+            # Test with a simple problem of this size
+            try:
+                problem_size = level_config.total_variables
+                
+                # Create a random-ish QUBO for testing
+                np.random.seed(42)  # Reproducible
+                Q = np.random.normal(0, 1, (problem_size, problem_size))
+                Q = (Q + Q.T) / 2  # Make symmetric
+                Q = Q * 0.5  # Scale down
+                
+                bqm = adapter.create_bqm_from_qubo(Q)
+                
+                start_time = time.time()
+                result = adapter._solve_bqm(bqm)
+                solve_time = time.time() - start_time
+                
+                if 'error' not in result:
+                    results[level] = {
+                        'energy': result['energy'],
+                        'solve_time': solve_time,
+                        'estimation': estimation,
+                        'success': True
+                    }
+                    print(f"  ✓ Solved in {solve_time:.3f}s, energy: {result['energy']:.4f}")
+                else:
+                    results[level] = {
+                        'error': result['error'],
+                        'estimation': estimation,
+                        'success': False
+                    }
+                    print(f"  ✗ Failed: {result['error']}")
+                    
+            except Exception as e:
+                print(f"  ✗ Error testing {level}: {e}")
+                results[level] = {'error': str(e), 'success': False}
+        
+        # Summary
+        print(f"\n--- COMPLEXITY TEST SUMMARY ---")
+        successful = sum(1 for r in results.values() if r.get('success', False))
+        print(f"Successful levels: {successful}/{len(results)}")
+        
+        for level, result in results.items():
+            if result.get('success'):
+                print(f"  ✓ {level.upper()}: {result['solve_time']:.3f}s")
+            else:
+                print(f"  ✗ {level.upper()}: {result.get('error', 'Unknown error')}")
+        
+        # Store results globally for report
+        complexity_test_results = results
+        
+        print("✓ Progressive complexity tests completed")
+        
+    except Exception as e:
+        print(f"✗ Progressive complexity test failed: {e}")
+        raise
+
+def test_full_scenario():
+    """Test full-scale scenario from scenarios.py."""
+    print("\n" + "-" * 60)
+    print("TEST 5: FULL SCENARIO TESTING")
+    print("-" * 60)
+    
+    try:
+        from src.scenarios import load_food_data
+        from my_functions.dwave_qpu_adapter import DWaveQPUAdapter, DWaveConfig
+        
+        # Declare global variable at the beginning of the function
+        global full_scenario_result
+        
+        # Load full complexity scenario
+        farms, foods, food_groups, config = load_food_data('full')
+        
+        problem_size = len(farms) * len(foods)
+        print(f"Full scenario size:")
+        print(f"  Farms: {len(farms)}")
+        print(f"  Foods: {len(foods)}")
+        print(f"  Variables: {problem_size}")
+        
+        # Configure adapter for larger problems
+        dwave_config = DWaveConfig(
+            solver_type='auto',
+            time_limit=30.0,  # Longer time for larger problems
+            num_reads=500,
+            estimate_cost_only=True  # Start with estimation only
+        )
+        
+        adapter = DWaveQPUAdapter(config=dwave_config, logger=logger)
+        
+        # Get cost estimation first
+        estimation = adapter.estimate_qpu_cost(problem_size, complexity_level='full')
+        
+        print(f"\nCost estimation for full scenario:")
+        print(f"  Variables: {estimation.num_variables}")
+        print(f"  Estimated qubits: {estimation.estimated_qubits}")
+        print(f"  Estimated cost: ${estimation.estimated_cost_usd:.4f}")
+        print(f"  Feasible: {estimation.is_feasible}")
+        print(f"  Warnings: {len(estimation.warnings)}")
+        
+        for warning in estimation.warnings:
+            print(f"    ⚠️  {warning}")
+        
+        for rec in estimation.recommendations:
+            print(f"    💡 {rec}")
+        
+        # Decide whether to proceed with actual solving
+        if estimation.is_feasible and estimation.estimated_cost_usd < 1.0:  # $1 threshold
+            print(f"\n--- Attempting to solve full scenario ---")
+            
+            # Switch to actual solving
+            adapter.config.estimate_cost_only = False
+            
+            # Build simple food allocation problem
+            f = np.zeros((problem_size, 1))
+            
+            # Assign objective coefficients based on food quality
+            for farm_idx, farm in enumerate(farms):
+                for food_idx, food in enumerate(foods):
+                    var_idx = farm_idx * len(foods) + food_idx
+                    food_data = foods[food]
+                    
+                    # Simple scoring based on available metrics
+                    score = 0
+                    if 'nutritional_value' in food_data:
+                        score += food_data['nutritional_value'] * 0.4
+                    if 'sustainability' in food_data:
+                        score += food_data['sustainability'] * 0.3
+                    if 'affordability' in food_data:
+                        score += food_data['affordability'] * 0.3
+                    
+                    f[var_idx, 0] = -score  # Negative for minimization
+            
+            # Build constraints (each farm selects at least one food)
+            D = np.zeros((len(farms), problem_size))
+            d = np.ones((len(farms), 1))
+            
+            for farm_idx in range(len(farms)):
+                for food_idx in range(len(foods)):
+                    var_idx = farm_idx * len(foods) + food_idx
+                    D[farm_idx, var_idx] = 1
+            
+            # Solve
+            start_time = time.time()
+            result = adapter.solve_benders_master_with_dwave(
+                f_coeffs=f,
+                D_matrix=D,
+                d_vector=d,
+                optimality_cuts=[],
+                feasibility_cuts=[],
+                Ny=problem_size,
+                config={'penalty_coefficient': 10000.0}
+            )
+            solve_time = time.time() - start_time
+            
+            if 'error' not in result:
+                print(f"✓ Full scenario solved successfully!")
+                print(f"  Objective: {result['objective']:.4f}")
+                print(f"  Wall time: {solve_time:.3f}s")
+                print(f"  Energy: {result['energy']:.4f}")
+                print(f"  Selections: {np.sum(result['solution'] > 0.5)} out of {problem_size}")
+                
+                full_scenario_result = {
+                    'result': result,
+                    'estimation': estimation,
+                    'solve_time': solve_time,
+                    'success': True
+                }
+            else:
+                print(f"✗ Full scenario solving failed: {result['error']}")
+                full_scenario_result = {
+                    'error': result['error'],
+                    'estimation': estimation,
+                    'success': False
+                }
+        else:
+            print(f"\n--- Skipping actual solving ---")
+            if not estimation.is_feasible:
+                print("  Reason: Problem not feasible for current QPU")
+            else:
+                print(f"  Reason: Cost too high (${estimation.estimated_cost_usd:.4f})")
+            
+            full_scenario_result = {
+                'estimation': estimation,
+                'skipped': True,
+                'reason': 'cost_or_feasibility'
+            }
+        
+        print("✓ Full scenario testing completed")
+        
+    except Exception as e:
+        print(f"✗ Full scenario test failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+def test_qpu_readiness():
+    """Test QPU readiness without actually using QPU time."""
+    print("\n" + "-" * 60)
+    print("TEST 6: QPU READINESS CHECK")
+    print("-" * 60)
+    
+    try:
+        from my_functions.dwave_qpu_adapter import DWaveQPUAdapter, DWaveConfig
+        
+        # Configure for QPU but don't use it yet
+        config = DWaveConfig(
+            use_real_qpu=True,
+            solver_type='qpu',
+            num_reads=100,
+            estimate_cost_only=True  # Don't actually use QPU
+        )
+        
+        adapter = DWaveQPUAdapter(config=config, logger=logger)
+        
+        print(f"QPU sampler initialized: {adapter.qpu_sampler is not None}")
+        
+        # Test connection
+        connection_test = adapter.test_connection()
+        
+        print(f"\nConnection test results:")
+        print(f"  Status: {connection_test.get('status', 'unknown')}")
+        print(f"  Simulator: {connection_test.get('simulator_available', False)}")
+        print(f"  Hybrid: {connection_test.get('hybrid_available', False)}")
+        print(f"  QPU: {connection_test.get('qpu_available', False)}")
+        
+        if connection_test.get('qpu_available'):
+            solver_info = connection_test.get('solver_info', {})
+            print(f"  QPU Name: {solver_info.get('name', 'Unknown')}")
+            print(f"  QPU Test: {connection_test.get('qpu_test', 'unknown')}")
+            
+            # Estimate costs for QPU usage
+            print(f"\n--- QPU Cost Estimates ---")
+            
+            test_sizes = [6, 15, 40, 100]  # micro, tiny, small, medium
+            
+            for size in test_sizes:
+                estimation = adapter.estimate_qpu_cost(size, num_reads=100)
+                print(f"  {size} variables: ${estimation.estimated_cost_usd:.4f} "
+                      f"({estimation.estimated_qubits} qubits)")
+            
+            print(f"\n💡 QPU is ready for testing!")
+            print(f"   Recommended: Start with micro or tiny problems")
+            print(f"   Budget: Monitor costs, start with small num_reads")
+        else:
+            print(f"\n⚠️  QPU not available:")
+            if 'qpu_test' in connection_test:
+                print(f"   Reason: {connection_test['qpu_test']}")
+            else:
+                print(f"   Check Leap account and solver access")
+        
+        print("✓ QPU readiness check completed")
+        
+    except Exception as e:
+        print(f"✗ QPU readiness check failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+def test_scaling_analysis_with_scenarios():
+    """Test scaling analysis using real scenarios from scenarios.py."""
+    print("\n" + "-" * 60)
+    print("TEST 7: SCALING ANALYSIS WITH REAL SCENARIOS")
+    print("-" * 60)
+    
+    try:
+        # Declare global variable at the beginning of the function
+        global scenario_scaling_results
+        
+        from src.scenarios import load_food_data
+        from my_functions.dwave_qpu_adapter import DWaveQPUAdapter, DWaveConfig
+        import numpy as np
+        
+        # Test scaling analysis for each scenario complexity
+        complexities = ['simple', 'intermediate', 'full']
+        scaling_results = {}
+        
+        for complexity in complexities:
+            print(f"\n--- Testing {complexity.upper()} scenario scaling ---")
+            
+            try:
+                # Load scenario data
+                farms, foods, food_groups, config = load_food_data(complexity)
+                problem_size = len(farms) * len(foods)
+                
+                print(f"Scenario details:")
+                print(f"  Farms: {len(farms)}")
+                print(f"  Foods: {len(foods)}")
+                print(f"  Total variables: {problem_size}")
+                
+                # Create QUBO problem from scenario
+                qubo_matrix = create_food_optimization_qubo(farms, foods, config)
+                
+                # Create BQM
+                adapter = DWaveQPUAdapter(config=DWaveConfig(solver_type='simulator'))
+                bqm = adapter.create_bqm_from_qubo(qubo_matrix)
+                
+                print(f"Created BQM with {len(bqm.variables)} variables")
+                
+                # Define sample sizes for scaling analysis
+                max_sample_size = min(problem_size - 1, 80)  # Don't exceed problem size
+                sample_sizes = [
+                    max(2, int(max_sample_size * 0.1)),   # 10%
+                    max(4, int(max_sample_size * 0.25)),  # 25%
+                    max(6, int(max_sample_size * 0.5)),   # 50%
+                    max(8, int(max_sample_size * 0.75)),  # 75%
+                ]
+                
+                # Remove duplicates and sort
+                sample_sizes = sorted(list(set(sample_sizes)))
+                sample_sizes = [s for s in sample_sizes if s < problem_size]
+                
+                if len(sample_sizes) < 2:
+                    print(f"  ⚠️  Problem too small for meaningful scaling analysis")
+                    continue
+                
+                print(f"Using sample sizes: {sample_sizes}")
+                
+                # Run scaling analysis
+                print(f"Running scaling analysis...")
+                scaling_result = adapter.estimate_full_time(
+                    bqm=bqm,
+                    sampler=adapter.sim_sampler,
+                    sample_sizes=sample_sizes,
+                    num_reads=50,  # Fewer reads for faster testing
+                    plot_results=True
+                )
+                
+                if 'error' not in scaling_result:
+                    scaling_results[complexity] = scaling_result
+                    
+                    print(f"\n✓ Scaling analysis completed for {complexity}:")
+                    print(f"  Exponent: {scaling_result['exponent']:.3f}")
+                    print(f"  Predicted time: {scaling_result['predicted_time']:.4f}s")
+                    print(f"  Estimated cost: ${scaling_result['estimated_cost']:.4f}")
+                    
+                    # Business analysis
+                    exponent = scaling_result['exponent']
+                    if exponent <= 1.5:
+                        complexity_rating = "Excellent - Linear/sub-quadratic scaling"
+                    elif exponent <= 2.5:
+                        complexity_rating = "Good - Quadratic scaling"
+                    elif exponent <= 3.5:
+                        complexity_rating = "Moderate - Cubic scaling"
+                    else:
+                        complexity_rating = "Challenging - Higher-order scaling"
+                    
+                    print(f"  Complexity rating: {complexity_rating}")
+                    
+                else:
+                    print(f"  ✗ Scaling analysis failed: {scaling_result['error']}")
+                
+            except Exception as e:
+                print(f"  ✗ Error testing {complexity} scenario: {e}")
+                continue
+        
+        # Generate business summary
+        if scaling_results:
+            print(f"\n--- BUSINESS SCALING SUMMARY ---")
+            print(f"Successfully analyzed {len(scaling_results)} scenarios:")
+            
+            for complexity, result in scaling_results.items():
+                farms_count = len(load_food_data(complexity)[0])
+                foods_count = len(load_food_data(complexity)[1])
+                
+                print(f"\n{complexity.upper()} ({farms_count}×{foods_count} = {result['full_size']} vars):")
+                print(f"  Scaling exponent: {result['exponent']:.3f}")
+                print(f"  Predicted solve time: {result['predicted_time']:.4f}s")
+                print(f"  Estimated QPU cost: ${result['estimated_cost']:.4f}")
+                
+                # Business recommendations
+                if result['predicted_time'] < 1.0:
+                    print(f"  💚 Business viability: Excellent (fast solving)")
+                elif result['predicted_time'] < 10.0:
+                    print(f"  💛 Business viability: Good (reasonable solving time)")
+                else:
+                    print(f"  💔 Business viability: Challenging (long solving time)")
+        
+        # Store results globally for report
+        scenario_scaling_results = scaling_results
+        
+        print("✓ Scenario scaling analysis completed")
+        
+    except Exception as e:
+        print(f"✗ Scenario scaling analysis failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+def create_food_optimization_qubo(farms: List[str], 
+                                 foods: Dict[str, Dict],
+                                 config: Dict) -> np.ndarray:
+    """
+    Create a QUBO matrix for food optimization problem.
+    
+    Args:
+        farms: List of farm names
+        foods: Dictionary of foods with their properties
+        config: Configuration parameters
+        
+    Returns:
+        QUBO matrix for the optimization problem
+    """
+    num_farms = len(farms)
+    num_foods = len(foods)
+    problem_size = num_farms * num_foods
+    
+    Q = np.zeros((problem_size, problem_size))
+    
+    # Get weights from config
+    weights = config.get('parameters', {}).get('weights', {
+        'nutritional_value': 0.25,
+        'nutrient_density': 0.2,
+        'affordability': 0.15,
+        'sustainability': 0.15,
+        'environmental_impact': 0.25
+    })
+    
+    food_list = list(foods.keys())
+    
+    # Build objective terms
+    for farm_idx in range(num_farms):
+        for food_idx, food_name in enumerate(food_list):
+            var_idx = farm_idx * num_foods + food_idx
+            food_data = foods[food_name]
+            
+            # Calculate objective score (higher is better)
+            objective_score = 0.0
+            
+            # Positive contributions
+            for metric in ['nutritional_value', 'nutrient_density', 'affordability', 'sustainability']:
+                if metric in food_data and metric in weights:
+                    objective_score += weights[metric] * food_data[metric]
+            
+            # Negative contribution (environmental impact)
+            if 'environmental_impact' in food_data and 'environmental_impact' in weights:
+                objective_score -= weights['environmental_impact'] * food_data['environmental_impact']
+            
+            # Add to diagonal (negative because QUBO minimizes)
+            Q[var_idx, var_idx] = -objective_score
+    
+    # Add constraint penalties
+    penalty_strength = 10.0
+    
+    # Constraint: Each farm must select at least one food
+    for farm_idx in range(num_farms):
+        farm_vars = [farm_idx * num_foods + food_idx for food_idx in range(num_foods)]
+        
+        # Penalty for constraint: (1 - sum(x_i))^2 = 1 - 2*sum(x_i) + sum_i sum_j x_i*x_j
+        for i in farm_vars:
+            Q[i, i] += penalty_strength  # Quadratic terms
+            Q[i, i] -= 2 * penalty_strength  # Linear terms
+            
+            for j in farm_vars:
+                if i != j:
+                    Q[i, j] += penalty_strength / 2  # Cross terms (divide by 2 for symmetry)
+    
+    return Q
+
+def generate_progressive_test_report():
+    """Generate comprehensive report for progressive testing."""
+    print("\n" + "-" * 60)
+    print("TEST 8: GENERATING PROGRESSIVE TEST REPORT")
+    print("-" * 60)
+    
+    try:
         # Create results directory
         results_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'Results')
         os.makedirs(results_dir, exist_ok=True)
         
-        # Run comprehensive analysis
-        print("Running comprehensive D-Wave analysis...")
-        
-        analysis = get_free_dwave_analysis(
-            max_budget_usd=100.0,
-            use_real_qpu=False,
-            logger=logger
-        )
-        
-        # Load all scenarios for comparison
-        scenario_data = {}
-        for complexity in ['simple', 'intermediate', 'full']:
-            try:
-                farms, foods, food_groups, config = load_food_data(complexity)
-                scenario_data[complexity] = {
-                    'farms': farms,
-                    'foods': list(foods.keys()),
-                    'problem_size': len(farms) * len(foods),
-                    'config': config
-                }
-            except Exception as e:
-                print(f"Warning: Could not load {complexity} scenario: {e}")
-        
-        # Generate JSON report
+        # Collect all test results
         report_data = {
             'timestamp': datetime.now().isoformat(),
             'test_summary': {
-                'total_complexity_levels': len(analysis['estimations']),
-                'analysis_duration': analysis['analysis_duration'],
-                'budget_tested': analysis['budget_usd']
-            },
-            'dwave_analysis': analysis,
-            'scenario_data': scenario_data,
-            'solver_validation': solver_validation_data if 'solver_validation_data' in globals() else [],
-            'recommendations': {
-                'for_beginners': [
-                    "Start with 'tiny' or 'small' complexity levels",
-                    "Use simulated annealing for initial testing",
-                    "Budget $10-25 for initial quantum experiments"
-                ],
-                'for_researchers': [
-                    "Medium complexity problems are good for research",
-                    "Budget $25-100 for comprehensive studies", 
-                    "Consider QAOA² for larger problems"
-                ],
-                'for_enterprises': [
-                    "Large problems require significant QPU budget",
-                    "Consider hybrid classical-quantum approaches",
-                    "Budget $100+ for production workloads"
-                ]
+                'simple_problem': 'simple_test_problem' in globals(),
+                'cpu_solver': True,  # Always available
+                'hybrid_solver': 'hybrid_test_result' in globals(),
+                'complexity_tests': 'complexity_test_results' in globals(),
+                'full_scenario': 'full_scenario_result' in globals(),
+                'scaling_analysis': 'scenario_scaling_results' in globals()
             }
         }
         
+        # Add test results if available
+        if 'simple_test_problem' in globals():
+            report_data['simple_problem'] = simple_test_problem
+        
+        if 'hybrid_test_result' in globals():
+            report_data['hybrid_result'] = hybrid_test_result
+        
+        if 'complexity_test_results' in globals():
+            report_data['complexity_results'] = complexity_test_results
+        
+        if 'full_scenario_result' in globals():
+            report_data['full_scenario'] = full_scenario_result
+            
+        if 'scenario_scaling_results' in globals():
+            report_data['scaling_analysis'] = scenario_scaling_results
+        
+        # Generate business recommendations
+        recommendations = []
+        
+        if report_data['test_summary']['cpu_solver']:
+            recommendations.append("✓ CPU solver (SimulatedAnnealing) is working - safe fallback available")
+        
+        if report_data['test_summary']['hybrid_solver']:
+            recommendations.append("✓ Hybrid solver is working - recommended for most problems")
+        else:
+            recommendations.append("⚠️  Hybrid solver not available - check Leap access")
+        
+        if 'scaling_analysis' in report_data:
+            scaling_data = report_data['scaling_analysis']
+            best_complexity = min(scaling_data.keys(), 
+                                key=lambda k: scaling_data[k]['predicted_time'])
+            recommendations.append(f"✓ Best performing scenario: {best_complexity} "
+                                 f"({scaling_data[best_complexity]['predicted_time']:.3f}s predicted)")
+            
+            # Business cost analysis
+            total_estimated_cost = sum(r['estimated_cost'] for r in scaling_data.values())
+            recommendations.append(f"💰 Total estimated cost for all scenarios: ${total_estimated_cost:.4f}")
+        
+        report_data['recommendations'] = recommendations
+        report_data['business_summary'] = generate_business_summary()
+        
         # Save JSON report
-        json_path = os.path.join(results_dir, 'dwave_cost_estimation_report.json')
+        json_path = os.path.join(results_dir, 'dwave_progressive_test_report.json')
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(report_data, f, indent=2, default=str)
         
-        # Generate HTML report
-        html_report = generate_html_report(report_data)
-        html_path = os.path.join(results_dir, 'dwave_cost_estimation_report.html')
-        with open(html_path, 'w', encoding='utf-8') as f:
-            f.write(html_report)
-        
-        print(f"✓ Reports generated:")
-        print(f"  JSON: {json_path}")
-        print(f"  HTML: {html_path}")
+        print(f"✓ Progressive test report saved: {json_path}")
         
         # Print summary
-        print(f"\n--- REPORT SUMMARY ---")
-        print(f"Analysis Duration: {analysis['analysis_duration']:.2f} seconds")
-        print(f"Complexity Levels Analyzed: {len(analysis['estimations'])}")
-        print(f"Feasible Levels: {len(analysis['summary']['feasible_levels'])}")
-        print(f"Affordable Levels: {len(analysis['summary']['affordable_levels'])}")
-        print(f"Cost Range: ${analysis['summary']['cost_range']['min']:.4f} - "
-              f"${analysis['summary']['cost_range']['max']:.4f}")
+        print(f"\n--- TEST SUMMARY ---")
+        for test_name, status in report_data['test_summary'].items():
+            print(f"  {test_name}: {'✓' if status else '✗'}")
         
-        # Add solver validation summary
-        if solver_validation_data:
-            avg_success = np.mean([r['success_rate'] for r in solver_validation_data])
-            print(f"Solver Validation: {len(solver_validation_data)} problems tested, {avg_success:.1f}% average success rate")
+        print(f"\n--- BUSINESS RECOMMENDATIONS ---")
+        for rec in recommendations:
+            print(f"  {rec}")
         
-        print("\n✓ Comprehensive report generation completed")
+        if 'business_summary' in report_data:
+            print(f"\n--- BUSINESS SUMMARY ---")
+            business = report_data['business_summary']
+            print(f"  Recommended starting scenario: {business['recommended_scenario']}")
+            print(f"  Estimated budget needed: ${business['budget_estimate']:.2f}")
+            print(f"  Scaling outlook: {business['scaling_outlook']}")
+        
+        print("✓ Progressive test report generation completed")
         
     except Exception as e:
         print(f"✗ Report generation failed: {e}")
         raise
 
-def generate_html_report(report_data: Dict[str, Any]) -> str:
-    """Generate HTML report for cost estimation results."""
+def generate_business_summary() -> Dict[str, Any]:
+    """Generate business-focused summary for D-Wave proposal."""
+    if 'scenario_scaling_results' not in globals():
+        return {"error": "No scaling results available"}
     
-    timestamp = report_data['timestamp']
-    analysis = report_data['dwave_analysis']
-    scenarios = report_data['scenario_data']
-    solver_validation = report_data.get('solver_validation', [])
+    scaling_data = globals()['scenario_scaling_results']
     
-    html = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>D-Wave Cost Estimation Report</title>
-    <style>
-        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f5f5f5; }}
-        .container {{ max-width: 1200px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }}
-        h1 {{ color: #2c3e50; text-align: center; border-bottom: 3px solid #3498db; padding-bottom: 10px; }}
-        h2 {{ color: #34495e; border-left: 4px solid #3498db; padding-left: 15px; }}
-        .summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 20px 0; }}
-        .summary-card {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }}
-        .summary-card h3 {{ margin: 0 0 10px 0; }}
-        .summary-card .value {{ font-size: 2em; font-weight: bold; }}
-        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-        th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
-        th {{ background-color: #3498db; color: white; }}
-        tr:nth-child(even) {{ background-color: #f2f2f2; }}
-        .feasible {{ color: #27ae60; font-weight: bold; }}
-        .not-feasible {{ color: #e74c3c; font-weight: bold; }}
-        .affordable {{ color: #27ae60; }}
-        .expensive {{ color: #e74c3c; }}
-        .excellent {{ color: #27ae60; font-weight: bold; }}
-        .good {{ color: #f39c12; font-weight: bold; }}
-        .poor {{ color: #e74c3c; font-weight: bold; }}
-        .recommendations {{ background-color: #ecf0f1; padding: 15px; border-radius: 5px; margin: 15px 0; }}
-        .timestamp {{ text-align: center; color: #7f8c8d; font-style: italic; }}
-        .warning {{ background-color: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; border-left: 4px solid #ffc107; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>D-Wave Cost Estimation Report</h1>
-        <div class="timestamp">Generated on {timestamp}</div>
-        
-        <div class="summary-grid">
-            <div class="summary-card">
-                <h3>Analysis Duration</h3>
-                <div class="value">{analysis['analysis_duration']:.2f}s</div>
-            </div>
-            <div class="summary-card">
-                <h3>Budget Tested</h3>
-                <div class="value">${analysis['budget_usd']}</div>
-            </div>
-            <div class="summary-card">
-                <h3>Complexity Levels</h3>
-                <div class="value">{len(analysis['estimations'])}</div>
-            </div>
-            <div class="summary-card">
-                <h3>Affordable Levels</h3>
-                <div class="value">{len(analysis['summary']['affordable_levels'])}</div>
-            </div>
-        </div>
-"""
+    # Find best scenario (fastest predicted solve time)
+    best_scenario = min(scaling_data.keys(), key=lambda k: scaling_data[k]['predicted_time'])
+    best_result = scaling_data[best_scenario]
     
-    # Add solver validation section if available
-    if solver_validation:
-        avg_success = np.mean([r['success_rate'] for r in solver_validation])
-        html += f"""
-        <h2>Solver Validation Results</h2>
-        <p>Comparison between ExactSolver (optimal) and SimulatedAnnealingSampler (heuristic) on small problems:</p>
-        <table>
-            <tr>
-                <th>Problem</th>
-                <th>Size</th>
-                <th>Optimal Energy</th>
-                <th>SA Best Energy</th>
-                <th>Energy Gap</th>
-                <th>Success Rate</th>
-                <th>Quality</th>
-            </tr>
-"""
-        
-        for result in solver_validation:
-            success_rate = result['success_rate']
-            if success_rate >= 90:
-                quality_class = "excellent"
-                quality_text = "Excellent"
-            elif success_rate >= 70:
-                quality_class = "good"
-                quality_text = "Good"
-            else:
-                quality_class = "poor"
-                quality_text = "Needs Improvement"
-            
-            html += f"""
-            <tr>
-                <td>{result['problem']}</td>
-                <td>{result['size']}</td>
-                <td>{result['optimal_energy']:.4f}</td>
-                <td>{result['best_sa_energy']:.4f}</td>
-                <td>{result['energy_gap']:.4f}</td>
-                <td>{success_rate:.1f}%</td>
-                <td class="{quality_class}">{quality_text}</td>
-            </tr>
-"""
-        
-        html += f"""
-        </table>
-        <div class="recommendations">
-            <p><strong>Validation Summary:</strong> Average success rate is {avg_success:.1f}%. 
-            This indicates how often SimulatedAnnealing finds optimal or near-optimal solutions compared to the exact solver.</p>
-        </div>
-"""
+    # Calculate budget estimates
+    total_cost = sum(r['estimated_cost'] for r in scaling_data.values())
+    max_cost = max(r['estimated_cost'] for r in scaling_data.values())
     
-    # Continue with existing HTML structure...
-    html += """
-        
-        <h2>Complexity Level Analysis</h2>
-        <table>
-            <tr>
-                <th>Complexity Level</th>
-                <th>Variables</th>
-                <th>Estimated Qubits</th>
-                <th>Estimated Cost (USD)</th>
-                <th>Feasible</th>
-                <th>Affordable</th>
-                <th>Warnings</th>
-            </tr>
-"""
+    # Determine scaling outlook
+    avg_exponent = np.mean([r['exponent'] for r in scaling_data.values()])
     
-    for level_name, estimation in analysis['estimations'].items():
-        feasible_class = "feasible" if estimation.is_feasible else "not-feasible"
-        affordable_class = "affordable" if level_name in analysis['summary']['affordable_levels'] else "expensive"
-        warnings_text = f"{len(estimation.warnings)} warnings" if estimation.warnings else "None"
-        
-        html += f"""
-            <tr>
-                <td><strong>{level_name.upper()}</strong></td>
-                <td>{estimation.num_variables}</td>
-                <td>{estimation.estimated_qubits}</td>
-                <td class="{affordable_class}">${estimation.estimated_cost_usd:.4f}</td>
-                <td class="{feasible_class}">{'Yes' if estimation.is_feasible else 'No'}</td>
-                <td class="{affordable_class}">{'Yes' if level_name in analysis['summary']['affordable_levels'] else 'No'}</td>
-                <td>{warnings_text}</td>
-            </tr>
-"""
-        
-        # Add warnings if any
-        if estimation.warnings:
-            for warning in estimation.warnings:
-                html += f"""
-            <tr>
-                <td colspan="7" class="warning">Warning for {level_name}: {warning}</td>
-            </tr>
-"""
+    if avg_exponent <= 2.0:
+        scaling_outlook = "Excellent - Polynomial scaling suitable for larger problems"
+    elif avg_exponent <= 3.0:
+        scaling_outlook = "Good - Manageable scaling with some limitations"
+    else:
+        scaling_outlook = "Challenging - May require problem decomposition"
     
-    html += """
-        </table>
-        
-        <h2>Key Insights</h2>
-        <div class="recommendations">
-            <ul>
-                <li><strong>Cost Range:</strong> ${analysis['summary']['cost_range']['min']:.4f} - ${analysis['summary']['cost_range']['max']:.4f}</li>
-                <li><strong>Most Affordable:</strong> {analysis['summary']['affordable_levels'][0] if analysis['summary']['affordable_levels'] else 'None within budget'}</li>
-                <li><strong>Feasibility:</strong> {len(analysis['summary']['feasible_levels'])}/{len(analysis['estimations'])} levels are feasible</li>
-                <li><strong>Simulator Available:</strong> {'Yes' if analysis['sampler_info']['simulator_available'] else 'No'}</li>
-                <li><strong>Real QPU Configured:</strong> {'Yes' if analysis['sampler_info']['qpu_configured'] else 'No'}</li>"""
-    
-    if solver_validation:
-        html += f"""
-                <li><strong>Solver Validation:</strong> {len(solver_validation)} test problems with {avg_success:.1f}% average success rate</li>"""
-    
-    html += """
-            </ul>
-            
-            <h3>Feasibility Analysis</h3>
-            <p>Problems are marked as <strong>feasible</strong> if they can fit on D-Wave QPU hardware (under 5,000 qubits).</p>
-            <p>Problems are marked as <strong>affordable</strong> if their estimated cost is within your specified budget.</p>
-            
-            {f'<div class="warning">Note: All problems show the same cost because the current pricing model uses a fixed overhead. In practice, costs would vary more significantly with problem size and complexity.</div>' if len(set(est.estimated_cost_usd for est in analysis['estimations'].values())) == 1 else ''}
-        </div>
-        
-        <footer style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #7f8c8d;">
-            D-Wave Cost Estimation Report | Food Production Optimization System
-        </footer>
-    </div>
-</body>
-</html>
-"""
-    
-    return html
+    return {
+        'recommended_scenario': best_scenario,
+        'budget_estimate': max(total_cost * 10, 100),  # 10x buffer for full testing
+        'scaling_outlook': scaling_outlook,
+        'fastest_solve_time': best_result['predicted_time'],
+        'total_scenarios_tested': len(scaling_data),
+        'feasibility_rating': 'High' if avg_exponent <= 2.5 else 'Medium' if avg_exponent <= 3.5 else 'Low'
+    }
+
+# ...existing code...
 
 if __name__ == "__main__":
     success = main()

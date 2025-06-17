@@ -251,7 +251,8 @@ class VRPScenarioGenerator:
         return instance
 
 def get_all_scenarios() -> Dict[str, VRPInstance]:
-    """Get all available VRP scenarios including OSM-based realistic scenarios."""
+    """Get all available VRP scenarios - MODA scenarios and synthetic test scenarios only."""
+    # Core synthetic test scenarios for algorithm validation
     scenarios = {
         "small_delivery": VRPScenarioGenerator.create_small_delivery_scenario(),
         "ride_pooling": VRPScenarioGenerator.create_ride_pooling_scenario(),
@@ -260,9 +261,7 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
         "multi_depot": VRPScenarioGenerator.create_multi_depot_scenario(),
     }
     
-    realistic_scenarios_added = False
-    
-    # Add the large MODA_first scenario
+    # Add the large MODA_first scenario for realistic testing
     try:
         print("Creating MODA_first large ride pooling scenario in Northern Italy...")
         moda_scenario = create_moda_first_scenario()
@@ -271,7 +270,7 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
     except Exception as e:
         print(f"! Error creating MODA_first scenario: {str(e)}")
     
-    # Add only the MODA_small scenario for debugging
+    # Add the MODA_small scenario for focused testing
     try:
         print("Creating MODA_small ride pooling scenario in Northern Italy...")
         moda_scenario = create_moda_small_scenario()
@@ -280,35 +279,17 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
     except Exception as e:
         print(f"! Error creating MODA_small scenario: {str(e)}")
     
-    # Try offline realistic scenarios first (no API calls required)
-    try:
-        from vrp_offline_data import create_all_offline_scenarios
-        print("Loading offline realistic scenarios...")
-        offline_scenarios = create_all_offline_scenarios()
-        if offline_scenarios:
-            scenarios.update(offline_scenarios)
-            realistic_scenarios_added = True
-            print(f"+ Added {len(offline_scenarios)} offline realistic scenarios:")
-            for name in offline_scenarios.keys():
-                print(f"  - {name}")
-        else:
-            print("! No offline scenarios were created")
-    except ImportError as e:
-        print(f"! Offline data not available: {e}")
-    except Exception as e:
-        print(f"! Error loading offline scenarios: {str(e)}")
-    
-    # Skip OSM scenarios for debugging to speed up testing
-    print("! Skipping OSM scenarios for debugging - faster execution")
+    # NOTE: Offline/OSM realistic scenarios are disabled to focus on MODA scenarios
+    # This reduces testing complexity and focuses on the core ride pooling use cases
     
     # Summary of realistic scenarios
     realistic_count = sum(1 for name, instance in scenarios.items() 
                          if hasattr(instance, 'is_realistic') and instance.is_realistic)
     
-    if realistic_count > 0:
-        print(f"\n+ Total realistic scenarios loaded: {realistic_count} (debug mode)")
-    else:
-        print(f"\n! No realistic scenarios loaded - all scenarios are synthetic")
+    print(f"\n+ Scenarios loaded: {len(scenarios)} total")
+    print(f"  - Synthetic test scenarios: {len(scenarios) - realistic_count}")
+    print(f"  - MODA realistic scenarios: {realistic_count}")
+    print("  - Note: Other realistic/offline scenarios disabled for focused testing")
     
     return scenarios
 

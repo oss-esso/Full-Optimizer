@@ -1,0 +1,137 @@
+GPS Coordinates for MODA_small Northern Italy Ride Pooling
+==================================================
+
+depot_1:
+  Latitude: 45.464200
+  Longitude: 9.189600
+  Address: Milano Centrale Hub
+
+depot_2:
+  Latitude: 45.477300
+  Longitude: 9.070000
+  Address: Milano Porta Garibaldi Hub
+
+pickup_1:
+  Latitude: 45.466989
+  Longitude: 9.180100
+  Address: Pickup 1 - Milano Centro
+
+dropoff_1:
+  Latitude: 45.497618
+  Longitude: 9.152833
+  Address: Dropoff 1 - Isola
+
+pickup_2:
+  Latitude: 45.456250
+  Longitude: 9.194413
+  Address: Pickup 2 - Milano Centro
+
+dropoff_2:
+  Latitude: 45.478748
+  Longitude: 9.062509
+  Address: Dropoff 2 - Porta Garibaldi
+
+pickup_3:
+  Latitude: 45.469174
+  Longitude: 9.064653
+  Address: Pickup 3 - Porta Garibaldi
+
+dropoff_3:
+  Latitude: 45.465180
+  Longitude: 9.193056
+  Address: Dropoff 3 - Milano Centro
+
+pickup_4:
+  Latitude: 45.481326
+  Longitude: 9.068390
+  Address: Pickup 4 - Porta Garibaldi
+
+dropoff_4:
+  Latitude: 45.439828
+  Longitude: 9.174851
+  Address: Dropoff 4 - Navigli
+
+pickup_5:
+  Latitude: 45.430930
+  Longitude: 9.235816
+  Address: Pickup 5 - Lambrate
+
+dropoff_5:
+  Latitude: 45.435844
+  Longitude: 9.164388
+  Address: Dropoff 5 - Navigli
+
+pickup_6:
+  Latitude: 45.449944
+  Longitude: 9.226432
+  Address: Pickup 6 - Lambrate
+
+dropoff_6:
+  Latitude: 45.462279
+  Longitude: 9.187344
+  Address: Dropoff 6 - Milano Centro
+
+pickup_7:
+  Latitude: 45.498579
+  Longitude: 9.153890
+  Address: Pickup 7 - Isola
+
+dropoff_7:
+  Latitude: 45.467876
+  Longitude: 9.190180
+  Address: Dropoff 7 - Milano Centro
+
+pickup_8:
+  Latitude: 45.511162
+  Longitude: 9.156171
+  Address: Pickup 8 - Isola
+
+dropoff_8:
+  Latitude: 45.446070
+  Longitude: 9.231596
+  Address: Dropoff 8 - Lambrate
+
+pickup_9:
+  Latitude: 45.445634
+  Longitude: 9.171447
+  Address: Pickup 9 - Navigli
+
+dropoff_9:
+  Latitude: 45.456933
+  Longitude: 9.185246
+  Address: Dropoff 9 - Milano Centro
+
+pickup_10:
+  Latitude: 45.434188
+  Longitude: 9.161496
+  Address: Pickup 10 - Navigli
+
+dropoff_10:
+  Latitude: 45.483164
+  Longitude: 9.068082
+  Address: Dropoff 10 - Porta Garibaldi
+
+Google Maps Links:
+--------------------
+depot_1: https://www.google.com/maps?q=45.4642,9.1896
+depot_2: https://www.google.com/maps?q=45.4773,9.07
+pickup_1: https://www.google.com/maps?q=45.46698853596916,9.180100215104455
+dropoff_1: https://www.google.com/maps?q=45.497618269660855,9.152832606856402
+pickup_2: https://www.google.com/maps?q=45.45624990352343,9.194413354893355
+dropoff_2: https://www.google.com/maps?q=45.47874788019919,9.062508522871708
+pickup_3: https://www.google.com/maps?q=45.46917390479723,9.064653217867814
+dropoff_3: https://www.google.com/maps?q=45.465179921007014,9.193056313806759
+pickup_4: https://www.google.com/maps?q=45.481326499471805,9.068390396419234
+dropoff_4: https://www.google.com/maps?q=45.439828250942014,9.174850887306846
+pickup_5: https://www.google.com/maps?q=45.430929975193564,9.235816385036655
+dropoff_5: https://www.google.com/maps?q=45.43584400826429,9.16438767199699
+pickup_6: https://www.google.com/maps?q=45.44994426144414,9.226431890902251
+dropoff_6: https://www.google.com/maps?q=45.46227883681019,9.187343670087754
+pickup_7: https://www.google.com/maps?q=45.498579114449576,9.15389041734444
+dropoff_7: https://www.google.com/maps?q=45.4678757085871,9.190179649463275
+pickup_8: https://www.google.com/maps?q=45.511162315279584,9.156170687544167
+dropoff_8: https://www.google.com/maps?q=45.44607047462805,9.231596316037827
+pickup_9: https://www.google.com/maps?q=45.44563413800622,9.171447042905136
+dropoff_9: https://www.google.com/maps?q=45.456933190138486,9.185246372410425
+pickup_10: https://www.google.com/maps?q=45.43418775927204,9.161495839538473
+dropoff_10: https://www.google.com/maps?q=45.48316373866808,9.068082019600627
