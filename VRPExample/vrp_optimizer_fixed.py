@@ -396,9 +396,7 @@ class VRPQuantumOptimizer:
                 pickup_deliveries = []
                 
                 # Create routing index manager
-                manager = pywrapcp.RoutingIndexManager(num_locations, num_vehicles, depot_index)
-            
-            # Create routing model
+                manager = pywrapcp.RoutingIndexManager(num_locations, num_vehicles, depot_index)            # Create routing model
             routing = pywrapcp.RoutingModel(manager)
               # Create distance callback
             def distance_callback(from_index, to_index):
@@ -578,14 +576,13 @@ class VRPQuantumOptimizer:
                         routing.solver().Add(
                             routing.VehicleVar(pickup_node) == routing.VehicleVar(delivery_node)
                         )
-            
-            # Set search parameters with optimized time limit
+              # Set search parameters with optimized time limit
             search_parameters = pywrapcp.DefaultRoutingSearchParameters()
             search_parameters.first_solution_strategy = (
                 routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
             )
             search_parameters.local_search_metaheuristic = (
-                routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+                routing_enums_pb2.LocalSearchMetaheuristic.AUTOMATIC
             )
             
             # Adaptive time limit based on problem size

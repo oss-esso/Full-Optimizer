@@ -531,14 +531,13 @@ class VRPQuantumOptimizer:
                         routing.solver().Add(
                             routing.VehicleVar(pickup_node) == routing.VehicleVar(delivery_node)
                         )
-            
-            # Set search parameters with optimized time limit
+              # Set search parameters with optimized time limit
             search_parameters = pywrapcp.DefaultRoutingSearchParameters()
             search_parameters.first_solution_strategy = (
                 routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
             )
             search_parameters.local_search_metaheuristic = (
-                routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
+                routing_enums_pb2.LocalSearchMetaheuristic.AUTOMATIC
             )
             
             # Adaptive time limit based on problem size

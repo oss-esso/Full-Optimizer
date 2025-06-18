@@ -1,4 +1,4 @@
-GPS Coordinates for MODA_small Northern Italy Ride Pooling
+GPS Coordinates for MODA_small Northern Italy VRPPD
 ==================================================
 
 depot_1:

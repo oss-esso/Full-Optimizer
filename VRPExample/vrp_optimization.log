@@ -4797,3 +4797,736 @@ VRP analysis completed. Results saved to G:\Il mio Drive\OQI_Project\Full Optimi
 2025-06-18 17:40:05,592 - __main__ - INFO - Generating summary report
 2025-06-18 17:40:06,476 - __main__ - INFO - 
 VRP analysis completed. Results saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results
+2025-06-18 17:50:02,293 - __main__ - INFO - Starting VRP scenario analysis - MODA_small only
+2025-06-18 17:50:02,317 - __main__ - INFO - 
+============================================================
+2025-06-18 17:50:02,318 - __main__ - INFO - Processing scenario: MODA_small
+2025-06-18 17:50:02,318 - __main__ - INFO - ============================================================
+2025-06-18 17:50:02,318 - __main__ - INFO - Comparing optimization methods for MODA_small Northern Italy VRPPD
+2025-06-18 17:50:02,319 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-18 17:50:02,319 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-18 17:50:02,322 - __main__ - INFO - Running simple classical heuristic...
+2025-06-18 17:50:02,322 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-18 17:50:02,323 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-18 17:50:02,324 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-18 17:50:02,324 - vrp_optimizer_fixed - WARNING - OR-Tools configured for VRPPD with pickup-delivery constraints
+2025-06-18 17:50:02,324 - vrp_optimizer_fixed - INFO - Multi-depot VRPPD with 2 depots: ['depot_1', 'depot_2']
+2025-06-18 17:50:02,327 - vrp_optimizer_fixed - INFO - Set fixed cost per vehicle: 5000 to encourage distribution
+2025-06-18 17:50:02,327 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [4, 4, 4, 4, 4]
+2025-06-18 17:50:02,328 - vrp_optimizer_fixed - INFO - DEBUG: Starting time constraint setup for VRPPD
+2025-06-18 17:50:02,328 - vrp_optimizer_fixed - INFO - Adding max driving time constraint: 10 hours (36000 seconds max time per vehicle)
+2025-06-18 17:50:02,329 - vrp_optimizer_fixed - INFO - Time dimension configured with cost coefficient and hard limits
+2025-06-18 17:50:02,341 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-18 17:50:02,344 - vrp_optimizer_fixed - INFO - TIME CALLBACK 0: depot_1 -> depot_1
+2025-06-18 17:50:02,344 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 17:50:02,345 - vrp_optimizer_fixed - INFO - TIME CALLBACK 1: depot_1 -> depot_1
+2025-06-18 17:50:02,345 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 17:50:02,346 - vrp_optimizer_fixed - INFO - TIME CALLBACK 2: depot_1 -> depot_1
+2025-06-18 17:50:02,347 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 17:50:02,348 - vrp_optimizer_fixed - INFO - TIME CALLBACK 3: depot_2 -> depot_2
+2025-06-18 17:50:02,348 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 17:50:02,349 - vrp_optimizer_fixed - INFO - TIME CALLBACK 4: depot_2 -> depot_2
+2025-06-18 17:50:02,350 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 17:50:07,345 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 1280000
+2025-06-18 17:50:07,346 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=1.98, vehicles=4, runtime=5021.35ms
+2025-06-18 17:50:07,347 - __main__ - INFO - Running advanced heuristics...
+2025-06-18 17:50:07,347 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-18 17:50:07,348 - vrp_optimizer_fixed - WARNING - Advanced heuristics not yet implemented for VRPPD scenarios
+2025-06-18 17:50:07,348 - __main__ - INFO - Running 2-opt improvement...
+2025-06-18 17:50:07,348 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-18 17:50:07,349 - vrp_optimizer_fixed - WARNING - 2-opt improvement not yet implemented for VRPPD scenarios
+2025-06-18 17:50:08,295 - __main__ - INFO - Comparison plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_comparison.png
+2025-06-18 17:50:09,136 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution.png
+2025-06-18 17:50:09,191 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution_gps_info.txt
+2025-06-18 17:50:10,025 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution.png
+2025-06-18 17:50:10,031 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution_gps_info.txt
+2025-06-18 17:50:10,844 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution.png
+2025-06-18 17:50:10,850 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution_gps_info.txt
+2025-06-18 17:50:11,563 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution.png
+2025-06-18 17:50:11,598 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution_gps_info.txt
+2025-06-18 17:50:12,309 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution.png
+2025-06-18 17:50:12,317 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution_gps_info.txt
+2025-06-18 17:50:12,318 - vrp_map_visualization - INFO - Selected quantum as best solver with objective value: -1.7852878757505923
+2025-06-18 17:50:12,318 - vrp_map_visualization - INFO - Using quantum solution for MODA_small map visualization (objective: -1.79)
+2025-06-18 17:50:12,367 - vrp_map_visualization - INFO - OSRM routing service is available
+2025-06-18 17:50:12,382 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46698853596916, 9.180100215104455]
+2025-06-18 17:50:13,367 - vrp_map_visualization - INFO - Route found with 114 points
+2025-06-18 17:50:13,367 - vrp_map_visualization - INFO - Requesting route from [45.46698853596916, 9.180100215104455] to [45.497618269660855, 9.152832606856402]
+2025-06-18 17:50:14,368 - vrp_map_visualization - INFO - Route found with 299 points
+2025-06-18 17:50:14,369 - vrp_map_visualization - INFO - Requesting route from [45.497618269660855, 9.152832606856402] to [45.44994426144414, 9.226431890902251]
+2025-06-18 17:50:15,377 - vrp_map_visualization - INFO - Route found with 483 points
+2025-06-18 17:50:15,379 - vrp_map_visualization - INFO - Requesting route from [45.44994426144414, 9.226431890902251] to [45.46227883681019, 9.187343670087754]
+2025-06-18 17:50:16,377 - vrp_map_visualization - INFO - Route found with 330 points
+2025-06-18 17:50:16,378 - vrp_map_visualization - INFO - Requesting route from [45.46227883681019, 9.187343670087754] to [45.4642, 9.1896]
+2025-06-18 17:50:17,367 - vrp_map_visualization - INFO - Route found with 205 points
+2025-06-18 17:50:17,369 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.45624990352343, 9.194413354893355]
+2025-06-18 17:50:18,367 - vrp_map_visualization - INFO - Route found with 156 points
+2025-06-18 17:50:18,368 - vrp_map_visualization - INFO - Requesting route from [45.45624990352343, 9.194413354893355] to [45.47874788019919, 9.062508522871708]
+2025-06-18 17:50:19,373 - vrp_map_visualization - INFO - Route found with 515 points
+2025-06-18 17:50:19,374 - vrp_map_visualization - INFO - Requesting route from [45.47874788019919, 9.062508522871708] to [45.498579114449576, 9.15389041734444]
+2025-06-18 17:50:20,374 - vrp_map_visualization - INFO - Route found with 432 points
+2025-06-18 17:50:20,374 - vrp_map_visualization - INFO - Requesting route from [45.498579114449576, 9.15389041734444] to [45.4678757085871, 9.190179649463275]
+2025-06-18 17:50:21,373 - vrp_map_visualization - INFO - Route found with 326 points
+2025-06-18 17:50:21,373 - vrp_map_visualization - INFO - Requesting route from [45.4678757085871, 9.190179649463275] to [45.4642, 9.1896]
+2025-06-18 17:50:22,368 - vrp_map_visualization - INFO - Route found with 29 points
+2025-06-18 17:50:22,370 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46917390479723, 9.064653217867814]
+2025-06-18 17:50:23,387 - vrp_map_visualization - INFO - Route found with 598 points
+2025-06-18 17:50:23,387 - vrp_map_visualization - INFO - Requesting route from [45.46917390479723, 9.064653217867814] to [45.465179921007014, 9.193056313806759]
+2025-06-18 17:50:24,373 - vrp_map_visualization - INFO - Route found with 637 points
+2025-06-18 17:50:24,374 - vrp_map_visualization - INFO - Requesting route from [45.465179921007014, 9.193056313806759] to [45.511162315279584, 9.156170687544167]
+2025-06-18 17:50:25,376 - vrp_map_visualization - INFO - Route found with 489 points
+2025-06-18 17:50:25,377 - vrp_map_visualization - INFO - Requesting route from [45.511162315279584, 9.156170687544167] to [45.44607047462805, 9.231596316037827]
+2025-06-18 17:50:26,501 - vrp_map_visualization - INFO - Route found with 769 points
+2025-06-18 17:50:26,502 - vrp_map_visualization - INFO - Requesting route from [45.44607047462805, 9.231596316037827] to [45.4642, 9.1896]
+2025-06-18 17:50:27,376 - vrp_map_visualization - INFO - Route found with 415 points
+2025-06-18 17:50:27,380 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.481326499471805, 9.068390396419234]
+2025-06-18 17:50:28,364 - vrp_map_visualization - INFO - Route found with 19 points
+2025-06-18 17:50:28,365 - vrp_map_visualization - INFO - Requesting route from [45.481326499471805, 9.068390396419234] to [45.439828250942014, 9.174850887306846]
+2025-06-18 17:50:29,375 - vrp_map_visualization - INFO - Route found with 488 points
+2025-06-18 17:50:29,376 - vrp_map_visualization - INFO - Requesting route from [45.439828250942014, 9.174850887306846] to [45.44563413800622, 9.171447042905136]
+2025-06-18 17:50:30,366 - vrp_map_visualization - INFO - Route found with 90 points
+2025-06-18 17:50:30,367 - vrp_map_visualization - INFO - Requesting route from [45.44563413800622, 9.171447042905136] to [45.456933190138486, 9.185246372410425]
+2025-06-18 17:50:31,368 - vrp_map_visualization - INFO - Route found with 222 points
+2025-06-18 17:50:31,369 - vrp_map_visualization - INFO - Requesting route from [45.456933190138486, 9.185246372410425] to [45.4642, 9.1896]
+2025-06-18 17:50:32,367 - vrp_map_visualization - INFO - Route found with 209 points
+2025-06-18 17:50:32,369 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.430929975193564, 9.235816385036655]
+2025-06-18 17:50:33,384 - vrp_map_visualization - INFO - Route found with 812 points
+2025-06-18 17:50:33,385 - vrp_map_visualization - INFO - Requesting route from [45.430929975193564, 9.235816385036655] to [45.43584400826429, 9.16438767199699]
+2025-06-18 17:50:34,371 - vrp_map_visualization - INFO - Route found with 285 points
+2025-06-18 17:50:34,372 - vrp_map_visualization - INFO - Requesting route from [45.43584400826429, 9.16438767199699] to [45.43418775927204, 9.161495839538473]
+2025-06-18 17:50:35,368 - vrp_map_visualization - INFO - Route found with 50 points
+2025-06-18 17:50:35,369 - vrp_map_visualization - INFO - Requesting route from [45.43418775927204, 9.161495839538473] to [45.48316373866808, 9.068082019600627]
+2025-06-18 17:50:36,372 - vrp_map_visualization - INFO - Route found with 497 points
+2025-06-18 17:50:36,372 - vrp_map_visualization - INFO - Requesting route from [45.48316373866808, 9.068082019600627] to [45.4773, 9.07]
+2025-06-18 17:50:37,369 - vrp_map_visualization - INFO - Route found with 208 points
+2025-06-18 17:50:37,488 - vrp_map_visualization - INFO - Interactive map with street routing saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_interactive_map.html
+2025-06-18 17:50:37,611 - vrp_map_visualization - ERROR - Error creating static map: Stamen
+2025-06-18 17:50:38,450 - vrp_map_visualization - INFO - Fallback GPS plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_map_background_gps_fallback.png
+2025-06-18 17:50:38,452 - __main__ - INFO - Created 2 map visualizations for MODA_small
+2025-06-18 17:50:38,453 - __main__ - INFO - Scenario MODA_small completed:
+2025-06-18 17:50:38,453 - __main__ - INFO -   Quantum - Distance: 1.79, Runtime: 3.00ms
+2025-06-18 17:50:38,453 - __main__ - INFO -   Classical - Distance: 1.79, Runtime: 0.00ms
+2025-06-18 17:50:38,454 - __main__ - INFO -   OR-Tools - Distance: 1.98, Runtime: 5021.35ms
+2025-06-18 17:50:38,454 - __main__ - INFO -   Advanced - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 17:50:38,454 - __main__ - INFO -   2-opt - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 17:50:38,454 - __main__ - INFO - Generating summary report
+2025-06-18 17:50:39,181 - __main__ - INFO - 
+VRP analysis completed. Results saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results
+2025-06-18 18:30:53,891 - __main__ - INFO - Starting VRP scenario analysis - MODA_small only
+2025-06-18 18:30:53,910 - __main__ - INFO - 
+============================================================
+2025-06-18 18:30:53,910 - __main__ - INFO - Processing scenario: MODA_small
+2025-06-18 18:30:53,911 - __main__ - INFO - ============================================================
+2025-06-18 18:30:53,911 - __main__ - INFO - Comparing optimization methods for MODA_small Northern Italy VRPPD
+2025-06-18 18:30:53,911 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-18 18:30:53,912 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-18 18:30:53,913 - __main__ - INFO - Running simple classical heuristic...
+2025-06-18 18:30:53,914 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-18 18:30:53,914 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-18 18:30:53,915 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-18 18:30:53,915 - vrp_optimizer_fixed - WARNING - OR-Tools configured for VRPPD with pickup-delivery constraints
+2025-06-18 18:30:53,916 - vrp_optimizer_fixed - INFO - Multi-depot VRPPD with 2 depots: ['depot_1', 'depot_2']
+2025-06-18 18:30:53,918 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [4, 4, 4, 4, 4]
+2025-06-18 18:30:53,919 - vrp_optimizer_fixed - INFO - DEBUG: Starting time constraint setup for VRPPD
+2025-06-18 18:30:53,919 - vrp_optimizer_fixed - INFO - Adding max driving time constraint: 10 hours (36000 seconds max time per vehicle)
+2025-06-18 18:30:53,920 - vrp_optimizer_fixed - INFO - Time dimension configured with cost coefficient and hard limits
+2025-06-18 18:30:53,927 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-18 18:30:53,928 - vrp_optimizer_fixed - INFO - TIME CALLBACK 0: depot_1 -> depot_1
+2025-06-18 18:30:53,929 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:30:53,929 - vrp_optimizer_fixed - INFO - TIME CALLBACK 1: depot_1 -> depot_1
+2025-06-18 18:30:53,929 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:30:53,930 - vrp_optimizer_fixed - INFO - TIME CALLBACK 2: depot_1 -> depot_1
+2025-06-18 18:30:53,930 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:30:53,931 - vrp_optimizer_fixed - INFO - TIME CALLBACK 3: depot_2 -> depot_2
+2025-06-18 18:30:53,931 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:30:53,931 - vrp_optimizer_fixed - INFO - TIME CALLBACK 4: depot_2 -> depot_2
+2025-06-18 18:30:53,932 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:30:54,029 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 1980000
+2025-06-18 18:30:54,030 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=2.06, vehicles=2, runtime=114.03ms
+2025-06-18 18:30:54,031 - __main__ - INFO - Running advanced heuristics...
+2025-06-18 18:30:54,031 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-18 18:30:54,031 - vrp_optimizer_fixed - WARNING - Advanced heuristics not yet implemented for VRPPD scenarios
+2025-06-18 18:30:54,032 - __main__ - INFO - Running 2-opt improvement...
+2025-06-18 18:30:54,032 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-18 18:30:54,032 - vrp_optimizer_fixed - WARNING - 2-opt improvement not yet implemented for VRPPD scenarios
+2025-06-18 18:30:54,915 - __main__ - INFO - Comparison plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_comparison.png
+2025-06-18 18:30:55,687 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution.png
+2025-06-18 18:30:55,756 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution_gps_info.txt
+2025-06-18 18:30:56,514 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution.png
+2025-06-18 18:30:56,520 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution_gps_info.txt
+2025-06-18 18:30:57,239 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution.png
+2025-06-18 18:30:57,246 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution_gps_info.txt
+2025-06-18 18:30:57,891 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution.png
+2025-06-18 18:30:57,897 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution_gps_info.txt
+2025-06-18 18:30:58,549 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution.png
+2025-06-18 18:30:58,555 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution_gps_info.txt
+2025-06-18 18:30:58,555 - vrp_map_visualization - INFO - Selected quantum as best solver with objective value: -1.7852878757505923
+2025-06-18 18:30:58,556 - vrp_map_visualization - INFO - Using quantum solution for MODA_small map visualization (objective: -1.79)
+2025-06-18 18:30:58,597 - vrp_map_visualization - INFO - OSRM routing service is available
+2025-06-18 18:30:58,610 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46698853596916, 9.180100215104455]
+2025-06-18 18:30:59,600 - vrp_map_visualization - INFO - Route found with 114 points
+2025-06-18 18:30:59,601 - vrp_map_visualization - INFO - Requesting route from [45.46698853596916, 9.180100215104455] to [45.497618269660855, 9.152832606856402]
+2025-06-18 18:31:00,608 - vrp_map_visualization - INFO - Route found with 299 points
+2025-06-18 18:31:00,608 - vrp_map_visualization - INFO - Requesting route from [45.497618269660855, 9.152832606856402] to [45.44994426144414, 9.226431890902251]
+2025-06-18 18:31:01,607 - vrp_map_visualization - INFO - Route found with 483 points
+2025-06-18 18:31:01,608 - vrp_map_visualization - INFO - Requesting route from [45.44994426144414, 9.226431890902251] to [45.46227883681019, 9.187343670087754]
+2025-06-18 18:31:02,605 - vrp_map_visualization - INFO - Route found with 330 points
+2025-06-18 18:31:02,605 - vrp_map_visualization - INFO - Requesting route from [45.46227883681019, 9.187343670087754] to [45.4642, 9.1896]
+2025-06-18 18:31:03,601 - vrp_map_visualization - INFO - Route found with 205 points
+2025-06-18 18:31:03,604 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.45624990352343, 9.194413354893355]
+2025-06-18 18:31:04,606 - vrp_map_visualization - INFO - Route found with 156 points
+2025-06-18 18:31:04,607 - vrp_map_visualization - INFO - Requesting route from [45.45624990352343, 9.194413354893355] to [45.47874788019919, 9.062508522871708]
+2025-06-18 18:31:05,604 - vrp_map_visualization - INFO - Route found with 515 points
+2025-06-18 18:31:05,604 - vrp_map_visualization - INFO - Requesting route from [45.47874788019919, 9.062508522871708] to [45.498579114449576, 9.15389041734444]
+2025-06-18 18:31:06,603 - vrp_map_visualization - INFO - Route found with 432 points
+2025-06-18 18:31:06,603 - vrp_map_visualization - INFO - Requesting route from [45.498579114449576, 9.15389041734444] to [45.4678757085871, 9.190179649463275]
+2025-06-18 18:31:07,601 - vrp_map_visualization - INFO - Route found with 326 points
+2025-06-18 18:31:07,602 - vrp_map_visualization - INFO - Requesting route from [45.4678757085871, 9.190179649463275] to [45.4642, 9.1896]
+2025-06-18 18:31:08,598 - vrp_map_visualization - INFO - Route found with 29 points
+2025-06-18 18:31:08,601 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46917390479723, 9.064653217867814]
+2025-06-18 18:31:09,607 - vrp_map_visualization - INFO - Route found with 598 points
+2025-06-18 18:31:09,608 - vrp_map_visualization - INFO - Requesting route from [45.46917390479723, 9.064653217867814] to [45.465179921007014, 9.193056313806759]
+2025-06-18 18:31:10,611 - vrp_map_visualization - INFO - Route found with 637 points
+2025-06-18 18:31:10,612 - vrp_map_visualization - INFO - Requesting route from [45.465179921007014, 9.193056313806759] to [45.511162315279584, 9.156170687544167]
+2025-06-18 18:31:11,605 - vrp_map_visualization - INFO - Route found with 489 points
+2025-06-18 18:31:11,605 - vrp_map_visualization - INFO - Requesting route from [45.511162315279584, 9.156170687544167] to [45.44607047462805, 9.231596316037827]
+2025-06-18 18:31:12,720 - vrp_map_visualization - INFO - Route found with 769 points
+2025-06-18 18:31:12,720 - vrp_map_visualization - INFO - Requesting route from [45.44607047462805, 9.231596316037827] to [45.4642, 9.1896]
+2025-06-18 18:31:13,603 - vrp_map_visualization - INFO - Route found with 415 points
+2025-06-18 18:31:13,608 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.481326499471805, 9.068390396419234]
+2025-06-18 18:31:14,599 - vrp_map_visualization - INFO - Route found with 19 points
+2025-06-18 18:31:14,600 - vrp_map_visualization - INFO - Requesting route from [45.481326499471805, 9.068390396419234] to [45.439828250942014, 9.174850887306846]
+2025-06-18 18:31:15,609 - vrp_map_visualization - INFO - Route found with 488 points
+2025-06-18 18:31:15,610 - vrp_map_visualization - INFO - Requesting route from [45.439828250942014, 9.174850887306846] to [45.44563413800622, 9.171447042905136]
+2025-06-18 18:31:16,600 - vrp_map_visualization - INFO - Route found with 90 points
+2025-06-18 18:31:16,600 - vrp_map_visualization - INFO - Requesting route from [45.44563413800622, 9.171447042905136] to [45.456933190138486, 9.185246372410425]
+2025-06-18 18:31:17,602 - vrp_map_visualization - INFO - Route found with 222 points
+2025-06-18 18:31:17,603 - vrp_map_visualization - INFO - Requesting route from [45.456933190138486, 9.185246372410425] to [45.4642, 9.1896]
+2025-06-18 18:31:18,603 - vrp_map_visualization - INFO - Route found with 209 points
+2025-06-18 18:31:18,605 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.430929975193564, 9.235816385036655]
+2025-06-18 18:31:19,620 - vrp_map_visualization - INFO - Route found with 812 points
+2025-06-18 18:31:19,620 - vrp_map_visualization - INFO - Requesting route from [45.430929975193564, 9.235816385036655] to [45.43584400826429, 9.16438767199699]
+2025-06-18 18:31:20,601 - vrp_map_visualization - INFO - Route found with 285 points
+2025-06-18 18:31:20,602 - vrp_map_visualization - INFO - Requesting route from [45.43584400826429, 9.16438767199699] to [45.43418775927204, 9.161495839538473]
+2025-06-18 18:31:21,599 - vrp_map_visualization - INFO - Route found with 50 points
+2025-06-18 18:31:21,599 - vrp_map_visualization - INFO - Requesting route from [45.43418775927204, 9.161495839538473] to [45.48316373866808, 9.068082019600627]
+2025-06-18 18:31:22,607 - vrp_map_visualization - INFO - Route found with 497 points
+2025-06-18 18:31:22,608 - vrp_map_visualization - INFO - Requesting route from [45.48316373866808, 9.068082019600627] to [45.4773, 9.07]
+2025-06-18 18:31:23,604 - vrp_map_visualization - INFO - Route found with 208 points
+2025-06-18 18:31:23,716 - vrp_map_visualization - INFO - Interactive map with street routing saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_interactive_map.html
+2025-06-18 18:31:23,825 - vrp_map_visualization - ERROR - Error creating static map: Stamen
+2025-06-18 18:31:24,551 - vrp_map_visualization - INFO - Fallback GPS plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_map_background_gps_fallback.png
+2025-06-18 18:31:24,552 - __main__ - INFO - Created 2 map visualizations for MODA_small
+2025-06-18 18:31:24,552 - __main__ - INFO - Scenario MODA_small completed:
+2025-06-18 18:31:24,553 - __main__ - INFO -   Quantum - Distance: 1.79, Runtime: 1.00ms
+2025-06-18 18:31:24,553 - __main__ - INFO -   Classical - Distance: 1.79, Runtime: 0.00ms
+2025-06-18 18:31:24,553 - __main__ - INFO -   OR-Tools - Distance: 2.06, Runtime: 114.03ms
+2025-06-18 18:31:24,553 - __main__ - INFO -   Advanced - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 18:31:24,553 - __main__ - INFO -   2-opt - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 18:31:24,554 - __main__ - INFO - Generating summary report
+2025-06-18 18:31:25,215 - __main__ - INFO - 
+VRP analysis completed. Results saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results
+2025-06-18 18:32:40,789 - __main__ - INFO - Starting VRP scenario analysis - MODA_small only
+2025-06-18 18:32:40,808 - __main__ - INFO - 
+============================================================
+2025-06-18 18:32:40,808 - __main__ - INFO - Processing scenario: MODA_small
+2025-06-18 18:32:40,808 - __main__ - INFO - ============================================================
+2025-06-18 18:32:40,809 - __main__ - INFO - Comparing optimization methods for MODA_small Northern Italy VRPPD
+2025-06-18 18:32:40,809 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-18 18:32:40,809 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-18 18:32:40,811 - __main__ - INFO - Running simple classical heuristic...
+2025-06-18 18:32:40,811 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-18 18:32:40,812 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-18 18:32:40,812 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-18 18:32:40,813 - vrp_optimizer_fixed - WARNING - OR-Tools configured for VRPPD with pickup-delivery constraints
+2025-06-18 18:32:40,813 - vrp_optimizer_fixed - INFO - Multi-depot VRPPD with 2 depots: ['depot_1', 'depot_2']
+2025-06-18 18:32:40,815 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [4, 4, 4, 4, 4]
+2025-06-18 18:32:40,816 - vrp_optimizer_fixed - INFO - DEBUG: Starting time constraint setup for VRPPD
+2025-06-18 18:32:40,817 - vrp_optimizer_fixed - INFO - Adding max driving time constraint: 10 hours (36000 seconds max time per vehicle)
+2025-06-18 18:32:40,817 - vrp_optimizer_fixed - INFO - Time dimension configured with cost coefficient and hard limits
+2025-06-18 18:32:40,823 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-18 18:32:40,825 - vrp_optimizer_fixed - INFO - TIME CALLBACK 0: depot_1 -> depot_1
+2025-06-18 18:32:40,825 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:32:40,826 - vrp_optimizer_fixed - INFO - TIME CALLBACK 1: depot_1 -> depot_1
+2025-06-18 18:32:40,826 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:32:40,826 - vrp_optimizer_fixed - INFO - TIME CALLBACK 2: depot_1 -> depot_1
+2025-06-18 18:32:40,827 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:32:40,827 - vrp_optimizer_fixed - INFO - TIME CALLBACK 3: depot_2 -> depot_2
+2025-06-18 18:32:40,827 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:32:40,828 - vrp_optimizer_fixed - INFO - TIME CALLBACK 4: depot_2 -> depot_2
+2025-06-18 18:32:40,828 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:32:40,919 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 1980000
+2025-06-18 18:32:40,920 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=2.06, vehicles=2, runtime=106.02ms
+2025-06-18 18:32:40,921 - __main__ - INFO - Running advanced heuristics...
+2025-06-18 18:32:40,921 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-18 18:32:40,922 - vrp_optimizer_fixed - WARNING - Advanced heuristics not yet implemented for VRPPD scenarios
+2025-06-18 18:32:40,922 - __main__ - INFO - Running 2-opt improvement...
+2025-06-18 18:32:40,922 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-18 18:32:40,923 - vrp_optimizer_fixed - WARNING - 2-opt improvement not yet implemented for VRPPD scenarios
+2025-06-18 18:32:41,764 - __main__ - INFO - Comparison plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_comparison.png
+2025-06-18 18:32:42,516 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution.png
+2025-06-18 18:32:42,540 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution_gps_info.txt
+2025-06-18 18:32:43,294 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution.png
+2025-06-18 18:32:43,300 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution_gps_info.txt
+2025-06-18 18:32:44,020 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution.png
+2025-06-18 18:32:44,026 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution_gps_info.txt
+2025-06-18 18:32:44,680 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution.png
+2025-06-18 18:32:44,686 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution_gps_info.txt
+2025-06-18 18:32:45,340 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution.png
+2025-06-18 18:32:45,347 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution_gps_info.txt
+2025-06-18 18:32:45,348 - vrp_map_visualization - INFO - Selected quantum as best solver with objective value: -1.7852878757505923
+2025-06-18 18:32:45,348 - vrp_map_visualization - INFO - Using quantum solution for MODA_small map visualization (objective: -1.79)
+2025-06-18 18:32:45,381 - vrp_map_visualization - INFO - OSRM routing service is available
+2025-06-18 18:32:45,394 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46698853596916, 9.180100215104455]
+2025-06-18 18:32:46,380 - vrp_map_visualization - INFO - Route found with 114 points
+2025-06-18 18:32:46,381 - vrp_map_visualization - INFO - Requesting route from [45.46698853596916, 9.180100215104455] to [45.497618269660855, 9.152832606856402]
+2025-06-18 18:32:47,384 - vrp_map_visualization - INFO - Route found with 299 points
+2025-06-18 18:32:47,386 - vrp_map_visualization - INFO - Requesting route from [45.497618269660855, 9.152832606856402] to [45.44994426144414, 9.226431890902251]
+2025-06-18 18:32:48,381 - vrp_map_visualization - INFO - Route found with 483 points
+2025-06-18 18:32:48,382 - vrp_map_visualization - INFO - Requesting route from [45.44994426144414, 9.226431890902251] to [45.46227883681019, 9.187343670087754]
+2025-06-18 18:32:49,521 - vrp_map_visualization - INFO - Route found with 330 points
+2025-06-18 18:32:49,522 - vrp_map_visualization - INFO - Requesting route from [45.46227883681019, 9.187343670087754] to [45.4642, 9.1896]
+2025-06-18 18:32:50,381 - vrp_map_visualization - INFO - Route found with 205 points
+2025-06-18 18:32:50,383 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.45624990352343, 9.194413354893355]
+2025-06-18 18:32:51,476 - vrp_map_visualization - INFO - Route found with 156 points
+2025-06-18 18:32:51,476 - vrp_map_visualization - INFO - Requesting route from [45.45624990352343, 9.194413354893355] to [45.47874788019919, 9.062508522871708]
+2025-06-18 18:32:52,386 - vrp_map_visualization - INFO - Route found with 515 points
+2025-06-18 18:32:52,387 - vrp_map_visualization - INFO - Requesting route from [45.47874788019919, 9.062508522871708] to [45.498579114449576, 9.15389041734444]
+2025-06-18 18:32:53,385 - vrp_map_visualization - INFO - Route found with 432 points
+2025-06-18 18:32:53,385 - vrp_map_visualization - INFO - Requesting route from [45.498579114449576, 9.15389041734444] to [45.4678757085871, 9.190179649463275]
+2025-06-18 18:32:54,384 - vrp_map_visualization - INFO - Route found with 326 points
+2025-06-18 18:32:54,385 - vrp_map_visualization - INFO - Requesting route from [45.4678757085871, 9.190179649463275] to [45.4642, 9.1896]
+2025-06-18 18:32:55,380 - vrp_map_visualization - INFO - Route found with 29 points
+2025-06-18 18:32:55,383 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46917390479723, 9.064653217867814]
+2025-06-18 18:32:56,389 - vrp_map_visualization - INFO - Route found with 598 points
+2025-06-18 18:32:56,390 - vrp_map_visualization - INFO - Requesting route from [45.46917390479723, 9.064653217867814] to [45.465179921007014, 9.193056313806759]
+2025-06-18 18:32:57,390 - vrp_map_visualization - INFO - Route found with 637 points
+2025-06-18 18:32:57,390 - vrp_map_visualization - INFO - Requesting route from [45.465179921007014, 9.193056313806759] to [45.511162315279584, 9.156170687544167]
+2025-06-18 18:32:58,393 - vrp_map_visualization - INFO - Route found with 489 points
+2025-06-18 18:32:58,394 - vrp_map_visualization - INFO - Requesting route from [45.511162315279584, 9.156170687544167] to [45.44607047462805, 9.231596316037827]
+2025-06-18 18:32:59,500 - vrp_map_visualization - INFO - Route found with 769 points
+2025-06-18 18:32:59,501 - vrp_map_visualization - INFO - Requesting route from [45.44607047462805, 9.231596316037827] to [45.4642, 9.1896]
+2025-06-18 18:33:00,384 - vrp_map_visualization - INFO - Route found with 415 points
+2025-06-18 18:33:00,388 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.481326499471805, 9.068390396419234]
+2025-06-18 18:33:01,381 - vrp_map_visualization - INFO - Route found with 19 points
+2025-06-18 18:33:01,381 - vrp_map_visualization - INFO - Requesting route from [45.481326499471805, 9.068390396419234] to [45.439828250942014, 9.174850887306846]
+2025-06-18 18:33:02,429 - vrp_map_visualization - INFO - Route found with 488 points
+2025-06-18 18:33:02,429 - vrp_map_visualization - INFO - Requesting route from [45.439828250942014, 9.174850887306846] to [45.44563413800622, 9.171447042905136]
+2025-06-18 18:33:03,380 - vrp_map_visualization - INFO - Route found with 90 points
+2025-06-18 18:33:03,380 - vrp_map_visualization - INFO - Requesting route from [45.44563413800622, 9.171447042905136] to [45.456933190138486, 9.185246372410425]
+2025-06-18 18:33:04,383 - vrp_map_visualization - INFO - Route found with 222 points
+2025-06-18 18:33:04,383 - vrp_map_visualization - INFO - Requesting route from [45.456933190138486, 9.185246372410425] to [45.4642, 9.1896]
+2025-06-18 18:33:05,382 - vrp_map_visualization - INFO - Route found with 209 points
+2025-06-18 18:33:05,384 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.430929975193564, 9.235816385036655]
+2025-06-18 18:33:06,400 - vrp_map_visualization - INFO - Route found with 812 points
+2025-06-18 18:33:06,400 - vrp_map_visualization - INFO - Requesting route from [45.430929975193564, 9.235816385036655] to [45.43584400826429, 9.16438767199699]
+2025-06-18 18:33:07,382 - vrp_map_visualization - INFO - Route found with 285 points
+2025-06-18 18:33:07,383 - vrp_map_visualization - INFO - Requesting route from [45.43584400826429, 9.16438767199699] to [45.43418775927204, 9.161495839538473]
+2025-06-18 18:33:08,382 - vrp_map_visualization - INFO - Route found with 50 points
+2025-06-18 18:33:08,383 - vrp_map_visualization - INFO - Requesting route from [45.43418775927204, 9.161495839538473] to [45.48316373866808, 9.068082019600627]
+2025-06-18 18:33:09,388 - vrp_map_visualization - INFO - Route found with 497 points
+2025-06-18 18:33:09,389 - vrp_map_visualization - INFO - Requesting route from [45.48316373866808, 9.068082019600627] to [45.4773, 9.07]
+2025-06-18 18:33:10,385 - vrp_map_visualization - INFO - Route found with 208 points
+2025-06-18 18:33:10,498 - vrp_map_visualization - INFO - Interactive map with street routing saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_interactive_map.html
+2025-06-18 18:33:10,614 - vrp_map_visualization - ERROR - Error creating static map: Stamen
+2025-06-18 18:33:11,352 - vrp_map_visualization - INFO - Fallback GPS plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_map_background_gps_fallback.png
+2025-06-18 18:33:11,353 - __main__ - INFO - Created 2 map visualizations for MODA_small
+2025-06-18 18:33:11,354 - __main__ - INFO - Scenario MODA_small completed:
+2025-06-18 18:33:11,354 - __main__ - INFO -   Quantum - Distance: 1.79, Runtime: 1.00ms
+2025-06-18 18:33:11,354 - __main__ - INFO -   Classical - Distance: 1.79, Runtime: 0.00ms
+2025-06-18 18:33:11,354 - __main__ - INFO -   OR-Tools - Distance: 2.06, Runtime: 106.02ms
+2025-06-18 18:33:11,355 - __main__ - INFO -   Advanced - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 18:33:11,355 - __main__ - INFO -   2-opt - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 18:33:11,355 - __main__ - INFO - Generating summary report
+2025-06-18 18:33:12,015 - __main__ - INFO - 
+VRP analysis completed. Results saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results
+2025-06-18 18:35:25,792 - __main__ - INFO - Starting VRP scenario analysis - MODA_small only
+2025-06-18 18:35:25,813 - __main__ - INFO - 
+============================================================
+2025-06-18 18:35:25,814 - __main__ - INFO - Processing scenario: MODA_small
+2025-06-18 18:35:25,814 - __main__ - INFO - ============================================================
+2025-06-18 18:35:25,814 - __main__ - INFO - Comparing optimization methods for MODA_small Northern Italy VRPPD
+2025-06-18 18:35:25,815 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-18 18:35:25,815 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-18 18:35:25,817 - __main__ - INFO - Running simple classical heuristic...
+2025-06-18 18:35:25,818 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-18 18:35:25,819 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-18 18:35:25,819 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-18 18:35:25,819 - vrp_optimizer_fixed - WARNING - OR-Tools configured for VRPPD with pickup-delivery constraints
+2025-06-18 18:35:25,820 - vrp_optimizer_fixed - INFO - Multi-depot VRPPD with 2 depots: ['depot_1', 'depot_2']
+2025-06-18 18:35:25,822 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [4, 4, 4, 4, 4]
+2025-06-18 18:35:25,823 - vrp_optimizer_fixed - INFO - DEBUG: Starting time constraint setup for VRPPD
+2025-06-18 18:35:25,823 - vrp_optimizer_fixed - INFO - Adding max driving time constraint: 10 hours (36000 seconds max time per vehicle)
+2025-06-18 18:35:25,824 - vrp_optimizer_fixed - INFO - Time dimension configured with cost coefficient and hard limits
+2025-06-18 18:35:25,831 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-18 18:35:25,832 - vrp_optimizer_fixed - INFO - TIME CALLBACK 0: depot_1 -> depot_1
+2025-06-18 18:35:25,833 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:35:25,834 - vrp_optimizer_fixed - INFO - TIME CALLBACK 1: depot_1 -> depot_1
+2025-06-18 18:35:25,834 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:35:25,835 - vrp_optimizer_fixed - INFO - TIME CALLBACK 2: depot_1 -> depot_1
+2025-06-18 18:35:25,835 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:35:25,835 - vrp_optimizer_fixed - INFO - TIME CALLBACK 3: depot_2 -> depot_2
+2025-06-18 18:35:25,836 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:35:25,837 - vrp_optimizer_fixed - INFO - TIME CALLBACK 4: depot_2 -> depot_2
+2025-06-18 18:35:25,837 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:35:25,940 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 1980000
+2025-06-18 18:35:25,941 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=2.06, vehicles=2, runtime=120.93ms
+2025-06-18 18:35:25,942 - __main__ - INFO - Running advanced heuristics...
+2025-06-18 18:35:25,942 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-18 18:35:25,943 - vrp_optimizer_fixed - WARNING - Advanced heuristics not yet implemented for VRPPD scenarios
+2025-06-18 18:35:25,943 - __main__ - INFO - Running 2-opt improvement...
+2025-06-18 18:35:25,944 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-18 18:35:25,944 - vrp_optimizer_fixed - WARNING - 2-opt improvement not yet implemented for VRPPD scenarios
+2025-06-18 18:35:26,832 - __main__ - INFO - Comparison plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_comparison.png
+2025-06-18 18:35:27,630 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution.png
+2025-06-18 18:35:27,655 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution_gps_info.txt
+2025-06-18 18:35:28,407 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution.png
+2025-06-18 18:35:28,412 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution_gps_info.txt
+2025-06-18 18:35:29,154 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution.png
+2025-06-18 18:35:29,160 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution_gps_info.txt
+2025-06-18 18:35:29,823 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution.png
+2025-06-18 18:35:29,830 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution_gps_info.txt
+2025-06-18 18:35:30,490 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution.png
+2025-06-18 18:35:30,496 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution_gps_info.txt
+2025-06-18 18:35:30,496 - vrp_map_visualization - INFO - Selected quantum as best solver with objective value: -1.7852878757505923
+2025-06-18 18:35:30,497 - vrp_map_visualization - INFO - Using quantum solution for MODA_small map visualization (objective: -1.79)
+2025-06-18 18:35:30,547 - vrp_map_visualization - INFO - OSRM routing service is available
+2025-06-18 18:35:30,561 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46698853596916, 9.180100215104455]
+2025-06-18 18:35:31,547 - vrp_map_visualization - INFO - Route found with 114 points
+2025-06-18 18:35:31,548 - vrp_map_visualization - INFO - Requesting route from [45.46698853596916, 9.180100215104455] to [45.497618269660855, 9.152832606856402]
+2025-06-18 18:35:32,550 - vrp_map_visualization - INFO - Route found with 299 points
+2025-06-18 18:35:32,551 - vrp_map_visualization - INFO - Requesting route from [45.497618269660855, 9.152832606856402] to [45.44994426144414, 9.226431890902251]
+2025-06-18 18:35:33,554 - vrp_map_visualization - INFO - Route found with 483 points
+2025-06-18 18:35:33,554 - vrp_map_visualization - INFO - Requesting route from [45.44994426144414, 9.226431890902251] to [45.46227883681019, 9.187343670087754]
+2025-06-18 18:35:34,551 - vrp_map_visualization - INFO - Route found with 330 points
+2025-06-18 18:35:34,552 - vrp_map_visualization - INFO - Requesting route from [45.46227883681019, 9.187343670087754] to [45.4642, 9.1896]
+2025-06-18 18:35:35,549 - vrp_map_visualization - INFO - Route found with 205 points
+2025-06-18 18:35:35,551 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.45624990352343, 9.194413354893355]
+2025-06-18 18:35:36,548 - vrp_map_visualization - INFO - Route found with 156 points
+2025-06-18 18:35:36,549 - vrp_map_visualization - INFO - Requesting route from [45.45624990352343, 9.194413354893355] to [45.47874788019919, 9.062508522871708]
+2025-06-18 18:35:37,556 - vrp_map_visualization - INFO - Route found with 515 points
+2025-06-18 18:35:37,557 - vrp_map_visualization - INFO - Requesting route from [45.47874788019919, 9.062508522871708] to [45.498579114449576, 9.15389041734444]
+2025-06-18 18:35:38,553 - vrp_map_visualization - INFO - Route found with 432 points
+2025-06-18 18:35:38,553 - vrp_map_visualization - INFO - Requesting route from [45.498579114449576, 9.15389041734444] to [45.4678757085871, 9.190179649463275]
+2025-06-18 18:35:39,549 - vrp_map_visualization - INFO - Route found with 326 points
+2025-06-18 18:35:39,550 - vrp_map_visualization - INFO - Requesting route from [45.4678757085871, 9.190179649463275] to [45.4642, 9.1896]
+2025-06-18 18:35:40,546 - vrp_map_visualization - INFO - Route found with 29 points
+2025-06-18 18:35:40,549 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46917390479723, 9.064653217867814]
+2025-06-18 18:35:41,559 - vrp_map_visualization - INFO - Route found with 598 points
+2025-06-18 18:35:41,560 - vrp_map_visualization - INFO - Requesting route from [45.46917390479723, 9.064653217867814] to [45.465179921007014, 9.193056313806759]
+2025-06-18 18:35:42,558 - vrp_map_visualization - INFO - Route found with 637 points
+2025-06-18 18:35:42,558 - vrp_map_visualization - INFO - Requesting route from [45.465179921007014, 9.193056313806759] to [45.511162315279584, 9.156170687544167]
+2025-06-18 18:35:43,552 - vrp_map_visualization - INFO - Route found with 489 points
+2025-06-18 18:35:43,553 - vrp_map_visualization - INFO - Requesting route from [45.511162315279584, 9.156170687544167] to [45.44607047462805, 9.231596316037827]
+2025-06-18 18:35:44,684 - vrp_map_visualization - INFO - Route found with 769 points
+2025-06-18 18:35:44,685 - vrp_map_visualization - INFO - Requesting route from [45.44607047462805, 9.231596316037827] to [45.4642, 9.1896]
+2025-06-18 18:35:45,555 - vrp_map_visualization - INFO - Route found with 415 points
+2025-06-18 18:35:45,559 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.481326499471805, 9.068390396419234]
+2025-06-18 18:35:46,547 - vrp_map_visualization - INFO - Route found with 19 points
+2025-06-18 18:35:46,548 - vrp_map_visualization - INFO - Requesting route from [45.481326499471805, 9.068390396419234] to [45.439828250942014, 9.174850887306846]
+2025-06-18 18:35:47,554 - vrp_map_visualization - INFO - Route found with 488 points
+2025-06-18 18:35:47,554 - vrp_map_visualization - INFO - Requesting route from [45.439828250942014, 9.174850887306846] to [45.44563413800622, 9.171447042905136]
+2025-06-18 18:35:48,546 - vrp_map_visualization - INFO - Route found with 90 points
+2025-06-18 18:35:48,547 - vrp_map_visualization - INFO - Requesting route from [45.44563413800622, 9.171447042905136] to [45.456933190138486, 9.185246372410425]
+2025-06-18 18:35:49,549 - vrp_map_visualization - INFO - Route found with 222 points
+2025-06-18 18:35:49,550 - vrp_map_visualization - INFO - Requesting route from [45.456933190138486, 9.185246372410425] to [45.4642, 9.1896]
+2025-06-18 18:35:50,548 - vrp_map_visualization - INFO - Route found with 209 points
+2025-06-18 18:35:50,551 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.430929975193564, 9.235816385036655]
+2025-06-18 18:35:51,562 - vrp_map_visualization - INFO - Route found with 812 points
+2025-06-18 18:35:51,562 - vrp_map_visualization - INFO - Requesting route from [45.430929975193564, 9.235816385036655] to [45.43584400826429, 9.16438767199699]
+2025-06-18 18:35:52,552 - vrp_map_visualization - INFO - Route found with 285 points
+2025-06-18 18:35:52,552 - vrp_map_visualization - INFO - Requesting route from [45.43584400826429, 9.16438767199699] to [45.43418775927204, 9.161495839538473]
+2025-06-18 18:35:53,547 - vrp_map_visualization - INFO - Route found with 50 points
+2025-06-18 18:35:53,548 - vrp_map_visualization - INFO - Requesting route from [45.43418775927204, 9.161495839538473] to [45.48316373866808, 9.068082019600627]
+2025-06-18 18:35:54,556 - vrp_map_visualization - INFO - Route found with 497 points
+2025-06-18 18:35:54,557 - vrp_map_visualization - INFO - Requesting route from [45.48316373866808, 9.068082019600627] to [45.4773, 9.07]
+2025-06-18 18:35:55,548 - vrp_map_visualization - INFO - Route found with 208 points
+2025-06-18 18:35:55,661 - vrp_map_visualization - INFO - Interactive map with street routing saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_interactive_map.html
+2025-06-18 18:35:55,774 - vrp_map_visualization - ERROR - Error creating static map: Stamen
+2025-06-18 18:35:56,508 - vrp_map_visualization - INFO - Fallback GPS plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_map_background_gps_fallback.png
+2025-06-18 18:35:56,509 - __main__ - INFO - Created 2 map visualizations for MODA_small
+2025-06-18 18:35:56,510 - __main__ - INFO - Scenario MODA_small completed:
+2025-06-18 18:35:56,510 - __main__ - INFO -   Quantum - Distance: 1.79, Runtime: 2.00ms
+2025-06-18 18:35:56,510 - __main__ - INFO -   Classical - Distance: 1.79, Runtime: 1.00ms
+2025-06-18 18:35:56,511 - __main__ - INFO -   OR-Tools - Distance: 2.06, Runtime: 120.93ms
+2025-06-18 18:35:56,511 - __main__ - INFO -   Advanced - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 18:35:56,511 - __main__ - INFO -   2-opt - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 18:35:56,512 - __main__ - INFO - Generating summary report
+2025-06-18 18:35:57,176 - __main__ - INFO - 
+VRP analysis completed. Results saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results
+2025-06-18 18:42:04,230 - __main__ - INFO - Starting VRP scenario analysis - MODA_small only
+2025-06-18 18:42:04,249 - __main__ - INFO - 
+============================================================
+2025-06-18 18:42:04,249 - __main__ - INFO - Processing scenario: MODA_small
+2025-06-18 18:42:04,249 - __main__ - INFO - ============================================================
+2025-06-18 18:42:04,250 - __main__ - INFO - Comparing optimization methods for MODA_small Northern Italy VRPPD
+2025-06-18 18:42:04,250 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-18 18:42:04,250 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-18 18:42:04,252 - __main__ - INFO - Running simple classical heuristic...
+2025-06-18 18:42:04,252 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-18 18:42:04,253 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-18 18:42:04,253 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-18 18:42:04,253 - vrp_optimizer_fixed - WARNING - OR-Tools configured for VRPPD with pickup-delivery constraints
+2025-06-18 18:42:04,254 - vrp_optimizer_fixed - INFO - Multi-depot VRPPD with 2 depots: ['depot_1', 'depot_2']
+2025-06-18 18:42:04,256 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [4, 4, 4, 4, 4]
+2025-06-18 18:42:04,257 - vrp_optimizer_fixed - INFO - DEBUG: Starting time constraint setup for VRPPD
+2025-06-18 18:42:04,257 - vrp_optimizer_fixed - INFO - Adding max driving time constraint: 10 hours (36000 seconds max time per vehicle)
+2025-06-18 18:42:04,258 - vrp_optimizer_fixed - INFO - Time dimension configured with cost coefficient and hard limits
+2025-06-18 18:42:04,264 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-18 18:42:04,266 - vrp_optimizer_fixed - INFO - TIME CALLBACK 0: depot_1 -> depot_1
+2025-06-18 18:42:04,266 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:42:04,267 - vrp_optimizer_fixed - INFO - TIME CALLBACK 1: depot_1 -> depot_1
+2025-06-18 18:42:04,267 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:42:04,267 - vrp_optimizer_fixed - INFO - TIME CALLBACK 2: depot_1 -> depot_1
+2025-06-18 18:42:04,268 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:42:04,268 - vrp_optimizer_fixed - INFO - TIME CALLBACK 3: depot_2 -> depot_2
+2025-06-18 18:42:04,268 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:42:04,269 - vrp_optimizer_fixed - INFO - TIME CALLBACK 4: depot_2 -> depot_2
+2025-06-18 18:42:04,269 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 18:42:04,363 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 1980000
+2025-06-18 18:42:04,364 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=2.06, vehicles=2, runtime=109.46ms
+2025-06-18 18:42:04,364 - __main__ - INFO - Running advanced heuristics...
+2025-06-18 18:42:04,365 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-18 18:42:04,365 - vrp_optimizer_fixed - WARNING - Advanced heuristics not yet implemented for VRPPD scenarios
+2025-06-18 18:42:04,365 - __main__ - INFO - Running 2-opt improvement...
+2025-06-18 18:42:04,366 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-18 18:42:04,366 - vrp_optimizer_fixed - WARNING - 2-opt improvement not yet implemented for VRPPD scenarios
+2025-06-18 18:42:05,216 - __main__ - INFO - Comparison plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_comparison.png
+2025-06-18 18:42:06,015 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution.png
+2025-06-18 18:42:06,062 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution_gps_info.txt
+2025-06-18 18:42:06,816 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution.png
+2025-06-18 18:42:06,823 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution_gps_info.txt
+2025-06-18 18:42:07,561 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution.png
+2025-06-18 18:42:07,567 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution_gps_info.txt
+2025-06-18 18:42:08,241 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution.png
+2025-06-18 18:42:08,247 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution_gps_info.txt
+2025-06-18 18:42:08,926 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution.png
+2025-06-18 18:42:08,932 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution_gps_info.txt
+2025-06-18 18:42:08,932 - vrp_map_visualization - INFO - Selected quantum as best solver with objective value: -1.7852878757505923
+2025-06-18 18:42:08,933 - vrp_map_visualization - INFO - Using quantum solution for MODA_small map visualization (objective: -1.79)
+2025-06-18 18:42:09,071 - vrp_map_visualization - INFO - OSRM routing service is available
+2025-06-18 18:42:09,084 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46698853596916, 9.180100215104455]
+2025-06-18 18:42:09,086 - vrp_map_visualization - INFO - Requesting route from [45.46698853596916, 9.180100215104455] to [45.497618269660855, 9.152832606856402]
+2025-06-18 18:42:09,086 - vrp_map_visualization - INFO - Requesting route from [45.497618269660855, 9.152832606856402] to [45.44994426144414, 9.226431890902251]
+2025-06-18 18:42:09,087 - vrp_map_visualization - INFO - Requesting route from [45.44994426144414, 9.226431890902251] to [45.46227883681019, 9.187343670087754]
+2025-06-18 18:42:09,088 - vrp_map_visualization - INFO - Requesting route from [45.46227883681019, 9.187343670087754] to [45.4642, 9.1896]
+2025-06-18 18:42:10,067 - vrp_map_visualization - INFO - Route found with 114 points
+2025-06-18 18:42:11,069 - vrp_map_visualization - INFO - Route found with 299 points
+2025-06-18 18:42:11,107 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:11,107 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:11,107 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:11,110 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.45624990352343, 9.194413354893355]
+2025-06-18 18:42:11,110 - vrp_map_visualization - INFO - Requesting route from [45.45624990352343, 9.194413354893355] to [45.47874788019919, 9.062508522871708]
+2025-06-18 18:42:11,110 - vrp_map_visualization - INFO - Requesting route from [45.47874788019919, 9.062508522871708] to [45.498579114449576, 9.15389041734444]
+2025-06-18 18:42:11,111 - vrp_map_visualization - INFO - Requesting route from [45.498579114449576, 9.15389041734444] to [45.4678757085871, 9.190179649463275]
+2025-06-18 18:42:11,112 - vrp_map_visualization - INFO - Requesting route from [45.4678757085871, 9.190179649463275] to [45.4642, 9.1896]
+2025-06-18 18:42:13,114 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:13,129 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:13,129 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:13,129 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:13,129 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:13,132 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46917390479723, 9.064653217867814]
+2025-06-18 18:42:13,133 - vrp_map_visualization - INFO - Requesting route from [45.46917390479723, 9.064653217867814] to [45.465179921007014, 9.193056313806759]
+2025-06-18 18:42:13,133 - vrp_map_visualization - INFO - Requesting route from [45.465179921007014, 9.193056313806759] to [45.511162315279584, 9.156170687544167]
+2025-06-18 18:42:13,134 - vrp_map_visualization - INFO - Requesting route from [45.511162315279584, 9.156170687544167] to [45.44607047462805, 9.231596316037827]
+2025-06-18 18:42:13,135 - vrp_map_visualization - INFO - Requesting route from [45.44607047462805, 9.231596316037827] to [45.4642, 9.1896]
+2025-06-18 18:42:13,156 - vrp_map_visualization - WARNING - Error getting street route: 429 Client Error: Too Many Requests for url: http://router.project-osrm.org/route/v1/driving/9.231596316037827,45.44607047462805;9.1896,45.4642?overview=full&geometries=geojson
+2025-06-18 18:42:15,145 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:15,145 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:15,145 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:15,160 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:15,162 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.481326499471805, 9.068390396419234]
+2025-06-18 18:42:15,162 - vrp_map_visualization - INFO - Requesting route from [45.481326499471805, 9.068390396419234] to [45.439828250942014, 9.174850887306846]
+2025-06-18 18:42:15,162 - vrp_map_visualization - INFO - Requesting route from [45.439828250942014, 9.174850887306846] to [45.44563413800622, 9.171447042905136]
+2025-06-18 18:42:15,163 - vrp_map_visualization - INFO - Requesting route from [45.44563413800622, 9.171447042905136] to [45.456933190138486, 9.185246372410425]
+2025-06-18 18:42:15,164 - vrp_map_visualization - INFO - Requesting route from [45.456933190138486, 9.185246372410425] to [45.4642, 9.1896]
+2025-06-18 18:42:15,271 - vrp_map_visualization - WARNING - Error getting street route: 429 Client Error: Too Many Requests for url: http://router.project-osrm.org/route/v1/driving/9.068390396419234,45.481326499471805;9.174850887306846,45.439828250942014?overview=full&geometries=geojson
+2025-06-18 18:42:15,271 - vrp_map_visualization - WARNING - Error getting street route: 429 Client Error: Too Many Requests for url: http://router.project-osrm.org/route/v1/driving/9.171447042905136,45.44563413800622;9.185246372410425,45.456933190138486?overview=full&geometries=geojson
+2025-06-18 18:42:15,272 - vrp_map_visualization - WARNING - Error getting street route: 429 Client Error: Too Many Requests for url: http://router.project-osrm.org/route/v1/driving/9.174850887306846,45.439828250942014;9.171447042905136,45.44563413800622?overview=full&geometries=geojson
+2025-06-18 18:42:17,171 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:17,232 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:17,234 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.430929975193564, 9.235816385036655]
+2025-06-18 18:42:17,234 - vrp_map_visualization - INFO - Requesting route from [45.430929975193564, 9.235816385036655] to [45.43584400826429, 9.16438767199699]
+2025-06-18 18:42:17,234 - vrp_map_visualization - INFO - Requesting route from [45.43584400826429, 9.16438767199699] to [45.43418775927204, 9.161495839538473]
+2025-06-18 18:42:17,235 - vrp_map_visualization - INFO - Requesting route from [45.43418775927204, 9.161495839538473] to [45.48316373866808, 9.068082019600627]
+2025-06-18 18:42:17,236 - vrp_map_visualization - INFO - Requesting route from [45.48316373866808, 9.068082019600627] to [45.4773, 9.07]
+2025-06-18 18:42:17,249 - vrp_map_visualization - WARNING - Error getting street route: 429 Client Error: Too Many Requests for url: http://router.project-osrm.org/route/v1/driving/9.068082019600627,45.48316373866808;9.07,45.4773?overview=full&geometries=geojson
+2025-06-18 18:42:17,255 - vrp_map_visualization - WARNING - Error getting street route: 429 Client Error: Too Many Requests for url: http://router.project-osrm.org/route/v1/driving/9.07,45.4773;9.235816385036655,45.430929975193564?overview=full&geometries=geojson
+2025-06-18 18:42:17,255 - vrp_map_visualization - WARNING - Error getting street route: 429 Client Error: Too Many Requests for url: http://router.project-osrm.org/route/v1/driving/9.235816385036655,45.430929975193564;9.16438767199699,45.43584400826429?overview=full&geometries=geojson
+2025-06-18 18:42:19,242 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:19,242 - vrp_map_visualization - WARNING - Error getting street route: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=2)
+2025-06-18 18:42:19,337 - vrp_map_visualization - INFO - Interactive map with street routing saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_interactive_map.html
+2025-06-18 18:42:19,458 - vrp_map_visualization - ERROR - Error creating static map: Stamen
+2025-06-18 18:42:20,354 - vrp_map_visualization - INFO - Fallback GPS plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_map_background_gps_fallback.png
+2025-06-18 18:42:20,355 - __main__ - INFO - Created 2 map visualizations for MODA_small
+2025-06-18 18:42:20,356 - __main__ - INFO - Scenario MODA_small completed:
+2025-06-18 18:42:20,356 - __main__ - INFO -   Quantum - Distance: 1.79, Runtime: 2.00ms
+2025-06-18 18:42:20,356 - __main__ - INFO -   Classical - Distance: 1.79, Runtime: 0.00ms
+2025-06-18 18:42:20,356 - __main__ - INFO -   OR-Tools - Distance: 2.06, Runtime: 109.46ms
+2025-06-18 18:42:20,357 - __main__ - INFO -   Advanced - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 18:42:20,357 - __main__ - INFO -   2-opt - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 18:42:20,358 - __main__ - INFO - Generating summary report
+2025-06-18 18:42:21,056 - __main__ - INFO - 
+VRP analysis completed. Results saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results
+2025-06-18 22:25:48,963 - __main__ - INFO - Starting VRP scenario analysis - MODA_small only
+2025-06-18 22:25:49,008 - __main__ - INFO - 
+============================================================
+2025-06-18 22:25:49,009 - __main__ - INFO - Processing scenario: MODA_small
+2025-06-18 22:25:49,009 - __main__ - INFO - ============================================================
+2025-06-18 22:25:49,010 - __main__ - INFO - Comparing optimization methods for MODA_small Northern Italy VRPPD
+2025-06-18 22:25:49,010 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-18 22:25:49,010 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-18 22:25:49,012 - __main__ - INFO - Running simple classical heuristic...
+2025-06-18 22:25:49,013 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-18 22:25:49,030 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-18 22:25:49,031 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-18 22:25:49,031 - vrp_optimizer_fixed - WARNING - OR-Tools configured for VRPPD with pickup-delivery constraints
+2025-06-18 22:25:49,032 - vrp_optimizer_fixed - INFO - Multi-depot VRPPD with 2 depots: ['depot_1', 'depot_2']
+2025-06-18 22:25:49,134 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [4, 4, 4, 4, 4]
+2025-06-18 22:25:49,146 - vrp_optimizer_fixed - INFO - DEBUG: Starting time constraint setup for VRPPD
+2025-06-18 22:25:49,147 - vrp_optimizer_fixed - INFO - Adding max driving time constraint: 10 hours (36000 seconds max time per vehicle)
+2025-06-18 22:25:49,147 - vrp_optimizer_fixed - INFO - Time dimension configured with cost coefficient and hard limits
+2025-06-18 22:25:49,207 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-18 22:25:49,234 - vrp_optimizer_fixed - INFO - TIME CALLBACK 0: depot_1 -> depot_1
+2025-06-18 22:25:49,234 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 22:25:49,235 - vrp_optimizer_fixed - INFO - TIME CALLBACK 1: depot_1 -> depot_1
+2025-06-18 22:25:49,235 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 22:25:49,236 - vrp_optimizer_fixed - INFO - TIME CALLBACK 2: depot_1 -> depot_1
+2025-06-18 22:25:49,236 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 22:25:49,236 - vrp_optimizer_fixed - INFO - TIME CALLBACK 3: depot_2 -> depot_2
+2025-06-18 22:25:49,237 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 22:25:49,237 - vrp_optimizer_fixed - INFO - TIME CALLBACK 4: depot_2 -> depot_2
+2025-06-18 22:25:49,238 - vrp_optimizer_fixed - INFO -   Distance: 0.00 km, Travel: 0s (0.0min), Service: 1800s (30.0min), Total: 1800s (30.0min)
+2025-06-18 22:25:49,397 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 1980000
+2025-06-18 22:25:49,398 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=2.06, vehicles=2, runtime=366.08ms
+2025-06-18 22:25:49,400 - __main__ - INFO - Running advanced heuristics...
+2025-06-18 22:25:49,400 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-18 22:25:49,400 - vrp_optimizer_fixed - WARNING - Advanced heuristics not yet implemented for VRPPD scenarios
+2025-06-18 22:25:49,401 - __main__ - INFO - Running 2-opt improvement...
+2025-06-18 22:25:49,401 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-18 22:25:49,401 - vrp_optimizer_fixed - WARNING - 2-opt improvement not yet implemented for VRPPD scenarios
+2025-06-18 22:25:53,893 - __main__ - INFO - Comparison plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_comparison.png
+2025-06-18 22:25:54,643 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution.png
+2025-06-18 22:25:54,691 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution_gps_info.txt
+2025-06-18 22:25:55,429 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution.png
+2025-06-18 22:25:55,435 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution_gps_info.txt
+2025-06-18 22:25:56,177 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution.png
+2025-06-18 22:25:56,219 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution_gps_info.txt
+2025-06-18 22:25:56,890 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution.png
+2025-06-18 22:25:56,896 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution_gps_info.txt
+2025-06-18 22:25:57,563 - __main__ - INFO - Solution visualization saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution.png
+2025-06-18 22:25:57,569 - __main__ - INFO - GPS coordinates saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution_gps_info.txt
+2025-06-18 22:25:57,570 - vrp_map_visualization - INFO - Selected quantum as best solver with objective value: -1.7852878757505923
+2025-06-18 22:25:57,570 - vrp_map_visualization - INFO - Using quantum solution for MODA_small map visualization (objective: -1.79)
+2025-06-18 22:25:57,717 - vrp_map_visualization - INFO - OSRM routing service is available
+2025-06-18 22:25:57,745 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46698853596916, 9.180100215104455]
+2025-06-18 22:25:57,846 - vrp_map_visualization - INFO - Requesting route from [45.46698853596916, 9.180100215104455] to [45.497618269660855, 9.152832606856402]
+2025-06-18 22:25:58,705 - vrp_map_visualization - INFO - Route found with 114 points
+2025-06-18 22:25:58,893 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:25:58,907 - vrp_map_visualization - INFO - Requesting route from [45.497618269660855, 9.152832606856402] to [45.44994426144414, 9.226431890902251]
+2025-06-18 22:25:59,949 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:00,307 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:00,308 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:00,609 - vrp_map_visualization - INFO - Requesting route from [45.44994426144414, 9.226431890902251] to [45.46227883681019, 9.187343670087754]
+2025-06-18 22:26:01,364 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:01,365 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:01,643 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:01,766 - vrp_map_visualization - INFO - Requesting route from [45.46227883681019, 9.187343670087754] to [45.4642, 9.1896]
+2025-06-18 22:26:02,808 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:03,072 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:03,072 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:04,232 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:04,233 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:04,247 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.45624990352343, 9.194413354893355]
+2025-06-18 22:26:04,348 - vrp_map_visualization - INFO - Requesting route from [45.45624990352343, 9.194413354893355] to [45.47874788019919, 9.062508522871708]
+2025-06-18 22:26:05,266 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:05,359 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:06,677 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:06,678 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:06,786 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:06,786 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:06,879 - vrp_map_visualization - INFO - Requesting route from [45.47874788019919, 9.062508522871708] to [45.498579114449576, 9.15389041734444]
+2025-06-18 22:26:07,087 - vrp_map_visualization - INFO - Requesting route from [45.498579114449576, 9.15389041734444] to [45.4678757085871, 9.190179649463275]
+2025-06-18 22:26:07,904 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:08,121 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:09,333 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:09,334 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:09,533 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:09,533 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:09,735 - vrp_map_visualization - INFO - Requesting route from [45.4678757085871, 9.190179649463275] to [45.4642, 9.1896]
+2025-06-18 22:26:10,778 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:12,196 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:12,196 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:12,198 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.46917390479723, 9.064653217867814]
+2025-06-18 22:26:12,299 - vrp_map_visualization - INFO - Requesting route from [45.46917390479723, 9.064653217867814] to [45.465179921007014, 9.193056313806759]
+2025-06-18 22:26:13,220 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:13,315 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:14,639 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:14,639 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:14,731 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:14,731 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:14,840 - vrp_map_visualization - INFO - Requesting route from [45.465179921007014, 9.193056313806759] to [45.511162315279584, 9.156170687544167]
+2025-06-18 22:26:15,033 - vrp_map_visualization - INFO - Requesting route from [45.511162315279584, 9.156170687544167] to [45.44607047462805, 9.231596316037827]
+2025-06-18 22:26:15,866 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:16,058 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:17,288 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:17,289 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:17,542 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:17,543 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:17,689 - vrp_map_visualization - INFO - Requesting route from [45.44607047462805, 9.231596316037827] to [45.4642, 9.1896]
+2025-06-18 22:26:18,702 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:20,123 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:20,123 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:20,125 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.481326499471805, 9.068390396419234]
+2025-06-18 22:26:20,226 - vrp_map_visualization - INFO - Requesting route from [45.481326499471805, 9.068390396419234] to [45.439828250942014, 9.174850887306846]
+2025-06-18 22:26:21,139 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:21,251 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:22,556 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:22,556 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:22,665 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:22,666 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:22,758 - vrp_map_visualization - INFO - Requesting route from [45.439828250942014, 9.174850887306846] to [45.44563413800622, 9.171447042905136]
+2025-06-18 22:26:22,967 - vrp_map_visualization - INFO - Requesting route from [45.44563413800622, 9.171447042905136] to [45.456933190138486, 9.185246372410425]
+2025-06-18 22:26:23,783 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:23,984 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:24,119 - vrp_map_visualization - WARNING - Rate limited - max retries exceeded
+2025-06-18 22:26:24,120 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:24,521 - vrp_map_visualization - INFO - Requesting route from [45.456933190138486, 9.185246372410425] to [45.4642, 9.1896]
+2025-06-18 22:26:24,530 - vrp_map_visualization - INFO - Rate limited, waiting 0.2s before retry 1
+2025-06-18 22:26:25,209 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:25,209 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:26,033 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:26,033 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:26,046 - vrp_map_visualization - INFO - Requesting route from [45.4773, 9.07] to [45.430929975193564, 9.235816385036655]
+2025-06-18 22:26:26,146 - vrp_map_visualization - INFO - Requesting route from [45.430929975193564, 9.235816385036655] to [45.43584400826429, 9.16438767199699]
+2025-06-18 22:26:26,167 - vrp_map_visualization - INFO - Rate limited, waiting 0.2s before retry 1
+2025-06-18 22:26:26,377 - vrp_map_visualization - WARNING - Rate limited - max retries exceeded
+2025-06-18 22:26:26,378 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:26,579 - vrp_map_visualization - INFO - Requesting route from [45.43584400826429, 9.16438767199699] to [45.43418775927204, 9.161495839538473]
+2025-06-18 22:26:26,593 - vrp_map_visualization - INFO - Rate limited, waiting 0.2s before retry 1
+2025-06-18 22:26:27,062 - vrp_map_visualization - INFO - Request failed, retrying in 0.1s: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.0)
+2025-06-18 22:26:27,182 - vrp_map_visualization - WARNING - Rate limited - max retries exceeded
+2025-06-18 22:26:27,183 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:27,484 - vrp_map_visualization - INFO - Requesting route from [45.43418775927204, 9.161495839538473] to [45.48316373866808, 9.068082019600627]
+2025-06-18 22:26:27,495 - vrp_map_visualization - INFO - Rate limited, waiting 0.2s before retry 1
+2025-06-18 22:26:28,108 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:28,108 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:28,509 - vrp_map_visualization - INFO - Requesting route from [45.48316373866808, 9.068082019600627] to [45.4773, 9.07]
+2025-06-18 22:26:28,530 - vrp_map_visualization - INFO - Rate limited, waiting 0.2s before retry 1
+2025-06-18 22:26:29,010 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:29,010 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:30,042 - vrp_map_visualization - WARNING - Request failed after 1 retries: HTTPConnectionPool(host='router.project-osrm.org', port=80): Read timed out. (read timeout=1.3)
+2025-06-18 22:26:30,042 - vrp_map_visualization - WARNING - All retry attempts failed, using straight line fallback
+2025-06-18 22:26:30,134 - vrp_map_visualization - INFO - Interactive map with street routing saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_interactive_map.html
+2025-06-18 22:26:32,317 - vrp_map_visualization - ERROR - Error creating static map: Stamen
+2025-06-18 22:26:33,102 - vrp_map_visualization - INFO - Fallback GPS plot saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_map_background_gps_fallback.png
+2025-06-18 22:26:33,103 - __main__ - INFO - Created 2 map visualizations for MODA_small
+2025-06-18 22:26:33,103 - __main__ - INFO - Scenario MODA_small completed:
+2025-06-18 22:26:33,103 - __main__ - INFO -   Quantum - Distance: 1.79, Runtime: 1.00ms
+2025-06-18 22:26:33,104 - __main__ - INFO -   Classical - Distance: 1.79, Runtime: 17.00ms
+2025-06-18 22:26:33,104 - __main__ - INFO -   OR-Tools - Distance: 2.06, Runtime: 366.08ms
+2025-06-18 22:26:33,104 - __main__ - INFO -   Advanced - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 22:26:33,105 - __main__ - INFO -   2-opt - Distance: 0.00, Runtime: 0.00ms
+2025-06-18 22:26:33,105 - __main__ - INFO - Generating summary report
+2025-06-18 22:26:33,821 - __main__ - INFO - 
+VRP analysis completed. Results saved to G:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results
