@@ -36,7 +36,7 @@ class Vehicle:
 
 @dataclass
 class RideRequest:
-    """Represents a ride request for RPP."""
+    """Represents a ride request for VRPPD."""
     id: str
     pickup_location: str
     dropoff_location: str

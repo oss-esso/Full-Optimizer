@@ -2,7 +2,7 @@
 VRP Optimization Example Package
 
 This package demonstrates the application of quantum-enhanced optimization methods
-to Vehicle Routing Problems (VRP), including the Ride Pooling Problem (RPP).
+to Vehicle Routing Problems (VRP), including the Vehicle Routing Problem with Pickup and Delivery (VRPPD).
 
 Based on the paper:
 "Modeling routing problems in QUBO with application to ride‑hailing"

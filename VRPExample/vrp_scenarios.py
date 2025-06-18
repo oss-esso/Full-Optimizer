@@ -23,15 +23,15 @@ class VRPScenarioGenerator:
         instance.add_vehicle(Vehicle("vehicle_1", capacity=10, depot_id="depot"))
         instance.add_vehicle(Vehicle("vehicle_2", capacity=10, depot_id="depot"))
         
-        # Calculate distance matrix using Manhattan distance for consistency with pyVRP
+        # Calculate distance matrix using Manhattan distance 
         instance.calculate_distance_matrix(distance_method="manhattan")
         
         return instance
     
     @staticmethod
-    def create_ride_pooling_scenario() -> VRPInstance:
-        """Create a ride pooling scenario based on the paper."""
-        instance = VRPInstance("Ride Pooling Problem")
+    def create_vrppd_scenario() -> VRPInstance:
+        """Create a VRPPD scenario based on the paper."""
+        instance = VRPInstance("Vehicle Routing Problem with Pickup and Delivery")
         
         # Add depot (vehicle starting point)
         instance.add_location(Location("depot_1", 0, 0))
@@ -67,7 +67,7 @@ class VRPScenarioGenerator:
         for request in ride_requests:
             instance.add_ride_request(request)
         
-        # Calculate distance matrix using Manhattan distance for consistency with pyVRP
+        # Calculate distance matrix using Manhattan distance 
         instance.calculate_distance_matrix(distance_method="manhattan")
         return instance
     
@@ -100,7 +100,7 @@ class VRPScenarioGenerator:
         for i in range(3):
             instance.add_vehicle(Vehicle(f"vehicle_{i+1}", capacity=15, depot_id="depot"))
         
-        # Calculate distance matrix using Manhattan distance for consistency with pyVRP
+        # Calculate distance matrix using Manhattan distance 
         instance.calculate_distance_matrix(distance_method="manhattan")
         
         return instance
@@ -134,7 +134,7 @@ class VRPScenarioGenerator:
         instance.add_vehicle(Vehicle("vehicle_1", capacity=20, depot_id="depot", max_time=480))
         instance.add_vehicle(Vehicle("vehicle_2", capacity=15, depot_id="depot", max_time=480))
         
-        # Calculate distance matrix using Manhattan distance for consistency with pyVRP
+        # Calculate distance matrix using Manhattan distance 
         instance.calculate_distance_matrix(distance_method="manhattan")
         return instance
     
@@ -168,7 +168,7 @@ class VRPScenarioGenerator:
         instance.add_vehicle(Vehicle("vehicle_B1", capacity=18, depot_id="depot_B"))
         instance.add_vehicle(Vehicle("vehicle_B2", capacity=10, depot_id="depot_B"))
         
-        # Calculate distance matrix using Manhattan distance for consistency with pyVRP
+        # Calculate distance matrix using Manhattan distance 
         instance.calculate_distance_matrix(distance_method="manhattan")
         return instance
     
@@ -205,7 +205,7 @@ class VRPScenarioGenerator:
         for i in range(5):
             instance.add_vehicle(Vehicle(f"vehicle_{i+1}", capacity=20, depot_id="depot"))
         
-        # Calculate distance matrix using Manhattan distance for consistency with pyVRP
+        # Calculate distance matrix using Manhattan distance 
         instance.calculate_distance_matrix(distance_method="manhattan")
         
         return instance
@@ -245,7 +245,7 @@ class VRPScenarioGenerator:
         for i in range(4):
             instance.add_vehicle(Vehicle(f"vehicle_{i+1}", capacity=50, depot_id="depot"))
         
-        # Calculate distance matrix using Manhattan distance for consistency with pyVRP
+        # Calculate distance matrix using Manhattan distance 
         instance.calculate_distance_matrix(distance_method="manhattan")
         
         return instance
@@ -255,7 +255,7 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
     # Core synthetic test scenarios for algorithm validation
     scenarios = {
         "small_delivery": VRPScenarioGenerator.create_small_delivery_scenario(),
-        "ride_pooling": VRPScenarioGenerator.create_ride_pooling_scenario(),
+        "vrppd": VRPScenarioGenerator.create_vrppd_scenario(),
         "medium_delivery": VRPScenarioGenerator.create_medium_delivery_scenario(),
         "time_window": VRPScenarioGenerator.create_time_window_scenario(),
         "multi_depot": VRPScenarioGenerator.create_multi_depot_scenario(),
@@ -263,7 +263,7 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
     
     # Add the large MODA_first scenario for realistic testing
     try:
-        print("Creating MODA_first large ride pooling scenario in Northern Italy...")
+        print("Creating MODA_first large VRPPD scenario in Northern Italy...")
         moda_scenario = create_moda_first_scenario()
         scenarios["MODA_first"] = moda_scenario
         print("+ Added MODA_first scenario (60 vehicles, 200 locations)")
@@ -272,7 +272,7 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
     
     # Add the MODA_small scenario for focused testing
     try:
-        print("Creating MODA_small ride pooling scenario in Northern Italy...")
+        print("Creating MODA_small VRPPD scenario in Northern Italy...")
         moda_scenario = create_moda_small_scenario()
         scenarios["MODA_small"] = moda_scenario
         print("+ Added MODA_small scenario (5 vehicles, 20 locations)")
@@ -280,7 +280,7 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
         print(f"! Error creating MODA_small scenario: {str(e)}")
     
     # NOTE: Offline/OSM realistic scenarios are disabled to focus on MODA scenarios
-    # This reduces testing complexity and focuses on the core ride pooling use cases
+    # This reduces testing complexity and focuses on the core VRPPD use cases
     
     # Summary of realistic scenarios
     realistic_count = sum(1 for name, instance in scenarios.items() 
@@ -294,11 +294,11 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
     return scenarios
 
 def create_moda_small_scenario() -> VRPInstance:
-    """Create MODA_small ride pooling scenario with 5 vehicles and 20 locations in Northern Italy."""
+    """Create MODA_small VRPPD scenario with 5 vehicles and 20 locations in Northern Italy."""
     import random
     random.seed(42)  # For reproducibility
     
-    instance = VRPInstance("MODA_small Northern Italy Ride Pooling")
+    instance = VRPInstance("MODA_small Northern Italy VRPPD")
     instance.is_realistic = True
     
     # Use Northern Italy (Milan area) as the base for GPS coordinates
@@ -405,11 +405,11 @@ def create_moda_small_scenario() -> VRPInstance:
     return instance
 
 def create_moda_first_scenario() -> VRPInstance:
-    """Create MODA_first large ride pooling scenario with 60 vehicles and 200 locations in Northern Italy."""
+    """Create MODA_first large VRPPD scenario with 60 vehicles and 200 locations in Northern Italy."""
     import random
     random.seed(42)  # For reproducibility
     
-    instance = VRPInstance("MODA_first Northern Italy Large Ride Pooling")
+    instance = VRPInstance("MODA_first Northern Italy Large VRPPD")
     instance.is_realistic = True
     
     # Create depot locations in Northern Italy (Asti and Milan)

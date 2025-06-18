@@ -2,7 +2,7 @@
 VRP Optimization Example using Quantum-Enhanced Methods
 
 This script demonstrates the application of the quantum-enhanced optimization framework
-to Vehicle Routing Problems (VRP), including the Ride Pooling Problem (RPP) from the paper:
+to Vehicle Routing Problems (VRP), including the Vehicle Routing Problem with Pickup and Delivery (VRPPD) from the paper:
 "Modeling routing problems in QUBO with application to ride‑hailing" by Cattelan & Yarkoni.
 """
 
@@ -118,7 +118,7 @@ def visualize_vrp_solution(instance, result: VRPResult, save_path: Optional[str]
     plt.close()
 
 def compare_optimization_methods(instance, save_path: Optional[str] = None):
-    """Compare quantum vs classical optimization methods including pyVRP."""
+    """Compare quantum vs classical vs OR-Tools vs advanced heuristics optimization methods."""
     logger.info(f"Comparing optimization methods for {instance.name}")
     
     optimizer = VRPQuantumOptimizer(instance, VRPObjective.MINIMIZE_DISTANCE)
@@ -127,72 +127,53 @@ def compare_optimization_methods(instance, save_path: Optional[str] = None):
     logger.info("Running quantum-enhanced Benders...")
     quantum_result = optimizer.optimize_with_quantum_benders()
     
-    # Run pyVRP classical optimization
-    logger.info("Running pyVRP classical solver...")
-    pyvrp_result = optimizer.optimize_with_pyvrp_classical()
-    
     # Run simple classical optimization
     logger.info("Running simple classical heuristic...")
     classical_result = optimizer.optimize_with_classical_benders()
     
+    # Run OR-Tools optimization (industrial benchmark)
+    logger.info("Running OR-Tools optimization...")
+    ortools_result = optimizer.optimize_with_ortools()
+    
+    # Run advanced heuristics optimization
+    logger.info("Running advanced heuristics...")
+    advanced_result = optimizer.optimize_with_advanced_heuristics()
+    
+    # Run 2-opt improvement optimization
+    logger.info("Running 2-opt improvement...")
+    twopt_result = optimizer.optimize_with_2opt_improvement()
+    
     # Create comparison plot
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 6))
     
     # Objective values comparison (use actual distances for comparison)
-    methods = ['Quantum-Enhanced', 'pyVRP Classical', 'Simple Heuristic']
+    methods = ['Quantum-Enhanced', 'Simple Heuristic', 'OR-Tools', 'Advanced Heuristics', '2-opt Improvement']
     
     # Extract distances for fair comparison
     quantum_dist = quantum_result.metrics.get('total_distance', 0)
-    pyvrp_dist = pyvrp_result.metrics.get('pyvrp_distance', pyvrp_result.metrics.get('total_distance', 0))
     classical_dist = classical_result.metrics.get('total_distance', 0)
-    distances = [quantum_dist, pyvrp_dist, classical_dist]
-    
-    colors = ['lightblue', 'lightgreen', 'lightcoral']
-    
+    ortools_dist = ortools_result.metrics.get('total_distance', 0)
+    advanced_dist = advanced_result.metrics.get('total_distance', 0)
+    twopt_dist = twopt_result.metrics.get('total_distance', 0)
+    distances = [quantum_dist, classical_dist, ortools_dist, advanced_dist, twopt_dist]
+    colors = ['lightblue', 'lightcoral', 'lightgreen', 'lightyellow', 'lightpink']    
     ax1.bar(methods, distances, color=colors)
     ax1.set_title('Total Distance Comparison')
     ax1.set_ylabel('Total Distance')
     ax1.tick_params(axis='x', rotation=45)
     for i, v in enumerate(distances):
         if v > 0:
-            ax1.text(i, v + 0.01 * max(distances), f'{v:.2f}', ha='center', va='bottom')
-    
+            ax1.text(i, v + 0.01 * max(distances), f'{v:.2f}', ha='center', va='bottom')    
     # Runtime comparison
-    runtimes = [quantum_result.runtime, pyvrp_result.runtime, classical_result.runtime]
+    runtimes = [quantum_result.runtime, classical_result.runtime, ortools_result.runtime, 
+                advanced_result.runtime, twopt_result.runtime]
     ax2.bar(methods, runtimes, color=colors)
     ax2.set_title('Runtime Comparison')
-    ax2.set_ylabel('Runtime (seconds)')
+    ax2.set_ylabel('Runtime (milliseconds)')
     ax2.tick_params(axis='x', rotation=45)
     for i, v in enumerate(runtimes):
         ax2.text(i, v + 0.01 * max(runtimes) if max(runtimes) > 0 else 0.01, 
-                f'{v:.2f}s', ha='center', va='bottom')
-    
-    # Cost efficiency (distance per unit time)
-    efficiencies = []
-    for dist, runtime in zip(distances, runtimes):
-        if runtime > 0 and dist > 0:
-            efficiencies.append(dist / runtime)  # Lower is better
-        else:
-            efficiencies.append(float('inf'))
-    
-    ax3.bar(methods, [1/e if e != float('inf') else 0 for e in efficiencies], color=colors)
-    ax3.set_title('Solution Efficiency (Higher = Better)')
-    ax3.set_ylabel('Inverse Distance/Time')
-    ax3.tick_params(axis='x', rotation=45)
-    
-    # Vehicles used comparison
-    quantum_vehicles = quantum_result.metrics.get('vehicles_used', 0)
-    pyvrp_vehicles = pyvrp_result.metrics.get('pyvrp_num_routes', pyvrp_result.metrics.get('vehicles_used', 0))
-    classical_vehicles = classical_result.metrics.get('vehicles_used', 0)
-    vehicles = [quantum_vehicles, pyvrp_vehicles, classical_vehicles]
-    
-    ax4.bar(methods, vehicles, color=colors)
-    ax4.set_title('Vehicles Used Comparison')
-    ax4.set_ylabel('Number of Vehicles')
-    ax4.tick_params(axis='x', rotation=45)
-    for i, v in enumerate(vehicles):
-        ax4.text(i, v + 0.01 * max(vehicles) if max(vehicles) > 0 else 0.01, 
-                f'{int(v)}', ha='center', va='bottom')
+                f'{v:.2f}ms', ha='center', va='bottom')
     
     plt.suptitle(f'Optimization Methods Comparison - {instance.name}', fontsize=16)
     plt.tight_layout()
@@ -205,23 +186,25 @@ def compare_optimization_methods(instance, save_path: Optional[str] = None):
     
     plt.close()
     
-    return quantum_result, pyvrp_result, classical_result
+    return quantum_result, classical_result, ortools_result, advanced_result, twopt_result
 
 def print_optimization_summary(all_results: Dict):
     """Print a comprehensive summary of all optimization results."""
-    print("\n" + "="*80)
+    print("\n" + "="*140)
     print(" OPTIMIZATION SUMMARY - OBJECTIVE VALUES")
-    print("="*80)
+    print("="*140)
     
     # Create summary table
     scenarios = list(all_results.keys())
     
-    print(f"{'Scenario':<20} {'Quantum':<12} {'pyVRP':<12} {'Classical':<12} {'Best Method':<15}")
-    print("-" * 80)
+    print(f"{'Scenario':<20} {'Quantum':<10} {'Classical':<10} {'OR-Tools':<10} {'Advanced':<10} {'2-opt':<10} {'Best Method':<15}")
+    print("-" * 140)
     
     quantum_wins = 0
-    pyvrp_wins = 0
     classical_wins = 0
+    ortools_wins = 0
+    advanced_wins = 0
+    twopt_wins = 0
     total_scenarios = len(scenarios)
     
     for scenario_name in scenarios:
@@ -229,12 +212,13 @@ def print_optimization_summary(all_results: Dict):
         
         # Extract distances (lower is better)
         quantum_dist = results['quantum'].metrics.get('total_distance', float('inf'))
-        pyvrp_dist = results['pyvrp'].metrics.get('pyvrp_distance', 
-                     results['pyvrp'].metrics.get('total_distance', float('inf')))
         classical_dist = results['classical'].metrics.get('total_distance', float('inf'))
+        ortools_dist = results['ortools'].metrics.get('total_distance', float('inf'))
+        advanced_dist = results.get('advanced', type('obj', (object,), {'metrics': {}})()).metrics.get('total_distance', float('inf'))
+        twopt_dist = results.get('twopt', type('obj', (object,), {'metrics': {}})()).metrics.get('total_distance', float('inf'))
         
-        distances = [quantum_dist, pyvrp_dist, classical_dist]
-        method_names = ['Quantum', 'pyVRP', 'Classical']
+        distances = [quantum_dist, classical_dist, ortools_dist, advanced_dist, twopt_dist]
+        method_names = ['Quantum', 'Classical', 'OR-Tools', 'Advanced', '2-opt']
         
         # Find best method (minimum distance)
         valid_distances = [(dist, name) for dist, name in zip(distances, method_names) if dist != float('inf')]
@@ -243,175 +227,105 @@ def print_optimization_summary(all_results: Dict):
             
             if best_method == 'Quantum':
                 quantum_wins += 1
-            elif best_method == 'pyVRP':
-                pyvrp_wins += 1
-            else:
+            elif best_method == 'Classical':
                 classical_wins += 1
+            elif best_method == 'OR-Tools':
+                ortools_wins += 1
+            elif best_method == 'Advanced':
+                advanced_wins += 1
+            else:
+                twopt_wins += 1
         else:
             best_method = "None"
         
         # Format distances for display
         quantum_str = f"{quantum_dist:.2f}" if quantum_dist != float('inf') else "N/A"
-        pyvrp_str = f"{pyvrp_dist:.2f}" if pyvrp_dist != float('inf') else "N/A"
         classical_str = f"{classical_dist:.2f}" if classical_dist != float('inf') else "N/A"
+        ortools_str = f"{ortools_dist:.2f}" if ortools_dist != float('inf') else "N/A"
+        advanced_str = f"{advanced_dist:.2f}" if advanced_dist != float('inf') else "N/A"
+        twopt_str = f"{twopt_dist:.2f}" if twopt_dist != float('inf') else "N/A"
         
-        print(f"{scenario_name:<20} {quantum_str:<12} {pyvrp_str:<12} {classical_str:<12} {best_method:<15}")
+        print(f"{scenario_name:<20} {quantum_str:<10} {classical_str:<10} {ortools_str:<10} {advanced_str:<10} {twopt_str:<10} {best_method:<15}")
     
-    print("-" * 80)
-    print(f"{'WINS:':<20} {quantum_wins:<12} {pyvrp_wins:<12} {classical_wins:<12}")
-    print(f"{'WIN RATE:':<20} {quantum_wins/total_scenarios*100:.1f}%{'':<7} {pyvrp_wins/total_scenarios*100:.1f}%{'':<7} {classical_wins/total_scenarios*100:.1f}%{'':<7}")
+    print("-" * 140)
+    print(f"{'WINS:':<20} {quantum_wins:<10} {classical_wins:<10} {ortools_wins:<10} {advanced_wins:<10} {twopt_wins:<10}")
+    print(f"{'WIN RATE:':<20} {quantum_wins/total_scenarios*100:.1f}%{'':<5} {classical_wins/total_scenarios*100:.1f}%{'':<5} {ortools_wins/total_scenarios*100:.1f}%{'':<5} {advanced_wins/total_scenarios*100:.1f}%{'':<5} {twopt_wins/total_scenarios*100:.1f}%{'':<5}")
     
-    print("\n" + "="*80)
+    print("\n" + "="*140)
     print(" RUNTIME PERFORMANCE SUMMARY")
-    print("="*80)
-    
-    print(f"{'Scenario':<20} {'Quantum (s)':<12} {'pyVRP (s)':<12} {'Classical (s)':<12} {'Fastest':<15}")
-    print("-" * 80)
+    print("="*140)
+    print(f"{'Scenario':<20} {'Quantum (ms)':<12} {'Classical (ms)':<12} {'OR-Tools (ms)':<12} {'Advanced (ms)':<12} {'2-opt (ms)':<12} {'Fastest':<15}")
+    print("-" * 140)
     
     quantum_fastest = 0
-    pyvrp_fastest = 0
     classical_fastest = 0
-    
+    ortools_fastest = 0
+    advanced_fastest = 0
+    twopt_fastest = 0    
     for scenario_name in scenarios:
         results = all_results[scenario_name]
         
         quantum_time = results['quantum'].runtime
-        pyvrp_time = results['pyvrp'].runtime
         classical_time = results['classical'].runtime
+        ortools_time = results['ortools'].runtime
+        advanced_time = results.get('advanced', type('obj', (object,), {'runtime': float('inf')})()).runtime
+        twopt_time = results.get('twopt', type('obj', (object,), {'runtime': float('inf')})()).runtime
         
-        times = [quantum_time, pyvrp_time, classical_time]
-        time_methods = ['Quantum', 'pyVRP', 'Classical']
+        times = [quantum_time, classical_time, ortools_time, advanced_time, twopt_time]
+        time_methods = ['Quantum', 'Classical', 'OR-Tools', 'Advanced', '2-opt']
         
-        fastest_time, fastest_method = min(zip(times, time_methods))
-        
-        if fastest_method == 'Quantum':
-            quantum_fastest += 1
-        elif fastest_method == 'pyVRP':
-            pyvrp_fastest += 1
-        else:
-            classical_fastest += 1
-        
-        print(f"{scenario_name:<20} {quantum_time:<12.2f} {pyvrp_time:<12.2f} {classical_time:<12.2f} {fastest_method:<15}")
-    
-    print("-" * 80)
-    print(f"{'FASTEST:':<20} {quantum_fastest:<12} {pyvrp_fastest:<12} {classical_fastest:<12}")
-    print(f"{'SPEED RATE:':<20} {quantum_fastest/total_scenarios*100:.1f}%{'':<7} {pyvrp_fastest/total_scenarios*100:.1f}%{'':<7} {classical_fastest/total_scenarios*100:.1f}%{'':<7}")
-    
-    print("\n" + "="*80)
-    print(" TIME-ON-ROUTE PERFORMANCE SUMMARY")
-    print("="*80)
-    
-    print(f"{'Scenario':<20} {'Quantum (h:m)':<15} {'pyVRP (h:m)':<15} {'Classical (h:m)':<15} {'Fastest':<15}")
-    print("-" * 80)
-    
-    quantum_shortest_time = 0
-    pyvrp_shortest_time = 0
-    classical_shortest_time = 0
-    
-    for scenario_name in scenarios:
-        results = all_results[scenario_name]
-        
-        # Extract times and format as hours:minutes
-        def format_time(time_seconds):
-            if time_seconds <= 0:
-                return "N/A"
-            hours = int(time_seconds / 3600)
-            minutes = int((time_seconds % 3600) / 60)
-            return f"{hours}:{minutes:02d}"
-        
-        quantum_time = results['quantum'].metrics.get('total_time', 0)
-        pyvrp_time = results['pyvrp'].metrics.get('total_time', 0)
-        classical_time = results['classical'].metrics.get('total_time', 0)
-        
-        times = [quantum_time, pyvrp_time, classical_time]
-        time_methods = ['Quantum', 'pyVRP', 'Classical']
-        
-        # Find shortest route time (ignoring zeros)
-        valid_times = [(t, m) for t, m in zip(times, time_methods) if t > 0]
-        
+        # Find fastest method
+        valid_times = [(time, name) for time, name in zip(times, time_methods) if time != float('inf')]
         if valid_times:
-            shortest_time, shortest_method = min(valid_times)
+            fastest_time, fastest_method = min(valid_times)
             
-            if shortest_method == 'Quantum':
-                quantum_shortest_time += 1
-            elif shortest_method == 'pyVRP':
-                pyvrp_shortest_time += 1
+            if fastest_method == 'Quantum':
+                quantum_fastest += 1
+            elif fastest_method == 'Classical':
+                classical_fastest += 1
+            elif fastest_method == 'OR-Tools':
+                ortools_fastest += 1
+            elif fastest_method == 'Advanced':
+                advanced_fastest += 1
             else:
-                classical_shortest_time += 1
+                twopt_fastest += 1
         else:
-            shortest_method = "N/A"
+            fastest_method = "None"
         
-        print(f"{scenario_name:<20} {format_time(quantum_time):<15} {format_time(pyvrp_time):<15} {format_time(classical_time):<15} {shortest_method:<15}")
-    
-    print("-" * 80)
-    print(f"{'SHORTEST TIME:':<20} {quantum_shortest_time:<15} {pyvrp_shortest_time:<15} {classical_shortest_time:<15}")
-    
-    if total_scenarios > 0:
-        print(f"{'EFFICIENCY RATE:':<20} {quantum_shortest_time/total_scenarios*100:.1f}%{'':<10} {pyvrp_shortest_time/total_scenarios*100:.1f}%{'':<10} {classical_shortest_time/total_scenarios*100:.1f}%{'':<10}")
-    
-    print("\n" + "="*80)
-    print(" OVERALL PERFORMANCE ANALYSIS")
-    print("="*80)
-    
-    # Calculate average improvements
-    quantum_vs_pyvrp = []
-    quantum_vs_classical = []
-    pyvrp_vs_classical = []
-    
-    for scenario_name in scenarios:
-        results = all_results[scenario_name]
+        # Format times for display
+        quantum_time_str = f"{quantum_time:.0f}" if quantum_time != float('inf') else "N/A"
+        classical_time_str = f"{classical_time:.0f}" if classical_time != float('inf') else "N/A"
+        ortools_time_str = f"{ortools_time:.0f}" if ortools_time != float('inf') else "N/A"
+        advanced_time_str = f"{advanced_time:.0f}" if advanced_time != float('inf') else "N/A"
+        twopt_time_str = f"{twopt_time:.0f}" if twopt_time != float('inf') else "N/A"
         
-        quantum_dist = results['quantum'].metrics.get('total_distance', 0)
-        pyvrp_dist = results['pyvrp'].metrics.get('pyvrp_distance', 
-                     results['pyvrp'].metrics.get('total_distance', 0))
-        classical_dist = results['classical'].metrics.get('total_distance', 0)
-        
-        if pyvrp_dist > 0:
-            quantum_vs_pyvrp.append((pyvrp_dist - quantum_dist) / pyvrp_dist * 100)
-        if classical_dist > 0:
-            quantum_vs_classical.append((classical_dist - quantum_dist) / classical_dist * 100)
-        if classical_dist > 0:
-            pyvrp_vs_classical.append((classical_dist - pyvrp_dist) / classical_dist * 100)
+        print(f"{scenario_name:<20} {quantum_time_str:<12} {classical_time_str:<12} {ortools_time_str:<12} {advanced_time_str:<12} {twopt_time_str:<12} {fastest_method:<15}")
     
-    print("Average Distance Improvements (positive = better):")
-    if quantum_vs_pyvrp:
-        print(f"  Quantum vs pyVRP:     {np.mean(quantum_vs_pyvrp):+6.2f}%")
-    if quantum_vs_classical:
-        print(f"  Quantum vs Classical:  {np.mean(quantum_vs_classical):+6.2f}%")
-    if pyvrp_vs_classical:
-        print(f"  pyVRP vs Classical:    {np.mean(pyvrp_vs_classical):+6.2f}%")
+    print("-" * 140)
+    print(f"{'FASTEST:':<20} {quantum_fastest:<12} {classical_fastest:<12} {ortools_fastest:<12} {advanced_fastest:<12} {twopt_fastest:<12}")
+    print(f"{'SPEED RATE:':<20} {quantum_fastest/total_scenarios*100:.1f}%{'':<7} {classical_fastest/total_scenarios*100:.1f}%{'':<7} {ortools_fastest/total_scenarios*100:.1f}%{'':<7} {advanced_fastest/total_scenarios*100:.1f}%{'':<7} {twopt_fastest/total_scenarios*100:.1f}%{'':<7}")
     
-    # Calculate average runtimes
-    avg_quantum_time = np.mean([results['quantum'].runtime for results in all_results.values()])
-    avg_pyvrp_time = np.mean([results['pyvrp'].runtime for results in all_results.values()])
-    avg_classical_time = np.mean([results['classical'].runtime for results in all_results.values()])
+    print("\n" + "="*140)
+    print(" OVERALL PERFORMANCE ASSESSMENT")
+    print("="*140)
     
-    print(f"\nAverage Runtimes:")
-    print(f"  Quantum:    {avg_quantum_time:.2f} seconds")
-    print(f"  pyVRP:      {avg_pyvrp_time:.2f} seconds")
-    print(f"  Classical:  {avg_classical_time:.2f} seconds")
+    # Overall winner assessment
+    win_counts = [quantum_wins, classical_wins, ortools_wins, advanced_wins, twopt_wins]
+    win_methods = ['Quantum-Enhanced', 'Classical Heuristic', 'OR-Tools', 'Advanced Heuristics', '2-opt Improvement']
+    overall_winner = win_methods[win_counts.index(max(win_counts))]
     
-    # Overall recommendation
-    print(f"\n{'RECOMMENDATION:':<20}")
-    if quantum_wins >= pyvrp_wins and quantum_wins >= classical_wins:
-        print("  → Quantum-Enhanced method shows best solution quality")
-    elif pyvrp_wins >= quantum_wins and pyvrp_wins >= classical_wins:
-        print("  → pyVRP shows best solution quality (industry standard)")
-    else:
-        print("  → Classical heuristic shows best solution quality (simple approach)")
+    print(f"Overall Distance Winner: {overall_winner}")
     
-    if quantum_fastest >= pyvrp_fastest and quantum_fastest >= classical_fastest:
-        print("  → Quantum-Enhanced method is fastest")
-    elif pyvrp_fastest >= quantum_fastest and pyvrp_fastest >= classical_fastest:
-        print("  → pyVRP is fastest")
-    else:
-        print("  → Classical heuristic is fastest")
+    speed_counts = [quantum_fastest, classical_fastest, ortools_fastest, advanced_fastest, twopt_fastest]
+    speed_methods = ['Quantum-Enhanced', 'Classical Heuristic', 'OR-Tools', 'Advanced Heuristics', '2-opt Improvement']
+    speed_winner = speed_methods[speed_counts.index(max(speed_counts))]
     
-    print("="*80)
+    print(f"Overall Speed Winner: {speed_winner}")
+    print("="*140)
 
 def run_scenario_analysis():
-    """Run analysis on all VRP scenarios."""
-    logger.info("Starting VRP scenario analysis")
+    """Run analysis on only MODA_small scenario for debugging."""
+    logger.info("Starting VRP scenario analysis - MODA_small only")
     
     # Create results directory
     results_dir = os.path.join(current_dir, "results")
@@ -420,91 +334,101 @@ def run_scenario_analysis():
     scenarios = get_all_scenarios()
     all_results = {}
     
-    for scenario_name, instance in scenarios.items():
-        logger.info(f"\n{'='*60}")
-        logger.info(f"Processing scenario: {scenario_name}")
-        logger.info(f"{'='*60}")
+    # Only run MODA_small scenario
+    scenario_name = "MODA_small"
+    if scenario_name not in scenarios:
+        logger.error(f"MODA_small scenario not found! Available: {list(scenarios.keys())}")
+        return
+    
+    instance = scenarios[scenario_name]
+    logger.info(f"\n{'='*60}")
+    logger.info(f"Processing scenario: {scenario_name}")
+    logger.info(f"{'='*60}")    
+    try:
+        # Create optimizer for this scenario
+        optimizer = VRPQuantumOptimizer(instance, VRPObjective.MINIMIZE_DISTANCE)
         
+        # Run optimization comparison
+        quantum_result, classical_result, ortools_result, advanced_result, twopt_result = compare_optimization_methods(
+            instance, 
+            save_path=os.path.join(results_dir, f"{scenario_name}_comparison.png")
+        )
+        
+        # Visualize solutions with standard plots
+        visualize_vrp_solution(
+            instance, quantum_result,
+            save_path=os.path.join(results_dir, f"{scenario_name}_quantum_solution.png")
+        )
+        
+        visualize_vrp_solution(
+            instance, classical_result,
+            save_path=os.path.join(results_dir, f"{scenario_name}_classical_solution.png")
+        )
+        
+        visualize_vrp_solution(
+            instance, ortools_result,
+            save_path=os.path.join(results_dir, f"{scenario_name}_ortools_solution.png")
+        )
+        
+        visualize_vrp_solution(
+            instance, advanced_result,
+            save_path=os.path.join(results_dir, f"{scenario_name}_advanced_solution.png")
+        )
+        
+        visualize_vrp_solution(
+            instance, twopt_result,
+            save_path=os.path.join(results_dir, f"{scenario_name}_twopt_solution.png")
+        )
+          # Create GPS map visualizations for realistic scenarios
         try:
-            # Create optimizer for this scenario
-            optimizer = VRPQuantumOptimizer(instance, VRPObjective.MINIMIZE_DISTANCE)
+            from vrp_map_visualization import create_all_map_visualizations
             
-            # Run optimization comparison
-            quantum_result, pyvrp_result, classical_result = compare_optimization_methods(
-                instance, 
-                save_path=os.path.join(results_dir, f"{scenario_name}_comparison.png")
-            )
-            
-            # Visualize solutions with standard plots
-            visualize_vrp_solution(
-                instance, quantum_result,
-                save_path=os.path.join(results_dir, f"{scenario_name}_quantum_solution.png")
-            )
-            
-            visualize_vrp_solution(
-                instance, pyvrp_result,
-                save_path=os.path.join(results_dir, f"{scenario_name}_pyvrp_solution.png")
-            )
-            
-            visualize_vrp_solution(
-                instance, classical_result,
-                save_path=os.path.join(results_dir, f"{scenario_name}_classical_solution.png")
-            )
-              # Create GPS map visualizations for realistic scenarios
-            try:
-                from vrp_map_visualization import create_all_map_visualizations
-                
-                # For ride pooling scenarios, prefer classical solution for maps since pyVRP
-                # doesn't properly enforce ride pooling constraints
-                is_ride_pooling = bool(instance.ride_requests)
-                if is_ride_pooling:
-                    best_result = classical_result
-                    logger.info(f"Using classical solution for {scenario_name} map (ride pooling constraints)")
-                else:
-                    # For non-ride pooling scenarios, use the solution with lowest distance
-                    best_result = min([quantum_result, pyvrp_result, classical_result], 
-                                    key=lambda r: r.metrics.get('total_distance', float('inf')))
-                    logger.info(f"Using best distance solution for {scenario_name} map")
-                
-                map_files = create_all_map_visualizations(instance, best_result, results_dir, scenario_name)
-                if map_files:
-                    logger.info(f"Created {len(map_files)} map visualizations for {scenario_name}")
-                
-                
-            except ImportError:
-                logger.info("Map visualization dependencies not available. Install folium, contextily, geopandas for GPS maps.")
-            except Exception as e:
-                logger.warning(f"Could not create map visualizations: {e}")
-            
-            all_results[scenario_name] = {
+            # Pass all results to the visualization function so it can auto-select the best one
+            all_solver_results = {
                 'quantum': quantum_result,
-                'pyvrp': pyvrp_result,
                 'classical': classical_result,
-                'instance': instance
+                'ortools': ortools_result,
+                'advanced': advanced_result,
+                'twopt': twopt_result
             }
-              # Print summary with actual distances
-            quantum_dist = quantum_result.metrics.get('total_distance', 0)
-            pyvrp_dist = pyvrp_result.metrics.get('pyvrp_distance', pyvrp_result.metrics.get('total_distance', 0))
-            classical_dist = classical_result.metrics.get('total_distance', 0)
             
-            logger.info(f"Scenario {scenario_name} completed:")
-            logger.info(f"  Quantum - Distance: {quantum_dist:.2f}, Runtime: {quantum_result.runtime:.2f}s")
+            map_files = create_all_map_visualizations(instance, all_solver_results, results_dir, scenario_name)
+            if map_files:
+                logger.info(f"Created {len(map_files)} map visualizations for {scenario_name}")
             
-            # Add warning for pyVRP if constraints aren't enforced
-            pyvrp_warning = pyvrp_result.metrics.get('pyvrp_warning', '')
-            if pyvrp_warning:
-                logger.info(f"  pyVRP - Distance: {pyvrp_dist:.2f}, Runtime: {pyvrp_result.runtime:.2f}s, Cost: {pyvrp_result.metrics.get('pyvrp_cost', 0)} [WARNING: {pyvrp_warning}]")
-            else:
-                logger.info(f"  pyVRP - Distance: {pyvrp_dist:.2f}, Runtime: {pyvrp_result.runtime:.2f}s, Cost: {pyvrp_result.metrics.get('pyvrp_cost', 0)}")
-            
-            logger.info(f"  Classical - Distance: {classical_dist:.2f}, Runtime: {classical_result.runtime:.2f}s")
-            
-            
+        except ImportError:
+            logger.info("Map visualization dependencies not available. Install folium, contextily, geopandas for GPS maps.")
         except Exception as e:
-            logger.error(f"Error processing scenario {scenario_name}: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            continue
+            logger.warning(f"Could not create map visualizations: {e}")
+        
+        all_results[scenario_name] = {
+            'quantum': quantum_result,
+            'classical': classical_result,
+            'ortools': ortools_result,
+            'advanced': advanced_result,
+            'twopt': twopt_result,
+            'instance': instance
+        }
+        
+        # Print summary with actual distances
+        quantum_dist = quantum_result.metrics.get('total_distance', 0)
+        classical_dist = classical_result.metrics.get('total_distance', 0)
+        ortools_dist = ortools_result.metrics.get('total_distance', 0)
+        advanced_dist = advanced_result.metrics.get('total_distance', 0)
+        twopt_dist = twopt_result.metrics.get('total_distance', 0)
+        
+        logger.info(f"Scenario {scenario_name} completed:")
+        logger.info(f"  Quantum - Distance: {quantum_dist:.2f}, Runtime: {quantum_result.runtime:.2f}ms")
+        logger.info(f"  Classical - Distance: {classical_dist:.2f}, Runtime: {classical_result.runtime:.2f}ms")
+        logger.info(f"  OR-Tools - Distance: {ortools_dist:.2f}, Runtime: {ortools_result.runtime:.2f}ms")
+        logger.info(f"  Advanced - Distance: {advanced_dist:.2f}, Runtime: {advanced_result.runtime:.2f}ms")
+        logger.info(f"  2-opt - Distance: {twopt_dist:.2f}, Runtime: {twopt_result.runtime:.2f}ms")
+        
+    except Exception as e:
+        logger.error(f"Error processing scenario {scenario_name}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return
     
     # Generate summary report
     generate_summary_report(all_results, results_dir)
@@ -519,89 +443,63 @@ def generate_summary_report(all_results: Dict, results_dir: str):
     logger.info("Generating summary report")
     
     # Create summary plot
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 6))
     
     scenarios = list(all_results.keys())
     quantum_objectives = [all_results[s]['quantum'].objective_value for s in scenarios]
-    pyvrp_objectives = [all_results[s]['pyvrp'].objective_value for s in scenarios]
     classical_objectives = [all_results[s]['classical'].objective_value for s in scenarios]
+    ortools_objectives = [all_results[s]['ortools'].objective_value for s in scenarios]
+    advanced_objectives = [all_results[s].get('advanced', type('obj', (object,), {'objective_value': 0})()).objective_value for s in scenarios]
+    twopt_objectives = [all_results[s].get('twopt', type('obj', (object,), {'objective_value': 0})()).objective_value for s in scenarios]
+    
     quantum_runtimes = [all_results[s]['quantum'].runtime for s in scenarios]
-    pyvrp_runtimes = [all_results[s]['pyvrp'].runtime for s in scenarios]
     classical_runtimes = [all_results[s]['classical'].runtime for s in scenarios]
+    ortools_runtimes = [all_results[s]['ortools'].runtime for s in scenarios]
+    advanced_runtimes = [all_results[s].get('advanced', type('obj', (object,), {'runtime': 0})()).runtime for s in scenarios]
+    twopt_runtimes = [all_results[s].get('twopt', type('obj', (object,), {'runtime': 0})()).runtime for s in scenarios]
     
     x = np.arange(len(scenarios))
-    width = 0.25
+    width = 0.15
     
     # Objective values
-    ax1.bar(x - width, quantum_objectives, width, label='Quantum-Enhanced', color='lightblue')
-    ax1.bar(x, pyvrp_objectives, width, label='pyVRP Classical', color='lightgreen')
-    ax1.bar(x + width, classical_objectives, width, label='Simple Heuristic', color='lightcoral')
+    ax1.bar(x - 2*width, quantum_objectives, width, label='Quantum-Enhanced', color='lightblue')
+    ax1.bar(x - width, classical_objectives, width, label='Simple Heuristic', color='lightcoral')
+    ax1.bar(x, ortools_objectives, width, label='OR-Tools', color='lightgreen')
+    ax1.bar(x + width, advanced_objectives, width, label='Advanced Heuristics', color='lightyellow')
+    ax1.bar(x + 2*width, twopt_objectives, width, label='2-opt Improvement', color='lightpink')
     ax1.set_title('Objective Values by Scenario')
     ax1.set_ylabel('Objective Value')
     ax1.set_xticks(x)
-    ax1.set_xticklabels(scenarios, rotation=45)
+    ax1.set_xticklabels(scenarios, rotation=45, ha='right')
     ax1.legend()
     ax1.grid(True, alpha=0.3)
     
     # Runtimes
-    ax2.bar(x - width, quantum_runtimes, width, label='Quantum-Enhanced', color='lightblue')
-    ax2.bar(x, pyvrp_runtimes, width, label='pyVRP Classical', color='lightgreen')
-    ax2.bar(x + width, classical_runtimes, width, label='Simple Heuristic', color='lightcoral')
+    ax2.bar(x - 2*width, quantum_runtimes, width, label='Quantum-Enhanced', color='lightblue')
+    ax2.bar(x - width, classical_runtimes, width, label='Simple Heuristic', color='lightcoral')
+    ax2.bar(x, ortools_runtimes, width, label='OR-Tools', color='lightgreen')
+    ax2.bar(x + width, advanced_runtimes, width, label='Advanced Heuristics', color='lightyellow')
+    ax2.bar(x + 2*width, twopt_runtimes, width, label='2-opt Improvement', color='lightpink')
     ax2.set_title('Runtime by Scenario')
-    ax2.set_ylabel('Runtime (seconds)')
+    ax2.set_ylabel('Runtime (milliseconds)')
     ax2.set_xticks(x)
-    ax2.set_xticklabels(scenarios, rotation=45)
+    ax2.set_xticklabels(scenarios, rotation=45, ha='right')
     ax2.legend()
     ax2.grid(True, alpha=0.3)
-    
-    # Improvement ratios (Quantum vs pyVRP)
-    improvement_ratios = []
-    for s in scenarios:
-        quantum_obj = all_results[s]['quantum'].objective_value
-        pyvrp_obj = all_results[s]['pyvrp'].objective_value
-        if pyvrp_obj != 0:
-            ratio = (quantum_obj - pyvrp_obj) / abs(pyvrp_obj) * 100
-        else:
-            ratio = 0
-        improvement_ratios.append(ratio)
-    
-    colors = ['green' if r > 0 else 'red' for r in improvement_ratios]
-    ax3.bar(scenarios, improvement_ratios, color=colors, alpha=0.7)
-    ax3.set_title('Quantum vs pyVRP Improvement (%)')
-    ax3.set_ylabel('Improvement (%)')
-    ax3.set_xticklabels(scenarios, rotation=45)
-    ax3.axhline(y=0, color='black', linestyle='-', alpha=0.3)
-    ax3.grid(True, alpha=0.3)
-    
-    # Problem characteristics
-    problem_sizes = []
-    for s in scenarios:
-        instance = all_results[s]['instance']
-        problem_sizes.append(len(instance.location_ids))
-    
-    ax4.scatter(problem_sizes, quantum_objectives, label='Quantum-Enhanced', color='blue', alpha=0.7)
-    ax4.scatter(problem_sizes, pyvrp_objectives, label='pyVRP Classical', color='green', alpha=0.7)
-    ax4.scatter(problem_sizes, classical_objectives, label='Simple Heuristic', color='red', alpha=0.7)
-    ax4.set_title('Objective vs Problem Size')
-    ax4.set_xlabel('Number of Locations')
-    ax4.set_ylabel('Objective Value')
-    ax4.legend()
-    ax4.grid(True, alpha=0.3)
     
     plt.suptitle('VRP Optimization Summary Report', fontsize=16)
     plt.tight_layout()
     plt.savefig(os.path.join(results_dir, "summary_report.png"), dpi=300, bbox_inches='tight')
-    plt.close()
-    
-    # Generate text report
+    plt.close()      # Generate text report
     with open(os.path.join(results_dir, "summary_report.txt"), 'w', encoding='utf-8') as f:
         f.write("VRP OPTIMIZATION SUMMARY REPORT\n")
         f.write("=" * 50 + "\n\n")
-        
         for scenario_name, results in all_results.items():
             quantum_result = results['quantum']
-            pyvrp_result = results['pyvrp']
             classical_result = results['classical']
+            ortools_result = results['ortools']
+            advanced_result = results.get('advanced')
+            twopt_result = results.get('twopt')
             instance = results['instance']
             
             f.write(f"Scenario: {scenario_name}\n")
@@ -622,15 +520,7 @@ def generate_summary_report(all_results: Dict, results_dir: str):
             f.write(f"  Total Distance: {quantum_result.metrics.get('total_distance', 0):.4f}\n")
             f.write(f"  Time-on-Route: {format_time(quantum_result.metrics.get('total_time', 0))}\n")
             f.write(f"  Vehicles Used: {quantum_result.metrics.get('vehicles_used', 0)}\n")
-            f.write(f"  Runtime: {quantum_result.runtime:.4f} seconds\n")
-            
-            # Write pyVRP result
-            f.write(f"pyVRP Classical:\n")
-            f.write(f"  Objective: {pyvrp_result.objective_value:.6f}\n")
-            f.write(f"  Total Distance: {pyvrp_result.metrics.get('total_distance', 0):.4f}\n")
-            f.write(f"  Time-on-Route: {format_time(pyvrp_result.metrics.get('total_time', 0))}\n")
-            f.write(f"  Vehicles Used: {pyvrp_result.metrics.get('vehicles_used', 0)}\n")
-            f.write(f"  Runtime: {pyvrp_result.runtime:.4f} seconds\n")
+            f.write(f"  Runtime: {quantum_result.runtime:.2f} ms\n")
             
             # Write classical result
             f.write(f"Simple Heuristic:\n")
@@ -638,7 +528,33 @@ def generate_summary_report(all_results: Dict, results_dir: str):
             f.write(f"  Total Distance: {classical_result.metrics.get('total_distance', 0):.4f}\n")
             f.write(f"  Time-on-Route: {format_time(classical_result.metrics.get('total_time', 0))}\n")
             f.write(f"  Vehicles Used: {classical_result.metrics.get('vehicles_used', 0)}\n")
-            f.write(f"  Runtime: {classical_result.runtime:.4f} seconds\n")
+            f.write(f"  Runtime: {classical_result.runtime:.2f} ms\n")
+            
+            # Write OR-Tools result
+            f.write(f"OR-Tools:\n")
+            f.write(f"  Objective: {ortools_result.objective_value:.6f}\n")
+            f.write(f"  Total Distance: {ortools_result.metrics.get('total_distance', 0):.4f}\n")
+            f.write(f"  Time-on-Route: {format_time(ortools_result.metrics.get('total_time', 0))}\n")
+            f.write(f"  Vehicles Used: {ortools_result.metrics.get('vehicles_used', 0)}\n")
+            f.write(f"  Runtime: {ortools_result.runtime:.2f} ms\n")
+            
+            # Write advanced heuristics result
+            if advanced_result:
+                f.write(f"Advanced Heuristics:\n")
+                f.write(f"  Objective: {advanced_result.objective_value:.6f}\n")
+                f.write(f"  Total Distance: {advanced_result.metrics.get('total_distance', 0):.4f}\n")
+                f.write(f"  Time-on-Route: {format_time(advanced_result.metrics.get('total_time', 0))}\n")
+                f.write(f"  Vehicles Used: {advanced_result.metrics.get('vehicles_used', 0)}\n")
+                f.write(f"  Runtime: {advanced_result.runtime:.2f} ms\n")
+            
+            # Write 2-opt result
+            if twopt_result:
+                f.write(f"2-opt Improvement:\n")
+                f.write(f"  Objective: {twopt_result.objective_value:.6f}\n")
+                f.write(f"  Total Distance: {twopt_result.metrics.get('total_distance', 0):.4f}\n")
+                f.write(f"  Time-on-Route: {format_time(twopt_result.metrics.get('total_time', 0))}\n")
+                f.write(f"  Vehicles Used: {twopt_result.metrics.get('vehicles_used', 0)}\n")
+                f.write(f"  Runtime: {twopt_result.runtime:.2f} ms\n")
             f.write("\n")
 
 def main():
@@ -648,11 +564,13 @@ def main():
     print("="*80)
     print("\nThis example demonstrates the application of quantum-enhanced")
     print("optimization methods to Vehicle Routing Problems (VRP),")
-    print("including the Ride Pooling Problem (RPP) formulation.")
+    print("including the Vehicle Routing Problem with Pickup and Delivery (VRPPD) formulation.")
     print("\nComparison includes:")
     print("  - Quantum-Enhanced Heuristic")
-    print("  - pyVRP Classical Solver (industry standard)")
     print("  - Simple Greedy Heuristic")
+    print("  - OR-Tools (Industry Standard Benchmark)")
+    print("  - Advanced Construction Heuristics (Nearest Neighbor, Savings, Firefly)")
+    print("  - 2-opt Improvement (Croes' 1958 with modern enhancements)")
     print("\nAll methods use Manhattan distance for fair comparison.")
     print("Realistic scenarios use:")
     print("  - Offline coordinate database (no API calls)")
@@ -751,16 +669,7 @@ def main():
                 print(f"\n+ Using offline realistic coordinates (no API required)")
             if osm_count > 0:
                 print(f"+ Enhanced with OSM data from live APIs")
-        else:
-            print(f"\n! No realistic scenarios loaded - using synthetic data only")
-        
-        # Check pyVRP availability
-        from vrp_optimizer_fixed import PYVRP_AVAILABLE
-        if PYVRP_AVAILABLE:
-            print("\n+ pyVRP classical solver available")
-        else:
-            print("\n! pyVRP not available - install with: pip install pyvrp")
-            print("  Some comparisons may be limited")
+        else:            print(f"\n! No realistic scenarios loaded - using synthetic data only")
         
         # Ensure all instances use Manhattan distance
         print("\nEnsuring consistent distance calculations...")
@@ -770,8 +679,7 @@ def main():
                 instance.calculate_distance_matrix(distance_method="manhattan")
             else:
                 print(f"  {name} already has distance matrix calculated")
-        
-        # Run comprehensive scenario analysis
+          # Run comprehensive scenario analysis
         print("\nRunning comprehensive scenario analysis...")
         run_scenario_analysis()
         
@@ -780,7 +688,7 @@ def main():
         print("="*80)
         print("\nResults have been saved to the 'results' directory.")
         print("Generated files:")
-        print("  -> Individual scenario comparison plots (3 methods)")
+        print("  -> Individual scenario comparison plots (5 methods)")
         print("  -> Solution visualizations for each method")
         print("  -> Interactive GPS maps (HTML files)")
         print("  -> Static maps with real backgrounds (PNG files)")
@@ -791,12 +699,13 @@ def main():
         print("Check the log file 'vrp_optimization.log' for detailed output.")
         
         print("\nFEATURES:")
-        print("  + Using direct Model API approach for pyVRP")
         print("  + Consistent Manhattan distance calculations")
         print("  + Proper capacity handling for different scenarios")
-        print("  + Proper route conversion from pyVRP solutions")
         print("  + Clean visualization without duplicates")
-        print("  + Comprehensive performance comparison")
+        print("  + Comprehensive performance comparison (5 methods)")
+        print("  + OR-Tools industry benchmark integration")
+        print("  + Advanced construction heuristics (nearest neighbor, savings, firefly)")
+        print("  + 2-opt local search improvement (Croes' 1958 framework)")
         if offline_count > 0:
             print("  + Offline realistic scenarios (no API calls)")
         if osm_count > 0:
@@ -818,7 +727,7 @@ def main():
                 instance = scenarios[scenario_name]
                 print(f"  📊 {scenario_name}: {len(instance.locations)} locations, {len(instance.vehicles)} vehicles")
                 if hasattr(instance, 'ride_requests'):
-                    print(f"      🚗 Ride pooling: {len(instance.ride_requests)} ride requests")
+                    print(f"      🚗 VRPPD: {len(instance.ride_requests)} pickup-delivery requests")
                 print(f"      🗺️  GPS coverage: Northern Italy")
                 
                 # Add average speeds for realistic time estimation

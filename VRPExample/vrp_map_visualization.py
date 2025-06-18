@@ -25,6 +25,43 @@ from vrp_data_models import VRPResult
 
 logger = logging.getLogger(__name__)
 
+def select_best_result(results: Dict[str, VRPResult]) -> Tuple[VRPResult, str]:
+    """
+    Select the best result from multiple solver results based on lowest nonzero objective value.
+    
+    Args:
+        results: Dictionary mapping solver names to their VRPResult objects
+        
+    Returns:
+        Tuple of (best_result, solver_name)
+    """
+    best_result = None
+    best_solver = None
+    best_objective = float('inf')
+    
+    for solver_name, result in results.items():
+        # Check if result is valid and has a nonzero objective (allow negative values)
+        if result is not None and result.objective_value != 0:
+            if result.objective_value < best_objective:
+                best_objective = result.objective_value
+                best_result = result
+                best_solver = solver_name
+                
+    # If no valid nonzero result found, try to use any result with zero objective
+    if best_result is None:
+        for solver_name, result in results.items():
+            if result is not None:
+                best_result = result
+                best_solver = solver_name
+                logger.warning(f"No nonzero objective results found, using {solver_name} as fallback")
+                break
+                
+    if best_result is None:
+        raise ValueError("No valid results provided")
+        
+    logger.info(f"Selected {best_solver} as best solver with objective value: {best_objective}")
+    return best_result, best_solver
+
 class VRPMapVisualizer:
     """Enhanced VRP visualizer with real GPS map backgrounds."""
     
@@ -61,27 +98,53 @@ class VRPMapVisualizer:
             import folium.plugins
             self.has_folium_plugins = True
         except (ImportError, AttributeError):
-            self.has_folium_plugins = False
+            self.has_folium_plugins = False            
             logger.warning("Folium plugins not available - using simplified routes")
     
     def _generate_vehicle_colors(self, n):
-        """Generate n visually distinct colors using matplotlib's tab20, tab20b, and tab20c colormaps."""
+        """Generate n visually distinct colors using HSV color space for maximum distinctness."""
         import matplotlib.pyplot as plt
         import matplotlib.colors as mcolors
         import numpy as np
-        # Try to use tab20, tab20b, tab20c for up to 60, then fall back to hsv
-        base_maps = [plt.get_cmap('tab20'), plt.get_cmap('tab20b'), plt.get_cmap('tab20c')]
+        
+        if n == 0:
+            return []
+        
+        # For small numbers, use predefined distinct colors
+        if n <= 10:
+            predefined = [
+                '#FF0000',  # Red
+                '#0000FF',  # Blue  
+                '#00FF00',  # Green
+                '#FF00FF',  # Magenta
+                '#FF8C00',  # Dark Orange
+                '#8A2BE2',  # Blue Violet
+                '#00CED1',  # Dark Turquoise
+                '#FFD700',  # Gold
+                '#DC143C',  # Crimson
+                '#32CD32'   # Lime Green
+            ]
+            return predefined[:n]
+        
+        # For larger numbers, generate colors in HSV space for maximum distinction
         colors = []
-        for cmap in base_maps:
-            for i in range(cmap.N):
-                colors.append(mcolors.rgb2hex(cmap(i)))
-                if len(colors) >= n:
-                    return colors[:n]
-        # If more colors needed, use HSV
-        if len(colors) < n:
-            hsv_colors = [mcolors.rgb2hex(plt.cm.hsv(i / n)) for i in range(n - len(colors))]
-            colors.extend(hsv_colors)
-        return colors[:n]
+        # Use golden ratio to ensure maximum spacing
+        golden_ratio = (1 + 5**0.5) / 2
+        
+        for i in range(n):
+            # Generate hue using golden ratio for maximum distinction
+            hue = (i * golden_ratio) % 1.0
+            
+            # Alternate saturation and value to create more distinction
+            saturation = 0.8 if i % 2 == 0 else 0.6
+            value = 0.9 if (i // 2) % 2 == 0 else 0.7
+            
+            # Convert HSV to RGB to hex
+            rgb = mcolors.hsv_to_rgb([hue, saturation, value])
+            hex_color = mcolors.rgb2hex(rgb)
+            colors.append(hex_color)
+        
+        return colors
     
     def _get_street_route(self, start_coords, end_coords):
         """Get actual street route between two points using OSRM."""
@@ -191,7 +254,9 @@ class VRPMapVisualizer:
                     icon=folium.Icon(color='red', icon='home', prefix='fa')                ).add_to(m)
         
         # Add customer markers and routes with street following
-        route_colors = ['blue', 'green', 'purple', 'orange', 'darkred', 'black', 'gray', 'pink', 'lightblue', 'lightgreen']
+        # Generate unique colors for all vehicles
+        num_vehicles = len([route for route in result.routes.values() if len(route) > 2])
+        route_colors = self._generate_vehicle_colors(num_vehicles)
           # Store route information for legend
         route_info = {}
         
@@ -211,6 +276,10 @@ class VRPMapVisualizer:
                 route_metrics = result.route_metrics[vehicle_id]
                 route_distance = route_metrics.get('distance', 0)
                 route_time = route_metrics.get('time', 0)
+                # Add service time for stops when using route metrics too
+                service_time_per_stop = 30 * 60  # 30 minutes in seconds
+                total_service_time = len(route) * service_time_per_stop
+                route_time += total_service_time
             else:
                 # Fallback: estimate from locations if coordinates available
                 for j in range(len(route) - 1):
@@ -227,7 +296,12 @@ class VRPMapVisualizer:
                         a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
                         distance = 6371 * 2 * math.asin(math.sqrt(a))  # Earth radius in km
                         route_distance += distance
-                        route_time += distance / 50 * 3600  # Assume 50 km/h average speed for time estimate
+                        route_time += distance / 50 * 3600  # Assume 50 km/h average speed for travel time
+                
+                # Add service time for all stops (30 minutes each for pickups, dropoffs, and depots)
+                service_time_per_stop = 30 * 60  # 30 minutes in seconds
+                total_service_time = len(route) * service_time_per_stop
+                route_time += total_service_time
             
             # Store route information for legend
             route_info[vehicle_id] = {
@@ -291,18 +365,18 @@ class VRPMapVisualizer:
                     # Get street route between points
                     leg_route = self._get_street_route(start_coords, end_coords)
                     all_route_segments.append((leg_route, f"Route: {route[j]} → {route[j+1]}"))
-            
-            # Add route segments to map with unique IDs for highlighting
-            for segment, popup_text in all_route_segments:
+              # Add route segments to map with unique IDs for highlighting
+            for segment_idx, (segment, popup_text) in enumerate(all_route_segments):
                 try:
-                    # Each segment is its own polyline with vehicle-specific class
+                    # Each segment is its own polyline with vehicle-specific class and unique ID
                     folium.PolyLine(
                         locations=segment,
                         color=color,
                         weight=4,
                         opacity=0.8,
                         popup=popup_text,
-                        className=f'route-{vehicle_id}'  # Add class for JavaScript targeting
+                        className=f'route-{vehicle_id}',  # Add class for JavaScript targeting
+                        tooltip=f'{vehicle_id} - Segment {segment_idx + 1}'
                     ).add_to(m)
                     
                     # Add direction arrow at the end of each segment if plugins available
@@ -362,11 +436,10 @@ class VRPMapVisualizer:
                 <span style="display: inline-block; width: 20px; height: 20px; 
                            background-color: {info['color']}; margin-right: 8px; 
                            border: 1px solid #000; vertical-align: middle;"></span>
-                <strong>{vehicle_id}</strong><br>
-                <span style="margin-left: 28px; font-size: 12px;">
+                <strong>{vehicle_id}</strong><br>                <span style="margin-left: 28px; font-size: 12px;">
                     📍 {info['customers']} customers<br>
                     📏 {info['distance']:.1f} km<br>
-                    ⏱️ {time_str}<br>
+                    ⏱️ {time_str} (travel + service)<br>
                 </span>
             </div>
             '''
@@ -383,15 +456,15 @@ class VRPMapVisualizer:
         </div>
         </div>
         '''
-        
-        # Add JavaScript for route highlighting
+          # Add JavaScript for route highlighting
         javascript_code = '''
         <script>
         var highlightedVehicle = null;
         var originalStyles = {};
         
         function toggleRouteHighlight(vehicleId, vehicleColor) {
-            // Get all route elements
+            // Get all route elements with the specific vehicle class
+            var vehicleRoutes = document.querySelectorAll('path.route-' + vehicleId);
             var allRoutes = document.querySelectorAll('path[stroke]');
             
             // If clicking the same vehicle, toggle off
@@ -422,14 +495,11 @@ class VRPMapVisualizer:
                 route.setAttribute('stroke-width', '2');
             });
             
-            // Highlight selected vehicle's routes
-            allRoutes.forEach(function(route) {
-                var stroke = route.getAttribute('stroke');
-                if (stroke === vehicleColor) {
-                    route.setAttribute('stroke-opacity', '1.0');
-                    route.setAttribute('stroke-width', '6');
-                    route.style.zIndex = '1000';
-                }
+            // Highlight ONLY the selected vehicle's routes using class selector
+            vehicleRoutes.forEach(function(route) {
+                route.setAttribute('stroke-opacity', '1.0');
+                route.setAttribute('stroke-width', '6');
+                route.style.zIndex = '1000';
             });
             
             highlightedVehicle = vehicleId;
@@ -491,19 +561,18 @@ class VRPMapVisualizer:
         # Calculate total time from route info
         total_route_time = sum(info['time'] for info in route_info.values())
         total_route_distance = sum(info['distance'] for info in route_info.values())
-        
-        # Format total route time
+          # Format total route time
         time_info = ""
         if total_route_time > 0:
             time_hours = total_route_time / 3600
             hours = int(time_hours)
             minutes = int((time_hours - hours) * 60)
-            time_info = f" | Total Travel Time: {hours}h {minutes}m"
+            time_info = f" | Total Time: {hours}h {minutes}m (incl. service)"
         elif 'total_time' in result.metrics and result.metrics['total_time'] > 0:
             time_hours = result.metrics['total_time'] / 3600
             hours = int(time_hours)
             minutes = int((time_hours - hours) * 60)
-            time_info = f" | Time-on-Route: {hours}h {minutes}m"
+            time_info = f" | Time-on-Route: {hours}h {minutes}m (incl. service)"
         
         # Use calculated distance if available, otherwise fall back to metrics
         display_distance = total_route_distance if total_route_distance > 0 else result.metrics.get("total_distance", 0)
@@ -583,15 +652,16 @@ class VRPMapVisualizer:
             if pickup_mask.any():
                 gdf_locations[pickup_mask].plot(ax=ax, color='green', markersize=100, 
                                                marker='^', label='Pickup', zorder=4)
-            if dropoff_mask.any():
-                gdf_locations[dropoff_mask].plot(ax=ax, color='blue', markersize=100, 
+            if dropoff_mask.any():                gdf_locations[dropoff_mask].plot(ax=ax, color='blue', markersize=100, 
                                                 marker='v', label='Dropoff', zorder=4)
             if customer_mask.any():
                 gdf_locations[customer_mask].plot(ax=ax, color='orange', markersize=100, 
                                                  marker='o', label='Customer', zorder=4)
             
             # Plot routes
-            route_colors = ['purple', 'brown', 'pink', 'gray', 'olive']
+            # Generate unique colors for all vehicles
+            num_vehicles = len([route for route in result.routes.values() if len(route) > 2])
+            route_colors = self._generate_vehicle_colors(num_vehicles)
             
             for i, (vehicle_id, route) in enumerate(result.routes.items()):
                 if len(route) <= 2:  # Skip empty routes
@@ -706,9 +776,10 @@ class VRPMapVisualizer:
                     label_text += f"\n{location.address[:20]}..."
                 plt.annotate(label_text, (location.lon, location.lat), xytext=(5, 5), 
                             textcoords='offset points', fontsize=7)
-            
-            # Plot routes
-            route_colors = ['purple', 'brown', 'pink', 'gray', 'olive']
+              # Plot routes
+            # Generate unique colors for all vehicles
+            num_vehicles = len([route for route in result.routes.values() if len(route) > 2])
+            route_colors = self._generate_vehicle_colors(num_vehicles)
             for i, (vehicle_id, route) in enumerate(result.routes.items()):
                 if len(route) <= 2:
                     continue
@@ -777,8 +848,8 @@ class VRPMapVisualizer:
             plt.close()
             return None
 
-def create_all_map_visualizations(instance, result: VRPResult, results_dir: str, scenario_name: str):
-    """Create both interactive and static map visualizations."""
+def create_all_map_visualizations(instance, results: Dict[str, VRPResult], results_dir: str, scenario_name: str):
+    """Create both interactive and static map visualizations using the best solver result."""
     
     # Check if this scenario has GPS coordinates
     has_gps = any(hasattr(loc, 'lat') and hasattr(loc, 'lon') and 
@@ -787,6 +858,14 @@ def create_all_map_visualizations(instance, result: VRPResult, results_dir: str,
     
     if not has_gps:
         logger.info(f"Scenario {scenario_name} has no GPS coordinates. Skipping map visualizations.")
+        return []
+    
+    # Automatically select the best result from all solvers
+    try:
+        result, best_solver = select_best_result(results)
+        logger.info(f"Using {best_solver} solution for {scenario_name} map visualization (objective: {result.objective_value:.2f})")
+    except ValueError as e:
+        logger.error(f"Could not select best result: {e}")
         return []
     
     visualizer = VRPMapVisualizer()

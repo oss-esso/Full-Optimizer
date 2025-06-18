@@ -402,20 +402,19 @@ class OSMVRPGenerator:
                 
                 logger.info(f"Using real routing data for {len(all_osm_locations)} locations")
             except Exception as e:
-                logger.error(f"Error getting routing data: {str(e)}")
-                # Fallback to Manhattan distance
+                logger.error(f"Error getting routing data: {str(e)}")                # Fallback to Manhattan distance
                 instance.calculate_distance_matrix(distance_method="manhattan")
         else:
             instance.calculate_distance_matrix(distance_method="manhattan")
         
         return instance
     
-    def create_realistic_ride_pooling(self, city: str, country: str = "United States", 
+    def create_realistic_vrppd(self, city: str, country: str = "United States", 
                                     num_requests: int = 8, num_vehicles: int = 3) -> VRPInstance:
-        """Create a realistic ride pooling scenario for a specific city."""
-        logger.info(f"Creating realistic ride pooling scenario for {city}, {country}")
+        """Create a realistic VRPPD scenario for a specific city."""
+        logger.info(f"Creating realistic VRPPD scenario for {city}, {country}")
         
-        instance = VRPInstance(f"Realistic Ride Pooling - {city}")
+        instance = VRPInstance(f"Realistic VRPPD - {city}")
         
         # Get diverse locations for pickups and dropoffs
         all_locations = self.address_provider.get_addresses_in_city(
@@ -478,7 +477,7 @@ class OSMVRPGenerator:
             distance_matrix, duration_matrix = self.routing_service.get_route_matrix(all_locations[:len(instance.location_ids)])
             instance.distance_matrix = distance_matrix / 1000.0
             instance.duration_matrix = duration_matrix
-            logger.info("Using real routing data for ride pooling scenario")
+            logger.info("Using real routing data for VRPPD scenario")
         except Exception as e:
             logger.error(f"Error getting routing data: {str(e)}")
             instance.calculate_distance_matrix(distance_method="manhattan")
@@ -569,7 +568,7 @@ def create_static_realistic_scenarios() -> Dict[str, VRPInstance]:
     la_delivery.calculate_distance_matrix(distance_method="euclidean")
     scenarios["la_delivery_realistic"] = la_delivery
     
-    # Chicago ride pooling scenario
+    # Chicago VRPPD scenario
     chicago_rideshare = VRPInstance("Chicago Rideshare (Realistic)")
     chicago_rideshare.is_realistic = True
     
