@@ -12,126 +12,126 @@ depot_2:
   Address: Milano Porta Garibaldi Hub
 
 pickup_1:
-  Latitude: 45.466989
-  Longitude: 9.180100
+  Latitude: 45.458664
+  Longitude: 9.194329
   Address: Pickup 1 - Milano Centro
 
 dropoff_1:
-  Latitude: 45.497618
-  Longitude: 9.152833
-  Address: Dropoff 1 - Isola
+  Latitude: 45.430909
+  Longitude: 9.163399
+  Address: Dropoff 1 - Navigli
 
 pickup_2:
-  Latitude: 45.456250
-  Longitude: 9.194413
+  Latitude: 45.466240
+  Longitude: 9.190825
   Address: Pickup 2 - Milano Centro
 
 dropoff_2:
-  Latitude: 45.478748
-  Longitude: 9.062509
-  Address: Dropoff 2 - Porta Garibaldi
+  Latitude: 45.439987
+  Longitude: 9.226151
+  Address: Dropoff 2 - Lambrate
 
 pickup_3:
-  Latitude: 45.469174
-  Longitude: 9.064653
+  Latitude: 45.481263
+  Longitude: 9.066805
   Address: Pickup 3 - Porta Garibaldi
 
 dropoff_3:
-  Latitude: 45.465180
-  Longitude: 9.193056
-  Address: Dropoff 3 - Milano Centro
+  Latitude: 45.495335
+  Longitude: 9.156679
+  Address: Dropoff 3 - Isola
 
 pickup_4:
-  Latitude: 45.481326
-  Longitude: 9.068390
+  Latitude: 45.479375
+  Longitude: 9.076143
   Address: Pickup 4 - Porta Garibaldi
 
 dropoff_4:
-  Latitude: 45.439828
-  Longitude: 9.174851
-  Address: Dropoff 4 - Navigli
+  Latitude: 45.471770
+  Longitude: 9.187657
+  Address: Dropoff 4 - Milano Centro
 
 pickup_5:
-  Latitude: 45.430930
-  Longitude: 9.235816
+  Latitude: 45.447388
+  Longitude: 9.232070
   Address: Pickup 5 - Lambrate
 
 dropoff_5:
-  Latitude: 45.435844
-  Longitude: 9.164388
-  Address: Dropoff 5 - Navigli
+  Latitude: 45.480573
+  Longitude: 9.062733
+  Address: Dropoff 5 - Porta Garibaldi
 
 pickup_6:
-  Latitude: 45.449944
-  Longitude: 9.226432
+  Latitude: 45.450504
+  Longitude: 9.236806
   Address: Pickup 6 - Lambrate
 
 dropoff_6:
-  Latitude: 45.462279
-  Longitude: 9.187344
-  Address: Dropoff 6 - Milano Centro
+  Latitude: 45.500955
+  Longitude: 9.163946
+  Address: Dropoff 6 - Isola
 
 pickup_7:
-  Latitude: 45.498579
-  Longitude: 9.153890
+  Latitude: 45.498805
+  Longitude: 9.162004
   Address: Pickup 7 - Isola
 
 dropoff_7:
-  Latitude: 45.467876
-  Longitude: 9.190180
-  Address: Dropoff 7 - Milano Centro
+  Latitude: 45.477846
+  Longitude: 9.065917
+  Address: Dropoff 7 - Porta Garibaldi
 
 pickup_8:
-  Latitude: 45.511162
-  Longitude: 9.156171
+  Latitude: 45.497099
+  Longitude: 9.167108
   Address: Pickup 8 - Isola
 
 dropoff_8:
-  Latitude: 45.446070
-  Longitude: 9.231596
+  Latitude: 45.446286
+  Longitude: 9.234116
   Address: Dropoff 8 - Lambrate
 
 pickup_9:
-  Latitude: 45.445634
-  Longitude: 9.171447
+  Latitude: 45.444501
+  Longitude: 9.167923
   Address: Pickup 9 - Navigli
 
 dropoff_9:
-  Latitude: 45.456933
-  Longitude: 9.185246
-  Address: Dropoff 9 - Milano Centro
+  Latitude: 45.436202
+  Longitude: 9.229688
+  Address: Dropoff 9 - Lambrate
 
 pickup_10:
-  Latitude: 45.434188
-  Longitude: 9.161496
+  Latitude: 45.433698
+  Longitude: 9.164833
   Address: Pickup 10 - Navigli
 
 dropoff_10:
-  Latitude: 45.483164
-  Longitude: 9.068082
-  Address: Dropoff 10 - Porta Garibaldi
+  Latitude: 45.444752
+  Longitude: 9.228555
+  Address: Dropoff 10 - Lambrate
 
 Google Maps Links:
 --------------------
 depot_1: https://www.google.com/maps?q=45.4642,9.1896
 depot_2: https://www.google.com/maps?q=45.4773,9.07
-pickup_1: https://www.google.com/maps?q=45.46698853596916,9.180100215104455
-dropoff_1: https://www.google.com/maps?q=45.497618269660855,9.152832606856402
-pickup_2: https://www.google.com/maps?q=45.45624990352343,9.194413354893355
-dropoff_2: https://www.google.com/maps?q=45.47874788019919,9.062508522871708
-pickup_3: https://www.google.com/maps?q=45.46917390479723,9.064653217867814
-dropoff_3: https://www.google.com/maps?q=45.465179921007014,9.193056313806759
-pickup_4: https://www.google.com/maps?q=45.481326499471805,9.068390396419234
-dropoff_4: https://www.google.com/maps?q=45.439828250942014,9.174850887306846
-pickup_5: https://www.google.com/maps?q=45.430929975193564,9.235816385036655
-dropoff_5: https://www.google.com/maps?q=45.43584400826429,9.16438767199699
-pickup_6: https://www.google.com/maps?q=45.44994426144414,9.226431890902251
-dropoff_6: https://www.google.com/maps?q=45.46227883681019,9.187343670087754
-pickup_7: https://www.google.com/maps?q=45.498579114449576,9.15389041734444
-dropoff_7: https://www.google.com/maps?q=45.4678757085871,9.190179649463275
-pickup_8: https://www.google.com/maps?q=45.511162315279584,9.156170687544167
-dropoff_8: https://www.google.com/maps?q=45.44607047462805,9.231596316037827
-pickup_9: https://www.google.com/maps?q=45.44563413800622,9.171447042905136
-dropoff_9: https://www.google.com/maps?q=45.456933190138486,9.185246372410425
-pickup_10: https://www.google.com/maps?q=45.43418775927204,9.161495839538473
-dropoff_10: https://www.google.com/maps?q=45.48316373866808,9.068082019600627
+pickup_1: https://www.google.com/maps?q=45.458664214762976,9.19432942428328
+dropoff_1: https://www.google.com/maps?q=45.43090852287171,9.163399123837786
+pickup_2: https://www.google.com/maps?q=45.466240374581,9.190824901258773
+dropoff_2: https://www.google.com/maps?q=45.439987344740544,9.22615105133169
+pickup_3: https://www.google.com/maps?q=45.481262787899766,9.06680501033036
+dropoff_3: https://www.google.com/maps?q=45.495335364424314,9.156678836810197
+pickup_4: https://www.google.com/maps?q=45.47937452062734,9.076142565465489
+dropoff_4: https://www.google.com/maps?q=45.471769852223666,9.187656550035333
+pickup_5: https://www.google.com/maps?q=45.44738809328506,9.232070395047284
+dropoff_5: https://www.google.com/maps?q=45.48057314937944,9.062733190138491
+pickup_6: https://www.google.com/maps?q=45.45050443041322,9.236806354420303
+dropoff_6: https://www.google.com/maps?q=45.5009545648379,9.163945766826252
+pickup_7: https://www.google.com/maps?q=45.49880541400455,9.162003503487554
+dropoff_7: https://www.google.com/maps?q=45.47784623803248,9.065916974802423
+pickup_8: https://www.google.com/maps?q=45.49709895653569,9.167107823592424
+dropoff_8: https://www.google.com/maps?q=45.44628563072304,9.23411599858474
+pickup_9: https://www.google.com/maps?q=45.44450091601543,9.167923295740447
+dropoff_9: https://www.google.com/maps?q=45.43620202470487,9.229687700151876
+pickup_10: https://www.google.com/maps?q=45.43369760332996,9.16483255015388
+dropoff_10: https://www.google.com/maps?q=45.44475222098644,9.228554941236712

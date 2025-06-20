@@ -36,11 +36,11 @@ class Vehicle:
 
 @dataclass
 class RideRequest:
-    """Represents a ride request for VRPPD."""
+    """Represents a cargo transport request for Vehicle Routing Problem with Pickup and Delivery (VRPPD)."""
     id: str
     pickup_location: str
     dropoff_location: str
-    passengers: int = 1
+    passengers: float = 1.0  # Represents cargo load size (can be fractional)
     earliest_pickup: Optional[float] = None
     latest_dropoff: Optional[float] = None
 
@@ -131,36 +131,10 @@ class VRPInstance:
             return self.duration_matrix[i, j]
         
         # If no duration matrix exists, estimate from distance
-        # For Northern Italy scenarios, use specific speeds
         distance = self.get_distance(loc1_id, loc2_id)
         
-        # Default speed (50 km/h)
+        # Set fixed speed of 50 km/h for all scenarios as requested
         speed_kph = 50.0
-        
-        # Adjust speed based on scenario context
-        if hasattr(self, 'is_realistic') and self.is_realistic:
-            # Urban speeds are lower
-            if "milan" in self.name.lower():
-                speed_kph = 25.0  # Milan traffic
-            elif "asti" in self.name.lower() or "torino" in self.name.lower():
-                speed_kph = 35.0  # Medium cities
-            elif "small" in self.name.lower():
-                speed_kph = 30.0  # General urban
-            elif "first" in self.name.lower():
-                # For MODA_first, use variable speeds
-                loc1 = self.locations[loc1_id]
-                loc2 = self.locations[loc2_id]
-                
-                # Check if either location is in a city center
-                is_urban = False
-                for loc in [loc1, loc2]:
-                    if hasattr(loc, 'address'):
-                        address = loc.address.lower()
-                        if "centro" in address or "milan" in address:
-                            is_urban = True
-                            break
-                
-                speed_kph = 30.0 if is_urban else 60.0
         
         # Convert from km/h to m/s and calculate duration
         speed_mps = speed_kph / 3.6

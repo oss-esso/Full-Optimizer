@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-06-16T15:44:12.077663",
+  "timestamp": "2025-06-20T14:39:44.577680",
   "test_summary": {
     "simple_problem": true,
     "cpu_solver": true,
@@ -83,19 +83,19 @@
   "complexity_results": {
     "micro": {
       "energy": -2.6740058820059054,
-      "solve_time": 3.3782811164855957,
+      "solve_time": 3.098726511001587,
       "estimation": "CostEstimation(complexity_level='micro', num_variables=6, estimated_qubits=6, estimated_qpu_time_us=484800.0, estimated_cost_usd=1.212, num_reads=200, is_feasible=True, warnings=[], recommendations=['Small problem - classical solvers may be faster'])",
       "success": true
     },
     "tiny": {
       "energy": -2.6740058820059054,
-      "solve_time": 3.390974760055542,
+      "solve_time": 3.1382694244384766,
       "estimation": "CostEstimation(complexity_level='tiny', num_variables=6, estimated_qubits=6, estimated_qpu_time_us=484800.0, estimated_cost_usd=1.212, num_reads=200, is_feasible=True, warnings=[], recommendations=['Small problem - classical solvers may be faster'])",
       "success": true
     },
     "small": {
       "energy": -17.54495070354421,
-      "solve_time": 110.85396552085876,
+      "solve_time": 102.76795816421509,
       "estimation": "CostEstimation(complexity_level='small', num_variables=40, estimated_qubits=40, estimated_qpu_time_us=484800.0, estimated_cost_usd=1.212, num_reads=200, is_feasible=True, warnings=[], recommendations=['Small problem - classical solvers may be faster'])",
       "success": true
     }
@@ -110,95 +110,95 @@
       "benchmark_results": [
         [
           2,
-          0.10602331161499023
+          0.10202312469482422
         ],
         [
           4,
-          0.23276948928833008
+          0.26096272468566895
         ],
         [
           8,
-          0.6586945056915283
+          0.6051628589630127
         ],
         [
           12,
-          1.257270336151123
+          1.200232744216919
         ]
       ],
-      "exponent": 1.3858294082626166,
-      "intercept": 0.03784037434913477,
+      "exponent": 1.3494402053809114,
+      "intercept": 0.039645883418037625,
       "full_size": 18,
-      "predicted_time": 2.077538004588815,
+      "predicted_time": 1.9593557090132756,
       "estimated_cost": 0.0,
-      "plot_path": "g:\\Il mio Drive\\OQI_Project\\Results\\dwave_scaling_analysis_1750081418.png",
+      "plot_path": "g:\\Il mio Drive\\OQI_Project\\Results\\dwave_scaling_analysis_1750423155.png",
       "sampler_type": "SimulatedAnnealingSampler"
     },
     "intermediate": {
       "benchmark_results": [
         [
           2,
-          0.11721467971801758
+          0.10502386093139648
         ],
         [
           4,
-          0.23905420303344727
+          0.22806692123413086
         ],
         [
           8,
-          0.9602177143096924
+          0.6391491889953613
         ],
         [
           12,
-          1.171102523803711
+          1.197270393371582
         ]
       ],
-      "exponent": 1.3830414995633449,
-      "intercept": 0.042361095002958045,
+      "exponent": 1.3653996205604682,
+      "intercept": 0.038095038126237685,
       "full_size": 18,
-      "predicted_time": 2.307071985266998,
+      "predicted_time": 1.971591852228733,
       "estimated_cost": 0.0,
-      "plot_path": "g:\\Il mio Drive\\OQI_Project\\Results\\dwave_scaling_analysis_1750081434.png",
+      "plot_path": "g:\\Il mio Drive\\OQI_Project\\Results\\dwave_scaling_analysis_1750423164.png",
       "sampler_type": "SimulatedAnnealingSampler"
     },
     "full": {
       "benchmark_results": [
         [
           4,
-          0.24205446243286133
+          0.22792720794677734
         ],
         [
           12,
-          0.9565155506134033
+          0.8780205249786377
         ],
         [
           24,
-          2.6928629875183105
+          2.627619504928589
         ],
         [
           36,
-          5.828208684921265
+          5.285285472869873
         ]
       ],
-      "exponent": 1.426722399167786,
-      "intercept": 0.03111895495324638,
+      "exponent": 1.4224307476131082,
+      "intercept": 0.02943565975563863,
       "full_size": 50,
-      "predicted_time": 8.260066897527201,
+      "predicted_time": 7.683178936363991,
       "estimated_cost": 0.0,
-      "plot_path": "g:\\Il mio Drive\\OQI_Project\\Results\\dwave_scaling_analysis_1750081447.png",
+      "plot_path": "g:\\Il mio Drive\\OQI_Project\\Results\\dwave_scaling_analysis_1750423177.png",
       "sampler_type": "SimulatedAnnealingSampler"
     }
   },
   "recommendations": [
     "\u2713 CPU solver (SimulatedAnnealing) is working - safe fallback available",
     "\u26a0\ufe0f  Hybrid solver not available - check Leap access",
-    "\u2713 Best performing scenario: simple (2.078s predicted)",
+    "\u2713 Best performing scenario: simple (1.959s predicted)",
     "\ud83d\udcb0 Total estimated cost for all scenarios: $0.0000"
   ],
   "business_summary": {
     "recommended_scenario": "simple",
     "budget_estimate": 100,
     "scaling_outlook": "Excellent - Polynomial scaling suitable for larger problems",
-    "fastest_solve_time": 2.077538004588815,
+    "fastest_solve_time": 1.9593557090132756,
     "total_scenarios_tested": 3,
     "feasibility_rating": "High"
   }

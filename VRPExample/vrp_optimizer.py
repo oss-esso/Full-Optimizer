@@ -242,29 +242,54 @@ class VRPQuantumOptimizer:
                 routes[vehicle_id].append(depot_id)
         
         return routes
-
+    
     def _handle_ride_pooling_quantum(self, routes: Dict[str, List[str]]) -> Dict[str, List[str]]:
-        """Handle ride pooling scenario with quantum-inspired assignment."""
+        """Handle ride pooling scenario with quantum-inspired assignment - properly track cargo weights."""
         vehicle_ids = list(self.instance.vehicles.keys())
         
+        # Track actual cargo weights per vehicle
+        vehicle_cargo_weights = {v_id: 0 for v_id in vehicle_ids}
+        
         for i, request in enumerate(self.instance.ride_requests):
-            vehicle_id = vehicle_ids[i % len(vehicle_ids)]
+            # Try round-robin assignment first, then check capacity constraints
+            primary_vehicle_id = vehicle_ids[i % len(vehicle_ids)]
             
-            # Simple capacity check
-            current_passengers = sum(1 for loc in routes[vehicle_id] if loc.startswith("pickup")) - \
-                               sum(1 for loc in routes[vehicle_id] if loc.startswith("dropoff"))
-            if current_passengers + request.passengers <= self.instance.vehicles[vehicle_id].capacity:
-                routes[vehicle_id].append(request.pickup_location)
-                routes[vehicle_id].append(request.dropoff_location)
+            # Check if primary vehicle has capacity for this cargo
+            current_cargo_weight = vehicle_cargo_weights[primary_vehicle_id]
+            vehicle_capacity = self.instance.vehicles[primary_vehicle_id].capacity
+            
+            if current_cargo_weight + request.passengers <= vehicle_capacity:
+                # Assign to primary vehicle
+                routes[primary_vehicle_id].append(request.pickup_location)
+                routes[primary_vehicle_id].append(request.dropoff_location)
+                vehicle_cargo_weights[primary_vehicle_id] += request.passengers
+                self.logger.debug(f"Assigned request {i} (cargo: {request.passengers} kg) to vehicle {primary_vehicle_id}, total cargo: {vehicle_cargo_weights[primary_vehicle_id]} kg")
             else:
-                # Try next available vehicle
+                # Try to find an alternative vehicle with capacity
+                assigned = False
                 for alt_vehicle_id in vehicle_ids:
-                    alt_passengers = sum(1 for loc in routes[alt_vehicle_id] if loc.startswith("pickup")) - \
-                                   sum(1 for loc in routes[alt_vehicle_id] if loc.startswith("dropoff"))
-                    if alt_passengers + request.passengers <= self.instance.vehicles[alt_vehicle_id].capacity:
+                    if alt_vehicle_id == primary_vehicle_id:
+                        continue  # Already checked
+                    
+                    alt_cargo_weight = vehicle_cargo_weights[alt_vehicle_id]
+                    alt_capacity = self.instance.vehicles[alt_vehicle_id].capacity
+                    
+                    if alt_cargo_weight + request.passengers <= alt_capacity:
                         routes[alt_vehicle_id].append(request.pickup_location)
                         routes[alt_vehicle_id].append(request.dropoff_location)
+                        vehicle_cargo_weights[alt_vehicle_id] += request.passengers
+                        assigned = True
+                        self.logger.debug(f"Assigned request {i} (cargo: {request.passengers} kg) to alternative vehicle {alt_vehicle_id}, total cargo: {vehicle_cargo_weights[alt_vehicle_id]} kg")
                         break
+                
+                if not assigned:
+                    self.logger.warning(f"Could not assign request {i} with cargo weight {request.passengers} kg - no vehicle has sufficient capacity")
+        
+        # Log final cargo assignments for debugging
+        for vehicle_id, cargo_weight in vehicle_cargo_weights.items():
+            if cargo_weight > 0:
+                self.logger.info(f"Vehicle {vehicle_id} final cargo: {cargo_weight} kg (capacity: {self.instance.vehicles[vehicle_id].capacity} kg)")
+        
         return routes
     
     def optimize_with_ortools(self) -> VRPResult:
@@ -424,19 +449,18 @@ class VRPQuantumOptimizer:
                     demand = 0
                     if location_id.startswith("depot"):
                         demand = 0
-                    elif is_ride_pooling:
-                        # For ride pooling: pickups add passengers, dropoffs remove them
+                    elif is_ride_pooling:                        # For ride pooling: pickups add cargo weight, dropoffs remove them
                         if location_id.startswith("pickup"):
                             # Find the request for this pickup
                             for request in self.instance.ride_requests:
                                 if request.pickup_location == location_id:
-                                    demand = request.passengers
+                                    demand = request.passengers  # Contains cargo weight in kg
                                     break
                         elif location_id.startswith("dropoff"):
-                            # Dropoffs have negative demand
+                            # Dropoffs have negative demand (cargo unloaded)
                             for request in self.instance.ride_requests:
                                 if request.dropoff_location == location_id:
-                                    demand = -request.passengers
+                                    demand = -request.passengers  # Negative cargo weight
                                     break
                     else:
                         # Standard VRP: use location demand
@@ -531,13 +555,14 @@ class VRPQuantumOptimizer:
                         routing.solver().Add(
                             routing.VehicleVar(pickup_node) == routing.VehicleVar(delivery_node)
                         )
-              # Set search parameters with optimized time limit
+            
+            # Set search parameters with optimized time limit
             search_parameters = pywrapcp.DefaultRoutingSearchParameters()
             search_parameters.first_solution_strategy = (
                 routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
             )
             search_parameters.local_search_metaheuristic = (
-                routing_enums_pb2.LocalSearchMetaheuristic.AUTOMATIC
+                routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
             )
             
             # Adaptive time limit based on problem size

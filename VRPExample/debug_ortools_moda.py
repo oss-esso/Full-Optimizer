@@ -62,15 +62,16 @@ def debug_moda_ortools():
     
     start_time = time.time()
     
-    try:        # Step 1: Check if this is VRPPD
-        is_vrppd = bool(instance.ride_requests)
-        print(f'1. VRPPD detected: {is_vrppd}')
+    try:
+        # Step 1: Check if this is ride pooling
+        is_ride_pooling = bool(instance.ride_requests)
+        print(f'1. Ride pooling detected: {is_ride_pooling}')
         
-        if not is_vrppd:
-            print('ERROR: This should be a VRPPD scenario!')
+        if not is_ride_pooling:
+            print('ERROR: This should be a ride pooling scenario!')
             return
         
-        # Step 2: Build location list for VRPPD
+        # Step 2: Build location list for ride pooling
         print(f'\n2. Building location list for pickup-delivery...')
         
         # Check for multi-depot

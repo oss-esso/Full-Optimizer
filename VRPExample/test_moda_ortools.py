@@ -18,102 +18,184 @@ from vrp_optimizer_fixed import VRPQuantumOptimizer
 from vrp_data_models import VRPObjective
 
 def test_moda_scenarios():
-    """Test MODA scenarios specifically with OR-Tools"""
-    print("Testing MODA scenarios with OR-Tools")
-    print("=" * 50)
+    """Test MODA scenarios specifically with OR-Tools - comprehensive analysis"""
+    print("🚀 TESTING MODA SCENARIOS WITH 10-HOUR TIME LIMITS")
+    print("=" * 80)
     
     # Get scenarios
     scenarios = get_all_scenarios()
     moda_scenarios = {k: v for k, v in scenarios.items() if 'MODA' in k}
     
     for name, instance in moda_scenarios.items():
-        print(f'\nTesting {name}:')
+        print(f'\n🎯 TESTING {name.upper()}')
+        print("-" * 60)
+        
+        # === SCENARIO OVERVIEW ===
+        print(f'📊 Scenario Overview:')
         print(f'  Locations: {len(instance.locations)}')
         print(f'  Vehicles: {len(instance.vehicles)}')
         print(f'  Ride requests: {len(instance.ride_requests) if instance.ride_requests else 0}')
         
-        # Print some ride requests to understand structure
-        if instance.ride_requests:
-            print(f'  Sample ride requests:')
-            for i, req in enumerate(list(instance.ride_requests)[:3]):
-                print(f'    Request {i+1}: {req.pickup_location} -> {req.dropoff_location}')
+        # === VEHICLE TIME LIMITS ANALYSIS ===
+        print(f'\n⏰ Vehicle Time Limits Analysis:')
+        vehicle_times = [v.max_time for v in instance.vehicles.values()]
+        unique_times = set(vehicle_times)
+        print(f'  Time limits: {unique_times} minutes')
         
+        # Convert to hours for clarity
+        time_hours = {f"{t/60:.1f}h" for t in unique_times if t is not None}
+        if time_hours:
+            print(f'  Time limits: {time_hours}')
+            
+        # Check if using 10-hour limits as intended
+        if 600 in unique_times:
+            print(f'  ✅ Confirmed: Using 10-hour (600 min) time limits')
+        elif 1080 in unique_times:
+            print(f'  ⚠️  Still using 18-hour (1080 min) time limits - needs update')
+        else:
+            print(f'  ❓ Unexpected time limits: {unique_times}')
+        
+        # === CAPACITY ANALYSIS ===
+        print(f'\n📦 Capacity Analysis:')
+        if instance.ride_requests:
+            total_demand = sum(req.passengers for req in instance.ride_requests)
+            total_capacity = sum(vehicle.capacity for vehicle in instance.vehicles.values())
+            capacity_ratio = total_demand / total_capacity if total_capacity > 0 else float('inf')
+            
+            print(f'  Total demand: {total_demand} passengers')
+            print(f'  Total capacity: {total_capacity} seats')
+            print(f'  Capacity utilization: {capacity_ratio:.1%}')
+            
+            if capacity_ratio > 1.0:
+                print(f'  ⚠️  Over-capacity! May cause infeasibility')
+            elif capacity_ratio > 0.9:
+                print(f'  ⚠️  High utilization - may be challenging')
+            else:
+                print(f'  ✅ Reasonable capacity utilization')
+        
+        # === TIME WINDOW ANALYSIS ===
+        print(f'\n⏰ Time Window Analysis:')
+        locations_with_tw = sum(1 for loc in instance.locations.values() 
+                               if hasattr(loc, 'time_window_start') and loc.time_window_start is not None)
+        print(f'  Locations with time windows: {locations_with_tw}/{len(instance.locations)}')
+        
+        if locations_with_tw > 0:
+            # Analyze time window span
+            tw_starts = [loc.time_window_start for loc in instance.locations.values() 
+                        if hasattr(loc, 'time_window_start') and loc.time_window_start is not None]
+            tw_ends = [loc.time_window_end for loc in instance.locations.values() 
+                      if hasattr(loc, 'time_window_end') and loc.time_window_end is not None]
+            
+            if tw_starts and tw_ends:
+                earliest_start = min(tw_starts)
+                latest_end = max(tw_ends)
+                total_span = latest_end - earliest_start
+                avg_window_size = sum(end - start for start, end in zip(tw_starts, tw_ends)) / len(tw_starts)
+                
+                print(f'  Time span: {earliest_start} to {latest_end} minutes ({total_span/60:.1f} hours)')
+                print(f'  Average window size: {avg_window_size:.0f} minutes ({avg_window_size/60:.1f} hours)')
+                
+                # Check compatibility with vehicle time limits
+                vehicle_time_limit = next(iter(unique_times)) if unique_times else None
+                if vehicle_time_limit and total_span > vehicle_time_limit:
+                    print(f'  ⚠️  Time span ({total_span:.0f}min) > vehicle limit ({vehicle_time_limit:.0f}min)')
+                else:
+                    print(f'  ✅ Time span compatible with vehicle limits')
+        
+        # === SAMPLE REQUESTS ===
+        if instance.ride_requests:
+            print(f'\n📋 Sample Ride Requests:')
+            for i, req in enumerate(list(instance.ride_requests)[:3]):
+                print(f'  Request {i+1}: {req.pickup_location} -> {req.dropoff_location} ({req.passengers} passengers)')
+        
+        # === OR-TOOLS OPTIMIZATION ===
+        print(f'\n🔧 Running OR-Tools Optimization...')
         optimizer = VRPQuantumOptimizer(instance, VRPObjective.MINIMIZE_DISTANCE)
         
         try:
-            print('  Running OR-Tools...')
+            import time
+            start_time = time.time()
             result = optimizer.optimize_with_ortools()
+            solve_time = time.time() - start_time
             
-            print(f'  OR-Tools result:')
-            print(f'    Objective: {result.objective_value:.2f}')
-            print(f'    Distance: {result.metrics.get("total_distance", 0):.2f}')
-            print(f'    Runtime: {result.runtime:.2f}ms')
+            # Check if solved
+            solved = result.routes is not None and len(result.routes) > 0
+            if solved:
+                vehicles_used = len([r for r in result.routes.values() if len(r) > 2])
+                solved = vehicles_used > 0
+            else:
+                vehicles_used = 0
             
-            # Print route details with analysis
-            print(f'    Routes: {len(result.routes)} vehicles used')
+            print(f'  Result: {"✅ SOLVED" if solved else "❌ NOT SOLVED"}')
+            print(f'  Solve time: {solve_time:.3f}s')
             
-            total_stops = 0
-            for vehicle_id, route in result.routes.items():
-                route_length = len(route)
-                total_stops += route_length
+            if solved:
+                print(f'  Objective value: {result.objective_value:.2f}')
+                print(f'  Distance: {result.metrics.get("total_distance", 0):.2f}')
+                print(f'  Runtime: {result.runtime:.2f}ms')
+                print(f'  Vehicles used: {vehicles_used}/{len(instance.vehicles)}')
                 
-                if len(route) > 2:  # More than just depot start/end
-                    print(f'      {vehicle_id}: {route_length} stops')
-                    
-                    # Flag unreasonable routes
-                    if route_length > 50:
-                        print(f'        WARNING: {vehicle_id} has {route_length} stops - this is unreasonable!')
-                        print(f'        Route preview: {" -> ".join(route[:10])} ... {" -> ".join(route[-5:])}')
+                # === ROUTE ANALYSIS ===
+                print(f'\n🛣️  Route Analysis:')
+                total_stops = sum(len(route) for route in result.routes.values())
+                print(f'  Total stops across all routes: {total_stops}')
+                
+                # Detailed route breakdown
+                active_routes = [(vid, route) for vid, route in result.routes.items() if len(route) > 2]
+                print(f'  Active routes: {len(active_routes)}')
+                
+                # Check for unreasonable routes
+                long_routes = [(vid, len(route)) for vid, route in active_routes if len(route) > 20]
+                if long_routes:
+                    print(f'  ⚠️  Long routes detected:')
+                    for vid, length in long_routes[:3]:  # Show first 3
+                        print(f'    {vid}: {length} stops')
                         
-                        # Analyze pickup/delivery balance
+                        # Show route preview for long routes
+                        route = result.routes[vid]
                         pickups = [stop for stop in route if 'pickup' in stop]
                         dropoffs = [stop for stop in route if 'dropoff' in stop]
-                        print(f'        Pickups: {len(pickups)}, Dropoffs: {len(dropoffs)}')
-                    else:
-                        if len(route) > 5:
-                            route_str = " -> ".join(route[:5]) + f"... ({route_length} total)"
-                        else:
-                            route_str = " -> ".join(route)
-                        print(f'        Route: {route_str}')
-            
-            print(f'    Total stops across all vehicles: {total_stops}')
-            
-            # Analyze pickup-delivery constraint violations
-            if instance.ride_requests:
-                print(f'    Analyzing pickup-delivery constraints...')
-                violations = 0
-                for vehicle_id, route in result.routes.items():
-                    if len(route) <= 2:
-                        continue
+                        deliveries = [stop for stop in route if 'delivery' in stop]
+                        
+                        print(f'      Pickups: {len(pickups)}, Dropoffs: {len(dropoffs)}, Deliveries: {len(deliveries)}')
+                        print(f'      Preview: {" -> ".join(route[:5])} ... {" -> ".join(route[-3:])}')
                     
-                    # Check if pickups come before dropoffs for each request
-                    for request in instance.ride_requests:
-                        pickup_pos = None
-                        dropoff_pos = None
-                        
-                        for i, stop in enumerate(route):
-                            if stop == request.pickup_location:
-                                pickup_pos = i
-                            elif stop == request.dropoff_location:
-                                dropoff_pos = i
-                        
-                        if pickup_pos is not None and dropoff_pos is not None:
-                            if pickup_pos >= dropoff_pos:
-                                violations += 1
-                                print(f'        VIOLATION: {request.pickup_location} at pos {pickup_pos} >= {request.dropoff_location} at pos {dropoff_pos}')
+                    if len(long_routes) > 3:
+                        print(f'    ... and {len(long_routes)-3} more long routes')
+                else:
+                    print(f'  ✅ All route lengths appear reasonable')
                 
-                print(f'    Pickup-delivery violations: {violations}')
-            
-            # Plot the solution if it has GPS coordinates
-            plot_solution(instance, result, name)
+                # === CONSTRAINT VALIDATION ===
+                print(f'\n🔍 Constraint Validation:')
+                
+                # Pickup-delivery precedence constraints
+                if instance.ride_requests:
+                    violations = validate_pickup_delivery_constraints(result.routes, instance.ride_requests)
+                    if violations > 0:
+                        print(f'  ⚠️  Pickup-delivery violations: {violations}')
+                    else:
+                        print(f'  ✅ All pickup-delivery constraints satisfied')
+                
+                # Time window constraint validation (simplified check)
+                time_violations = validate_time_constraints(result.routes, instance.locations, unique_times)
+                if time_violations > 0:
+                    print(f'  ⚠️  Potential time constraint violations: {time_violations}')
+                else:
+                    print(f'  ✅ Time constraints appear satisfied')
+                
+                # Plot the solution if it has GPS coordinates
+                plot_solution(instance, result, name)
+            else:
+                print(f'  ❌ Optimization failed')
+                if hasattr(result, 'status'):
+                    print(f'  Status: {result.status}')
                     
         except Exception as e:
-            print(f'  ERROR: {str(e)}')
+            print(f'  ❌ ERROR: {str(e)}')
             import traceback
             traceback.print_exc()
-          # Test both MODA scenarios
-        if 'first' in name:
-            continue  # Skip the large one for now to test the small one
+        
+        print(f'\n' + "="*80)
 
 def plot_solution(instance, result, scenario_name):
     """Plot the OR-Tools solution path"""
@@ -236,6 +318,72 @@ def test_vehicle_capacities():
             total_passengers = sum(request.passengers for request in instance.ride_requests)
             print(f'  Total passengers across all requests: {total_passengers}')
 
+def validate_pickup_delivery_constraints(routes, ride_requests):
+    """Validate that pickups come before dropoffs for each request."""
+    violations = 0
+    
+    for vehicle_id, route in routes.items():
+        if len(route) <= 2:
+            continue
+        
+        # Check if pickups come before dropoffs for each request
+        for request in ride_requests:
+            pickup_pos = None
+            dropoff_pos = None
+            
+            for i, stop in enumerate(route):
+                if stop == request.pickup_location:
+                    pickup_pos = i
+                elif stop == request.dropoff_location:
+                    dropoff_pos = i
+            
+            if pickup_pos is not None and dropoff_pos is not None:
+                if pickup_pos >= dropoff_pos:
+                    violations += 1
+    
+    return violations
+
+def validate_time_constraints(routes, locations, vehicle_time_limits):
+    """Basic validation of time constraints (simplified)."""
+    violations = 0
+    
+    for vehicle_id, route in routes.items():
+        if len(route) <= 2:
+            continue
+        
+        # Estimate total route time (simplified - just count stops and distances)
+        estimated_time = len(route) * 15  # Assume 15 minutes per stop including service time
+        
+        # Add travel time estimate (simplified)
+        for i in range(len(route) - 1):
+            # Simplified distance calculation - would need actual distance matrix
+            estimated_time += 10  # Assume 10 minutes between stops
+        
+        # Check against vehicle time limit
+        max_time = next(iter(vehicle_time_limits)) if vehicle_time_limits else 600
+        if max_time and estimated_time > max_time:
+            violations += 1
+    
+    return violations
+
 if __name__ == "__main__":
+    print("🚀 COMPREHENSIVE MODA SCENARIO TESTING")
+    print("=" * 80)
+    print("Testing vehicle capacities and time constraints...")
+    print()
+    
     test_vehicle_capacities()
     test_moda_scenarios()
+    
+    print("\n💡 SUMMARY:")
+    print("✅ Both MODA scenarios should now be using 10-hour (600 min) vehicle time limits")
+    print("✅ Comprehensive analysis includes capacity, time windows, and constraint validation")
+    print("✅ This addresses the requirement for 10 hours per vehicle in the large scenario")
+    print("🔧 Any constraint violations are reported for further investigation")
+    print("📊 Route analysis helps identify unreasonable solutions")
+    print()
+    print("🎯 Key metrics to watch:")
+    print("  - Vehicle time limits: Should be 600 minutes (10 hours)")
+    print("  - Capacity utilization: Should be < 100% for feasibility")
+    print("  - Route lengths: Should be reasonable (< 50 stops per vehicle)")
+    print("  - Constraint violations: Should be 0 for valid solutions")

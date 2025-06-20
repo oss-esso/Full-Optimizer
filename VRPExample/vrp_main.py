@@ -2,7 +2,7 @@
 VRP Optimization Example using Quantum-Enhanced Methods
 
 This script demonstrates the application of the quantum-enhanced optimization framework
-to Vehicle Routing Problems (VRP), including the Vehicle Routing Problem with Pickup and Delivery (VRPPD) from the paper:
+to Vehicle Routing Problems (VRP), including the Ride Pooling Problem (RPP) from the paper:
 "Modeling routing problems in QUBO with application to ride‑hailing" by Cattelan & Yarkoni.
 """
 
@@ -324,8 +324,8 @@ def print_optimization_summary(all_results: Dict):
     print("="*140)
 
 def run_scenario_analysis():
-    """Run analysis on only MODA_small scenario for debugging."""
-    logger.info("Starting VRP scenario analysis - MODA_small only")
+    """Run analysis on all VRP scenarios."""
+    logger.info("Starting VRP scenario analysis")
     
     # Create results directory
     results_dir = os.path.join(current_dir, "results")
@@ -334,101 +334,95 @@ def run_scenario_analysis():
     scenarios = get_all_scenarios()
     all_results = {}
     
-    # Only run MODA_small scenario
-    scenario_name = "MODA_small"
-    if scenario_name not in scenarios:
-        logger.error(f"MODA_small scenario not found! Available: {list(scenarios.keys())}")
-        return
-    
-    instance = scenarios[scenario_name]
-    logger.info(f"\n{'='*60}")
-    logger.info(f"Processing scenario: {scenario_name}")
-    logger.info(f"{'='*60}")    
-    try:
-        # Create optimizer for this scenario
-        optimizer = VRPQuantumOptimizer(instance, VRPObjective.MINIMIZE_DISTANCE)
+    for scenario_name, instance in scenarios.items():
+        logger.info(f"\n{'='*60}")
+        logger.info(f"Processing scenario: {scenario_name}")
+        logger.info(f"{'='*60}")
         
-        # Run optimization comparison
-        quantum_result, classical_result, ortools_result, advanced_result, twopt_result = compare_optimization_methods(
-            instance, 
-            save_path=os.path.join(results_dir, f"{scenario_name}_comparison.png")
-        )
-        
-        # Visualize solutions with standard plots
-        visualize_vrp_solution(
-            instance, quantum_result,
-            save_path=os.path.join(results_dir, f"{scenario_name}_quantum_solution.png")
-        )
-        
-        visualize_vrp_solution(
-            instance, classical_result,
-            save_path=os.path.join(results_dir, f"{scenario_name}_classical_solution.png")
-        )
-        
-        visualize_vrp_solution(
-            instance, ortools_result,
-            save_path=os.path.join(results_dir, f"{scenario_name}_ortools_solution.png")
-        )
-        
-        visualize_vrp_solution(
-            instance, advanced_result,
-            save_path=os.path.join(results_dir, f"{scenario_name}_advanced_solution.png")
-        )
-        
-        visualize_vrp_solution(
-            instance, twopt_result,
-            save_path=os.path.join(results_dir, f"{scenario_name}_twopt_solution.png")
-        )
-          # Create GPS map visualizations for realistic scenarios
-        try:
-            from vrp_map_visualization import create_all_map_visualizations
+        try:            # Create optimizer for this scenario
+            optimizer = VRPQuantumOptimizer(instance, VRPObjective.MINIMIZE_DISTANCE)
+              # Run optimization comparison
+            quantum_result, classical_result, ortools_result, advanced_result, twopt_result = compare_optimization_methods(
+                instance, 
+                save_path=os.path.join(results_dir, f"{scenario_name}_comparison.png")
+            )
             
-            # Pass all results to the visualization function so it can auto-select the best one
-            all_solver_results = {
+            # Visualize solutions with standard plots
+            visualize_vrp_solution(
+                instance, quantum_result,
+                save_path=os.path.join(results_dir, f"{scenario_name}_quantum_solution.png")
+            )
+            
+            visualize_vrp_solution(
+                instance, classical_result,
+                save_path=os.path.join(results_dir, f"{scenario_name}_classical_solution.png")
+            )            
+            visualize_vrp_solution(
+                instance, ortools_result,
+                save_path=os.path.join(results_dir, f"{scenario_name}_ortools_solution.png")
+            )
+            
+            visualize_vrp_solution(
+                instance, advanced_result,
+                save_path=os.path.join(results_dir, f"{scenario_name}_advanced_solution.png")
+            )
+            
+            visualize_vrp_solution(
+                instance, twopt_result,
+                save_path=os.path.join(results_dir, f"{scenario_name}_twopt_solution.png")
+            )              # Create GPS map visualizations for realistic scenarios
+            try:
+                from vrp_map_visualization import create_all_map_visualizations
+                
+                # For ride pooling scenarios, prefer classical solution for maps
+                is_ride_pooling = bool(instance.ride_requests)
+                if is_ride_pooling:
+                    best_result = classical_result
+                    logger.info(f"Using classical solution for {scenario_name} map (ride pooling constraints)")
+                else:
+                    # For non-ride pooling scenarios, use the solution with lowest distance
+                    best_result = min([quantum_result, classical_result, ortools_result, advanced_result, twopt_result], 
+                                    key=lambda r: r.metrics.get('total_distance', float('inf')))
+                    logger.info(f"Using best distance solution for {scenario_name} map")
+                
+                map_files = create_all_map_visualizations(instance, best_result, results_dir, scenario_name)
+                if map_files:
+                    logger.info(f"Created {len(map_files)} map visualizations for {scenario_name}")
+                
+                
+            except ImportError:
+                logger.info("Map visualization dependencies not available. Install folium, contextily, geopandas for GPS maps.")
+            except Exception as e:
+                logger.warning(f"Could not create map visualizations: {e}")
+            
+            all_results[scenario_name] = {
                 'quantum': quantum_result,
                 'classical': classical_result,
                 'ortools': ortools_result,
                 'advanced': advanced_result,
-                'twopt': twopt_result
+                'twopt': twopt_result,
+                'instance': instance
             }
+              # Print summary with actual distances
+            quantum_dist = quantum_result.metrics.get('total_distance', 0)
+            classical_dist = classical_result.metrics.get('total_distance', 0)
+            ortools_dist = ortools_result.metrics.get('total_distance', 0)
+            advanced_dist = advanced_result.metrics.get('total_distance', 0)
+            twopt_dist = twopt_result.metrics.get('total_distance', 0)
             
-            map_files = create_all_map_visualizations(instance, all_solver_results, results_dir, scenario_name)
-            if map_files:
-                logger.info(f"Created {len(map_files)} map visualizations for {scenario_name}")
+            logger.info(f"Scenario {scenario_name} completed:")
+            logger.info(f"  Quantum - Distance: {quantum_dist:.2f}, Runtime: {quantum_result.runtime:.2f}ms")
+            logger.info(f"  Classical - Distance: {classical_dist:.2f}, Runtime: {classical_result.runtime:.2f}ms")
+            logger.info(f"  OR-Tools - Distance: {ortools_dist:.2f}, Runtime: {ortools_result.runtime:.2f}ms")
+            logger.info(f"  Advanced - Distance: {advanced_dist:.2f}, Runtime: {advanced_result.runtime:.2f}ms")
+            logger.info(f"  2-opt - Distance: {twopt_dist:.2f}, Runtime: {twopt_result.runtime:.2f}ms")
             
-        except ImportError:
-            logger.info("Map visualization dependencies not available. Install folium, contextily, geopandas for GPS maps.")
+            
         except Exception as e:
-            logger.warning(f"Could not create map visualizations: {e}")
-        
-        all_results[scenario_name] = {
-            'quantum': quantum_result,
-            'classical': classical_result,
-            'ortools': ortools_result,
-            'advanced': advanced_result,
-            'twopt': twopt_result,
-            'instance': instance
-        }
-        
-        # Print summary with actual distances
-        quantum_dist = quantum_result.metrics.get('total_distance', 0)
-        classical_dist = classical_result.metrics.get('total_distance', 0)
-        ortools_dist = ortools_result.metrics.get('total_distance', 0)
-        advanced_dist = advanced_result.metrics.get('total_distance', 0)
-        twopt_dist = twopt_result.metrics.get('total_distance', 0)
-        
-        logger.info(f"Scenario {scenario_name} completed:")
-        logger.info(f"  Quantum - Distance: {quantum_dist:.2f}, Runtime: {quantum_result.runtime:.2f}ms")
-        logger.info(f"  Classical - Distance: {classical_dist:.2f}, Runtime: {classical_result.runtime:.2f}ms")
-        logger.info(f"  OR-Tools - Distance: {ortools_dist:.2f}, Runtime: {ortools_result.runtime:.2f}ms")
-        logger.info(f"  Advanced - Distance: {advanced_dist:.2f}, Runtime: {advanced_result.runtime:.2f}ms")
-        logger.info(f"  2-opt - Distance: {twopt_dist:.2f}, Runtime: {twopt_result.runtime:.2f}ms")
-        
-    except Exception as e:
-        logger.error(f"Error processing scenario {scenario_name}: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return
+            logger.error(f"Error processing scenario {scenario_name}: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            continue
     
     # Generate summary report
     generate_summary_report(all_results, results_dir)
@@ -564,7 +558,7 @@ def main():
     print("="*80)
     print("\nThis example demonstrates the application of quantum-enhanced")
     print("optimization methods to Vehicle Routing Problems (VRP),")
-    print("including the Vehicle Routing Problem with Pickup and Delivery (VRPPD) formulation.")
+    print("including the Ride Pooling Problem (RPP) formulation.")
     print("\nComparison includes:")
     print("  - Quantum-Enhanced Heuristic")
     print("  - Simple Greedy Heuristic")
@@ -727,7 +721,7 @@ def main():
                 instance = scenarios[scenario_name]
                 print(f"  📊 {scenario_name}: {len(instance.locations)} locations, {len(instance.vehicles)} vehicles")
                 if hasattr(instance, 'ride_requests'):
-                    print(f"      🚗 VRPPD: {len(instance.ride_requests)} pickup-delivery requests")
+                    print(f"      🚗 Ride pooling: {len(instance.ride_requests)} ride requests")
                 print(f"      🗺️  GPS coverage: Northern Italy")
                 
                 # Add average speeds for realistic time estimation

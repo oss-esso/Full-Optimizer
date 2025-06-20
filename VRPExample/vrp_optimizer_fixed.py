@@ -159,24 +159,6 @@ class VRPQuantumOptimizer:
                 runtime=runtime
             )
 
-    def _find_closest_depot(self, current_location: str) -> str:
-        """Find the closest depot to the current location"""
-        depot_locations = [loc_id for loc_id in self.instance.location_ids if loc_id.startswith("depot")]
-        
-        if len(depot_locations) == 1:
-            return depot_locations[0]
-        
-        min_distance = float('inf')
-        closest_depot = depot_locations[0]
-        
-        for depot in depot_locations:
-            distance = self.instance.get_distance(current_location, depot)
-            if distance < min_distance:
-                min_distance = distance
-                closest_depot = depot
-                
-        return closest_depot
-
     def _quantum_inspired_heuristic(self) -> Dict[str, List[str]]:
         """Quantum-inspired heuristic for VRP - optimized version."""
         routes = {}
@@ -186,9 +168,10 @@ class VRPQuantumOptimizer:
         for vehicle_id in vehicle_ids:
             depot_id = self.instance.vehicles[vehicle_id].depot_id
             routes[vehicle_id] = [depot_id]
-          # Handle VRPPD (Vehicle Routing Problem with Pickup and Delivery) scenario
+        
+        # Handle ride pooling scenario
         if self.instance.ride_requests:
-            return self._handle_vrppd_quantum(routes)
+            return self._handle_ride_pooling_quantum(routes)
         
         # Handle delivery scenario
         non_depot_locations = [loc for loc in self.instance.location_ids if not loc.startswith("depot")]
@@ -250,44 +233,37 @@ class VRPQuantumOptimizer:
             
             if not locations_assigned_this_round:
                 self.logger.warning(f"Could not assign {len(remaining_locations)} remaining locations due to capacity constraints")
-                break          # Return vehicles to depot (closest available depot)
+                break
+        
+        # Return vehicles to depot
         for vehicle_id in vehicle_ids:
             if len(routes[vehicle_id]) > 1:
-                current_location = routes[vehicle_id][-1]  # Last visited location
-                closest_depot = self._find_closest_depot(current_location)
-                routes[vehicle_id].append(closest_depot)
+                depot_id = self.instance.vehicles[vehicle_id].depot_id
+                routes[vehicle_id].append(depot_id)
         
         return routes
 
-    def _handle_vrppd_quantum(self, routes: Dict[str, List[str]]) -> Dict[str, List[str]]:
-        """Handle VRPPD (Vehicle Routing Problem with Pickup and Delivery) scenario with quantum-inspired assignment."""
+    def _handle_ride_pooling_quantum(self, routes: Dict[str, List[str]]) -> Dict[str, List[str]]:
+        """Handle ride pooling scenario with quantum-inspired assignment."""
         vehicle_ids = list(self.instance.vehicles.keys())
         
         for i, request in enumerate(self.instance.ride_requests):
-            vehicle_id = vehicle_ids[i % len(vehicle_ids)]
-            
-            # Simple capacity check for VRPPD
-            current_passengers = sum(1 for loc in routes[vehicle_id] if loc.startswith("pickup")) - \
+            vehicle_id = vehicle_ids[i % len(vehicle_ids)]            
+            # Simple capacity check for cargo weight
+            current_cargo_weight = sum(1 for loc in routes[vehicle_id] if loc.startswith("pickup")) - \
                                sum(1 for loc in routes[vehicle_id] if loc.startswith("dropoff"))
-            if current_passengers + request.passengers <= self.instance.vehicles[vehicle_id].capacity:
+            if current_cargo_weight + request.passengers <= self.instance.vehicles[vehicle_id].capacity:
                 routes[vehicle_id].append(request.pickup_location)
                 routes[vehicle_id].append(request.dropoff_location)
             else:
-                # Try next available vehicle for VRPPD assignment
+                # Try next available vehicle
                 for alt_vehicle_id in vehicle_ids:
-                    alt_passengers = sum(1 for loc in routes[alt_vehicle_id] if loc.startswith("pickup")) - \
+                    alt_cargo_weight = sum(1 for loc in routes[alt_vehicle_id] if loc.startswith("pickup")) - \
                                    sum(1 for loc in routes[alt_vehicle_id] if loc.startswith("dropoff"))
-                    if alt_passengers + request.passengers <= self.instance.vehicles[alt_vehicle_id].capacity:
+                    if alt_cargo_weight + request.passengers <= self.instance.vehicles[alt_vehicle_id].capacity:
                         routes[alt_vehicle_id].append(request.pickup_location)
                         routes[alt_vehicle_id].append(request.dropoff_location)
                         break
-          # Return vehicles to depot for VRPPD (closest available depot)
-        for vehicle_id in vehicle_ids:
-            if len(routes[vehicle_id]) > 1:  # Only if vehicle visited any locations
-                current_location = routes[vehicle_id][-1]  # Last visited location
-                closest_depot = self._find_closest_depot(current_location)
-                routes[vehicle_id].append(closest_depot)
-        
         return routes
     
     def optimize_with_ortools(self) -> VRPResult:
@@ -298,21 +274,21 @@ class VRPQuantumOptimizer:
                 status="error",
                 objective_value=0.0,
                 routes={},
-                metrics={"total_distance": 0.0, "vehicles_used": 0, "error": "OR-Tools not installed"},                runtime=0.0
+                metrics={"total_distance": 0.0, "vehicles_used": 0, "error": "OR-Tools not installed"},
+                runtime=0.0
             )
-
+        
         self.logger.info("Starting VRP optimization with OR-Tools")
         start_time = time.time()
         
         try:
-            # Check if this is a VRPPD (Vehicle Routing Problem with Pickup and Delivery) scenario
-            is_vrppd = bool(self.instance.ride_requests)
-            if is_vrppd:
-                self.logger.warning("OR-Tools configured for VRPPD with pickup-delivery constraints")
-            
-            # Create the routing index manager
-            # For VRPPD, we need to include pickup and dropoff locations
-            if is_vrppd:
+            # Check if this is a ride pooling scenario
+            is_ride_pooling = bool(self.instance.ride_requests)
+            if is_ride_pooling:
+                self.logger.warning("OR-Tools configured for ride pooling with pickup-delivery constraints")
+              # Create the routing index manager
+            # For ride pooling, we need to include pickup and dropoff locations
+            if is_ride_pooling:
                 # Handle multi-depot VRPPD scenario
                 depot_locations = [loc_id for loc_id in self.instance.location_ids if loc_id.startswith("depot")]
                 
@@ -396,7 +372,9 @@ class VRPQuantumOptimizer:
                 pickup_deliveries = []
                 
                 # Create routing index manager
-                manager = pywrapcp.RoutingIndexManager(num_locations, num_vehicles, depot_index)            # Create routing model
+                manager = pywrapcp.RoutingIndexManager(num_locations, num_vehicles, depot_index)
+            
+            # Create routing model
             routing = pywrapcp.RoutingModel(manager)
               # Create distance callback
             def distance_callback(from_index, to_index):
@@ -440,24 +418,23 @@ class VRPQuantumOptimizer:
                 def demand_callback(from_index):
                     """Return the demand of the node."""
                     from_node = manager.IndexToNode(from_index)
-                    location_id = location_list[from_node]
-                    
+                    location_id = location_list[from_node]                    
                     demand = 0
                     if location_id.startswith("depot"):
                         demand = 0
-                    elif is_vrppd:
-                        # For VRPPD: pickups add passengers, dropoffs remove them
+                    elif is_ride_pooling:
+                        # For ride pooling: pickups add cargo weight, dropoffs remove them
                         if location_id.startswith("pickup"):
                             # Find the request for this pickup
                             for request in self.instance.ride_requests:
                                 if request.pickup_location == location_id:
-                                    demand = request.passengers
+                                    demand = request.passengers  # Contains cargo weight in kg
                                     break
                         elif location_id.startswith("dropoff"):
-                            # Dropoffs have negative demand
+                            # Dropoffs have negative demand (cargo unloaded)
                             for request in self.instance.ride_requests:
                                 if request.dropoff_location == location_id:
-                                    demand = -request.passengers
+                                    demand = -request.passengers  # Negative cargo weight
                                     break
                     else:
                         # Standard VRP: use location demand
@@ -484,8 +461,9 @@ class VRPQuantumOptimizer:
                 )
                   # Get the capacity dimension for use in constraints
                 capacity_dimension = routing.GetDimensionOrDie('Capacity')
-                  # Add pickup and delivery constraints for VRPPD
-                if is_vrppd and pickup_deliveries:
+                
+                # Add pickup and delivery constraints for ride pooling
+                if is_ride_pooling and pickup_deliveries:
                     for pickup_idx, delivery_idx in pickup_deliveries:
                         pickup_node = manager.NodeToIndex(pickup_idx)
                         delivery_node = manager.NodeToIndex(delivery_idx)
@@ -493,81 +471,70 @@ class VRPQuantumOptimizer:
                         
                         # Ensure pickup and delivery are on the same route
                         routing.solver().Add(
-                            routing.VehicleVar(pickup_node) == routing.VehicleVar(delivery_node)
-                        )
-                          # Ensure pickup comes before delivery
+                            routing.VehicleVar(pickup_node) == routing.VehicleVar(delivery_node)                        )
+                        
+                        # Ensure pickup comes before delivery
                         routing.solver().Add(
                             capacity_dimension.CumulVar(pickup_node) <= 
-                            capacity_dimension.CumulVar(delivery_node)                        )
-                  # Add constraint to limit maximum driving hours per vehicle (10 hours)
-                if is_vrppd:
-                    self.logger.info("DEBUG: Starting time constraint setup for VRPPD")
-                    # Use 50 km/h average speed for time estimation
-                    # 10 hours = 600 minutes = 36,000 seconds 
-                    max_driving_time_seconds = 10 * 3600  # 10 hours in seconds
-                    average_speed_mps = 50 * 1000 / 3600  # 50 km/h to m/s ≈ 13.89 m/s
-                    
-                    self.logger.info(f"Adding max driving time constraint: 10 hours ({max_driving_time_seconds} seconds max time per vehicle)")
-                    
-                    # Debug: Track some time calculations
-                    time_calculations_logged = 0                    # Create a proper time dimension that includes both travel time and service time
-                    debug_counter = 0
-                    
+                            capacity_dimension.CumulVar(delivery_node)
+                        )
+                
+                # Add time constraints based on vehicle max_time settings
+                # Check if any vehicle has a max_time constraint
+                max_vehicle_time = None
+                for vehicle in self.instance.vehicles.values():
+                    if hasattr(vehicle, 'max_time') and vehicle.max_time is not None:
+                        max_vehicle_time = vehicle.max_time  # in minutes
+                        break
+                
+                if max_vehicle_time is not None:
+                    self.logger.info(f"Adding vehicle time constraint: max {max_vehicle_time} minutes ({max_vehicle_time/60:.1f} hours)")
+                      # Create a proper time callback that includes travel time + service time
                     def time_callback(from_index, to_index):
-                        nonlocal debug_counter
                         from_node = manager.IndexToNode(from_index)
                         to_node = manager.IndexToNode(to_index)
                         from_location_id = location_list[from_node]
                         to_location_id = location_list[to_node]
                         
-                        # Travel time (distance / speed)
-                        travel_distance = self.instance.get_distance(from_location_id, to_location_id)
-                        travel_time = int(travel_distance / average_speed_mps)  # seconds
+                        # Get travel distance (in coordinate units, likely lat/lon degrees)
+                        distance_units = self.instance.get_distance(from_location_id, to_location_id)
                         
-                        # Service time at destination (loading/unloading)
-                        service_time = 0
-                        if (to_location_id.startswith("pickup") or to_location_id.startswith("dropoff") or 
-                            to_location_id.startswith("depot")):
-                            service_time = 1800  # 30 minutes in seconds for loading/unloading
+                        # Convert distance units to approximate km for realistic travel time
+                        # For GPS coordinates, 1 degree ≈ 111 km at latitude ~45° (Northern Italy)
+                        distance_km = distance_units * 111  # approximate conversion                        # Calculate travel time assuming realistic urban delivery speed
+                        avg_speed_kmh = 50  # Higher speed for faster urban/highway travel
+                        travel_time_hours = distance_km / avg_speed_kmh
+                        travel_time_minutes = travel_time_hours * 60
                         
-                        total_time = travel_time + service_time
+                        # Add service time at the 'from' location
+                        service_time_minutes = 0
+                        if from_location_id in self.instance.locations:
+                            location = self.instance.locations[from_location_id]
+                            service_time_minutes = getattr(location, 'service_time', 0)
                         
-                        # Debug first few calculations - ALWAYS log the first one
-                        if debug_counter < 5:
-                            self.logger.info(f"TIME CALLBACK {debug_counter}: {from_location_id} -> {to_location_id}")
-                            self.logger.info(f"  Distance: {travel_distance:.2f} km, Travel: {travel_time}s ({travel_time/60:.1f}min), Service: {service_time}s ({service_time/60:.1f}min), Total: {total_time}s ({total_time/60:.1f}min)")
-                            debug_counter += 1
+                        total_time_minutes = travel_time_minutes + service_time_minutes
+                        # Convert to seconds for OR-Tools
+                        total_time_seconds = int(total_time_minutes * 60)
                         
-                        return total_time
+                        return total_time_seconds
                     
                     time_callback_index = routing.RegisterTransitCallback(time_callback)
+                    
+                    # Convert max_time from minutes to seconds
+                    max_time_seconds = max_vehicle_time * 60
+                    
+                    self.logger.info(f"Maximum time per vehicle: {max_vehicle_time} minutes ({max_vehicle_time/60:.1f} hours)")
+                      # Add time dimension with proper time constraints
                     routing.AddDimension(
                         time_callback_index,
-                        450,  # slack time (7.5 minutes in seconds)
-                        max_driving_time_seconds,  # maximum driving time per vehicle (10 hours)
+                        max_time_seconds // 5,  # slack: 20% of max time for flexibility
+                        max_time_seconds,  # maximum total time per vehicle
                         True,  # start cumul to zero
-                        'DrivingTime'
+                        'TotalTime'
                     )
-                    
-                    # Get time dimension for additional constraints
-                    time_dimension = routing.GetDimensionOrDie('DrivingTime')
-                    
-                    # CRITICAL: Set cost coefficient to make OR-Tools respect time constraints
-                    # This forces OR-Tools to minimize time, not just distance
-                    time_dimension.SetGlobalSpanCostCoefficient(100)  # Higher priority than distance
-                    
-                    # Ensure vehicles don't exceed time limits - ENFORCE THIS STRICTLY
-                    for vehicle_id in range(num_vehicles):
-                        # Set hard limit on total time per vehicle
-                        time_dimension.CumulVar(routing.End(vehicle_id)).SetMax(max_driving_time_seconds)
-                        
-                        # Also set a more restrictive limit to force better distribution
-                        # 8 hours = 28800 seconds (more restrictive than 10 hours)
-                        time_dimension.CumulVar(routing.End(vehicle_id)).SetMax(28800)
-                    
-                    self.logger.info("Time dimension configured with cost coefficient and hard limits")
-            else:                # Even without capacity constraints, we still need pickup-delivery constraints
-                if is_vrppd and pickup_deliveries:
+            else:
+                # Even without capacity constraints, we still need pickup-delivery constraints
+                if is_ride_pooling and pickup_deliveries:
                     for pickup_idx, delivery_idx in pickup_deliveries:
                         pickup_node = manager.NodeToIndex(pickup_idx)
                         delivery_node = manager.NodeToIndex(delivery_idx)
@@ -576,13 +543,14 @@ class VRPQuantumOptimizer:
                         routing.solver().Add(
                             routing.VehicleVar(pickup_node) == routing.VehicleVar(delivery_node)
                         )
-              # Set search parameters with optimized time limit
+            
+            # Set search parameters with optimized time limit
             search_parameters = pywrapcp.DefaultRoutingSearchParameters()
             search_parameters.first_solution_strategy = (
                 routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
             )
             search_parameters.local_search_metaheuristic = (
-                routing_enums_pb2.LocalSearchMetaheuristic.AUTOMATIC
+                routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
             )
             
             # Adaptive time limit based on problem size
@@ -615,8 +583,9 @@ class VRPQuantumOptimizer:
                     if vehicle_idx < len(vehicle_ids):
                         vehicle_id = vehicle_ids[vehicle_idx]
                         vehicle = self.instance.vehicles[vehicle_id]
-                          # Get vehicle's start depot for multi-depot scenarios
-                        if is_vrppd and len(depot_locations) > 1:
+                        
+                        # Get vehicle's start depot for multi-depot scenarios
+                        if is_ride_pooling and len(depot_locations) > 1:
                             start_depot = vehicle.depot_id
                         else:
                             start_depot = depot_locations[0] if depot_locations else self.instance.location_ids[0]
@@ -628,8 +597,9 @@ class VRPQuantumOptimizer:
                         
                         while not routing.IsEnd(index):
                             node_index = manager.IndexToNode(index)
-                              # For multi-depot, skip depot nodes unless they're different from start
-                            if is_vrppd and len(depot_locations) > 1:
+                            
+                            # For multi-depot, skip depot nodes unless they're different from start
+                            if is_ride_pooling and len(depot_locations) > 1:
                                 if node_index < len(depot_locations):
                                     # This is a depot node - only add if different from start
                                     depot_location_id = location_list[node_index]
@@ -638,18 +608,18 @@ class VRPQuantumOptimizer:
                                 else:
                                     # This is a pickup/dropoff location
                                     route.append(location_list[node_index])
-                            else:                                # Single depot case - skip depot nodes in middle
-                                if (not is_vrppd and node_index != 0) or (is_vrppd and node_index != 0):
+                            else:
+                                # Single depot case - skip depot nodes in middle
+                                if (not is_ride_pooling and node_index != 0) or (is_ride_pooling and node_index != 0):
                                     route.append(location_list[node_index])
                             
                             previous_index = index
                             index = solution.Value(routing.NextVar(index))
                             route_distance += routing.GetArcCostForVehicle(previous_index, index, vehicle_idx)
-                          # Only include routes that actually visit locations
+                        
+                        # Only include routes that actually visit locations
                         if len(route) > 1:  # More than just starting depot
-                            current_location = route[-1]  # Last visited location
-                            closest_depot = self._find_closest_depot(current_location)
-                            route.append(closest_depot)  # Return to closest depot
+                            route.append(start_depot)  # Return to depot
                             routes[vehicle_id] = route
                             total_distance += route_distance
                             self.logger.debug(f"Vehicle {vehicle_id} route: {route}, distance: {route_distance}")
@@ -670,7 +640,7 @@ class VRPQuantumOptimizer:
                     'ortools_status': 'optimal' if solution else 'failed'
                 })  
                               
-                if is_vrppd:
+                if is_ride_pooling:
                     metrics['ortools_note'] = "OR-Tools with pickup-delivery constraints (VRPPD)"
                 
                 self.logger.info(f"OR-Tools solution: distance={actual_total_distance:.2f}, vehicles={len([r for r in routes.values() if len(r) > 2])}, runtime={runtime:.2f}ms")
@@ -687,7 +657,7 @@ class VRPQuantumOptimizer:
                 # Create empty routes for each vehicle using their respective depots
                 empty_routes = {}
                 for vehicle_id, vehicle in self.instance.vehicles.items():
-                    if is_vrppd and len(depot_locations) > 1:
+                    if is_ride_pooling and len(depot_locations) > 1:
                         empty_routes[vehicle_id] = [vehicle.depot_id]
                     else:
                         empty_routes[vehicle_id] = [depot_locations[0] if depot_locations else self.instance.location_ids[0]]
@@ -760,18 +730,14 @@ class VRPQuantumOptimizer:
         # Initialize routes with depot starts
         for vehicle_id in vehicle_ids:
             depot_id = self.instance.vehicles[vehicle_id].depot_id
-            routes[vehicle_id] = [depot_id]          # Handle VRPPD (Vehicle Routing Problem with Pickup and Delivery)
+            routes[vehicle_id] = [depot_id]
+        
+        # Handle ride pooling
         if self.instance.ride_requests:
             for i, request in enumerate(self.instance.ride_requests):
                 vehicle_id = vehicle_ids[i % len(vehicle_ids)]
                 routes[vehicle_id].append(request.pickup_location)
                 routes[vehicle_id].append(request.dropoff_location)
-              # Return vehicles to depot for VRPPD (closest available depot)
-            for vehicle_id in vehicle_ids:
-                if len(routes[vehicle_id]) > 1:  # Only if vehicle visited any locations
-                    current_location = routes[vehicle_id][-1]  # Last visited location
-                    closest_depot = self._find_closest_depot(current_location)
-                    routes[vehicle_id].append(closest_depot)
         
         # Handle delivery with nearest neighbor
         else:
@@ -814,13 +780,9 @@ class VRPQuantumOptimizer:
                     else:
                         routes[vehicle_id].append(nearest_customer)
                         current_location = nearest_customer
-                        unvisited.remove(nearest_customer)
-                
-                # Return to closest depot if visited any customers
+                        unvisited.remove(nearest_customer)                # Return to depot if visited any customers
                 if len(routes[vehicle_id]) > 1:
-                    current_location = routes[vehicle_id][-1]  # Last visited location
-                    closest_depot = self._find_closest_depot(current_location)
-                    routes[vehicle_id].append(closest_depot)
+                    routes[vehicle_id].append(vehicle.depot_id)
         
         return routes
     
@@ -852,7 +814,7 @@ class VRPQuantumOptimizer:
         metrics["vehicles_used"] = total_vehicles_used
         metrics["avg_distance_per_vehicle"] = total_distance / max(total_vehicles_used, 1)
         
-        # Calculate service metrics for VRPPD
+        # Calculate service metrics for ride pooling
         if self.instance.ride_requests:
             served_requests = 0
             for request in self.instance.ride_requests:
@@ -976,9 +938,10 @@ class VRPQuantumOptimizer:
         """
         self.logger.info(f"Starting VRP optimization with advanced heuristics: {method}")
         start_time = time.time()
-        try:            # Skip VRPPD scenarios for now (incompatible with current generator)
+        try:
+            # Skip ride pooling scenarios for now (incompatible with current generator)
             if self.instance.ride_requests:
-                self.logger.warning("Advanced heuristics not yet implemented for VRPPD scenarios")
+                self.logger.warning("Advanced heuristics not yet implemented for ride pooling scenarios")
                 return self._create_empty_result("not_implemented", time.time() - start_time)
             
             # Prepare data for InitialSolutionGenerator
@@ -1117,9 +1080,10 @@ class VRPQuantumOptimizer:
         self.logger.info(f"Starting VRP optimization with {initial_method} + 2-opt {improvement_type}")
         start_time = time.time()
         
-        try:            # Skip VRPPD scenarios for now
+        try:
+            # Skip ride pooling scenarios for now
             if self.instance.ride_requests:
-                self.logger.warning("2-opt improvement not yet implemented for VRPPD scenarios")
+                self.logger.warning("2-opt improvement not yet implemented for ride pooling scenarios")
                 return self._create_empty_result("not_implemented", time.time() - start_time)
             
             # Get initial solution using advanced heuristics
@@ -1582,6 +1546,9 @@ class VRPQuantumOptimizer:
             )
         
         try:
+            # Create distance matrix from instance
+            distance_matrix = self._create_distance_matrix()
+            
             # Step 1: Generate initial solution using nearest neighbor
             generator = InitialSolutionGenerator(self.instance, distance_matrix, self.logger)
             initial_routes = generator.nearest_neighbor_heuristic()

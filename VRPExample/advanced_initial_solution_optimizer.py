@@ -38,9 +38,10 @@ class AdvancedInitialSolutionOptimizer:
     def _convert_instance(self):
         """Convert VRP instance to InitialSolutionGenerator format."""
         customers = []
-          # Handle both standard VRP and VRPPD scenarios
+        
+        # Handle both standard VRP and ride pooling scenarios
         if hasattr(self.instance, 'ride_requests') and self.instance.ride_requests:
-            # For VRPPD, treat pickup locations as customers
+            # For ride pooling, treat pickup locations as customers
             for request in self.instance.ride_requests:
                 pickup_loc = self.instance.locations[request.pickup_location]
                 customer = Customer(

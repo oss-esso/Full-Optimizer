@@ -21,9 +21,10 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 
 def convert_vrp_instance_to_generator_format(instance):
     """Convert VRP instance to InitialSolutionGenerator format."""
-      # Handle both standard VRP and VRPPD scenarios
+    
+    # Handle both standard VRP and ride pooling scenarios
     if hasattr(instance, 'ride_requests') and instance.ride_requests:
-        # For VRPPD, we'll treat pickup locations as customers
+        # For ride pooling, we'll treat pickup locations as customers
         customers = []
         for request in instance.ride_requests:
             pickup_loc = instance.locations[request.pickup_location]

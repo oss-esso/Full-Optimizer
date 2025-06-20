@@ -51,17 +51,16 @@ class VRPScenarioGenerator:
         
         for loc_id, x, y in pickup_dropoff_locations:
             instance.add_location(Location(loc_id, x, y))
+          # Add vehicles with trucking capacity (4000 kg)
+        instance.add_vehicle(Vehicle("vehicle_1", capacity=4000, depot_id="depot_1"))
+        instance.add_vehicle(Vehicle("vehicle_2", capacity=4000, depot_id="depot_2"))
         
-        # Add vehicles
-        instance.add_vehicle(Vehicle("vehicle_1", capacity=4, depot_id="depot_1"))
-        instance.add_vehicle(Vehicle("vehicle_2", capacity=4, depot_id="depot_2"))
-        
-        # Add ride requests
+        # Add ride requests with cargo loads
         ride_requests = [
-            RideRequest("request_1", "pickup_1", "dropoff_1", passengers=2),
-            RideRequest("request_2", "pickup_2", "dropoff_2", passengers=1),
-            RideRequest("request_3", "pickup_3", "dropoff_3", passengers=3),
-            RideRequest("request_4", "pickup_4", "dropoff_4", passengers=1),
+            RideRequest("request_1", "pickup_1", "dropoff_1", passengers=1500),  # 1.5 tons
+            RideRequest("request_2", "pickup_2", "dropoff_2", passengers=800),   # 800 kg
+            RideRequest("request_3", "pickup_3", "dropoff_3", passengers=2000),  # 2 tons
+            RideRequest("request_4", "pickup_4", "dropoff_4", passengers=1200),  # 1.2 tons
         ]
         
         for request in ride_requests:
@@ -294,7 +293,10 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
     return scenarios
 
 def create_moda_small_scenario() -> VRPInstance:
-    """Create MODA_small VRPPD scenario with 5 vehicles and 20 locations in Northern Italy."""
+    """Create MODA_small VRPPD scenario with 5 vehicles and 20 locations in Northern Italy.
+    Implements trucking company logic: drivers work max 10 hours but can start at any time,
+    and locations have realistic time windows throughout the day.
+    """
     import random
     random.seed(42)  # For reproducibility
     
@@ -312,9 +314,16 @@ def create_moda_small_scenario() -> VRPInstance:
         ("depot_2", 9.0700, 45.4773, "Milano Porta Garibaldi Hub"),  # Porta Garibaldi
     ]
     
-    # Add depot locations
+    # Add depot locations with trucking company time windows
+    # Depots can be available for various shifts throughout the day
     for depot_id, lon, lat, address in depot_locations:
-        depot = Location(depot_id, lon, lat, demand=0)
+        # Depots have flexible operational windows (6-12 hours)
+        start_time = random.randint(0, 600)  # Start between 0-10 hours (0-600 min)  
+        window_length = random.randint(360, 720)  # 6-12 hours (360-720 min)
+        end_time = min(start_time + window_length, 1440)  # Cap at end of day
+        
+        depot = Location(depot_id, lon, lat, demand=0,
+                        time_window_start=start_time, time_window_end=end_time, service_time=5)
         depot.address = address
         depot.lat = lat
         depot.lon = lon
@@ -343,7 +352,13 @@ def create_moda_small_scenario() -> VRPInstance:
             pickup_lon = center_lon + random.uniform(-0.01, 0.01)
             pickup_id = f"pickup_{location_counter}"
             
-            pickup = Location(pickup_id, pickup_lon, pickup_lat, demand=0)
+            # Set pickup time windows: variable length (2-10 hours), can start anytime during day
+            pickup_start = random.randint(0, 600)  # Start between 0-10 hours (0-600 min)
+            pickup_window_length = random.randint(120, 600)  # 2-10 hours (120-600 min)
+            pickup_end = min(pickup_start + pickup_window_length, 1440)  # Cap at end of day
+            
+            pickup = Location(pickup_id, pickup_lon, pickup_lat, demand=0,
+                            time_window_start=pickup_start, time_window_end=pickup_end, service_time=15)
             pickup.address = f"Pickup {location_counter} - {area_name}"
             pickup.lat = pickup_lat
             pickup.lon = pickup_lon
@@ -357,7 +372,19 @@ def create_moda_small_scenario() -> VRPInstance:
             dropoff_lon = target_cluster[1] + random.uniform(-0.008, 0.008)
             dropoff_id = f"dropoff_{location_counter}"
             
-            dropoff = Location(dropoff_id, dropoff_lon, dropoff_lat, demand=0)
+            # Set dropoff time windows: variable length (2-8 hours), ensuring feasible sequence
+            # Dropoff can happen anytime during the day, driver flexibility handles timing
+            min_dropoff_start = max(0, pickup_start + 30)  # At least 30 min after pickup start
+            max_dropoff_start = min(1200, pickup_start + 600)  # Can start up to 10 hours after pickup
+            if min_dropoff_start >= max_dropoff_start:
+                dropoff_start = min_dropoff_start
+            else:
+                dropoff_start = random.randint(min_dropoff_start, max_dropoff_start)
+            dropoff_window_length = random.randint(120, 480)  # 2-8 hours (120-480 min)
+            dropoff_end = min(dropoff_start + dropoff_window_length, 1440)  # Cap at end of day
+            
+            dropoff = Location(dropoff_id, dropoff_lon, dropoff_lat, demand=0,
+                             time_window_start=dropoff_start, time_window_end=dropoff_end, service_time=10)
             dropoff.address = f"Dropoff {location_counter} - {target_cluster[2]}"
             dropoff.lat = dropoff_lat
             dropoff.lon = dropoff_lon
@@ -374,20 +401,20 @@ def create_moda_small_scenario() -> VRPInstance:
     for depot_idx, (depot_id, _, _, _) in enumerate(depot_locations):
         vehicle_count = vehicles_per_depot
         if depot_idx < remaining_vehicles:
-            vehicle_count += 1
-            
+            vehicle_count += 1            
         for i in range(vehicle_count):
-            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=4, depot_id=depot_id)
+            # Add vehicle with 10-hour maximum driving time for trucking company (4000 kg capacity)
+            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=4000, depot_id=depot_id, max_time=600)
             instance.add_vehicle(vehicle)
             vehicle_id += 1
     
-    # Create 10 ride requests (20 locations = 10 pickup/dropoff pairs)
+    # Create 10 ride requests with cargo loads in kg (20 locations = 10 pickup/dropoff pairs)
     for i in range(10):
         pickup_id = pickup_locations[i]
         dropoff_id = dropoff_locations[i]
-        passengers = random.randint(1, 4)
+        cargo_weight = random.randint(500, 2000)  # Cargo weight in kg (500-2000 kg per shipment)
         
-        request = RideRequest(f"request_{i+1}", pickup_id, dropoff_id, passengers=passengers)
+        request = RideRequest(f"request_{i+1}", pickup_id, dropoff_id, passengers=cargo_weight)
         instance.add_ride_request(request)
     
     # Calculate distance matrix using Manhattan distance for consistency
@@ -405,7 +432,10 @@ def create_moda_small_scenario() -> VRPInstance:
     return instance
 
 def create_moda_first_scenario() -> VRPInstance:
-    """Create MODA_first large VRPPD scenario with 60 vehicles and 200 locations in Northern Italy."""
+    """Create MODA_first large VRPPD scenario with 60 vehicles and 200 locations in Northern Italy.
+    Implements trucking company logic: drivers work max 10 hours but can start at any time,
+    and locations have realistic time windows throughout the day.
+    """
     import random
     random.seed(42)  # For reproducibility
     
@@ -418,9 +448,16 @@ def create_moda_first_scenario() -> VRPInstance:
         ("depot_milan", 9.1896, 45.4642, "Milano Centrale Hub - Piazza Duca d'Aosta 1"),
     ]
     
-    # Add depot locations
+    # Add depot locations with trucking company time windows
+    # Depots can be available for various shifts throughout the day
     for depot_id, lon, lat, address in depot_locations:
-        depot = Location(depot_id, lon, lat, demand=0)
+        # Depots have flexible operational windows (8-14 hours for large operations)
+        start_time = random.randint(0, 480)  # Start between 0-8 hours (0-480 min)
+        window_length = random.randint(480, 840)  # 8-14 hours (480-840 min)
+        end_time = min(start_time + window_length, 1440)  # Cap at end of day
+        
+        depot = Location(depot_id, lon, lat, demand=0,
+                        time_window_start=start_time, time_window_end=end_time, service_time=5)
         depot.address = address
         depot.lat = lat
         depot.lon = lon
@@ -502,11 +539,16 @@ def create_moda_first_scenario() -> VRPInstance:
             # Use smaller offsets to stay within city area
             pickup_lat = center_lat + random.uniform(-spread, spread)
             pickup_lon = center_lon + random.uniform(-spread, spread)
-            
             pickup_id = f"pickup_{location_counter}"
             pickup_addr = f"{100+i*10} {sample_street}, {area_name}"
             
-            pickup = Location(pickup_id, pickup_lon, pickup_lat, demand=0)
+            # Set pickup time windows: variable length (2-10 hours), can start anytime during day
+            pickup_start = random.randint(0, 600)  # Start between 0-10 hours (0-600 min)
+            pickup_window_length = random.randint(120, 600)  # 2-10 hours (120-600 min)
+            pickup_end = min(pickup_start + pickup_window_length, 1440)  # Cap at end of day
+            
+            pickup = Location(pickup_id, pickup_lon, pickup_lat, demand=0,
+                            time_window_start=pickup_start, time_window_end=pickup_end, service_time=15)
             pickup.address = pickup_addr
             pickup.lat = pickup_lat
             pickup.lon = pickup_lon
@@ -528,11 +570,22 @@ def create_moda_first_scenario() -> VRPInstance:
                 dropoff_lon = center_lon + random.uniform(-spread, spread)
                 dropoff_area = area_name
                 dropoff_street = sample_street
-            
             dropoff_id = f"dropoff_{location_counter}"
             dropoff_addr = f"{200+i*10} {dropoff_street}, {dropoff_area}"
             
-            dropoff = Location(dropoff_id, dropoff_lon, dropoff_lat, demand=0)
+            # Set dropoff time windows: variable length (2-8 hours), ensuring feasible sequence
+            # Dropoff can happen anytime during the day, driver flexibility handles timing
+            min_dropoff_start = max(0, pickup_start + 30)  # At least 30 min after pickup start
+            max_dropoff_start = min(1200, pickup_start + 600)  # Can start up to 10 hours after pickup
+            if min_dropoff_start >= max_dropoff_start:
+                dropoff_start = min_dropoff_start
+            else:
+                dropoff_start = random.randint(min_dropoff_start, max_dropoff_start)
+            dropoff_window_length = random.randint(120, 480)  # 2-8 hours (120-480 min)
+            dropoff_end = min(dropoff_start + dropoff_window_length, 1440)  # Cap at end of day
+            
+            dropoff = Location(dropoff_id, dropoff_lon, dropoff_lat, demand=0,
+                             time_window_start=dropoff_start, time_window_end=dropoff_end, service_time=10)
             dropoff.address = dropoff_addr
             dropoff.lat = dropoff_lat
             dropoff.lon = dropoff_lon
@@ -586,8 +639,7 @@ def create_moda_first_scenario() -> VRPInstance:
         dropoff_locations.append(dropoff_id)
         
         location_counter += 1
-    
-    # Add 60 vehicles distributed across the two depots
+      # Add 60 vehicles distributed across the two depots
     vehicles_per_depot = 60 // len(depot_locations)
     remaining_vehicles = 60 % len(depot_locations)
     
@@ -598,18 +650,27 @@ def create_moda_first_scenario() -> VRPInstance:
             vehicle_count += 1
             
         for i in range(vehicle_count):
-            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=4, depot_id=depot_id)
+            # Add vehicle with 10-hour maximum driving time for trucking company (4000 kg capacity)
+            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=4000, depot_id=depot_id, max_time=600)
             instance.add_vehicle(vehicle)
             vehicle_id += 1
     
-    # Create 100 ride requests (200 locations = 100 pickup/dropoff pairs)
+    # Create 100 ride requests with cargo loads in kg (200 locations = 100 pickup/dropoff pairs)
+    # Use realistic cargo weights to ensure feasibility
+    # 60 vehicles × 4000 kg capacity = 240,000 kg total capacity
+    # Target ~80% utilization = ~190,000 kg for feasibility
+    total_cargo_weight = 0
     for i in range(100):
         pickup_id = pickup_locations[i]
         dropoff_id = dropoff_locations[i]
-        passengers = random.randint(1, 4)
+        # Use variable cargo weights (800-2200 kg) to keep total demand reasonable
+        cargo_weight = round(random.uniform(800, 2200), 1)
+        total_cargo_weight += cargo_weight
         
-        request = RideRequest(f"request_{i+1}", pickup_id, dropoff_id, passengers=passengers)
+        request = RideRequest(f"request_{i+1}", pickup_id, dropoff_id, passengers=cargo_weight)
         instance.add_ride_request(request)
+    
+    print(f"MODA_first total demand: {total_cargo_weight} kg, capacity: {60*4000} kg = feasible: {total_cargo_weight <= 60*4000}")
     
     # Calculate distance matrix using Manhattan distance for consistency
     instance.calculate_distance_matrix(distance_method="manhattan")
