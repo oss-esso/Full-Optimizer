@@ -842,3 +842,12 @@ def create_moda_first_scenario() -> VRPInstance:
     print(f"  - Depots: Asti and Milan transportation hubs")
     
     return instance
+
+def create_moda_inverted_scenario() -> VRPInstance:
+    """Create a copy of MODA_small with the same locations and requests, but vehicles in inverted order."""
+    instance = create_moda_small_scenario()
+    # Invert the vehicle order (simulate a different order in the scenario definition)
+    vehicle_items = list(instance.vehicles.items())
+    inverted = list(reversed(vehicle_items))
+    instance.vehicles = {k: v for k, v in inverted}
+    return instance

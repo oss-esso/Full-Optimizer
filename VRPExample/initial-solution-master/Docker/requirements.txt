@@ -1,0 +1,10 @@
+numpy
+ortools
+pandas
+pycurl
+pytest
+pytest-cov
+requests
+tox
+ujson
+flake8
