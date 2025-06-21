@@ -26,13 +26,20 @@ class Location:
 
 @dataclass
 class Vehicle:
-    """Represents a vehicle in the VRP fleet."""
+    """Represents a vehicle in the VRP fleet with driver regulations."""
     id: str
     capacity: int
     depot_id: str
     max_distance: Optional[float] = None
     max_time: Optional[float] = None
     cost_per_km: float = 1.0
+    
+    # Driver regulation fields for mixed fleet
+    vehicle_type: str = "standard"  # "standard" or "heavy"
+    max_driving_time: Optional[float] = None  # Maximum continuous driving time (minutes)
+    required_break_time: Optional[float] = None  # Required break duration (minutes)
+    max_total_work_time: Optional[float] = None  # Maximum total work time per day (minutes)
+    break_frequency: Optional[float] = None  # How often breaks are required (minutes)
 
 @dataclass
 class RideRequest:

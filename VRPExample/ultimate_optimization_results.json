@@ -1,0 +1,8 @@
+{
+  "MODA_small": {
+    "error": "'RideRequest' object has no attribute 'pickup_time_window'"
+  },
+  "MODA_first": {
+    "error": "'RideRequest' object has no attribute 'pickup_time_window'"
+  }
+}

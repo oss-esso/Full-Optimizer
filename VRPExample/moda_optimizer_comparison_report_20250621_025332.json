@@ -1,0 +1,180 @@
+{
+  "timestamp": "2025-06-21 02:53:32",
+  "summary": {
+    "total_scenarios_tested": 4,
+    "total_optimizer_tests": 8,
+    "success_rates": {
+      "Rolling Window": 75.0,
+      "Enhanced": 75.0
+    },
+    "best_optimizer": "Rolling Window",
+    "pickup_delivery_capable": [
+      "Rolling Window",
+      "Enhanced"
+    ],
+    "max_solved_requests": {
+      "Rolling Window": 10,
+      "Enhanced": 10
+    }
+  },
+  "detailed_results": [
+    {
+      "optimizer": "Rolling Window",
+      "scenario": "MODA_micro",
+      "solved": true,
+      "status": "optimal",
+      "objective_value": -0.6654297866361816,
+      "vehicles_used": 1,
+      "total_locations_served": 6,
+      "wall_time_ms": 21.004915237426758,
+      "solver_runtime_ms": 16.004085540771484,
+      "total_distance": 0.6654297866361816,
+      "routes_count": 2,
+      "error_message": null,
+      "success": true
+    },
+    {
+      "optimizer": "Enhanced",
+      "scenario": "MODA_micro",
+      "solved": true,
+      "status": "optimal",
+      "objective_value": -0.6654297866361816,
+      "vehicles_used": 1,
+      "total_locations_served": 6,
+      "wall_time_ms": 7.001638412475586,
+      "solver_runtime_ms": 5.001306533813477,
+      "total_distance": 0.6654297866361816,
+      "routes_count": 2,
+      "error_message": null,
+      "success": true
+    },
+    {
+      "optimizer": "Rolling Window",
+      "scenario": "MODA_mini",
+      "solved": true,
+      "status": "optimal",
+      "objective_value": -1.4529271548976936,
+      "vehicles_used": 1,
+      "total_locations_served": 12,
+      "wall_time_ms": 13.002872467041016,
+      "solver_runtime_ms": 11.002302169799805,
+      "total_distance": 1.4529271548976936,
+      "routes_count": 3,
+      "error_message": null,
+      "success": true
+    },
+    {
+      "optimizer": "Enhanced",
+      "scenario": "MODA_mini",
+      "solved": true,
+      "status": "optimal",
+      "objective_value": -1.4529271548976936,
+      "vehicles_used": 1,
+      "total_locations_served": 12,
+      "wall_time_ms": 13.003349304199219,
+      "solver_runtime_ms": 11.003732681274414,
+      "total_distance": 1.4529271548976936,
+      "routes_count": 3,
+      "error_message": null,
+      "success": true
+    },
+    {
+      "optimizer": "Rolling Window",
+      "scenario": "MODA_small",
+      "solved": true,
+      "status": "optimal",
+      "objective_value": -1.517787467030761,
+      "vehicles_used": 1,
+      "total_locations_served": 20,
+      "wall_time_ms": 36.00788116455078,
+      "solver_runtime_ms": 33.007144927978516,
+      "total_distance": 1.517787467030761,
+      "routes_count": 5,
+      "error_message": null,
+      "success": true
+    },
+    {
+      "optimizer": "Enhanced",
+      "scenario": "MODA_small",
+      "solved": true,
+      "status": "optimal",
+      "objective_value": -1.517787467030761,
+      "vehicles_used": 1,
+      "total_locations_served": 20,
+      "wall_time_ms": 36.008358001708984,
+      "solver_runtime_ms": 34.008026123046875,
+      "total_distance": 1.517787467030761,
+      "routes_count": 5,
+      "error_message": null,
+      "success": true
+    },
+    {
+      "optimizer": "Rolling Window",
+      "scenario": "MODA_medium",
+      "solved": false,
+      "status": "infeasible",
+      "objective_value": 0.0,
+      "vehicles_used": 0,
+      "total_locations_served": 0,
+      "wall_time_ms": 44.00920867919922,
+      "solver_runtime_ms": 43.00880432128906,
+      "total_distance": 0,
+      "routes_count": 0,
+      "error_message": "No feasible solution found with rolling window",
+      "success": false
+    },
+    {
+      "optimizer": "Enhanced",
+      "scenario": "MODA_medium",
+      "solved": false,
+      "status": "infeasible",
+      "objective_value": 0.0,
+      "vehicles_used": 0,
+      "total_locations_served": 0,
+      "wall_time_ms": 45.01008987426758,
+      "solver_runtime_ms": 42.00911521911621,
+      "total_distance": 0,
+      "routes_count": 0,
+      "error_message": "No feasible solution found with rolling window",
+      "success": false
+    }
+  ],
+  "scenario_complexities": {
+    "MODA_micro": {
+      "total_locations": 7,
+      "depots": 1,
+      "vehicles": 2,
+      "ride_requests": 3,
+      "pickup_locations": 3,
+      "dropoff_locations": 3,
+      "service_areas": 0
+    },
+    "MODA_mini": {
+      "total_locations": 13,
+      "depots": 1,
+      "vehicles": 3,
+      "ride_requests": 6,
+      "pickup_locations": 6,
+      "dropoff_locations": 6,
+      "service_areas": 0
+    },
+    "MODA_small": {
+      "total_locations": 24,
+      "depots": 2,
+      "vehicles": 5,
+      "ride_requests": 10,
+      "pickup_locations": 10,
+      "dropoff_locations": 10,
+      "service_areas": 0
+    },
+    "MODA_medium": {
+      "total_locations": 34,
+      "depots": 2,
+      "vehicles": 8,
+      "ride_requests": 16,
+      "pickup_locations": 16,
+      "dropoff_locations": 16,
+      "service_areas": 0
+    }
+  }
+}

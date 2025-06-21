@@ -682,3 +682,237 @@ class Benders:
         except Exception as e:
             print(f"Error in primal subproblem solve: {e}")
             return False, None, np.inf
+
+
+class BendersDecomposition:
+    """
+    Benders decomposition for QUBO problems using quantum annealing.
+    
+    Decomposes a large QUBO problem into smaller subproblems that can be
+    solved more efficiently on quantum annealers.
+    """
+    
+    def __init__(self, qubo_matrix, max_iterations=10, tolerance=1e-6, verbose=False):
+        """
+        Initialize Benders decomposition for QUBO problems.
+        
+        Args:
+            qubo_matrix (np.ndarray): QUBO matrix to decompose
+            max_iterations (int): Maximum number of iterations
+            tolerance (float): Convergence tolerance
+            verbose (bool): Whether to print detailed information
+        """
+        self.qubo_matrix = qubo_matrix
+        self.n_vars = qubo_matrix.shape[0]
+        self.max_iterations = max_iterations
+        self.tolerance = tolerance
+        self.verbose = verbose
+          # Decomposition parameters
+        self.subproblem_size = min(15, max(3, self.n_vars // 4))  # Target subproblem size
+        self.overlap_size = min(2, self.subproblem_size // 3)  # Overlap between subproblems
+        
+        # Statistics tracking
+        self.iteration_count = 0
+        self.subproblem_stats = {
+            'total_quantum_time': 0.0,
+            'num_subproblems': 0,
+            'avg_subproblem_size': 0,
+            'subproblem_sizes': []
+        }
+        
+        if self.verbose:
+            print(f"Initializing Benders decomposition:")
+            print(f"  Problem size: {self.n_vars} variables")
+            print(f"  Target subproblem size: {self.subproblem_size}")
+            print(f"  Max iterations: {self.max_iterations}")
+    
+    def _create_subproblems(self):
+        """
+        Decompose the QUBO matrix into overlapping subproblems.
+        
+        Returns:
+            List of (variable_indices, subqubo_matrix) tuples
+        """
+        subproblems = []
+        
+        # Simple block decomposition with overlap
+        start_idx = 0
+        while start_idx < self.n_vars:
+            end_idx = min(start_idx + self.subproblem_size, self.n_vars)
+            
+            var_indices = list(range(start_idx, end_idx))
+            
+            # Extract subproblem QUBO matrix
+            sub_qubo = self.qubo_matrix[np.ix_(var_indices, var_indices)]
+            
+            subproblems.append((var_indices, sub_qubo))
+            
+            if self.verbose:
+                print(f"  Subproblem {len(subproblems)}: variables {start_idx}-{end_idx-1} ({len(var_indices)} vars)")
+            
+            # Move to next block - ensure we make progress
+            # Use step size that guarantees forward progress
+            step_size = max(1, self.subproblem_size - self.overlap_size)
+            start_idx += step_size
+            
+            # Break if we've covered all variables
+            if end_idx >= self.n_vars:
+                break
+                
+            # Safety check to prevent infinite loops
+            if len(subproblems) > self.n_vars:
+                if self.verbose:
+                    print(f"  Warning: Too many subproblems created, breaking")
+                break
+        
+        return subproblems
+    
+    def _solve_subproblem(self, var_indices, sub_qubo, quantum_solver, fixed_vars=None):
+        """
+        Solve a subproblem using the quantum solver.
+        
+        Args:
+            var_indices (list): Variable indices in the original problem
+            sub_qubo (np.ndarray): Subproblem QUBO matrix
+            quantum_solver: D-Wave adapter instance
+            fixed_vars (dict): Fixed variable assignments from other subproblems
+            
+        Returns:
+            dict: Solution for the subproblem variables
+        """
+        try:
+            # Apply fixed variables to the subproblem
+            if fixed_vars:
+                # Modify QUBO matrix to account for fixed variables
+                # This is a simplified implementation
+                pass
+            
+            # Create BQM for subproblem
+            bqm = quantum_solver.create_bqm_from_qubo(sub_qubo)
+            
+            # Solve using quantum annealer
+            start_time = time.time()
+            result = quantum_solver._solve_bqm(bqm)
+            solve_time = time.time() - start_time
+            
+            # Track statistics
+            self.subproblem_stats['total_quantum_time'] += solve_time
+            self.subproblem_stats['num_subproblems'] += 1
+            self.subproblem_stats['subproblem_sizes'].append(len(var_indices))
+            
+            if 'error' in result:
+                if self.verbose:
+                    print(f"    Subproblem failed: {result['error']}")
+                return None
+            
+            # Convert solution back to original variable indices
+            solution = {}
+            if 'sample' in result:
+                sample = result['sample']
+                for i, var_idx in enumerate(var_indices):
+                    if i in sample:
+                        solution[var_idx] = sample[i]
+                    else:
+                        # Default to 0 if variable not found
+                        solution[var_idx] = 0
+            
+            if self.verbose:
+                print(f"    Subproblem solved in {solve_time:.3f}s, energy: {result.get('energy', 'N/A')}")
+            
+            return solution
+            
+        except Exception as e:
+            if self.verbose:
+                print(f"    Subproblem error: {e}")
+            return None
+    
+    def solve(self, quantum_solver):
+        """
+        Solve the QUBO problem using Benders decomposition.
+        
+        Args:
+            quantum_solver: D-Wave adapter instance
+            
+        Returns:
+            dict: Solution result with statistics
+        """
+        if self.verbose:
+            print("\nStarting Benders decomposition solve...")
+        
+        # Create subproblems
+        subproblems = self._create_subproblems()
+        
+        if self.verbose:
+            print(f"Created {len(subproblems)} subproblems")
+        
+        best_solution = None
+        best_objective = float('inf')
+        converged = False
+        
+        for iteration in range(self.max_iterations):
+            self.iteration_count = iteration + 1
+            
+            if self.verbose:
+                print(f"\nIteration {iteration + 1}:")
+            
+            # Solve each subproblem
+            current_solution = {}
+            current_objective = 0.0
+            
+            for i, (var_indices, sub_qubo) in enumerate(subproblems):
+                if self.verbose:
+                    print(f"  Solving subproblem {i + 1}/{len(subproblems)}...")
+                
+                sub_solution = self._solve_subproblem(var_indices, sub_qubo, quantum_solver)
+                
+                if sub_solution is None:
+                    if self.verbose:
+                        print(f"  Subproblem {i + 1} failed")
+                    continue
+                
+                # Merge solution
+                current_solution.update(sub_solution)
+                
+                # Calculate contribution to objective
+                for var_idx in var_indices:
+                    if var_idx in current_solution:
+                        current_objective += self.qubo_matrix[var_idx, var_idx] * current_solution[var_idx]
+                        
+                        # Add interaction terms
+                        for var_idx2 in var_indices:
+                            if var_idx2 != var_idx and var_idx2 in current_solution:
+                                current_objective += 0.5 * self.qubo_matrix[var_idx, var_idx2] * current_solution[var_idx] * current_solution[var_idx2]
+            
+            # Check for improvement
+            if current_objective < best_objective:
+                best_objective = current_objective
+                best_solution = current_solution.copy()
+                
+                if self.verbose:
+                    print(f"  New best objective: {best_objective:.6f}")
+            
+            # Check convergence (simplified)
+            if iteration > 0 and abs(current_objective - best_objective) < self.tolerance:
+                converged = True
+                if self.verbose:
+                    print(f"  Converged after {iteration + 1} iterations")
+                break
+        
+        # Calculate average subproblem size
+        if self.subproblem_stats['subproblem_sizes']:
+            self.subproblem_stats['avg_subproblem_size'] = np.mean(self.subproblem_stats['subproblem_sizes'])
+        
+        if self.verbose:
+            print(f"\nBenders decomposition completed:")
+            print(f"  Iterations: {self.iteration_count}")
+            print(f"  Converged: {converged}")
+            print(f"  Best objective: {best_objective:.6f}")
+            print(f"  Total quantum time: {self.subproblem_stats['total_quantum_time']:.3f}s")
+        
+        return {
+            'solution': best_solution,
+            'objective_value': best_objective,
+            'iterations': self.iteration_count,
+            'converged': converged,
+            'subproblem_stats': self.subproblem_stats
+        }

@@ -12,168 +12,168 @@ depot_milan:
   Address: Milano Centrale Hub - Piazza Duca d'Aosta 1
 
 pickup_1:
-  Latitude: 45.456547
-  Longitude: 9.178786
+  Latitude: 45.468383
+  Longitude: 9.175350
   Address: 100 Via Dante, Milano Centro
 
 dropoff_1:
-  Latitude: 44.395865
-  Longitude: 7.529608
-  Address: 200 Via Roma, Cuneo Centro
+  Latitude: 44.884186
+  Longitude: 8.186075
+  Address: 200 Via Casale, Asti San Paolo
 
 pickup_2:
-  Latitude: 45.450094
-  Longitude: 9.181159
+  Latitude: 45.466915
+  Longitude: 9.175553
   Address: 110 Via Dante, Milano Centro
 
 dropoff_2:
-  Latitude: 45.479137
-  Longitude: 9.076481
-  Address: 210 Corso Como, Milano Porta Garibaldi
+  Latitude: 44.895161
+  Longitude: 8.183796
+  Address: 210 Via Casale, Asti San Paolo
 
 pickup_3:
-  Latitude: 45.455813
-  Longitude: 9.192278
+  Latitude: 45.470240
+  Longitude: 9.187186
   Address: 120 Via Dante, Milano Centro
 
 dropoff_3:
-  Latitude: 45.423944
-  Longitude: 9.125908
-  Address: 220 Corso di Porta Romana, Milano Porta Romana
+  Latitude: 44.919283
+  Longitude: 8.205195
+  Address: 220 Via Torino, Asti Madonna del Portone
 
 pickup_4:
-  Latitude: 45.477916
-  Longitude: 9.184698
+  Latitude: 45.461878
+  Longitude: 9.182936
   Address: 130 Via Dante, Milano Centro
 
 dropoff_4:
-  Latitude: 45.436569
-  Longitude: 9.225019
-  Address: 230 Via Rombon, Milano Lambrate
+  Latitude: 45.040266
+  Longitude: 7.511398
+  Address: 230 Corso Unione Sovietica, Torino Mirafiori
 
 pickup_5:
-  Latitude: 45.484192
-  Longitude: 9.071087
+  Latitude: 45.480412
+  Longitude: 9.079214
   Address: 100 Corso Como, Milano Porta Garibaldi
 
 dropoff_5:
-  Latitude: 45.692095
-  Longitude: 9.681159
-  Address: 200 Via XX Settembre, Bergamo Città Bassa
+  Latitude: 45.454993
+  Longitude: 9.226056
+  Address: 200 Via Rombon, Milano Lambrate
 
 pickup_6:
-  Latitude: 45.468069
-  Longitude: 9.057087
+  Latitude: 45.487182
+  Longitude: 9.073556
   Address: 110 Corso Como, Milano Porta Garibaldi
 
 dropoff_6:
-  Latitude: 45.084857
-  Longitude: 7.697560
-  Address: 210 Via Roma, Torino Centro
+  Latitude: 44.907037
+  Longitude: 8.192575
+  Address: 210 Corso Alfieri, Asti Centro
 
 pickup_7:
-  Latitude: 45.470639
-  Longitude: 9.074071
+  Latitude: 45.491857
+  Longitude: 9.080660
   Address: 120 Corso Como, Milano Porta Garibaldi
 
 dropoff_7:
-  Latitude: 45.108458
-  Longitude: 7.747205
-  Address: 220 Corso Giulio Cesare, Torino Barriera di Milano
+  Latitude: 44.908602
+  Longitude: 8.230023
+  Address: 220 Via Torino, Asti Madonna del Portone
 
 pickup_8:
-  Latitude: 45.481349
-  Longitude: 9.071024
+  Latitude: 45.472958
+  Longitude: 9.075105
   Address: 130 Corso Como, Milano Porta Garibaldi
 
 dropoff_8:
-  Latitude: 44.909684
-  Longitude: 8.631386
-  Address: 230 Via Milano, Alessandria Centro
+  Latitude: 45.174834
+  Longitude: 9.165074
+  Address: 230 Corso Strada Nuova, Pavia Centro
 
 pickup_9:
-  Latitude: 45.443938
-  Longitude: 9.180186
+  Latitude: 45.434784
+  Longitude: 9.184586
   Address: 100 Naviglio Grande, Milano Navigli
 
 dropoff_9:
-  Latitude: 45.486451
-  Longitude: 9.067035
-  Address: 200 Corso Como, Milano Porta Garibaldi
+  Latitude: 45.815328
+  Longitude: 8.833049
+  Address: 200 Corso Matteotti, Varese Centro
 
 pickup_10:
-  Latitude: 45.450794
-  Longitude: 9.171915
+  Latitude: 45.448054
+  Longitude: 9.179051
   Address: 110 Naviglio Grande, Milano Navigli
 
 dropoff_10:
-  Latitude: 45.184677
-  Longitude: 9.169740
-  Address: 210 Corso Strada Nuova, Pavia Centro
+  Latitude: 45.493029
+  Longitude: 9.171887
+  Address: 210 Via Paolo Sarpi, Milano Isola
 
 pickup_11:
-  Latitude: 45.431346
-  Longitude: 9.162299
+  Latitude: 45.443063
+  Longitude: 9.166769
   Address: 120 Naviglio Grande, Milano Navigli
 
 dropoff_11:
-  Latitude: 44.917410
-  Longitude: 8.217853
+  Latitude: 44.899189
+  Longitude: 8.227350
   Address: 220 Via Torino, Asti Madonna del Portone
 
 pickup_12:
-  Latitude: 45.429980
-  Longitude: 9.184826
+  Latitude: 45.445810
+  Longitude: 9.167753
   Address: 130 Naviglio Grande, Milano Navigli
 
 dropoff_12:
-  Latitude: 45.509373
-  Longitude: 9.169433
-  Address: 230 Via Paolo Sarpi, Milano Isola
+  Latitude: 45.104380
+  Longitude: 7.757026
+  Address: 230 Corso Giulio Cesare, Torino Barriera di Milano
 
 pickup_13:
-  Latitude: 45.491499
-  Longitude: 9.164014
+  Latitude: 45.489427
+  Longitude: 9.145013
   Address: 100 Via Paolo Sarpi, Milano Isola
 
 dropoff_13:
-  Latitude: 45.449777
-  Longitude: 8.615941
-  Address: 200 Corso Italia, Novara Centro
+  Latitude: 45.174499
+  Longitude: 9.163614
+  Address: 200 Corso Strada Nuova, Pavia Centro
 
 pickup_14:
-  Latitude: 45.512523
-  Longitude: 9.143944
+  Latitude: 45.498149
+  Longitude: 9.173484
   Address: 110 Via Paolo Sarpi, Milano Isola
 
 dropoff_14:
-  Latitude: 45.705826
-  Longitude: 9.685358
+  Latitude: 45.709123
+  Longitude: 9.662644
   Address: 210 Via XX Settembre, Bergamo Città Bassa
 
 pickup_15:
-  Latitude: 45.495505
-  Longitude: 9.148345
+  Latitude: 45.513244
+  Longitude: 9.166126
   Address: 120 Via Paolo Sarpi, Milano Isola
 
 dropoff_15:
-  Latitude: 44.377002
-  Longitude: 7.542018
-  Address: 220 Via Roma, Cuneo Centro
+  Latitude: 45.068343
+  Longitude: 7.685512
+  Address: 220 Via Roma, Torino Centro
 
 pickup_16:
-  Latitude: 45.514079
-  Longitude: 9.169716
+  Latitude: 45.509559
+  Longitude: 9.158830
   Address: 130 Via Paolo Sarpi, Milano Isola
 
 dropoff_16:
-  Latitude: 45.184930
-  Longitude: 9.149167
+  Latitude: 45.178653
+  Longitude: 9.162368
   Address: 230 Corso Strada Nuova, Pavia Centro
 
 pickup_17:
-  Latitude: 45.441981
-  Longitude: 9.238059
+  Latitude: 45.437017
+  Longitude: 9.219546
   Address: 100 Via Rombon, Milano Lambrate
 
 dropoff_17:
@@ -242,18 +242,18 @@ dropoff_23:
   Address: 220 Corso Matteotti, Varese Centro
 
 pickup_24:
-  Latitude: 45.523439
-  Longitude: 9.225925
+  Latitude: 45.514080
+  Longitude: 9.225239
   Address: 130 Via Matteotti, Sesto San Giovanni
 
 dropoff_24:
-  Latitude: 45.506469
-  Longitude: 9.154229
+  Latitude: 45.489608
+  Longitude: 9.156532
   Address: 230 Via Paolo Sarpi, Milano Isola
 
 pickup_25:
-  Latitude: 45.428915
-  Longitude: 9.117325
+  Latitude: 45.417011
+  Longitude: 9.137572
   Address: 100 Corso di Porta Romana, Milano Porta Romana
 
 dropoff_25:
@@ -332,14 +332,14 @@ dropoff_32:
   Address: 230 Via Paolo Sarpi, Milano Isola
 
 pickup_33:
-  Latitude: 44.882460
-  Longitude: 8.202721
+  Latitude: 44.881192
+  Longitude: 8.185460
   Address: 100 Via Casale, Asti San Paolo
 
 dropoff_33:
-  Latitude: 45.065241
-  Longitude: 7.506128
-  Address: 200 Corso Unione Sovietica, Torino Mirafiori
+  Latitude: 45.689191
+  Longitude: 9.662823
+  Address: 200 Via Gombito, Bergamo Città Alta
 
 pickup_34:
   Latitude: 44.887968
@@ -462,8 +462,8 @@ dropoff_45:
   Address: 200 Corso Como, Milano Porta Garibaldi
 
 pickup_46:
-  Latitude: 45.046356
-  Longitude: 7.523860
+  Latitude: 45.047690
+  Longitude: 7.524616
   Address: 110 Corso Unione Sovietica, Torino Mirafiori
 
 dropoff_46:
@@ -592,218 +592,218 @@ dropoff_58:
   Address: 210 Via Rombon, Milano Lambrate
 
 pickup_59:
-  Latitude: 45.436680
-  Longitude: 8.606578
+  Latitude: 45.427819
+  Longitude: 8.607658
   Address: 120 Via Biella, Novara Ovest
 
 dropoff_59:
-  Latitude: 45.696677
-  Longitude: 9.667075
-  Address: 220 Via XX Settembre, Bergamo Città Bassa
+  Latitude: 44.395861
+  Longitude: 7.539802
+  Address: 220 Via Roma, Cuneo Centro
 
 pickup_60:
-  Latitude: 45.426076
-  Longitude: 8.592417
+  Latitude: 45.445216
+  Longitude: 8.607310
   Address: 130 Via Biella, Novara Ovest
 
 dropoff_60:
-  Latitude: 45.694238
-  Longitude: 9.662177
-  Address: 230 Via Gombito, Bergamo Città Alta
+  Latitude: 44.902553
+  Longitude: 8.208196
+  Address: 230 Via Casale, Asti San Paolo
 
 pickup_61:
-  Latitude: 44.919706
-  Longitude: 8.608735
+  Latitude: 44.912838
+  Longitude: 8.608877
   Address: 100 Via Milano, Alessandria Centro
 
 dropoff_61:
-  Latitude: 45.685717
-  Longitude: 9.666825
-  Address: 200 Via XX Settembre, Bergamo Città Bassa
+  Latitude: 45.314172
+  Longitude: 8.415051
+  Address: 200 Corso Libertà, Vercelli Centro
 
 pickup_62:
-  Latitude: 44.902884
-  Longitude: 8.608119
+  Latitude: 44.900717
+  Longitude: 8.606225
   Address: 110 Via Milano, Alessandria Centro
 
 dropoff_62:
-  Latitude: 45.071578
-  Longitude: 7.684373
-  Address: 210 Via Roma, Torino Centro
+  Latitude: 45.446993
+  Longitude: 9.216627
+  Address: 210 Via Rombon, Milano Lambrate
 
 pickup_63:
-  Latitude: 44.909984
-  Longitude: 8.624794
+  Latitude: 44.914578
+  Longitude: 8.614173
   Address: 120 Via Milano, Alessandria Centro
 
 dropoff_63:
-  Latitude: 45.804511
-  Longitude: 9.070377
-  Address: 220 Via Vittorio Emanuele, Como Centro
+  Latitude: 45.443584
+  Longitude: 8.624994
+  Address: 220 Corso Italia, Novara Centro
 
 pickup_64:
-  Latitude: 44.920904
-  Longitude: 8.627303
+  Latitude: 44.909711
+  Longitude: 8.601877
   Address: 130 Via Milano, Alessandria Centro
 
 dropoff_64:
-  Latitude: 44.391139
-  Longitude: 7.550996
-  Address: 230 Via Roma, Cuneo Centro
+  Latitude: 45.123403
+  Longitude: 7.755703
+  Address: 230 Corso Giulio Cesare, Torino Barriera di Milano
 
 pickup_65:
-  Latitude: 44.896583
-  Longitude: 8.628075
+  Latitude: 44.912425
+  Longitude: 8.631384
   Address: 100 Via Casale, Alessandria Pista
 
 dropoff_65:
-  Latitude: 45.075366
-  Longitude: 7.695844
-  Address: 200 Via Roma, Torino Centro
+  Latitude: 44.894088
+  Longitude: 8.205769
+  Address: 200 Corso Alfieri, Asti Centro
 
 pickup_66:
-  Latitude: 44.917586
-  Longitude: 8.644422
+  Latitude: 44.910066
+  Longitude: 8.638944
   Address: 110 Via Casale, Alessandria Pista
 
 dropoff_66:
-  Latitude: 45.115557
-  Longitude: 7.746990
-  Address: 210 Corso Giulio Cesare, Torino Barriera di Milano
+  Latitude: 45.445886
+  Longitude: 8.614422
+  Address: 210 Via Biella, Novara Ovest
 
 pickup_67:
-  Latitude: 44.902858
-  Longitude: 8.641006
+  Latitude: 44.917208
+  Longitude: 8.632757
   Address: 120 Via Casale, Alessandria Pista
 
 dropoff_67:
-  Latitude: 44.891373
-  Longitude: 8.189350
-  Address: 220 Via Casale, Asti San Paolo
+  Latitude: 45.182558
+  Longitude: 9.169206
+  Address: 220 Corso Strada Nuova, Pavia Centro
 
 pickup_68:
-  Latitude: 44.912837
-  Longitude: 8.626374
+  Latitude: 44.897805
+  Longitude: 8.624821
   Address: 130 Via Casale, Alessandria Pista
 
 dropoff_68:
-  Latitude: 45.437509
-  Longitude: 9.177371
-  Address: 230 Naviglio Grande, Milano Navigli
+  Latitude: 45.078137
+  Longitude: 7.683274
+  Address: 230 Via Roma, Torino Centro
 
 pickup_69:
-  Latitude: 45.686427
-  Longitude: 9.657059
+  Latitude: 45.704747
+  Longitude: 9.669109
   Address: 100 Via Gombito, Bergamo Città Alta
 
 dropoff_69:
-  Latitude: 45.477688
-  Longitude: 9.180581
-  Address: 200 Via Dante, Milano Centro
+  Latitude: 45.043927
+  Longitude: 7.502059
+  Address: 200 Corso Unione Sovietica, Torino Mirafiori
 
 pickup_70:
-  Latitude: 45.684271
-  Longitude: 9.658787
+  Latitude: 45.708188
+  Longitude: 9.660981
   Address: 110 Via Gombito, Bergamo Città Alta
 
 dropoff_70:
-  Latitude: 45.416951
-  Longitude: 9.123387
-  Address: 210 Corso di Porta Romana, Milano Porta Romana
+  Latitude: 45.432956
+  Longitude: 9.228907
+  Address: 210 Via Rombon, Milano Lambrate
 
 pickup_71:
-  Latitude: 45.697877
-  Longitude: 9.683912
+  Latitude: 45.708133
+  Longitude: 9.668951
   Address: 120 Via Gombito, Bergamo Città Alta
 
 dropoff_71:
-  Latitude: 45.528842
-  Longitude: 9.204943
-  Address: 220 Via Matteotti, Sesto San Giovanni
+  Latitude: 45.042234
+  Longitude: 7.518217
+  Address: 220 Corso Unione Sovietica, Torino Mirafiori
 
 pickup_72:
-  Latitude: 45.696974
-  Longitude: 9.682241
+  Latitude: 45.708642
+  Longitude: 9.658243
   Address: 130 Via Gombito, Bergamo Città Alta
 
 dropoff_72:
-  Latitude: 45.311550
-  Longitude: 8.424663
-  Address: 230 Corso Libertà, Vercelli Centro
+  Latitude: 44.912274
+  Longitude: 8.232241
+  Address: 230 Via Torino, Asti Madonna del Portone
 
 pickup_73:
-  Latitude: 45.704216
-  Longitude: 9.671347
+  Latitude: 45.711544
+  Longitude: 9.668250
   Address: 100 Via XX Settembre, Bergamo Città Bassa
 
 dropoff_73:
-  Latitude: 45.816579
-  Longitude: 9.080616
-  Address: 200 Via Vittorio Emanuele, Como Centro
+  Latitude: 45.328774
+  Longitude: 8.432409
+  Address: 200 Corso Libertà, Vercelli Centro
 
 pickup_74:
-  Latitude: 45.694417
-  Longitude: 9.677479
+  Latitude: 45.706779
+  Longitude: 9.672716
   Address: 110 Via XX Settembre, Bergamo Città Bassa
 
 dropoff_74:
-  Latitude: 45.456570
-  Longitude: 8.605066
-  Address: 210 Corso Italia, Novara Centro
+  Latitude: 45.039269
+  Longitude: 7.519426
+  Address: 210 Corso Unione Sovietica, Torino Mirafiori
 
 pickup_75:
-  Latitude: 45.710047
-  Longitude: 9.676092
+  Latitude: 45.707970
+  Longitude: 9.665466
   Address: 120 Via XX Settembre, Bergamo Città Bassa
 
 dropoff_75:
-  Latitude: 45.521914
-  Longitude: 9.230664
-  Address: 220 Via Matteotti, Sesto San Giovanni
+  Latitude: 45.439519
+  Longitude: 8.598065
+  Address: 220 Via Biella, Novara Ovest
 
 pickup_76:
-  Latitude: 45.707546
-  Longitude: 9.678445
+  Latitude: 45.691402
+  Longitude: 9.686546
   Address: 130 Via XX Settembre, Bergamo Città Bassa
 
 dropoff_76:
-  Latitude: 45.456672
-  Longitude: 8.619674
-  Address: 230 Corso Italia, Novara Centro
+  Latitude: 44.912246
+  Longitude: 8.626472
+  Address: 230 Via Milano, Alessandria Centro
 
 pickup_77:
-  Latitude: 45.818022
-  Longitude: 9.072800
+  Latitude: 45.802769
+  Longitude: 9.077565
   Address: 100 Via Vittorio Emanuele, Como Centro
 
 dropoff_77:
-  Latitude: 45.435395
-  Longitude: 8.605046
+  Latitude: 45.425616
+  Longitude: 8.598941
   Address: 200 Via Biella, Novara Ovest
 
 pickup_78:
-  Latitude: 45.807929
-  Longitude: 9.079950
+  Latitude: 45.793961
+  Longitude: 9.095729
   Address: 110 Via Vittorio Emanuele, Como Centro
 
 dropoff_78:
-  Latitude: 45.061135
-  Longitude: 7.510210
-  Address: 210 Corso Unione Sovietica, Torino Mirafiori
+  Latitude: 45.413645
+  Longitude: 9.123451
+  Address: 210 Corso di Porta Romana, Milano Porta Romana
 
 pickup_79:
-  Latitude: 45.793405
-  Longitude: 9.098642
+  Latitude: 45.814136
+  Longitude: 9.078488
   Address: 120 Via Vittorio Emanuele, Como Centro
 
 dropoff_79:
-  Latitude: 44.381293
-  Longitude: 7.543655
-  Address: 220 Via Roma, Cuneo Centro
+  Latitude: 45.405568
+  Longitude: 9.137302
+  Address: 220 Corso di Porta Romana, Milano Porta Romana
 
 pickup_80:
-  Latitude: 45.807383
-  Longitude: 9.091555
+  Latitude: 45.815845
+  Longitude: 9.090918
   Address: 130 Via Vittorio Emanuele, Como Centro
 
 dropoff_80:
@@ -962,92 +962,187 @@ dropoff_95:
   Address: 220 Corso Alfieri, Asti Centro
 
 pickup_96:
-  Latitude: 45.330243
-  Longitude: 8.424187
+  Latitude: 45.334124
+  Longitude: 8.436887
   Address: 130 Corso Libertà, Vercelli Centro
 
 dropoff_96:
-  Latitude: 44.909545
-  Longitude: 8.642482
-  Address: 230 Via Casale, Alessandria Pista
+  Latitude: 45.485193
+  Longitude: 9.060256
+  Address: 230 Corso Como, Milano Porta Garibaldi
 
 pickup_97:
-  Latitude: 44.382177
-  Longitude: 7.551427
+  Latitude: 44.382367
+  Longitude: 7.535345
   Address: 100 Via Roma, Cuneo Centro
 
 dropoff_97:
-  Latitude: 45.049450
-  Longitude: 7.509632
-  Address: 200 Corso Unione Sovietica, Torino Mirafiori
+  Latitude: 45.551027
+  Longitude: 10.225872
+  Address: 200 Via dei Musei, Brescia Centro
 
 pickup_98:
-  Latitude: 44.378994
-  Longitude: 7.547810
+  Latitude: 44.381350
+  Longitude: 7.536632
   Address: 110 Via Roma, Cuneo Centro
 
 dropoff_98:
-  Latitude: 45.122207
-  Longitude: 7.743603
-  Address: 210 Corso Giulio Cesare, Torino Barriera di Milano
+  Latitude: 45.509794
+  Longitude: 9.222510
+  Address: 210 Via Matteotti, Sesto San Giovanni
 
 pickup_99:
-  Latitude: 44.378536
-  Longitude: 7.536698
+  Latitude: 44.397456
+  Longitude: 7.551407
   Address: 120 Via Roma, Cuneo Centro
 
 dropoff_99:
-  Latitude: 44.914748
-  Longitude: 8.615035
-  Address: 220 Via Casale, Alessandria Pista
+  Latitude: 45.420942
+  Longitude: 8.592572
+  Address: 220 Via Biella, Novara Ovest
 
 pickup_100:
-  Latitude: 44.381497
-  Longitude: 7.532627
+  Latitude: 44.395047
+  Longitude: 7.551748
   Address: 130 Via Roma, Cuneo Centro
 
 dropoff_100:
-  Latitude: 44.917062
-  Longitude: 8.624500
-  Address: 230 Via Milano, Alessandria Centro
+  Latitude: 45.693559
+  Longitude: 9.656626
+  Address: 230 Via Gombito, Bergamo Città Alta
+
+SA_A1_Fiorenzuola_N:
+  Latitude: 44.916700
+  Longitude: 9.900000
+  Address: A1, 29018 Fiorenzuola d'Arda PC
+
+SA_A1_Fiorenzuola_S:
+  Latitude: 44.910000
+  Longitude: 9.895000
+  Address: A1, 29018 Fiorenzuola d'Arda PC
+
+SA_A1_Secchia_N:
+  Latitude: 44.750000
+  Longitude: 10.750000
+  Address: A1, 42015 Correggio RE
+
+SA_A1_Secchia_S:
+  Latitude: 44.745000
+  Longitude: 10.745000
+  Address: A1, 42015 Correggio RE
+
+SA_A4_Limenella_E:
+  Latitude: 45.300000
+  Longitude: 11.750000
+  Address: A4, 35020 Due Carrare PD
+
+SA_A4_Limenella_W:
+  Latitude: 45.295000
+  Longitude: 11.745000
+  Address: A4, 35020 Due Carrare PD
+
+SA_A4_Bergamo_E:
+  Latitude: 45.650000
+  Longitude: 9.750000
+  Address: A4, 24126 Bergamo BG
+
+SA_A4_Bergamo_W:
+  Latitude: 45.645000
+  Longitude: 9.745000
+  Address: A4, 24126 Bergamo BG
+
+SA_A6_Mondovi_N:
+  Latitude: 44.390000
+  Longitude: 7.820000
+  Address: A6, 12084 Mondovì CN
+
+SA_A6_Mondovi_S:
+  Latitude: 44.385000
+  Longitude: 7.815000
+  Address: A6, 12084 Mondovì CN
+
+SA_A7_Serravalle_N:
+  Latitude: 44.720000
+  Longitude: 8.850000
+  Address: A7, 15060 Serravalle Scrivia AL
+
+SA_A7_Serravalle_S:
+  Latitude: 44.715000
+  Longitude: 8.845000
+  Address: A7, 15060 Serravalle Scrivia AL
+
+SA_A7_Dorno:
+  Latitude: 45.150000
+  Longitude: 8.920000
+  Address: A7, 27020 Dorno PV
+
+SA_A8_Busto_N:
+  Latitude: 45.620000
+  Longitude: 8.870000
+  Address: A8, 21052 Busto Arsizio VA
+
+SA_A8_Busto_S:
+  Latitude: 45.615000
+  Longitude: 8.865000
+  Address: A8, 21052 Busto Arsizio VA
+
+SA_A9_Como_N:
+  Latitude: 45.810000
+  Longitude: 9.060000
+  Address: A9, 22100 Como CO
+
+SA_A9_Como_S:
+  Latitude: 45.805000
+  Longitude: 9.055000
+  Address: A9, 22100 Como CO
+
+SA_A13_Canale_N:
+  Latitude: 44.800000
+  Longitude: 11.450000
+  Address: A13, 44058 Canale RE
+
+SA_A13_Canale_S:
+  Latitude: 44.795000
+  Longitude: 11.445000
+  Address: A13, 44058 Canale RE
 
 Google Maps Links:
 --------------------
 depot_asti: https://www.google.com/maps?q=44.9009,8.2062
 depot_milan: https://www.google.com/maps?q=45.4642,9.1896
-pickup_1: https://www.google.com/maps?q=45.456546755614106,9.178786137855754
-dropoff_1: https://www.google.com/maps?q=44.395865387031144,7.529608164978883
-pickup_2: https://www.google.com/maps?q=45.45009391658314,9.181159139244109
-dropoff_2: https://www.google.com/maps?q=45.479137351888156,9.076480588387673
-pickup_3: https://www.google.com/maps?q=45.45581321866122,9.192277970516278
-dropoff_3: https://www.google.com/maps?q=45.42394418184965,9.12590751549554
-pickup_4: https://www.google.com/maps?q=45.4779163921662,9.18469783635338
-dropoff_4: https://www.google.com/maps?q=45.43656938141454,9.225018671674368
-pickup_5: https://www.google.com/maps?q=45.48419195360081,9.071086842743641
-dropoff_5: https://www.google.com/maps?q=45.692095348442216,9.681159193984834
-pickup_6: https://www.google.com/maps?q=45.4680686577077,9.057086654464712
-dropoff_6: https://www.google.com/maps?q=45.08485664561982,7.697559531630454
-pickup_7: https://www.google.com/maps?q=45.4706392080933,9.074070533327932
-dropoff_7: https://www.google.com/maps?q=45.10845812100683,7.74720525523133
-pickup_8: https://www.google.com/maps?q=45.481349348645914,9.071024196310892
-dropoff_8: https://www.google.com/maps?q=44.90968366325273,8.631385700519097
-pickup_9: https://www.google.com/maps?q=45.443938427529694,9.180185557605695
-dropoff_9: https://www.google.com/maps?q=45.48645137402313,9.06703494361067
-pickup_10: https://www.google.com/maps?q=45.45079408372557,9.171915401544355
-dropoff_10: https://www.google.com/maps?q=45.184676937784765,9.169740494616601
-pickup_11: https://www.google.com/maps?q=45.43134640499494,9.16229882523082
-dropoff_11: https://www.google.com/maps?q=44.91741041434956,8.217853014818838
-pickup_12: https://www.google.com/maps?q=45.42997962277472,9.184826128194853
-dropoff_12: https://www.google.com/maps?q=45.50937346472601,9.169433087289999
-pickup_13: https://www.google.com/maps?q=45.49149946005167,9.164014436404889
-dropoff_13: https://www.google.com/maps?q=45.44977665285084,8.615941496633539
-pickup_14: https://www.google.com/maps?q=45.512523391067035,9.143944430658285
-dropoff_14: https://www.google.com/maps?q=45.70582633398775,9.685357961979724
-pickup_15: https://www.google.com/maps?q=45.49550500385942,9.14834473263034
-dropoff_15: https://www.google.com/maps?q=44.37700167152253,7.542017583391509
-pickup_16: https://www.google.com/maps?q=45.51407883518034,9.169715557095103
-dropoff_16: https://www.google.com/maps?q=45.18492988645933,9.149167333052942
-pickup_17: https://www.google.com/maps?q=45.44198137090359,9.238058794358917
+pickup_1: https://www.google.com/maps?q=45.46838280395374,9.17535032265668
+dropoff_1: https://www.google.com/maps?q=44.88418613785576,8.186074855285145
+pickup_2: https://www.google.com/maps?q=45.46691477537347,9.175553480384455
+dropoff_2: https://www.google.com/maps?q=44.89516065864311,8.183796079090516
+pickup_3: https://www.google.com/maps?q=45.47023974920771,9.18718559462885
+dropoff_3: https://www.google.com/maps?q=44.91928291370033,8.205194962790342
+pickup_4: https://www.google.com/maps?q=45.461878431944605,9.182936140250149
+dropoff_4: https://www.google.com/maps?q=45.04026630829559,7.51139781901912
+pickup_5: https://www.google.com/maps?q=45.480411780941004,9.079213848198231
+dropoff_5: https://www.google.com/maps?q=45.454993472919384,9.22605603131625
+pickup_6: https://www.google.com/maps?q=45.48718213992759,9.073555592570928
+dropoff_6: https://www.google.com/maps?q=44.90703715508645,8.192574731509671
+pickup_7: https://www.google.com/maps?q=45.49185664561982,9.080659531630454
+dropoff_7: https://www.google.com/maps?q=44.90860230907105,8.230023312799224
+pickup_8: https://www.google.com/maps?q=45.472958121006826,9.075105255231332
+dropoff_8: https://www.google.com/maps?q=45.17483415944594,9.165073803938512
+pickup_9: https://www.google.com/maps?q=45.43478366325273,9.184585700519097
+dropoff_9: https://www.google.com/maps?q=45.815328482032456,8.83304940732777
+pickup_10: https://www.google.com/maps?q=45.4480540778202,9.179051374023137
+dropoff_10: https://www.google.com/maps?q=45.49302948530759,9.171887291430052
+pickup_11: https://www.google.com/maps?q=45.44306315995885,9.16676895703182
+dropoff_11: https://www.google.com/maps?q=44.89918890958576,8.227349669462749
+pickup_12: https://www.google.com/maps?q=45.445810414349566,9.167753014818837
+dropoff_12: https://www.google.com/maps?q=45.104379622774715,7.757026128194853
+pickup_13: https://www.google.com/maps?q=45.48942728236521,9.145013491262741
+dropoff_13: https://www.google.com/maps?q=45.17449946005167,9.16361443640489
+pickup_14: https://www.google.com/maps?q=45.4981485785952,9.173483641407202
+dropoff_14: https://www.google.com/maps?q=45.70912339106704,9.662644430658286
+pickup_15: https://www.google.com/maps?q=45.51324365350387,9.166126333987748
+dropoff_15: https://www.google.com/maps?q=45.06834295752007,7.685511711189876
+pickup_16: https://www.google.com/maps?q=45.50955886597156,9.15883045023813
+dropoff_16: https://www.google.com/maps?q=45.178653343743456,9.162368484845981
+pickup_17: https://www.google.com/maps?q=45.437017415577735,9.219546471072594
 dropoff_17: https://www.google.com/maps?q=45.467168337533806,9.18925817124087
 pickup_18: https://www.google.com/maps?q=45.452161656334695,9.239649965880835
 dropoff_18: https://www.google.com/maps?q=45.469526147773415,9.072020708310667
@@ -1061,9 +1156,9 @@ pickup_22: https://www.google.com/maps?q=45.50053102780021,9.218317645672734
 dropoff_22: https://www.google.com/maps?q=45.44463522839646,9.15666621300629
 pickup_23: https://www.google.com/maps?q=45.52568906200761,9.20382572049666
 dropoff_23: https://www.google.com/maps?q=45.82016243497451,8.826177017941841
-pickup_24: https://www.google.com/maps?q=45.52343858272872,9.225924909933
-dropoff_24: https://www.google.com/maps?q=45.50646948248544,9.154228926997687
-pickup_25: https://www.google.com/maps?q=45.428915102451086,9.117325135616964
+pickup_24: https://www.google.com/maps?q=45.51408013078935,9.225238582728721
+dropoff_24: https://www.google.com/maps?q=45.48960792442686,9.15653153547219
+pickup_25: https://www.google.com/maps?q=45.4170107400411,9.137572275483794
 dropoff_25: https://www.google.com/maps?q=45.453746407653234,8.625917775325851
 pickup_26: https://www.google.com/maps?q=45.40874770216425,9.13178857261731
 dropoff_26: https://www.google.com/maps?q=45.508256354340006,9.209194193436462
@@ -1079,8 +1174,8 @@ pickup_31: https://www.google.com/maps?q=44.88740427011792,8.205503655513269
 dropoff_31: https://www.google.com/maps?q=45.49112336709823,9.057403343957217
 pickup_32: https://www.google.com/maps?q=44.9037510531935,8.211456376608124
 dropoff_32: https://www.google.com/maps?q=45.51494788381687,9.160690262304145
-pickup_33: https://www.google.com/maps?q=44.88245950216485,8.202721194934176
-dropoff_33: https://www.google.com/maps?q=45.06524118773209,7.506127775982706
+pickup_33: https://www.google.com/maps?q=44.881192249868676,8.185459502164846
+dropoff_33: https://www.google.com/maps?q=45.6891910953793,9.66282297086811
 pickup_34: https://www.google.com/maps?q=44.887968435375946,8.186926348463825
 dropoff_34: https://www.google.com/maps?q=45.065070549951166,7.5280720286233445
 pickup_35: https://www.google.com/maps?q=44.898634777664796,8.199889809369168
@@ -1105,7 +1200,7 @@ pickup_44: https://www.google.com/maps?q=45.0817424861399,7.6726435908569455
 dropoff_44: https://www.google.com/maps?q=45.442367054168116,8.610921920851258
 pickup_45: https://www.google.com/maps?q=45.04197593528942,7.521038345644197
 dropoff_45: https://www.google.com/maps?q=45.48805779754014,9.06167301152637
-pickup_46: https://www.google.com/maps?q=45.04635572602016,7.523860364974586
+pickup_46: https://www.google.com/maps?q=45.047689752733376,7.524616091429147
 dropoff_46: https://www.google.com/maps?q=45.46900099548246,9.186553979356944
 pickup_47: https://www.google.com/maps?q=45.06620667312145,7.508373749781656
 dropoff_47: https://www.google.com/maps?q=45.835034490615946,8.82608647197436
@@ -1131,49 +1226,49 @@ pickup_57: https://www.google.com/maps?q=45.4302895858863,8.589427140352738
 dropoff_57: https://www.google.com/maps?q=45.51005261220302,9.150165234104369
 pickup_58: https://www.google.com/maps?q=45.419806551554224,8.592475948389799
 dropoff_58: https://www.google.com/maps?q=45.44984249805167,9.23472733197759
-pickup_59: https://www.google.com/maps?q=45.43667956968286,8.606578218838278
-dropoff_59: https://www.google.com/maps?q=45.696677408362305,9.66707473722629
-pickup_60: https://www.google.com/maps?q=45.426075746453954,8.59241719212529
-dropoff_60: https://www.google.com/maps?q=45.69423791051211,9.662177375914439
-pickup_61: https://www.google.com/maps?q=44.91970634587833,8.608734807340438
-dropoff_61: https://www.google.com/maps?q=45.685717329729734,9.666824919740394
-pickup_62: https://www.google.com/maps?q=44.90288415799731,8.608118586313179
-dropoff_62: https://www.google.com/maps?q=45.07157833421512,7.684373227023094
-pickup_63: https://www.google.com/maps?q=44.90998430438001,8.62479387316944
-dropoff_63: https://www.google.com/maps?q=45.804511430867834,9.07037688250752
-pickup_64: https://www.google.com/maps?q=44.92090425375178,8.627303438517073
-dropoff_64: https://www.google.com/maps?q=44.39113902182269,7.550996045128238
-pickup_65: https://www.google.com/maps?q=44.89658264903864,8.6280750792814
-dropoff_65: https://www.google.com/maps?q=45.07536620861869,7.695844269732605
-pickup_66: https://www.google.com/maps?q=44.91758624862007,8.644421659325568
-dropoff_66: https://www.google.com/maps?q=45.115556783268836,7.7469899927050845
-pickup_67: https://www.google.com/maps?q=44.902858383089836,8.641005540667855
-dropoff_67: https://www.google.com/maps?q=44.891373115925646,8.189349808526345
-pickup_68: https://www.google.com/maps?q=44.91283689123682,8.626373786466925
-dropoff_68: https://www.google.com/maps?q=45.43750920508639,9.177370727832486
-pickup_69: https://www.google.com/maps?q=45.68642666497159,9.657058551113582
-dropoff_69: https://www.google.com/maps?q=45.47768835198148,9.180580820470876
-pickup_70: https://www.google.com/maps?q=45.68427147037354,9.658786629246226
-dropoff_70: https://www.google.com/maps?q=45.41695101950305,9.123387310896865
-pickup_71: https://www.google.com/maps?q=45.69787678077681,9.683912042323037
-dropoff_71: https://www.google.com/maps?q=45.52884162319102,9.204942962489728
-pickup_72: https://www.google.com/maps?q=45.69697390185237,9.682240784531423
-dropoff_72: https://www.google.com/maps?q=45.31154989331275,8.424662935837496
-pickup_73: https://www.google.com/maps?q=45.704215790074876,9.67134748056463
-dropoff_73: https://www.google.com/maps?q=45.816579060390836,9.080616112959254
-pickup_74: https://www.google.com/maps?q=45.694417126286545,9.677478823690313
-dropoff_74: https://www.google.com/maps?q=45.4565699275427,8.60506616611932
-pickup_75: https://www.google.com/maps?q=45.710047250444156,9.676092180428054
-dropoff_75: https://www.google.com/maps?q=45.521913859120396,9.230664211937142
-pickup_76: https://www.google.com/maps?q=45.707545976564205,9.678445187193448
-dropoff_76: https://www.google.com/maps?q=45.45667203795262,8.61967423857191
-pickup_77: https://www.google.com/maps?q=45.81802193056672,9.07279988694167
-dropoff_77: https://www.google.com/maps?q=45.43539548934035,8.605045654113365
-pickup_78: https://www.google.com/maps?q=45.80792919510848,9.079950425036664
-dropoff_78: https://www.google.com/maps?q=45.06113497070484,7.510210165294928
-pickup_79: https://www.google.com/maps?q=45.79340453343316,9.09864187733331
-dropoff_79: https://www.google.com/maps?q=44.38129284374011,7.543655286347455
-pickup_80: https://www.google.com/maps?q=45.80738279332353,9.091555272194181
+pickup_59: https://www.google.com/maps?q=45.427818938723966,8.607657500406672
+dropoff_59: https://www.google.com/maps?q=44.395860608890224,7.5398022227057595
+pickup_60: https://www.google.com/maps?q=45.445216243097,8.607309663264788
+dropoff_60: https://www.google.com/maps?q=44.90255330359502,8.208195886635258
+pickup_61: https://www.google.com/maps?q=44.91283791051211,8.608877375914439
+dropoff_61: https://www.google.com/maps?q=45.314171844525895,8.415051453212467
+pickup_62: https://www.google.com/maps?q=44.90071732972973,8.606224919740393
+dropoff_62: https://www.google.com/maps?q=45.44699257425084,9.216626865521416
+pickup_63: https://www.google.com/maps?q=44.914578334215115,8.614173227023095
+dropoff_63: https://www.google.com/maps?q=45.44358430438001,8.624993873169439
+pickup_64: https://www.google.com/maps?q=44.90971143086783,8.60187688250752
+dropoff_64: https://www.google.com/maps?q=45.12340343851707,7.755702910154103
+pickup_65: https://www.google.com/maps?q=44.912425470069344,8.631383969292015
+dropoff_65: https://www.google.com/maps?q=44.894088059352896,8.205769259813955
+pickup_66: https://www.google.com/maps?q=44.91006620861869,8.638944269732606
+dropoff_66: https://www.google.com/maps?q=45.44588624862007,8.614421659325567
+pickup_67: https://www.google.com/maps?q=44.91720786587761,8.632756783268839
+dropoff_67: https://www.google.com/maps?q=45.182558383089834,9.169205540667855
+pickup_68: https://www.google.com/maps?q=44.89780468941758,8.624820580008253
+dropoff_68: https://www.google.com/maps?q=45.078136891236824,7.683273786466923
+pickup_69: https://www.google.com/maps?q=45.704747327447365,9.669109205086391
+dropoff_69: https://www.google.com/maps?q=45.04392666497159,7.502058551113583
+pickup_70: https://www.google.com/maps?q=45.70818835198148,9.660980820470876
+dropoff_70: https://www.google.com/maps?q=45.43295634825667,9.228906831828382
+pickup_71: https://www.google.com/maps?q=45.7081327106665,9.668951019503057
+dropoff_71: https://www.google.com/maps?q=45.04223367430103,7.5182174248167275
+pickup_72: https://www.google.com/maps?q=45.70864162319102,9.658242962489728
+dropoff_72: https://www.google.com/maps?q=44.912273901852366,8.232240784531424
+pickup_73: https://www.google.com/maps?q=45.711544117956244,9.668249893312753
+dropoff_73: https://www.google.com/maps?q=45.328774426548534,8.432408797172664
+pickup_74: https://www.google.com/maps?q=45.706779060390836,9.672716112959254
+dropoff_74: https://www.google.com/maps?q=45.03926870209559,7.5194262976217034
+pickup_75: https://www.google.com/maps?q=45.707969927542706,9.665466166119321
+dropoff_75: https://www.google.com/maps?q=45.43951925931118,8.59806461435023
+pickup_76: https://www.google.com/maps?q=45.69140247189163,9.686545976564203
+dropoff_76: https://www.google.com/maps?q=44.91224621314903,8.626472037952622
+pickup_77: https://www.google.com/maps?q=45.802769137489435,9.077564855072811
+dropoff_77: https://www.google.com/maps?q=45.42561590317573,8.598941253998097
+pickup_78: https://www.google.com/maps?q=45.793960999933105,9.095728585089374
+dropoff_78: https://www.google.com/maps?q=45.413644748985284,9.12345057226576
+pickup_79: https://www.google.com/maps?q=45.81413551250997,9.078488057272686
+dropoff_79: https://www.google.com/maps?q=45.40556838885874,9.137302239923125
+pickup_80: https://www.google.com/maps?q=45.815844939604474,9.090918280183397
 dropoff_80: https://www.google.com/maps?q=45.451991600516635,9.181247892014177
 pickup_81: https://www.google.com/maps?q=45.54651880064791,10.207870613519832
 dropoff_81: https://www.google.com/maps?q=45.04996511438116,7.522378063101408
@@ -1205,13 +1300,32 @@ pickup_94: https://www.google.com/maps?q=45.31966093910828,8.416022735716345
 dropoff_94: https://www.google.com/maps?q=44.90619944687794,8.628132765907148
 pickup_95: https://www.google.com/maps?q=45.327636017698566,8.425011409228379
 dropoff_95: https://www.google.com/maps?q=44.914757333065786,8.216278758417186
-pickup_96: https://www.google.com/maps?q=45.33024263735775,8.424187409538083
-dropoff_96: https://www.google.com/maps?q=44.90954528468301,8.642482183637803
-pickup_97: https://www.google.com/maps?q=44.3821765496123,7.551427348336218
-dropoff_97: https://www.google.com/maps?q=45.0494504428029,7.5096317476786965
-pickup_98: https://www.google.com/maps?q=44.37899410990737,7.547810210219502
-dropoff_98: https://www.google.com/maps?q=45.12220698104214,7.743602898269153
-pickup_99: https://www.google.com/maps?q=44.378535514715104,7.53669821358828
-dropoff_99: https://www.google.com/maps?q=44.914747816098064,8.615034532023444
-pickup_100: https://www.google.com/maps?q=44.381497427123975,7.532627476241836
-dropoff_100: https://www.google.com/maps?q=44.91706226226435,8.62449971608183
+pickup_96: https://www.google.com/maps?q=45.33412358833419,8.436887172506324
+dropoff_96: https://www.google.com/maps?q=45.48519327012515,9.06025572183814
+pickup_97: https://www.google.com/maps?q=44.3823668821326,7.535344697173272
+dropoff_97: https://www.google.com/maps?q=45.55102734833622,10.22587165708197
+pickup_98: https://www.google.com/maps?q=44.3813504428029,7.536631747678697
+dropoff_98: https://www.google.com/maps?q=45.50979410990737,9.222510210219502
+pickup_99: https://www.google.com/maps?q=44.39745580618689,7.551406981042139
+dropoff_99: https://www.google.com/maps?q=45.42094179378328,8.592571965528267
+pickup_100: https://www.google.com/maps?q=44.39504731752155,7.551747816098061
+dropoff_100: https://www.google.com/maps?q=45.69355929034946,9.656626122561303
+SA_A1_Fiorenzuola_N: https://www.google.com/maps?q=44.9167,9.9
+SA_A1_Fiorenzuola_S: https://www.google.com/maps?q=44.91,9.895
+SA_A1_Secchia_N: https://www.google.com/maps?q=44.75,10.75
+SA_A1_Secchia_S: https://www.google.com/maps?q=44.745,10.745
+SA_A4_Limenella_E: https://www.google.com/maps?q=45.3,11.75
+SA_A4_Limenella_W: https://www.google.com/maps?q=45.295,11.745
+SA_A4_Bergamo_E: https://www.google.com/maps?q=45.65,9.75
+SA_A4_Bergamo_W: https://www.google.com/maps?q=45.645,9.745
+SA_A6_Mondovi_N: https://www.google.com/maps?q=44.39,7.82
+SA_A6_Mondovi_S: https://www.google.com/maps?q=44.385,7.815
+SA_A7_Serravalle_N: https://www.google.com/maps?q=44.72,8.85
+SA_A7_Serravalle_S: https://www.google.com/maps?q=44.715,8.845
+SA_A7_Dorno: https://www.google.com/maps?q=45.15,8.92
+SA_A8_Busto_N: https://www.google.com/maps?q=45.62,8.87
+SA_A8_Busto_S: https://www.google.com/maps?q=45.615,8.865
+SA_A9_Como_N: https://www.google.com/maps?q=45.81,9.06
+SA_A9_Como_S: https://www.google.com/maps?q=45.805,9.055
+SA_A13_Canale_N: https://www.google.com/maps?q=44.8,11.45
+SA_A13_Canale_S: https://www.google.com/maps?q=44.795,11.445

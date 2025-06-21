@@ -99,15 +99,14 @@ class VRPQuantumOptimizer:
         
         # Quantum configuration
         self.quantum_metrics = {}
-        
-        # Set up logging
+          # Set up logging
         if not self.logger.handlers:
             handler = logging.StreamHandler()
             formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
             self.logger.setLevel(logging.INFO)
-    
+
     def optimize_with_quantum_benders(self) -> VRPResult:
         """Optimize VRP using quantum-enhanced approach."""
         self.logger.info("Starting VRP optimization with quantum-enhanced methods")
@@ -116,6 +115,8 @@ class VRPQuantumOptimizer:
         try:
             def _optimize_internal():
                 routes = self._quantum_inspired_heuristic()
+                # Apply driver regulations for heavy trucks
+                routes = self._check_driver_regulations(routes)
                 return routes
             
             routes = run_with_timeout(_optimize_internal, timeout_duration=15)
@@ -478,18 +479,30 @@ class VRPQuantumOptimizer:
                             capacity_dimension.CumulVar(pickup_node) <= 
                             capacity_dimension.CumulVar(delivery_node)
                         )
+                  # Add time constraints based on vehicle max_total_work_time settings
+                # Check if any vehicle has time constraints and collect them
+                vehicle_time_constraints = {}
+                has_time_constraints = False
+                for vid, vehicle in enumerate(self.instance.vehicles.values()):
+                    max_time = None
+                    if hasattr(vehicle, 'max_total_work_time') and vehicle.max_total_work_time is not None:
+                        max_time = vehicle.max_total_work_time  # in minutes
+                    elif hasattr(vehicle, 'max_time') and vehicle.max_time is not None:
+                        max_time = vehicle.max_time  # in minutes
+                    
+                    if max_time is not None:
+                        vehicle_time_constraints[vid] = max_time
+                        has_time_constraints = True
                 
-                # Add time constraints based on vehicle max_time settings
-                # Check if any vehicle has a max_time constraint
-                max_vehicle_time = None
-                for vehicle in self.instance.vehicles.values():
-                    if hasattr(vehicle, 'max_time') and vehicle.max_time is not None:
-                        max_vehicle_time = vehicle.max_time  # in minutes
-                        break
-                
-                if max_vehicle_time is not None:
-                    self.logger.info(f"Adding vehicle time constraint: max {max_vehicle_time} minutes ({max_vehicle_time/60:.1f} hours)")
-                      # Create a proper time callback that includes travel time + service time
+                if has_time_constraints:
+                    # Log the different time constraints
+                    for vid, max_time in vehicle_time_constraints.items():
+                        vehicle_list = list(self.instance.vehicles.values())
+                        vehicle = vehicle_list[vid]
+                        vehicle_type = getattr(vehicle, 'vehicle_type', 'unknown')
+                        self.logger.info(f"Vehicle {vid} ({vehicle_type}): max {max_time} minutes ({max_time/60:.1f} hours)")
+                    
+                    # Create a proper time callback that includes travel time + service time
                     def time_callback(from_index, to_index):
                         from_node = manager.IndexToNode(from_index)
                         to_node = manager.IndexToNode(to_index)
@@ -501,7 +514,9 @@ class VRPQuantumOptimizer:
                         
                         # Convert distance units to approximate km for realistic travel time
                         # For GPS coordinates, 1 degree ≈ 111 km at latitude ~45° (Northern Italy)
-                        distance_km = distance_units * 111  # approximate conversion                        # Calculate travel time assuming realistic urban delivery speed
+                        distance_km = distance_units * 111  # approximate conversion
+                        
+                        # Calculate travel time assuming realistic urban delivery speed
                         avg_speed_kmh = 50  # Higher speed for faster urban/highway travel
                         travel_time_hours = distance_km / avg_speed_kmh
                         travel_time_minutes = travel_time_hours * 60
@@ -519,12 +534,13 @@ class VRPQuantumOptimizer:
                         return total_time_seconds
                     
                     time_callback_index = routing.RegisterTransitCallback(time_callback)
+                      # Use the maximum time constraint for the dimension (OR-Tools requires a single max)
+                    max_overall_time = max(vehicle_time_constraints.values())
+                    max_time_seconds = int(max_overall_time * 60)
                     
-                    # Convert max_time from minutes to seconds
-                    max_time_seconds = max_vehicle_time * 60
+                    self.logger.info(f"Adding time dimension with max {max_overall_time} minutes ({max_overall_time/60:.1f} hours)")
                     
-                    self.logger.info(f"Maximum time per vehicle: {max_vehicle_time} minutes ({max_vehicle_time/60:.1f} hours)")
-                      # Add time dimension with proper time constraints
+                    # Add time dimension with proper time constraints
                     routing.AddDimension(
                         time_callback_index,
                         max_time_seconds // 5,  # slack: 20% of max time for flexibility
@@ -532,6 +548,16 @@ class VRPQuantumOptimizer:
                         True,  # start cumul to zero
                         'TotalTime'
                     )
+                    
+                    # Apply individual vehicle time constraints
+                    time_dimension = routing.GetDimensionOrDie('TotalTime')
+                    for vid, max_time in vehicle_time_constraints.items():
+                        max_time_seconds_vehicle = int(max_time * 60)
+                        end_node = routing.End(vid)
+                        time_dimension.CumulVar(end_node).SetMax(max_time_seconds_vehicle)                
+                # Note: No arbitrary stop count constraint - only time constraint matters
+                # Vehicles can do as many stops as they can fit within the time limit
+                self.logger.info("No stop count constraint - vehicles limited only by time constraints")
             else:
                 # Even without capacity constraints, we still need pickup-delivery constraints
                 if is_ride_pooling and pickup_deliveries:
@@ -623,9 +649,11 @@ class VRPQuantumOptimizer:
                             routes[vehicle_id] = route
                             total_distance += route_distance
                             self.logger.debug(f"Vehicle {vehicle_id} route: {route}, distance: {route_distance}")
-                        else:
-                            # Empty route - vehicle not used
+                        else:                            # Empty route - vehicle not used
                             routes[vehicle_id] = [start_depot]
+                
+                # Apply driver regulations for heavy trucks
+                routes = self._check_driver_regulations(routes)
                 
                 # Calculate metrics
                 metrics = self._calculate_vrp_metrics(routes)
@@ -1684,7 +1712,7 @@ class VRPQuantumOptimizer:
             # Apply 2-opt to each route
             improved_routes = {}
             total_improvement = 0.0
-            routes_improved = 0
+            routes_improved_by_2opt = 0
             
             for vehicle_id, route in initial_routes.items():
                 if len(route) > 3:  # Only apply 2-opt to routes with more than 3 nodes
@@ -1696,7 +1724,7 @@ class VRPQuantumOptimizer:
                     total_improvement += improvement
                     
                     if improvement > 0:
-                        routes_improved += 1
+                        routes_improved_by_2opt += 1
                         self.logger.debug(f"Vehicle {vehicle_id}: 2-opt improved by {improvement:.2f}")
                 else:
                     improved_routes[vehicle_id] = route
@@ -1714,7 +1742,7 @@ class VRPQuantumOptimizer:
                 'final_distance': final_distance,
                 'total_improvement': initial_distance - final_distance,
                 'improvement_percentage': ((initial_distance - final_distance) / initial_distance * 100) if initial_distance > 0 else 0,
-                'routes_improved_by_2opt': routes_improved,
+                'routes_improved_by_2opt': routes_improved_by_2opt,
                 'two_opt_stats': two_opt.improvement_stats,
                 'method_comparison': initial_result.metrics.get('method_comparison', {})
             })
@@ -1742,41 +1770,178 @@ class VRPQuantumOptimizer:
                 runtime=runtime
             )
     
-    def _create_distance_matrix(self) -> np.ndarray:
+    def _check_driver_regulations(self, routes: Dict[str, List[str]]) -> Dict[str, List[str]]:
         """
-        Create distance matrix from VRP instance for use with new methods.
+        Check and enforce driver regulations for heavy trucks (24-ton vehicles).
         
+        Heavy truck regulations:
+        - Maximum 9 hours total work time per day
+        - Maximum 4.5 hours continuous driving time
+        - Mandatory 45-minute break after 4.5 hours driving (can be split: 15 + 30 min)
+        - Break time not counted in driving time or service time
+        
+        Args:
+            routes: Dictionary of vehicle routes
+            
         Returns:
-            np.ndarray: Distance matrix between all locations
+            Updated routes with break locations inserted where needed
         """
-        n = len(self.instance.location_ids)
-        distance_matrix = np.zeros((n, n))
+        updated_routes = {}
         
-        for i, loc1_id in enumerate(self.instance.location_ids):
-            for j, loc2_id in enumerate(self.instance.location_ids):
-                if i != j:
-                    # Use instance's distance calculation method if available
-                    if hasattr(self.instance, 'get_distance'):
-                        distance_matrix[i][j] = self.instance.get_distance(loc1_id, loc2_id)
+        for vehicle_id, route in routes.items():
+            if vehicle_id not in self.instance.vehicles:
+                updated_routes[vehicle_id] = route
+                continue
+                
+            vehicle = self.instance.vehicles[vehicle_id]
+            
+            # Only check heavy trucks (24-ton vehicles)
+            if not hasattr(vehicle, 'vehicle_type') or vehicle.vehicle_type != 'heavy':
+                updated_routes[vehicle_id] = route
+                continue
+            
+            # Check if route needs break enforcement
+            if len(route) <= 2:  # Just depot start/end
+                updated_routes[vehicle_id] = route
+                continue
+            
+            updated_route = self._optimize_route_with_breaks(route, vehicle)
+            updated_routes[vehicle_id] = updated_route
+            
+        return updated_routes
+    
+    def _optimize_route_with_breaks(self, route: List[str], vehicle) -> List[str]:
+        """
+        Optimize a single route to comply with driver break regulations.
+        
+        For heavy trucks, insert break locations after 4.5 hours of driving.
+        Break locations can be:
+        1. Service areas along the route (preferred)
+        2. Depot returns for break (fallback)
+        
+        Args:
+            route: Original route for the vehicle
+            vehicle: Vehicle object with regulations
+            
+        Returns:
+            Optimized route with break locations inserted
+        """
+        if not hasattr(vehicle, 'max_driving_time') or vehicle.max_driving_time is None:
+            return route
+            
+        max_driving_minutes = vehicle.max_driving_time  # 270 minutes (4.5 hours)
+        required_break_minutes = vehicle.required_break_time  # 45 minutes
+        
+        # Track driving time
+        current_driving_time = 0.0
+        new_route = [route[0]]  # Start with depot
+        
+        for i in range(1, len(route)):
+            prev_location = route[i-1]
+            current_location = route[i]
+            
+            # Calculate travel time between locations (assume 50 km/h average speed)
+            try:
+                distance = self.instance.get_distance(prev_location, current_location)
+                travel_time = distance * 1.2  # minutes (assuming 50 km/h = 0.83 km/min)
+            except:
+                travel_time = 30  # fallback: 30 minutes between locations
+            
+            # Check if adding this travel would exceed driving time limit
+            if current_driving_time + travel_time > max_driving_minutes:
+                # Insert break location
+                break_location = self._find_break_location(prev_location, current_location)
+                if break_location and break_location not in new_route:
+                    new_route.append(break_location)
+                    self.logger.info(f"Inserted break location {break_location} for vehicle {vehicle.id}")
+                
+                # Reset driving time after break
+                current_driving_time = 0.0
+            
+            # Add the current location
+            new_route.append(current_location)
+            current_driving_time += travel_time
+              # Add service time (loading/unloading doesn't count toward driving time)
+            if current_location in self.instance.locations:
+                location = self.instance.locations[current_location]
+                if hasattr(location, 'service_time') and location.service_time:
+                    # Service time doesn't count toward driving time limit
+                    pass
+        
+        return new_route
+    
+    def _find_break_location(self, from_location: str, to_location: str) -> Optional[str]:
+        """
+        Find an appropriate break location between two route points.
+        
+        Preference order:
+        1. Service areas along the route (if available)
+        2. Return to depot for break (fallback)
+        
+        Args:
+            from_location: Starting location
+            to_location: Destination location
+            
+        Returns:
+            Break location ID or None if no suitable location found
+        """
+        # Try to find a service area along the route
+        try:
+            # Import service areas database if available
+            from service_areas_db import service_areas_db
+            
+            # Get coordinates of from/to locations
+            from_coords = self._get_location_coords(from_location)
+            to_coords = self._get_location_coords(to_location)
+            
+            if from_coords and to_coords:
+                # Find the best service area for a break between these points
+                best_service_area = service_areas_db.find_break_location_between_points(
+                    from_coords[0], from_coords[1], to_coords[0], to_coords[1]
+                )
+                
+                if best_service_area:
+                    # Check if this service area is already in our instance locations
+                    if best_service_area.id in self.instance.locations:
+                        return best_service_area.id
                     else:
-                        # Calculate Euclidean distance if coordinates are available
-                        if hasattr(self.instance, 'locations') and loc1_id in self.instance.locations and loc2_id in self.instance.locations:
-                            loc1 = self.instance.locations[loc1_id]
-                            loc2 = self.instance.locations[loc2_id]
-                            
-                            # Robust coordinate extraction
-                            if (hasattr(loc1, 'lat') and hasattr(loc1, 'lon') and 
-                                hasattr(loc2, 'lat') and hasattr(loc2, 'lon') and
-                                loc1.lat is not None and loc1.lon is not None and
-                                loc2.lat is not None and loc2.lon is not None):
-                                x1, y1 = float(loc1.lat), float(loc1.lon)
-                                x2, y2 = float(loc2.lat), float(loc2.lon)
-                                distance_matrix[i][j] = np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
-                            else:
-                                # Use index-based coordinates for synthetic data
-                                distance_matrix[i][j] = np.sqrt((i*10 - j*10)**2 + (i*10 - j*10)**2)
-                        else:
-                            # Fallback: use index-based distance
-                            distance_matrix[i][j] = abs(i - j) * 10
+                        # Add the service area to our instance for this route
+                        from service_areas_db import service_area_to_location
+                        self.instance.locations[best_service_area.id] = service_area_to_location(best_service_area)
+                        return best_service_area.id
+                    
+        except ImportError:
+            # Service areas database not available
+            self.logger.warning("Service areas database not available for break planning")
+        except Exception as e:
+            self.logger.warning(f"Error finding service area for break: {e}")
         
-        return distance_matrix
+        # Fallback: suggest depot return for break (simplified)
+        # In a real implementation, this would return to the nearest depot
+        if from_location.startswith('depot'):
+            return from_location
+        
+        # Look for any depot in the instance
+        for location_id in self.instance.location_ids:
+            if location_id.startswith('depot'):
+                return location_id
+        
+        return None
+    
+    def _get_location_coords(self, location_id: str) -> Optional[Tuple[float, float]]:
+        """Get latitude and longitude coordinates for a location."""
+        if location_id not in self.instance.locations:
+            return None
+            
+        location = self.instance.locations[location_id]
+        
+        # Try to get real GPS coordinates
+        if (hasattr(location, 'lat') and hasattr(location, 'lon') and 
+            location.lat is not None and location.lon is not None):
+            return (float(location.lat), float(location.lon))
+        
+        # Fallback to synthetic coordinates
+        if hasattr(location, 'x') and hasattr(location, 'y'):
+            return (float(location.x), float(location.y))
+        
+        return None

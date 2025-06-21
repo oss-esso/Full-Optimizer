@@ -15570,3 +15570,843 @@ VRP analysis completed. Results saved to g:\Il mio Drive\OQI_Project\Full Optimi
 2025-06-20 18:21:37,720 - __main__ - INFO - Generating summary report
 2025-06-20 18:21:38,523 - __main__ - INFO - 
 VRP analysis completed. Results saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results
+2025-06-21 13:21:29,971 - __main__ - INFO - Starting VRP scenario analysis
+2025-06-21 13:21:30,000 - __main__ - INFO - 
+============================================================
+2025-06-21 13:21:30,000 - __main__ - INFO - Processing scenario: small_delivery
+2025-06-21 13:21:30,000 - __main__ - INFO - ============================================================
+2025-06-21 13:21:30,001 - __main__ - INFO - Comparing optimization methods for Small Delivery Problem
+2025-06-21 13:21:30,001 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-21 13:21:30,001 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-21 13:21:30,017 - __main__ - INFO - Running simple classical heuristic...
+2025-06-21 13:21:30,017 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-21 13:21:30,018 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-21 13:21:30,018 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-21 13:21:30,021 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [10, 10]
+2025-06-21 13:21:30,021 - vrp_optimizer_fixed - INFO - No stop count constraint - vehicles limited only by time constraints
+2025-06-21 13:21:30,028 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-21 13:21:32,028 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 180320
+2025-06-21 13:21:32,044 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=320.00, vehicles=2, runtime=2009.25ms
+2025-06-21 13:21:32,045 - __main__ - INFO - Running advanced heuristics...
+2025-06-21 13:21:32,045 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-21 13:21:32,045 - initial_solution_generator - INFO - Generating nearest neighbor solution with 0.0% perturbation
+2025-06-21 13:21:32,046 - initial_solution_generator - INFO - Generated nearest neighbor solution with 1 routes
+2025-06-21 13:21:32,046 - initial_solution_generator - INFO - Generating savings algorithm solution with 0.0% perturbation
+2025-06-21 13:21:32,046 - initial_solution_generator - INFO - Generated savings algorithm solution with 1 routes
+2025-06-21 13:21:32,046 - initial_solution_generator - INFO - Generating firefly algorithm solution with 20 fireflies and 12.0% perturbation
+2025-06-21 13:21:32,057 - initial_solution_generator - INFO - Generated firefly algorithm solution with 1 routes, feasible: True, distance: 113.14
+2025-06-21 13:21:32,057 - initial_solution_generator - INFO - Generating greedy insertion solution with demand-distance priority: True
+2025-06-21 13:21:32,058 - initial_solution_generator - INFO - Generated greedy insertion solution with 1 routes
+2025-06-21 13:21:32,058 - vrp_optimizer_fixed - INFO - Best method: nearest_neighbor with distance 113.14
+2025-06-21 13:21:32,058 - vrp_optimizer_fixed - INFO - Advanced heuristics solution: distance=280.00, vehicles=1, runtime=12.67ms
+2025-06-21 13:21:32,059 - __main__ - INFO - Running 2-opt improvement...
+2025-06-21 13:21:32,059 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-21 13:21:32,059 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: greedy_insertion
+2025-06-21 13:21:32,059 - initial_solution_generator - INFO - Generating greedy insertion solution with demand-distance priority: True
+2025-06-21 13:21:32,060 - initial_solution_generator - INFO - Generated greedy insertion solution with 1 routes
+2025-06-21 13:21:32,060 - vrp_optimizer_fixed - INFO - Advanced heuristics solution: distance=280.00, vehicles=1, runtime=1.00ms
+2025-06-21 13:21:32,061 - vrp_optimizer_fixed - INFO - 2-opt improvement: 280.00 -> 280.00 (improvement: 0.00, 0.0%), runtime=1.00ms
+2025-06-21 13:21:33,013 - __main__ - INFO - Comparison plot saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\small_delivery_comparison.png
+2025-06-21 13:21:33,568 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\small_delivery_quantum_solution.png
+2025-06-21 13:21:34,126 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\small_delivery_classical_solution.png
+2025-06-21 13:21:34,673 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\small_delivery_ortools_solution.png
+2025-06-21 13:21:35,219 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\small_delivery_advanced_solution.png
+2025-06-21 13:21:35,789 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\small_delivery_twopt_solution.png
+2025-06-21 13:21:35,790 - __main__ - INFO - Using best distance solution for small_delivery map
+2025-06-21 13:21:35,790 - vrp_map_visualization - INFO - Scenario small_delivery has no GPS coordinates. Skipping map visualizations.
+2025-06-21 13:21:35,790 - __main__ - INFO - Scenario small_delivery completed:
+2025-06-21 13:21:35,790 - __main__ - INFO -   Quantum - Distance: 320.00, Runtime: 15.33ms
+2025-06-21 13:21:35,791 - __main__ - INFO -   Classical - Distance: 280.00, Runtime: 0.00ms
+2025-06-21 13:21:35,791 - __main__ - INFO -   OR-Tools - Distance: 320.00, Runtime: 2009.25ms
+2025-06-21 13:21:35,791 - __main__ - INFO -   Advanced - Distance: 280.00, Runtime: 12.67ms
+2025-06-21 13:21:35,791 - __main__ - INFO -   2-opt - Distance: 280.00, Runtime: 1.00ms
+2025-06-21 13:21:35,792 - __main__ - INFO - 
+============================================================
+2025-06-21 13:21:35,792 - __main__ - INFO - Processing scenario: vrppd
+2025-06-21 13:21:35,792 - __main__ - INFO - ============================================================
+2025-06-21 13:21:35,792 - __main__ - INFO - Comparing optimization methods for Vehicle Routing Problem with Pickup and Delivery
+2025-06-21 13:21:35,792 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-21 13:21:35,793 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-21 13:21:35,793 - __main__ - INFO - Running simple classical heuristic...
+2025-06-21 13:21:35,794 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-21 13:21:35,794 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-21 13:21:35,795 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-21 13:21:35,795 - vrp_optimizer_fixed - WARNING - OR-Tools configured for ride pooling with pickup-delivery constraints
+2025-06-21 13:21:35,795 - vrp_optimizer_fixed - INFO - Multi-depot VRPPD with 2 depots: ['depot_1', 'depot_2']
+2025-06-21 13:21:35,796 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [4000, 4000]
+2025-06-21 13:21:35,797 - vrp_optimizer_fixed - INFO - No stop count constraint - vehicles limited only by time constraints
+2025-06-21 13:21:35,817 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-21 13:21:37,819 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 28054
+2025-06-21 13:21:37,820 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=54.00, vehicles=2, runtime=2023.67ms
+2025-06-21 13:21:37,821 - __main__ - INFO - Running advanced heuristics...
+2025-06-21 13:21:37,821 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-21 13:21:37,821 - vrp_optimizer_fixed - WARNING - Advanced heuristics not yet implemented for ride pooling scenarios
+2025-06-21 13:21:37,822 - __main__ - INFO - Running 2-opt improvement...
+2025-06-21 13:21:37,822 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-21 13:21:37,822 - vrp_optimizer_fixed - WARNING - 2-opt improvement not yet implemented for ride pooling scenarios
+2025-06-21 13:21:38,420 - __main__ - INFO - Comparison plot saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\vrppd_comparison.png
+2025-06-21 13:21:38,983 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\vrppd_quantum_solution.png
+2025-06-21 13:21:39,555 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\vrppd_classical_solution.png
+2025-06-21 13:21:40,136 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\vrppd_ortools_solution.png
+2025-06-21 13:21:40,748 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\vrppd_advanced_solution.png
+2025-06-21 13:21:41,247 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\vrppd_twopt_solution.png
+2025-06-21 13:21:41,248 - __main__ - INFO - Using classical solution for vrppd map (ride pooling constraints)
+2025-06-21 13:21:41,248 - vrp_map_visualization - INFO - Scenario vrppd has no GPS coordinates. Skipping map visualizations.
+2025-06-21 13:21:41,248 - __main__ - INFO - Scenario vrppd completed:
+2025-06-21 13:21:41,248 - __main__ - INFO -   Quantum - Distance: 60.00, Runtime: 0.00ms
+2025-06-21 13:21:41,249 - __main__ - INFO -   Classical - Distance: 60.00, Runtime: 0.00ms
+2025-06-21 13:21:41,249 - __main__ - INFO -   OR-Tools - Distance: 54.00, Runtime: 2023.67ms
+2025-06-21 13:21:41,249 - __main__ - INFO -   Advanced - Distance: 0.00, Runtime: 0.00ms
+2025-06-21 13:21:41,249 - __main__ - INFO -   2-opt - Distance: 0.00, Runtime: 0.00ms
+2025-06-21 13:21:41,250 - __main__ - INFO - 
+============================================================
+2025-06-21 13:21:41,250 - __main__ - INFO - Processing scenario: medium_delivery
+2025-06-21 13:21:41,250 - __main__ - INFO - ============================================================
+2025-06-21 13:21:41,250 - __main__ - INFO - Comparing optimization methods for Medium Delivery Problem
+2025-06-21 13:21:41,251 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-21 13:21:41,251 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-21 13:21:41,252 - __main__ - INFO - Running simple classical heuristic...
+2025-06-21 13:21:41,252 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-21 13:21:41,253 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-21 13:21:41,253 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-21 13:21:41,254 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [15, 15, 15]
+2025-06-21 13:21:41,255 - vrp_optimizer_fixed - INFO - No stop count constraint - vehicles limited only by time constraints
+2025-06-21 13:21:41,255 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-21 13:21:46,256 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 461340
+2025-06-21 13:21:46,257 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=1340.00, vehicles=3, runtime=5001.20ms
+2025-06-21 13:21:46,258 - __main__ - INFO - Running advanced heuristics...
+2025-06-21 13:21:46,258 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-21 13:21:46,270 - initial_solution_generator - INFO - Generating nearest neighbor solution with 0.0% perturbation
+2025-06-21 13:21:46,271 - initial_solution_generator - INFO - Generated nearest neighbor solution with 3 routes
+2025-06-21 13:21:46,271 - initial_solution_generator - INFO - Generating savings algorithm solution with 0.0% perturbation
+2025-06-21 13:21:46,271 - initial_solution_generator - INFO - Generated savings algorithm solution with 3 routes
+2025-06-21 13:21:46,272 - initial_solution_generator - INFO - Generating firefly algorithm solution with 20 fireflies and 12.0% perturbation
+2025-06-21 13:21:46,273 - initial_solution_generator - INFO - Generated firefly algorithm solution with 2 routes, feasible: False, distance: 537.40
+2025-06-21 13:21:46,273 - initial_solution_generator - INFO - Generating greedy insertion solution with demand-distance priority: True
+2025-06-21 13:21:46,274 - initial_solution_generator - INFO - Generated greedy insertion solution with 3 routes
+2025-06-21 13:21:46,274 - vrp_optimizer_fixed - INFO - Best method: savings with distance 537.40
+2025-06-21 13:21:46,274 - vrp_optimizer_fixed - INFO - Advanced heuristics solution: distance=1840.00, vehicles=3, runtime=16.00ms
+2025-06-21 13:21:46,275 - __main__ - INFO - Running 2-opt improvement...
+2025-06-21 13:21:46,275 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-21 13:21:46,275 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: greedy_insertion
+2025-06-21 13:21:46,276 - initial_solution_generator - INFO - Generating greedy insertion solution with demand-distance priority: True
+2025-06-21 13:21:46,276 - initial_solution_generator - INFO - Generated greedy insertion solution with 3 routes
+2025-06-21 13:21:46,277 - vrp_optimizer_fixed - INFO - Advanced heuristics solution: distance=1600.00, vehicles=3, runtime=1.00ms
+2025-06-21 13:21:46,277 - vrp_optimizer_fixed - INFO - 2-opt improvement: 1600.00 -> 1560.00 (improvement: 40.00, 2.5%), runtime=2.00ms
+2025-06-21 13:21:46,891 - __main__ - INFO - Comparison plot saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\medium_delivery_comparison.png
+2025-06-21 13:21:47,529 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\medium_delivery_quantum_solution.png
+2025-06-21 13:21:48,163 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\medium_delivery_classical_solution.png
+2025-06-21 13:21:48,838 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\medium_delivery_ortools_solution.png
+2025-06-21 13:21:49,485 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\medium_delivery_advanced_solution.png
+2025-06-21 13:21:50,127 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\medium_delivery_twopt_solution.png
+2025-06-21 13:21:50,127 - __main__ - INFO - Using best distance solution for medium_delivery map
+2025-06-21 13:21:50,128 - vrp_map_visualization - INFO - Scenario medium_delivery has no GPS coordinates. Skipping map visualizations.
+2025-06-21 13:21:50,128 - __main__ - INFO - Scenario medium_delivery completed:
+2025-06-21 13:21:50,128 - __main__ - INFO -   Quantum - Distance: 1840.00, Runtime: 1.00ms
+2025-06-21 13:21:50,128 - __main__ - INFO -   Classical - Distance: 1380.00, Runtime: 0.00ms
+2025-06-21 13:21:50,129 - __main__ - INFO -   OR-Tools - Distance: 1340.00, Runtime: 5001.20ms
+2025-06-21 13:21:50,129 - __main__ - INFO -   Advanced - Distance: 1840.00, Runtime: 16.00ms
+2025-06-21 13:21:50,129 - __main__ - INFO -   2-opt - Distance: 1560.00, Runtime: 2.00ms
+2025-06-21 13:21:50,129 - __main__ - INFO - 
+============================================================
+2025-06-21 13:21:50,130 - __main__ - INFO - Processing scenario: time_window
+2025-06-21 13:21:50,130 - __main__ - INFO - ============================================================
+2025-06-21 13:21:50,130 - __main__ - INFO - Comparing optimization methods for Time Window VRP
+2025-06-21 13:21:50,130 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-21 13:21:50,130 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-21 13:21:50,132 - __main__ - INFO - Running simple classical heuristic...
+2025-06-21 13:21:50,132 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-21 13:21:50,132 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-21 13:21:50,133 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-21 13:21:50,134 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [20, 15]
+2025-06-21 13:21:50,134 - vrp_optimizer_fixed - INFO - Vehicle 0 (standard): max 480 minutes (8.0 hours)
+2025-06-21 13:21:50,134 - vrp_optimizer_fixed - INFO - Vehicle 1 (standard): max 480 minutes (8.0 hours)
+2025-06-21 13:21:50,135 - vrp_optimizer_fixed - INFO - Adding time dimension with max 480 minutes (8.0 hours)
+2025-06-21 13:21:50,135 - vrp_optimizer_fixed - INFO - No stop count constraint - vehicles limited only by time constraints
+2025-06-21 13:21:50,136 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-21 13:21:50,150 - vrp_optimizer_fixed - WARNING - OR-Tools could not find a solution
+2025-06-21 13:21:50,151 - __main__ - INFO - Running advanced heuristics...
+2025-06-21 13:21:50,151 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-21 13:21:50,151 - initial_solution_generator - INFO - Generating nearest neighbor solution with 0.0% perturbation
+2025-06-21 13:21:50,152 - initial_solution_generator - INFO - Generated nearest neighbor solution with 2 routes
+2025-06-21 13:21:50,152 - initial_solution_generator - INFO - Generating savings algorithm solution with 0.0% perturbation
+2025-06-21 13:21:50,152 - initial_solution_generator - INFO - Generated savings algorithm solution with 2 routes
+2025-06-21 13:21:50,152 - initial_solution_generator - INFO - Generating firefly algorithm solution with 20 fireflies and 12.0% perturbation
+2025-06-21 13:21:50,153 - initial_solution_generator - INFO - Generated firefly algorithm solution with 2 routes, feasible: True, distance: 197.99
+2025-06-21 13:21:50,153 - initial_solution_generator - INFO - Generating greedy insertion solution with demand-distance priority: True
+2025-06-21 13:21:50,154 - initial_solution_generator - INFO - Generated greedy insertion solution with 2 routes
+2025-06-21 13:21:50,154 - vrp_optimizer_fixed - INFO - Best method: savings with distance 169.71
+2025-06-21 13:21:50,154 - vrp_optimizer_fixed - INFO - Advanced heuristics solution: distance=44.00, vehicles=2, runtime=3.00ms
+2025-06-21 13:21:50,155 - __main__ - INFO - Running 2-opt improvement...
+2025-06-21 13:21:50,155 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-21 13:21:50,155 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: greedy_insertion
+2025-06-21 13:21:50,156 - initial_solution_generator - INFO - Generating greedy insertion solution with demand-distance priority: True
+2025-06-21 13:21:50,156 - initial_solution_generator - INFO - Generated greedy insertion solution with 2 routes
+2025-06-21 13:21:50,156 - vrp_optimizer_fixed - INFO - Advanced heuristics solution: distance=42.00, vehicles=2, runtime=1.00ms
+2025-06-21 13:21:50,157 - vrp_optimizer_fixed - INFO - 2-opt improvement: 42.00 -> 40.00 (improvement: 2.00, 4.8%), runtime=2.00ms
+2025-06-21 13:21:50,762 - __main__ - INFO - Comparison plot saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\time_window_comparison.png
+2025-06-21 13:21:51,377 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\time_window_quantum_solution.png
+2025-06-21 13:21:51,941 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\time_window_classical_solution.png
+2025-06-21 13:21:52,561 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\time_window_ortools_solution.png
+2025-06-21 13:21:53,131 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\time_window_advanced_solution.png
+2025-06-21 13:21:53,692 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\time_window_twopt_solution.png
+2025-06-21 13:21:53,692 - __main__ - INFO - Using best distance solution for time_window map
+2025-06-21 13:21:53,693 - vrp_map_visualization - INFO - Scenario time_window has no GPS coordinates. Skipping map visualizations.
+2025-06-21 13:21:53,693 - __main__ - INFO - Scenario time_window completed:
+2025-06-21 13:21:53,693 - __main__ - INFO -   Quantum - Distance: 44.00, Runtime: 0.00ms
+2025-06-21 13:21:53,693 - __main__ - INFO -   Classical - Distance: 36.00, Runtime: 0.00ms
+2025-06-21 13:21:53,694 - __main__ - INFO -   OR-Tools - Distance: 0.00, Runtime: 16.57ms
+2025-06-21 13:21:53,694 - __main__ - INFO -   Advanced - Distance: 44.00, Runtime: 3.00ms
+2025-06-21 13:21:53,694 - __main__ - INFO -   2-opt - Distance: 40.00, Runtime: 2.00ms
+2025-06-21 13:21:53,694 - __main__ - INFO - 
+============================================================
+2025-06-21 13:21:53,695 - __main__ - INFO - Processing scenario: multi_depot
+2025-06-21 13:21:53,695 - __main__ - INFO - ============================================================
+2025-06-21 13:21:53,695 - __main__ - INFO - Comparing optimization methods for Multi-Depot VRP
+2025-06-21 13:21:53,695 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-21 13:21:53,695 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-21 13:21:53,696 - __main__ - INFO - Running simple classical heuristic...
+2025-06-21 13:21:53,697 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-21 13:21:53,697 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-21 13:21:53,698 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-21 13:21:53,699 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [15, 12, 18, 10]
+2025-06-21 13:21:53,699 - vrp_optimizer_fixed - INFO - No stop count constraint - vehicles limited only by time constraints
+2025-06-21 13:21:53,700 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-21 13:21:55,701 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 36048
+2025-06-21 13:21:55,701 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=48.00, vehicles=2, runtime=2002.96ms
+2025-06-21 13:21:55,702 - __main__ - INFO - Running advanced heuristics...
+2025-06-21 13:21:55,702 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-21 13:21:55,703 - initial_solution_generator - INFO - Generating nearest neighbor solution with 0.0% perturbation
+2025-06-21 13:21:55,703 - initial_solution_generator - INFO - Generated nearest neighbor solution with 3 routes
+2025-06-21 13:21:55,703 - initial_solution_generator - INFO - Generating savings algorithm solution with 0.0% perturbation
+2025-06-21 13:21:55,703 - initial_solution_generator - INFO - Generated savings algorithm solution with 2 routes
+2025-06-21 13:21:55,704 - initial_solution_generator - INFO - Generating firefly algorithm solution with 20 fireflies and 12.0% perturbation
+2025-06-21 13:21:55,705 - initial_solution_generator - INFO - Generated firefly algorithm solution with 4 routes, feasible: True, distance: 565.69
+2025-06-21 13:21:55,705 - initial_solution_generator - INFO - Generating greedy insertion solution with demand-distance priority: True
+2025-06-21 13:21:55,706 - initial_solution_generator - INFO - Generated greedy insertion solution with 3 routes
+2025-06-21 13:21:55,706 - vrp_optimizer_fixed - INFO - Best method: savings with distance 395.98
+2025-06-21 13:21:55,706 - vrp_optimizer_fixed - INFO - Advanced heuristics solution: distance=72.00, vehicles=2, runtime=3.00ms
+2025-06-21 13:21:55,707 - __main__ - INFO - Running 2-opt improvement...
+2025-06-21 13:21:55,707 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-21 13:21:55,707 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: greedy_insertion
+2025-06-21 13:21:55,708 - initial_solution_generator - INFO - Generating greedy insertion solution with demand-distance priority: True
+2025-06-21 13:21:55,708 - initial_solution_generator - INFO - Generated greedy insertion solution with 3 routes
+2025-06-21 13:21:55,708 - vrp_optimizer_fixed - INFO - Advanced heuristics solution: distance=80.00, vehicles=3, runtime=0.00ms
+2025-06-21 13:21:55,709 - vrp_optimizer_fixed - INFO - 2-opt improvement: 80.00 -> 80.00 (improvement: 0.00, 0.0%), runtime=2.00ms
+2025-06-21 13:21:56,295 - __main__ - INFO - Comparison plot saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\multi_depot_comparison.png
+2025-06-21 13:21:56,919 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\multi_depot_quantum_solution.png
+2025-06-21 13:21:57,505 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\multi_depot_classical_solution.png
+2025-06-21 13:21:58,072 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\multi_depot_ortools_solution.png
+2025-06-21 13:21:58,667 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\multi_depot_advanced_solution.png
+2025-06-21 13:21:59,278 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\multi_depot_twopt_solution.png
+2025-06-21 13:21:59,279 - __main__ - INFO - Using best distance solution for multi_depot map
+2025-06-21 13:21:59,279 - vrp_map_visualization - INFO - Scenario multi_depot has no GPS coordinates. Skipping map visualizations.
+2025-06-21 13:21:59,279 - __main__ - INFO - Scenario multi_depot completed:
+2025-06-21 13:21:59,280 - __main__ - INFO -   Quantum - Distance: 92.00, Runtime: 0.00ms
+2025-06-21 13:21:59,280 - __main__ - INFO -   Classical - Distance: 52.00, Runtime: 0.00ms
+2025-06-21 13:21:59,280 - __main__ - INFO -   OR-Tools - Distance: 48.00, Runtime: 2002.96ms
+2025-06-21 13:21:59,280 - __main__ - INFO -   Advanced - Distance: 72.00, Runtime: 3.00ms
+2025-06-21 13:21:59,281 - __main__ - INFO -   2-opt - Distance: 80.00, Runtime: 2.00ms
+2025-06-21 13:21:59,281 - __main__ - INFO - 
+============================================================
+2025-06-21 13:21:59,281 - __main__ - INFO - Processing scenario: MODA_first
+2025-06-21 13:21:59,281 - __main__ - INFO - ============================================================
+2025-06-21 13:21:59,281 - __main__ - INFO - Comparing optimization methods for MODA_first Northern Italy Large VRPPD
+2025-06-21 13:21:59,282 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-21 13:21:59,282 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-21 13:21:59,285 - __main__ - INFO - Running simple classical heuristic...
+2025-06-21 13:21:59,285 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-21 13:21:59,287 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-21 13:21:59,287 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-21 13:21:59,288 - vrp_optimizer_fixed - WARNING - OR-Tools configured for ride pooling with pickup-delivery constraints
+2025-06-21 13:21:59,288 - vrp_optimizer_fixed - INFO - Multi-depot VRPPD with 2 depots: ['depot_asti', 'depot_milan']
+2025-06-21 13:21:59,290 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [24000, 24000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 24000, 24000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 24000, 4000, 4000, 4000, 24000, 4000, 4000]
+2025-06-21 13:21:59,292 - vrp_optimizer_fixed - INFO - Vehicle 0 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,293 - vrp_optimizer_fixed - INFO - Vehicle 1 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,293 - vrp_optimizer_fixed - INFO - Vehicle 2 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,293 - vrp_optimizer_fixed - INFO - Vehicle 3 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,294 - vrp_optimizer_fixed - INFO - Vehicle 4 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,294 - vrp_optimizer_fixed - INFO - Vehicle 5 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,294 - vrp_optimizer_fixed - INFO - Vehicle 6 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,295 - vrp_optimizer_fixed - INFO - Vehicle 7 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,295 - vrp_optimizer_fixed - INFO - Vehicle 8 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,295 - vrp_optimizer_fixed - INFO - Vehicle 9 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,296 - vrp_optimizer_fixed - INFO - Vehicle 10 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,296 - vrp_optimizer_fixed - INFO - Vehicle 11 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,296 - vrp_optimizer_fixed - INFO - Vehicle 12 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,297 - vrp_optimizer_fixed - INFO - Vehicle 13 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,297 - vrp_optimizer_fixed - INFO - Vehicle 14 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,297 - vrp_optimizer_fixed - INFO - Vehicle 15 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,298 - vrp_optimizer_fixed - INFO - Vehicle 16 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,298 - vrp_optimizer_fixed - INFO - Vehicle 17 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,298 - vrp_optimizer_fixed - INFO - Vehicle 18 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,299 - vrp_optimizer_fixed - INFO - Vehicle 19 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,299 - vrp_optimizer_fixed - INFO - Vehicle 20 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,299 - vrp_optimizer_fixed - INFO - Vehicle 21 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,300 - vrp_optimizer_fixed - INFO - Vehicle 22 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,300 - vrp_optimizer_fixed - INFO - Vehicle 23 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,300 - vrp_optimizer_fixed - INFO - Vehicle 24 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,300 - vrp_optimizer_fixed - INFO - Vehicle 25 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,301 - vrp_optimizer_fixed - INFO - Vehicle 26 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,301 - vrp_optimizer_fixed - INFO - Vehicle 27 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,301 - vrp_optimizer_fixed - INFO - Vehicle 28 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,302 - vrp_optimizer_fixed - INFO - Vehicle 29 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,302 - vrp_optimizer_fixed - INFO - Vehicle 30 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,302 - vrp_optimizer_fixed - INFO - Vehicle 31 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,303 - vrp_optimizer_fixed - INFO - Vehicle 32 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,303 - vrp_optimizer_fixed - INFO - Vehicle 33 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,303 - vrp_optimizer_fixed - INFO - Vehicle 34 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,304 - vrp_optimizer_fixed - INFO - Vehicle 35 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,304 - vrp_optimizer_fixed - INFO - Vehicle 36 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,304 - vrp_optimizer_fixed - INFO - Vehicle 37 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,305 - vrp_optimizer_fixed - INFO - Vehicle 38 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,305 - vrp_optimizer_fixed - INFO - Vehicle 39 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,305 - vrp_optimizer_fixed - INFO - Vehicle 40 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,306 - vrp_optimizer_fixed - INFO - Vehicle 41 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,306 - vrp_optimizer_fixed - INFO - Vehicle 42 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,306 - vrp_optimizer_fixed - INFO - Vehicle 43 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,307 - vrp_optimizer_fixed - INFO - Vehicle 44 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,307 - vrp_optimizer_fixed - INFO - Vehicle 45 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,307 - vrp_optimizer_fixed - INFO - Vehicle 46 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,308 - vrp_optimizer_fixed - INFO - Vehicle 47 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,308 - vrp_optimizer_fixed - INFO - Vehicle 48 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,308 - vrp_optimizer_fixed - INFO - Vehicle 49 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,309 - vrp_optimizer_fixed - INFO - Vehicle 50 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,309 - vrp_optimizer_fixed - INFO - Vehicle 51 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,309 - vrp_optimizer_fixed - INFO - Vehicle 52 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,310 - vrp_optimizer_fixed - INFO - Vehicle 53 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,311 - vrp_optimizer_fixed - INFO - Vehicle 54 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,311 - vrp_optimizer_fixed - INFO - Vehicle 55 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,311 - vrp_optimizer_fixed - INFO - Vehicle 56 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,312 - vrp_optimizer_fixed - INFO - Vehicle 57 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:21:59,312 - vrp_optimizer_fixed - INFO - Vehicle 58 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,312 - vrp_optimizer_fixed - INFO - Vehicle 59 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,312 - vrp_optimizer_fixed - INFO - Adding time dimension with max 600.0 minutes (10.0 hours)
+2025-06-21 13:21:59,314 - vrp_optimizer_fixed - INFO - No stop count constraint - vehicles limited only by time constraints
+2025-06-21 13:21:59,314 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-21 13:22:02,260 - vrp_optimizer_fixed - WARNING - OR-Tools could not find a solution
+2025-06-21 13:22:02,265 - __main__ - INFO - Running advanced heuristics...
+2025-06-21 13:22:02,266 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-21 13:22:02,266 - vrp_optimizer_fixed - WARNING - Advanced heuristics not yet implemented for ride pooling scenarios
+2025-06-21 13:22:02,267 - __main__ - INFO - Running 2-opt improvement...
+2025-06-21 13:22:02,267 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-21 13:22:02,267 - vrp_optimizer_fixed - WARNING - 2-opt improvement not yet implemented for ride pooling scenarios
+2025-06-21 13:22:02,849 - __main__ - INFO - Comparison plot saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_comparison.png
+2025-06-21 13:22:05,685 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_quantum_solution.png
+2025-06-21 13:22:05,693 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_quantum_solution_gps_info.txt
+2025-06-21 13:22:08,672 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_classical_solution.png
+2025-06-21 13:22:08,681 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_classical_solution_gps_info.txt
+2025-06-21 13:22:10,898 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_ortools_solution.png
+2025-06-21 13:22:10,908 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_ortools_solution_gps_info.txt
+2025-06-21 13:22:13,475 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_advanced_solution.png
+2025-06-21 13:22:13,483 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_advanced_solution_gps_info.txt
+2025-06-21 13:22:15,783 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_twopt_solution.png
+2025-06-21 13:22:15,791 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_twopt_solution_gps_info.txt
+2025-06-21 13:22:15,792 - __main__ - INFO - Using classical solution for MODA_first map (ride pooling constraints)
+2025-06-21 13:22:16,249 - vrp_map_visualization - INFO - OSRM routing service is available
+2025-06-21 13:22:16,260 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.46838280395374, 9.17535032265668]
+2025-06-21 13:22:17,246 - vrp_map_visualization - INFO - Route found with 1275 points
+2025-06-21 13:22:17,246 - vrp_map_visualization - INFO - Requesting route from [45.46838280395374, 9.17535032265668] to [44.88418613785576, 8.186074855285145]
+2025-06-21 13:22:18,231 - vrp_map_visualization - INFO - Route found with 1357 points
+2025-06-21 13:22:18,231 - vrp_map_visualization - INFO - Requesting route from [44.88418613785576, 8.186074855285145] to [44.91283791051211, 8.608877375914439]
+2025-06-21 13:22:19,222 - vrp_map_visualization - INFO - Route found with 619 points
+2025-06-21 13:22:19,223 - vrp_map_visualization - INFO - Requesting route from [44.91283791051211, 8.608877375914439] to [45.314171844525895, 8.415051453212467]
+2025-06-21 13:22:20,216 - vrp_map_visualization - INFO - Route found with 732 points
+2025-06-21 13:22:20,220 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.46691477537347, 9.175553480384455]
+2025-06-21 13:22:21,244 - vrp_map_visualization - INFO - Route found with 1276 points
+2025-06-21 13:22:21,245 - vrp_map_visualization - INFO - Requesting route from [45.46691477537347, 9.175553480384455] to [44.89516065864311, 8.183796079090516]
+2025-06-21 13:22:22,235 - vrp_map_visualization - INFO - Route found with 1260 points
+2025-06-21 13:22:22,237 - vrp_map_visualization - INFO - Requesting route from [44.89516065864311, 8.183796079090516] to [44.90071732972973, 8.606224919740393]
+2025-06-21 13:22:23,222 - vrp_map_visualization - INFO - Route found with 722 points
+2025-06-21 13:22:23,223 - vrp_map_visualization - INFO - Requesting route from [44.90071732972973, 8.606224919740393] to [45.44699257425084, 9.216626865521416]
+2025-06-21 13:22:24,231 - vrp_map_visualization - INFO - Route found with 1353 points
+2025-06-21 13:22:24,236 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.47023974920771, 9.18718559462885]
+2025-06-21 13:22:25,242 - vrp_map_visualization - INFO - Route found with 1388 points
+2025-06-21 13:22:25,242 - vrp_map_visualization - INFO - Requesting route from [45.47023974920771, 9.18718559462885] to [44.91928291370033, 8.205194962790342]
+2025-06-21 13:22:26,232 - vrp_map_visualization - INFO - Route found with 1401 points
+2025-06-21 13:22:26,232 - vrp_map_visualization - INFO - Requesting route from [44.91928291370033, 8.205194962790342] to [44.914578334215115, 8.614173227023095]
+2025-06-21 13:22:27,215 - vrp_map_visualization - INFO - Route found with 587 points
+2025-06-21 13:22:27,216 - vrp_map_visualization - INFO - Requesting route from [44.914578334215115, 8.614173227023095] to [45.44358430438001, 8.624993873169439]
+2025-06-21 13:22:28,235 - vrp_map_visualization - INFO - Route found with 999 points
+2025-06-21 13:22:28,239 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.461878431944605, 9.182936140250149]
+2025-06-21 13:22:29,232 - vrp_map_visualization - INFO - Route found with 1260 points
+2025-06-21 13:22:29,233 - vrp_map_visualization - INFO - Requesting route from [45.461878431944605, 9.182936140250149] to [45.04026630829559, 7.51139781901912]
+2025-06-21 13:22:30,234 - vrp_map_visualization - INFO - Route found with 1401 points
+2025-06-21 13:22:30,236 - vrp_map_visualization - INFO - Requesting route from [45.04026630829559, 7.51139781901912] to [44.90971143086783, 8.60187688250752]
+2025-06-21 13:22:31,237 - vrp_map_visualization - INFO - Route found with 1035 points
+2025-06-21 13:22:31,238 - vrp_map_visualization - INFO - Requesting route from [44.90971143086783, 8.60187688250752] to [45.12340343851707, 7.755702910154103]
+2025-06-21 13:22:32,252 - vrp_map_visualization - INFO - Route found with 1712 points
+2025-06-21 13:22:32,257 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.480411780941004, 9.079213848198231]
+2025-06-21 13:22:33,227 - vrp_map_visualization - INFO - Route found with 1239 points
+2025-06-21 13:22:33,228 - vrp_map_visualization - INFO - Requesting route from [45.480411780941004, 9.079213848198231] to [45.454993472919384, 9.22605603131625]
+2025-06-21 13:22:34,224 - vrp_map_visualization - INFO - Route found with 660 points
+2025-06-21 13:22:34,226 - vrp_map_visualization - INFO - Requesting route from [45.454993472919384, 9.22605603131625] to [44.912425470069344, 8.631383969292015]
+2025-06-21 13:22:35,230 - vrp_map_visualization - INFO - Route found with 1176 points
+2025-06-21 13:22:35,231 - vrp_map_visualization - INFO - Requesting route from [44.912425470069344, 8.631383969292015] to [44.894088059352896, 8.205769259813955]
+2025-06-21 13:22:36,214 - vrp_map_visualization - INFO - Route found with 578 points
+2025-06-21 13:22:36,218 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.48718213992759, 9.073555592570928]
+2025-06-21 13:22:37,221 - vrp_map_visualization - INFO - Route found with 1170 points
+2025-06-21 13:22:37,222 - vrp_map_visualization - INFO - Requesting route from [45.48718213992759, 9.073555592570928] to [44.90703715508645, 8.192574731509671]
+2025-06-21 13:22:38,224 - vrp_map_visualization - INFO - Route found with 1080 points
+2025-06-21 13:22:38,225 - vrp_map_visualization - INFO - Requesting route from [44.90703715508645, 8.192574731509671] to [44.91006620861869, 8.638944269732606]
+2025-06-21 13:22:39,213 - vrp_map_visualization - INFO - Route found with 522 points
+2025-06-21 13:22:39,214 - vrp_map_visualization - INFO - Requesting route from [44.91006620861869, 8.638944269732606] to [45.44588624862007, 8.614421659325567]
+2025-06-21 13:22:40,233 - vrp_map_visualization - INFO - Route found with 1071 points
+2025-06-21 13:22:40,237 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.49185664561982, 9.080659531630454]
+2025-06-21 13:22:41,237 - vrp_map_visualization - INFO - Route found with 1249 points
+2025-06-21 13:22:41,238 - vrp_map_visualization - INFO - Requesting route from [45.49185664561982, 9.080659531630454] to [44.90860230907105, 8.230023312799224]
+2025-06-21 13:22:42,237 - vrp_map_visualization - INFO - Route found with 1083 points
+2025-06-21 13:22:42,238 - vrp_map_visualization - INFO - Requesting route from [44.90860230907105, 8.230023312799224] to [44.91720786587761, 8.632756783268839]
+2025-06-21 13:22:43,220 - vrp_map_visualization - INFO - Route found with 497 points
+2025-06-21 13:22:43,221 - vrp_map_visualization - INFO - Requesting route from [44.91720786587761, 8.632756783268839] to [45.182558383089834, 9.169205540667855]
+2025-06-21 13:22:44,232 - vrp_map_visualization - INFO - Route found with 1250 points
+2025-06-21 13:22:44,235 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.472958121006826, 9.075105255231332]
+2025-06-21 13:22:45,237 - vrp_map_visualization - INFO - Route found with 1241 points
+2025-06-21 13:22:45,238 - vrp_map_visualization - INFO - Requesting route from [45.472958121006826, 9.075105255231332] to [45.17483415944594, 9.165073803938512]
+2025-06-21 13:22:46,217 - vrp_map_visualization - INFO - Route found with 747 points
+2025-06-21 13:22:46,217 - vrp_map_visualization - INFO - Requesting route from [45.17483415944594, 9.165073803938512] to [44.89780468941758, 8.624820580008253]
+2025-06-21 13:22:47,495 - vrp_map_visualization - INFO - Route found with 1147 points
+2025-06-21 13:22:47,496 - vrp_map_visualization - INFO - Requesting route from [44.89780468941758, 8.624820580008253] to [45.078136891236824, 7.683273786466923]
+2025-06-21 13:22:48,224 - vrp_map_visualization - INFO - Route found with 1070 points
+2025-06-21 13:22:48,229 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.43478366325273, 9.184585700519097]
+2025-06-21 13:22:49,224 - vrp_map_visualization - INFO - Route found with 1055 points
+2025-06-21 13:22:49,225 - vrp_map_visualization - INFO - Requesting route from [45.43478366325273, 9.184585700519097] to [45.815328482032456, 8.83304940732777]
+2025-06-21 13:22:50,233 - vrp_map_visualization - INFO - Route found with 814 points
+2025-06-21 13:22:50,234 - vrp_map_visualization - INFO - Requesting route from [45.815328482032456, 8.83304940732777] to [45.704747327447365, 9.669109205086391]
+2025-06-21 13:22:51,231 - vrp_map_visualization - INFO - Route found with 1018 points
+2025-06-21 13:22:51,232 - vrp_map_visualization - INFO - Requesting route from [45.704747327447365, 9.669109205086391] to [45.04392666497159, 7.502058551113583]
+2025-06-21 13:22:52,242 - vrp_map_visualization - INFO - Route found with 1608 points
+2025-06-21 13:22:52,246 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.4480540778202, 9.179051374023137]
+2025-06-21 13:22:53,226 - vrp_map_visualization - INFO - Route found with 1094 points
+2025-06-21 13:22:53,227 - vrp_map_visualization - INFO - Requesting route from [45.4480540778202, 9.179051374023137] to [45.49302948530759, 9.171887291430052]
+2025-06-21 13:22:54,217 - vrp_map_visualization - INFO - Route found with 361 points
+2025-06-21 13:22:54,217 - vrp_map_visualization - INFO - Requesting route from [45.49302948530759, 9.171887291430052] to [45.70818835198148, 9.660980820470876]
+2025-06-21 13:22:55,233 - vrp_map_visualization - INFO - Route found with 1062 points
+2025-06-21 13:22:55,234 - vrp_map_visualization - INFO - Requesting route from [45.70818835198148, 9.660980820470876] to [45.43295634825667, 9.228906831828382]
+2025-06-21 13:22:56,242 - vrp_map_visualization - INFO - Route found with 1381 points
+2025-06-21 13:22:56,246 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.44306315995885, 9.16676895703182]
+2025-06-21 13:22:57,226 - vrp_map_visualization - INFO - Route found with 1061 points
+2025-06-21 13:22:57,227 - vrp_map_visualization - INFO - Requesting route from [45.44306315995885, 9.16676895703182] to [44.89918890958576, 8.227349669462749]
+2025-06-21 13:22:58,216 - vrp_map_visualization - INFO - Route found with 948 points
+2025-06-21 13:22:58,216 - vrp_map_visualization - INFO - Requesting route from [44.89918890958576, 8.227349669462749] to [45.7081327106665, 9.668951019503057]
+2025-06-21 13:22:59,247 - vrp_map_visualization - INFO - Route found with 1835 points
+2025-06-21 13:22:59,247 - vrp_map_visualization - INFO - Requesting route from [45.7081327106665, 9.668951019503057] to [45.04223367430103, 7.5182174248167275]
+2025-06-21 13:23:00,233 - vrp_map_visualization - INFO - Route found with 1573 points
+2025-06-21 13:23:00,238 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.445810414349566, 9.167753014818837]
+2025-06-21 13:23:01,226 - vrp_map_visualization - INFO - Route found with 1119 points
+2025-06-21 13:23:01,227 - vrp_map_visualization - INFO - Requesting route from [45.445810414349566, 9.167753014818837] to [45.104379622774715, 7.757026128194853]
+2025-06-21 13:23:02,231 - vrp_map_visualization - INFO - Route found with 1089 points
+2025-06-21 13:23:02,232 - vrp_map_visualization - INFO - Requesting route from [45.104379622774715, 7.757026128194853] to [45.70864162319102, 9.658242962489728]
+2025-06-21 13:23:03,247 - vrp_map_visualization - INFO - Route found with 1394 points
+2025-06-21 13:23:03,247 - vrp_map_visualization - INFO - Requesting route from [45.70864162319102, 9.658242962489728] to [44.912273901852366, 8.232240784531424]
+2025-06-21 13:23:04,239 - vrp_map_visualization - INFO - Route found with 1749 points
+2025-06-21 13:23:04,244 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.48942728236521, 9.145013491262741]
+2025-06-21 13:23:05,238 - vrp_map_visualization - INFO - Route found with 1320 points
+2025-06-21 13:23:05,239 - vrp_map_visualization - INFO - Requesting route from [45.48942728236521, 9.145013491262741] to [45.17449946005167, 9.16361443640489]
+2025-06-21 13:23:06,232 - vrp_map_visualization - INFO - Route found with 821 points
+2025-06-21 13:23:06,232 - vrp_map_visualization - INFO - Requesting route from [45.17449946005167, 9.16361443640489] to [45.711544117956244, 9.668249893312753]
+2025-06-21 13:23:07,243 - vrp_map_visualization - INFO - Route found with 1474 points
+2025-06-21 13:23:07,243 - vrp_map_visualization - INFO - Requesting route from [45.711544117956244, 9.668249893312753] to [45.328774426548534, 8.432408797172664]
+2025-06-21 13:23:08,231 - vrp_map_visualization - INFO - Route found with 1365 points
+2025-06-21 13:23:08,236 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.4981485785952, 9.173483641407202]
+2025-06-21 13:23:09,232 - vrp_map_visualization - INFO - Route found with 1381 points
+2025-06-21 13:23:09,233 - vrp_map_visualization - INFO - Requesting route from [45.4981485785952, 9.173483641407202] to [45.70912339106704, 9.662644430658286]
+2025-06-21 13:23:10,235 - vrp_map_visualization - INFO - Route found with 849 points
+2025-06-21 13:23:10,236 - vrp_map_visualization - INFO - Requesting route from [45.70912339106704, 9.662644430658286] to [45.706779060390836, 9.672716112959254]
+2025-06-21 13:23:11,209 - vrp_map_visualization - INFO - Route found with 83 points
+2025-06-21 13:23:11,211 - vrp_map_visualization - INFO - Requesting route from [45.706779060390836, 9.672716112959254] to [45.03926870209559, 7.5194262976217034]
+2025-06-21 13:23:12,249 - vrp_map_visualization - INFO - Route found with 1547 points
+2025-06-21 13:23:12,253 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.51324365350387, 9.166126333987748]
+2025-06-21 13:23:13,234 - vrp_map_visualization - INFO - Route found with 1491 points
+2025-06-21 13:23:13,235 - vrp_map_visualization - INFO - Requesting route from [45.51324365350387, 9.166126333987748] to [45.06834295752007, 7.685511711189876]
+2025-06-21 13:23:14,244 - vrp_map_visualization - INFO - Route found with 1251 points
+2025-06-21 13:23:14,245 - vrp_map_visualization - INFO - Requesting route from [45.06834295752007, 7.685511711189876] to [45.707969927542706, 9.665466166119321]
+2025-06-21 13:23:15,236 - vrp_map_visualization - INFO - Route found with 1523 points
+2025-06-21 13:23:15,237 - vrp_map_visualization - INFO - Requesting route from [45.707969927542706, 9.665466166119321] to [45.43951925931118, 8.59806461435023]
+2025-06-21 13:23:16,231 - vrp_map_visualization - INFO - Route found with 1200 points
+2025-06-21 13:23:16,236 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.50955886597156, 9.15883045023813]
+2025-06-21 13:23:17,238 - vrp_map_visualization - INFO - Route found with 1445 points
+2025-06-21 13:23:17,239 - vrp_map_visualization - INFO - Requesting route from [45.50955886597156, 9.15883045023813] to [45.178653343743456, 9.162368484845981]
+2025-06-21 13:23:18,231 - vrp_map_visualization - INFO - Route found with 821 points
+2025-06-21 13:23:18,232 - vrp_map_visualization - INFO - Requesting route from [45.178653343743456, 9.162368484845981] to [45.69140247189163, 9.686545976564203]
+2025-06-21 13:23:19,249 - vrp_map_visualization - INFO - Route found with 1529 points
+2025-06-21 13:23:19,250 - vrp_map_visualization - INFO - Requesting route from [45.69140247189163, 9.686545976564203] to [44.91224621314903, 8.626472037952622]
+2025-06-21 13:23:20,237 - vrp_map_visualization - INFO - Route found with 1558 points
+2025-06-21 13:23:20,242 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.437017415577735, 9.219546471072594]
+2025-06-21 13:23:21,230 - vrp_map_visualization - INFO - Route found with 1192 points
+2025-06-21 13:23:21,231 - vrp_map_visualization - INFO - Requesting route from [45.437017415577735, 9.219546471072594] to [45.467168337533806, 9.18925817124087]
+2025-06-21 13:23:22,215 - vrp_map_visualization - INFO - Route found with 374 points
+2025-06-21 13:23:22,216 - vrp_map_visualization - INFO - Requesting route from [45.467168337533806, 9.18925817124087] to [45.802769137489435, 9.077564855072811]
+2025-06-21 13:23:23,226 - vrp_map_visualization - INFO - Route found with 923 points
+2025-06-21 13:23:23,227 - vrp_map_visualization - INFO - Requesting route from [45.802769137489435, 9.077564855072811] to [45.42561590317573, 8.598941253998097]
+2025-06-21 13:23:24,229 - vrp_map_visualization - INFO - Route found with 1002 points
+2025-06-21 13:23:24,233 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.452161656334695, 9.239649965880835]
+2025-06-21 13:23:25,238 - vrp_map_visualization - INFO - Route found with 1305 points
+2025-06-21 13:23:25,238 - vrp_map_visualization - INFO - Requesting route from [45.452161656334695, 9.239649965880835] to [45.469526147773415, 9.072020708310667]
+2025-06-21 13:23:26,221 - vrp_map_visualization - INFO - Route found with 740 points
+2025-06-21 13:23:26,222 - vrp_map_visualization - INFO - Requesting route from [45.469526147773415, 9.072020708310667] to [45.793960999933105, 9.095728585089374]
+2025-06-21 13:23:27,221 - vrp_map_visualization - INFO - Route found with 733 points
+2025-06-21 13:23:27,221 - vrp_map_visualization - INFO - Requesting route from [45.793960999933105, 9.095728585089374] to [45.413644748985284, 9.12345057226576]
+2025-06-21 13:23:28,241 - vrp_map_visualization - INFO - Route found with 1066 points
+2025-06-21 13:23:28,246 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.447757227845344, 9.239180697602603]
+2025-06-21 13:23:29,235 - vrp_map_visualization - INFO - Route found with 1358 points
+2025-06-21 13:23:29,235 - vrp_map_visualization - INFO - Requesting route from [45.447757227845344, 9.239180697602603] to [45.50375174393499, 9.215958471342962]
+2025-06-21 13:23:30,216 - vrp_map_visualization - INFO - Route found with 478 points
+2025-06-21 13:23:30,216 - vrp_map_visualization - INFO - Requesting route from [45.50375174393499, 9.215958471342962] to [45.81413551250997, 9.078488057272686]
+2025-06-21 13:23:31,234 - vrp_map_visualization - INFO - Route found with 1020 points
+2025-06-21 13:23:31,235 - vrp_map_visualization - INFO - Requesting route from [45.81413551250997, 9.078488057272686] to [45.40556838885874, 9.137302239923125]
+2025-06-21 13:23:32,234 - vrp_map_visualization - INFO - Route found with 981 points
+2025-06-21 13:23:32,239 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.43375169886821, 9.240872991232557]
+2025-06-21 13:23:33,247 - vrp_map_visualization - INFO - Route found with 1517 points
+2025-06-21 13:23:33,247 - vrp_map_visualization - INFO - Requesting route from [45.43375169886821, 9.240872991232557] to [45.70595795589908, 9.68299602896299]
+2025-06-21 13:23:34,229 - vrp_map_visualization - INFO - Route found with 970 points
+2025-06-21 13:23:34,230 - vrp_map_visualization - INFO - Requesting route from [45.70595795589908, 9.68299602896299] to [45.815844939604474, 9.090918280183397]
+2025-06-21 13:23:35,245 - vrp_map_visualization - INFO - Route found with 1629 points
+2025-06-21 13:23:35,246 - vrp_map_visualization - INFO - Requesting route from [45.815844939604474, 9.090918280183397] to [45.451991600516635, 9.181247892014177]
+2025-06-21 13:23:36,230 - vrp_map_visualization - INFO - Route found with 971 points
+2025-06-21 13:23:36,235 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.52975448069982, 9.221196341729183]
+2025-06-21 13:23:37,233 - vrp_map_visualization - INFO - Route found with 1623 points
+2025-06-21 13:23:37,234 - vrp_map_visualization - INFO - Requesting route from [45.52975448069982, 9.221196341729183] to [45.69324458424173, 9.66243716840998]
+2025-06-21 13:23:38,214 - vrp_map_visualization - INFO - Route found with 642 points
+2025-06-21 13:23:38,215 - vrp_map_visualization - INFO - Requesting route from [45.69324458424173, 9.66243716840998] to [45.54651880064791, 10.207870613519832]
+2025-06-21 13:23:39,217 - vrp_map_visualization - INFO - Route found with 520 points
+2025-06-21 13:23:39,217 - vrp_map_visualization - INFO - Requesting route from [45.54651880064791, 10.207870613519832] to [45.04996511438116, 7.522378063101408]
+2025-06-21 13:23:40,236 - vrp_map_visualization - INFO - Route found with 1578 points
+2025-06-21 13:23:40,240 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.50053102780021, 9.218317645672734]
+2025-06-21 13:23:41,235 - vrp_map_visualization - INFO - Route found with 1423 points
+2025-06-21 13:23:41,236 - vrp_map_visualization - INFO - Requesting route from [45.50053102780021, 9.218317645672734] to [45.44463522839646, 9.15666621300629]
+2025-06-21 13:23:42,213 - vrp_map_visualization - INFO - Route found with 501 points
+2025-06-21 13:23:42,215 - vrp_map_visualization - INFO - Requesting route from [45.44463522839646, 9.15666621300629] to [45.54768564826558, 10.204927492809286]
+2025-06-21 13:23:43,231 - vrp_map_visualization - INFO - Route found with 908 points
+2025-06-21 13:23:43,233 - vrp_map_visualization - INFO - Requesting route from [45.54768564826558, 10.204927492809286] to [45.508338529939785, 9.15306643832018]
+2025-06-21 13:23:44,228 - vrp_map_visualization - INFO - Route found with 956 points
+2025-06-21 13:23:44,232 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.52568906200761, 9.20382572049666]
+2025-06-21 13:23:45,246 - vrp_map_visualization - INFO - Route found with 1811 points
+2025-06-21 13:23:45,247 - vrp_map_visualization - INFO - Requesting route from [45.52568906200761, 9.20382572049666] to [45.82016243497451, 8.826177017941841]
+2025-06-21 13:23:46,488 - vrp_map_visualization - INFO - Route found with 791 points
+2025-06-21 13:23:46,488 - vrp_map_visualization - INFO - Requesting route from [45.82016243497451, 8.826177017941841] to [45.53215449527313, 10.203291539196359]
+2025-06-21 13:23:47,233 - vrp_map_visualization - INFO - Route found with 1088 points
+2025-06-21 13:23:47,234 - vrp_map_visualization - INFO - Requesting route from [45.53215449527313, 10.203291539196359] to [44.38678760717882, 7.549806236861192]
+2025-06-21 13:23:48,250 - vrp_map_visualization - INFO - Route found with 2425 points
+2025-06-21 13:23:48,256 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.51408013078935, 9.225238582728721]
+2025-06-21 13:23:49,246 - vrp_map_visualization - INFO - Route found with 1466 points
+2025-06-21 13:23:49,247 - vrp_map_visualization - INFO - Requesting route from [45.51408013078935, 9.225238582728721] to [45.48960792442686, 9.15653153547219]
+2025-06-21 13:23:50,214 - vrp_map_visualization - INFO - Route found with 562 points
+2025-06-21 13:23:50,214 - vrp_map_visualization - INFO - Requesting route from [45.48960792442686, 9.15653153547219] to [45.551578850899816, 10.205687393897955]
+2025-06-21 13:23:51,218 - vrp_map_visualization - INFO - Route found with 716 points
+2025-06-21 13:23:51,218 - vrp_map_visualization - INFO - Requesting route from [45.551578850899816, 10.205687393897955] to [44.895424451017675, 8.22102405267803]
+2025-06-21 13:23:52,231 - vrp_map_visualization - INFO - Route found with 1632 points
+2025-06-21 13:23:52,235 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.4170107400411, 9.137572275483794]
+2025-06-21 13:23:53,228 - vrp_map_visualization - INFO - Route found with 1172 points
+2025-06-21 13:23:53,229 - vrp_map_visualization - INFO - Requesting route from [45.4170107400411, 9.137572275483794] to [45.453746407653234, 8.625917775325851]
+2025-06-21 13:23:54,227 - vrp_map_visualization - INFO - Route found with 1031 points
+2025-06-21 13:23:54,228 - vrp_map_visualization - INFO - Requesting route from [45.453746407653234, 8.625917775325851] to [45.19892884793308, 9.15980076900396]
+2025-06-21 13:23:55,224 - vrp_map_visualization - INFO - Route found with 912 points
+2025-06-21 13:23:55,224 - vrp_map_visualization - INFO - Requesting route from [45.19892884793308, 9.15980076900396] to [44.90137762940363, 8.602067962101264]
+2025-06-21 13:23:56,226 - vrp_map_visualization - INFO - Route found with 1085 points
+2025-06-21 13:23:56,230 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.40874770216425, 9.13178857261731]
+2025-06-21 13:23:57,232 - vrp_map_visualization - INFO - Route found with 1127 points
+2025-06-21 13:23:57,233 - vrp_map_visualization - INFO - Requesting route from [45.40874770216425, 9.13178857261731] to [45.508256354340006, 9.209194193436462]
+2025-06-21 13:23:58,225 - vrp_map_visualization - INFO - Route found with 883 points
+2025-06-21 13:23:58,225 - vrp_map_visualization - INFO - Requesting route from [45.508256354340006, 9.209194193436462] to [45.18406142625819, 9.15342117797681]
+2025-06-21 13:23:59,235 - vrp_map_visualization - INFO - Route found with 1030 points
+2025-06-21 13:23:59,235 - vrp_map_visualization - INFO - Requesting route from [45.18406142625819, 9.15342117797681] to [44.90172261422175, 8.603660303053418]
+2025-06-21 13:24:00,231 - vrp_map_visualization - INFO - Route found with 1155 points
+2025-06-21 13:24:00,235 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.42724066734195, 9.14137900677405]
+2025-06-21 13:24:01,227 - vrp_map_visualization - INFO - Route found with 1199 points
+2025-06-21 13:24:01,227 - vrp_map_visualization - INFO - Requesting route from [45.42724066734195, 9.14137900677405] to [45.199678474052384, 9.1682808275524]
+2025-06-21 13:24:02,213 - vrp_map_visualization - INFO - Route found with 651 points
+2025-06-21 13:24:02,214 - vrp_map_visualization - INFO - Requesting route from [45.199678474052384, 9.1682808275524] to [45.187010634694126, 9.16379353054768]
+2025-06-21 13:24:03,207 - vrp_map_visualization - INFO - Route found with 67 points
+2025-06-21 13:24:03,208 - vrp_map_visualization - INFO - Requesting route from [45.187010634694126, 9.16379353054768] to [45.71177376927074, 9.664855427251888]
+2025-06-21 13:24:04,229 - vrp_map_visualization - INFO - Route found with 1736 points
+2025-06-21 13:24:04,234 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [45.40798933331811, 9.13026923376352]
+2025-06-21 13:24:05,227 - vrp_map_visualization - INFO - Route found with 1148 points
+2025-06-21 13:24:05,228 - vrp_map_visualization - INFO - Requesting route from [45.40798933331811, 9.13026923376352] to [45.458973285965314, 8.606839113642046]
+2025-06-21 13:24:06,232 - vrp_map_visualization - INFO - Route found with 1041 points
+2025-06-21 13:24:06,234 - vrp_map_visualization - INFO - Requesting route from [45.458973285965314, 8.606839113642046] to [45.18644219103853, 9.15568522064231]
+2025-06-21 13:24:07,227 - vrp_map_visualization - INFO - Route found with 969 points
+2025-06-21 13:24:07,228 - vrp_map_visualization - INFO - Requesting route from [45.18644219103853, 9.15568522064231] to [44.9014113407844, 8.642255131328715]
+2025-06-21 13:24:08,233 - vrp_map_visualization - INFO - Route found with 1173 points
+2025-06-21 13:24:08,237 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [44.893856091745164, 8.214722118058457]
+2025-06-21 13:24:09,210 - vrp_map_visualization - INFO - Route found with 87 points
+2025-06-21 13:24:09,211 - vrp_map_visualization - INFO - Requesting route from [44.893856091745164, 8.214722118058457] to [45.43919774510801, 8.606915159522464]
+2025-06-21 13:24:10,232 - vrp_map_visualization - INFO - Route found with 1115 points
+2025-06-21 13:24:10,233 - vrp_map_visualization - INFO - Requesting route from [45.43919774510801, 8.606915159522464] to [45.835300937814004, 8.819161407329581]
+2025-06-21 13:24:11,245 - vrp_map_visualization - INFO - Route found with 1539 points
+2025-06-21 13:24:11,246 - vrp_map_visualization - INFO - Requesting route from [45.835300937814004, 8.819161407329581] to [44.37207700724324, 7.549882113130641]
+2025-06-21 13:24:12,269 - vrp_map_visualization - INFO - Route found with 2589 points
+2025-06-21 13:24:12,274 - vrp_map_visualization - INFO - Requesting route from [44.9009, 8.2062] to [44.90745224825889, 8.195843904758222]
+2025-06-21 13:24:13,208 - vrp_map_visualization - INFO - Route found with 107 points
+2025-06-21 13:24:13,209 - vrp_map_visualization - INFO - Requesting route from [44.90745224825889, 8.195843904758222] to [45.47967540872449, 9.07126585604123]
+2025-06-21 13:24:14,228 - vrp_map_visualization - INFO - Route found with 1129 points
+2025-06-21 13:24:14,228 - vrp_map_visualization - INFO - Requesting route from [45.47967540872449, 9.07126585604123] to [45.82541284411576, 8.814711712801426]
+2025-06-21 13:24:15,215 - vrp_map_visualization - INFO - Route found with 806 points
+2025-06-21 13:24:15,216 - vrp_map_visualization - INFO - Requesting route from [45.82541284411576, 8.814711712801426] to [45.4280959784633, 9.167155527179801]
+2025-06-21 13:24:16,228 - vrp_map_visualization - INFO - Route found with 979 points
+2025-06-21 13:24:16,232 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.88740427011792, 8.205503655513269]
+2025-06-21 13:24:17,231 - vrp_map_visualization - INFO - Route found with 1390 points
+2025-06-21 13:24:17,232 - vrp_map_visualization - INFO - Requesting route from [44.88740427011792, 8.205503655513269] to [45.49112336709823, 9.057403343957217]
+2025-06-21 13:24:18,232 - vrp_map_visualization - INFO - Route found with 1249 points
+2025-06-21 13:24:18,233 - vrp_map_visualization - INFO - Requesting route from [45.49112336709823, 9.057403343957217] to [45.80657919566143, 8.81864314668781]
+2025-06-21 13:24:19,218 - vrp_map_visualization - INFO - Route found with 709 points
+2025-06-21 13:24:19,219 - vrp_map_visualization - INFO - Requesting route from [45.80657919566143, 8.81864314668781] to [45.420435392804606, 8.592002714184801]
+2025-06-21 13:24:20,243 - vrp_map_visualization - INFO - Route found with 1606 points
+2025-06-21 13:24:20,248 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.9037510531935, 8.211456376608124]
+2025-06-21 13:24:21,234 - vrp_map_visualization - INFO - Route found with 1367 points
+2025-06-21 13:24:21,235 - vrp_map_visualization - INFO - Requesting route from [44.9037510531935, 8.211456376608124] to [45.51494788381687, 9.160690262304145]
+2025-06-21 13:24:22,251 - vrp_map_visualization - INFO - Route found with 1535 points
+2025-06-21 13:24:22,252 - vrp_map_visualization - INFO - Requesting route from [45.51494788381687, 9.160690262304145] to [45.823293687676156, 8.834117170408442]
+2025-06-21 13:24:23,227 - vrp_map_visualization - INFO - Route found with 791 points
+2025-06-21 13:24:23,228 - vrp_map_visualization - INFO - Requesting route from [45.823293687676156, 8.834117170408442] to [45.50303687136132, 9.163029041702075]
+2025-06-21 13:24:24,219 - vrp_map_visualization - INFO - Route found with 679 points
+2025-06-21 13:24:24,225 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.881192249868676, 8.185459502164846]
+2025-06-21 13:24:25,242 - vrp_map_visualization - INFO - Route found with 1431 points
+2025-06-21 13:24:25,242 - vrp_map_visualization - INFO - Requesting route from [44.881192249868676, 8.185459502164846] to [45.6891910953793, 9.66282297086811]
+2025-06-21 13:24:26,249 - vrp_map_visualization - INFO - Route found with 1853 points
+2025-06-21 13:24:26,250 - vrp_map_visualization - INFO - Requesting route from [45.6891910953793, 9.66282297086811] to [45.307742295105676, 8.411877683676623]
+2025-06-21 13:24:27,229 - vrp_map_visualization - INFO - Route found with 1256 points
+2025-06-21 13:24:27,230 - vrp_map_visualization - INFO - Requesting route from [45.307742295105676, 8.411877683676623] to [44.3938272090396, 7.554635775869029]
+2025-06-21 13:24:28,244 - vrp_map_visualization - INFO - Route found with 1935 points
+2025-06-21 13:24:28,250 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.887968435375946, 8.186926348463825]
+2025-06-21 13:24:29,232 - vrp_map_visualization - INFO - Route found with 1453 points
+2025-06-21 13:24:29,232 - vrp_map_visualization - INFO - Requesting route from [44.887968435375946, 8.186926348463825] to [45.065070549951166, 7.5280720286233445]
+2025-06-21 13:24:30,224 - vrp_map_visualization - INFO - Route found with 854 points
+2025-06-21 13:24:30,225 - vrp_map_visualization - INFO - Requesting route from [45.065070549951166, 7.5280720286233445] to [45.31966093910828, 8.416022735716345]
+2025-06-21 13:24:31,224 - vrp_map_visualization - INFO - Route found with 888 points
+2025-06-21 13:24:31,225 - vrp_map_visualization - INFO - Requesting route from [45.31966093910828, 8.416022735716345] to [44.90619944687794, 8.628132765907148]
+2025-06-21 13:24:32,226 - vrp_map_visualization - INFO - Route found with 788 points
+2025-06-21 13:24:32,230 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.898634777664796, 8.199889809369168]
+2025-06-21 13:24:33,243 - vrp_map_visualization - INFO - Route found with 1302 points
+2025-06-21 13:24:33,244 - vrp_map_visualization - INFO - Requesting route from [44.898634777664796, 8.199889809369168] to [45.68969462936801, 9.670256012442513]
+2025-06-21 13:24:34,239 - vrp_map_visualization - INFO - Route found with 1713 points
+2025-06-21 13:24:34,240 - vrp_map_visualization - INFO - Requesting route from [45.68969462936801, 9.670256012442513] to [45.327636017698566, 8.425011409228379]
+2025-06-21 13:24:35,236 - vrp_map_visualization - INFO - Route found with 1212 points
+2025-06-21 13:24:35,237 - vrp_map_visualization - INFO - Requesting route from [45.327636017698566, 8.425011409228379] to [44.914757333065786, 8.216278758417186]
+2025-06-21 13:24:36,215 - vrp_map_visualization - INFO - Route found with 835 points
+2025-06-21 13:24:36,220 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.90637810727454, 8.194085812662166]
+2025-06-21 13:24:37,229 - vrp_map_visualization - INFO - Route found with 1269 points
+2025-06-21 13:24:37,230 - vrp_map_visualization - INFO - Requesting route from [44.90637810727454, 8.194085812662166] to [45.704406197752625, 9.68065033297178]
+2025-06-21 13:24:38,243 - vrp_map_visualization - INFO - Route found with 1793 points
+2025-06-21 13:24:38,244 - vrp_map_visualization - INFO - Requesting route from [45.704406197752625, 9.68065033297178] to [45.33412358833419, 8.436887172506324]
+2025-06-21 13:24:39,237 - vrp_map_visualization - INFO - Route found with 1322 points
+2025-06-21 13:24:39,238 - vrp_map_visualization - INFO - Requesting route from [45.33412358833419, 8.436887172506324] to [45.48519327012515, 9.06025572183814]
+2025-06-21 13:24:40,230 - vrp_map_visualization - INFO - Route found with 1023 points
+2025-06-21 13:24:40,236 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.91503589611138, 8.221638068474691]
+2025-06-21 13:24:41,234 - vrp_map_visualization - INFO - Route found with 1301 points
+2025-06-21 13:24:41,235 - vrp_map_visualization - INFO - Requesting route from [44.91503589611138, 8.221638068474691] to [45.433733977644614, 9.241391381210171]
+2025-06-21 13:24:42,240 - vrp_map_visualization - INFO - Route found with 1507 points
+2025-06-21 13:24:42,241 - vrp_map_visualization - INFO - Requesting route from [45.433733977644614, 9.241391381210171] to [44.3823668821326, 7.535344697173272]
+2025-06-21 13:24:43,250 - vrp_map_visualization - INFO - Route found with 2258 points
+2025-06-21 13:24:43,252 - vrp_map_visualization - INFO - Requesting route from [44.3823668821326, 7.535344697173272] to [45.55102734833622, 10.22587165708197]
+2025-06-21 13:24:44,242 - vrp_map_visualization - INFO - Route found with 2513 points
+2025-06-21 13:24:44,247 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.903170446369444, 8.223144894810908]
+2025-06-21 13:24:45,503 - vrp_map_visualization - INFO - Route found with 1294 points
+2025-06-21 13:24:45,504 - vrp_map_visualization - INFO - Requesting route from [44.903170446369444, 8.223144894810908] to [45.82462713876655, 8.817919517048912]
+2025-06-21 13:24:46,233 - vrp_map_visualization - INFO - Route found with 1586 points
+2025-06-21 13:24:46,234 - vrp_map_visualization - INFO - Requesting route from [45.82462713876655, 8.817919517048912] to [44.3813504428029, 7.536631747678697]
+2025-06-21 13:24:47,252 - vrp_map_visualization - INFO - Route found with 2609 points
+2025-06-21 13:24:47,253 - vrp_map_visualization - INFO - Requesting route from [44.3813504428029, 7.536631747678697] to [45.50979410990737, 9.222510210219502]
+2025-06-21 13:24:48,244 - vrp_map_visualization - INFO - Route found with 2278 points
+2025-06-21 13:24:48,251 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.92216009473238, 8.230383111398845]
+2025-06-21 13:24:49,242 - vrp_map_visualization - INFO - Route found with 1226 points
+2025-06-21 13:24:49,243 - vrp_map_visualization - INFO - Requesting route from [44.92216009473238, 8.230383111398845] to [45.44318044268117, 8.58632260285397]
+2025-06-21 13:24:50,230 - vrp_map_visualization - INFO - Route found with 933 points
+2025-06-21 13:24:50,231 - vrp_map_visualization - INFO - Requesting route from [45.44318044268117, 8.58632260285397] to [44.39745580618689, 7.551406981042139]
+2025-06-21 13:24:51,241 - vrp_map_visualization - INFO - Route found with 2079 points
+2025-06-21 13:24:51,241 - vrp_map_visualization - INFO - Requesting route from [44.39745580618689, 7.551406981042139] to [45.42094179378328, 8.592571965528267]
+2025-06-21 13:24:52,245 - vrp_map_visualization - INFO - Route found with 2217 points
+2025-06-21 13:24:52,251 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [44.914113401319035, 8.212858657873031]
+2025-06-21 13:24:53,240 - vrp_map_visualization - INFO - Route found with 1426 points
+2025-06-21 13:24:53,240 - vrp_map_visualization - INFO - Requesting route from [44.914113401319035, 8.212858657873031] to [45.31843060756942, 8.407190090988252]
+2025-06-21 13:24:54,230 - vrp_map_visualization - INFO - Route found with 950 points
+2025-06-21 13:24:54,231 - vrp_map_visualization - INFO - Requesting route from [45.31843060756942, 8.407190090988252] to [44.39504731752155, 7.551747816098061]
+2025-06-21 13:24:55,250 - vrp_map_visualization - INFO - Route found with 1993 points
+2025-06-21 13:24:55,251 - vrp_map_visualization - INFO - Requesting route from [44.39504731752155, 7.551747816098061] to [45.69355929034946, 9.656626122561303]
+2025-06-21 13:24:56,268 - vrp_map_visualization - INFO - Route found with 2461 points
+2025-06-21 13:24:56,275 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.0824178571468, 7.6882677086761655]
+2025-06-21 13:24:57,232 - vrp_map_visualization - INFO - Route found with 1222 points
+2025-06-21 13:24:57,232 - vrp_map_visualization - INFO - Requesting route from [45.0824178571468, 7.6882677086761655] to [45.68774281356703, 9.666123365578464]
+2025-06-21 13:24:58,226 - vrp_map_visualization - INFO - Route found with 1213 points
+2025-06-21 13:24:58,228 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.08226944466228, 7.695783669146641]
+2025-06-21 13:24:59,230 - vrp_map_visualization - INFO - Route found with 1235 points
+2025-06-21 13:24:59,231 - vrp_map_visualization - INFO - Requesting route from [45.08226944466228, 7.695783669146641] to [45.104102296150195, 7.734585892176687]
+2025-06-21 13:25:00,208 - vrp_map_visualization - INFO - Route found with 167 points
+2025-06-21 13:25:00,210 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.07870348725615, 7.69842404104353]
+2025-06-21 13:25:01,225 - vrp_map_visualization - INFO - Route found with 1244 points
+2025-06-21 13:25:01,226 - vrp_map_visualization - INFO - Requesting route from [45.07870348725615, 7.69842404104353] to [44.37373660014996, 7.55489643047081]
+2025-06-21 13:25:02,234 - vrp_map_visualization - INFO - Route found with 1157 points
+2025-06-21 13:25:02,236 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.0817424861399, 7.6726435908569455]
+2025-06-21 13:25:03,235 - vrp_map_visualization - INFO - Route found with 1246 points
+2025-06-21 13:25:03,235 - vrp_map_visualization - INFO - Requesting route from [45.0817424861399, 7.6726435908569455] to [45.442367054168116, 8.610921920851258]
+2025-06-21 13:25:04,227 - vrp_map_visualization - INFO - Route found with 965 points
+2025-06-21 13:25:04,229 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.04197593528942, 7.521038345644197]
+2025-06-21 13:25:05,233 - vrp_map_visualization - INFO - Route found with 1404 points
+2025-06-21 13:25:05,234 - vrp_map_visualization - INFO - Requesting route from [45.04197593528942, 7.521038345644197] to [45.48805779754014, 9.06167301152637]
+2025-06-21 13:25:06,229 - vrp_map_visualization - INFO - Route found with 1292 points
+2025-06-21 13:25:06,231 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.047689752733376, 7.524616091429147]
+2025-06-21 13:25:07,257 - vrp_map_visualization - INFO - Route found with 1389 points
+2025-06-21 13:25:07,258 - vrp_map_visualization - INFO - Requesting route from [45.047689752733376, 7.524616091429147] to [45.46900099548246, 9.186553979356944]
+2025-06-21 13:25:08,234 - vrp_map_visualization - INFO - Route found with 1341 points
+2025-06-21 13:25:08,236 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.06620667312145, 7.508373749781656]
+2025-06-21 13:25:09,233 - vrp_map_visualization - INFO - Route found with 1395 points
+2025-06-21 13:25:09,234 - vrp_map_visualization - INFO - Requesting route from [45.06620667312145, 7.508373749781656] to [45.835034490615946, 8.82608647197436]
+2025-06-21 13:25:10,235 - vrp_map_visualization - INFO - Route found with 1533 points
+2025-06-21 13:25:10,238 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.06351115234727, 7.507836455891706]
+2025-06-21 13:25:11,235 - vrp_map_visualization - INFO - Route found with 1404 points
+2025-06-21 13:25:11,235 - vrp_map_visualization - INFO - Requesting route from [45.06351115234727, 7.507836455891706] to [45.465552076416444, 9.06803691275694]
+2025-06-21 13:25:12,227 - vrp_map_visualization - INFO - Route found with 1125 points
+2025-06-21 13:25:12,230 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.11598626559918, 7.742442691790084]
+2025-06-21 13:25:13,224 - vrp_map_visualization - INFO - Route found with 1076 points
+2025-06-21 13:25:13,225 - vrp_map_visualization - INFO - Requesting route from [45.11598626559918, 7.742442691790084] to [45.79880236323507, 9.071531596011397]
+2025-06-21 13:25:14,234 - vrp_map_visualization - INFO - Route found with 1096 points
+2025-06-21 13:25:14,237 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.113397610457, 7.751295326091003]
+2025-06-21 13:25:15,230 - vrp_map_visualization - INFO - Route found with 1088 points
+2025-06-21 13:25:15,231 - vrp_map_visualization - INFO - Requesting route from [45.113397610457, 7.751295326091003] to [45.42039921433379, 8.604927130547338]
+2025-06-21 13:25:16,222 - vrp_map_visualization - INFO - Route found with 831 points
+2025-06-21 13:25:16,225 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.10721746935175, 7.75254045838519]
+2025-06-21 13:25:17,232 - vrp_map_visualization - INFO - Route found with 1174 points
+2025-06-21 13:25:17,234 - vrp_map_visualization - INFO - Requesting route from [45.10721746935175, 7.75254045838519] to [44.91500678712317, 8.214785487145722]
+2025-06-21 13:25:18,234 - vrp_map_visualization - INFO - Route found with 1309 points
+2025-06-21 13:25:18,237 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.101618633971775, 7.739713390013187]
+2025-06-21 13:25:19,235 - vrp_map_visualization - INFO - Route found with 1166 points
+2025-06-21 13:25:19,235 - vrp_map_visualization - INFO - Requesting route from [45.101618633971775, 7.739713390013187] to [44.396184166371974, 7.545465447478541]
+2025-06-21 13:25:20,237 - vrp_map_visualization - INFO - Route found with 1411 points
+2025-06-21 13:25:20,239 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.44833811639407, 8.601912178190918]
+2025-06-21 13:25:21,229 - vrp_map_visualization - INFO - Route found with 941 points
+2025-06-21 13:25:21,230 - vrp_map_visualization - INFO - Requesting route from [45.44833811639407, 8.601912178190918] to [45.44187276482433, 8.603199847114393]
+2025-06-21 13:25:22,205 - vrp_map_visualization - INFO - Route found with 124 points
+2025-06-21 13:25:22,206 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.445153580505135, 8.622168816995702]
+2025-06-21 13:25:23,237 - vrp_map_visualization - INFO - Route found with 954 points
+2025-06-21 13:25:23,237 - vrp_map_visualization - INFO - Requesting route from [45.445153580505135, 8.622168816995702] to [44.37419074188594, 7.529543866101753]
+2025-06-21 13:25:24,257 - vrp_map_visualization - INFO - Route found with 2187 points
+2025-06-21 13:25:24,260 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.450888225672976, 8.611955647662294]
+2025-06-21 13:25:25,226 - vrp_map_visualization - INFO - Route found with 891 points
+2025-06-21 13:25:25,226 - vrp_map_visualization - INFO - Requesting route from [45.450888225672976, 8.611955647662294] to [44.901739219979916, 8.210973897981798]
+2025-06-21 13:25:26,233 - vrp_map_visualization - INFO - Route found with 1256 points
+2025-06-21 13:25:26,236 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.43924527632235, 8.616154090326564]
+2025-06-21 13:25:27,227 - vrp_map_visualization - INFO - Route found with 937 points
+2025-06-21 13:25:27,228 - vrp_map_visualization - INFO - Requesting route from [45.43924527632235, 8.616154090326564] to [45.444884107271534, 8.60227012698228]
+2025-06-21 13:25:28,206 - vrp_map_visualization - INFO - Route found with 91 points
+2025-06-21 13:25:28,208 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.4302895858863, 8.589427140352738]
+2025-06-21 13:25:29,228 - vrp_map_visualization - INFO - Route found with 1076 points
+2025-06-21 13:25:29,229 - vrp_map_visualization - INFO - Requesting route from [45.4302895858863, 8.589427140352738] to [45.51005261220302, 9.150165234104369]
+2025-06-21 13:25:30,215 - vrp_map_visualization - INFO - Route found with 724 points
+2025-06-21 13:25:30,218 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.419806551554224, 8.592475948389799]
+2025-06-21 13:25:31,224 - vrp_map_visualization - INFO - Route found with 895 points
+2025-06-21 13:25:31,225 - vrp_map_visualization - INFO - Requesting route from [45.419806551554224, 8.592475948389799] to [45.44984249805167, 9.23472733197759]
+2025-06-21 13:25:32,236 - vrp_map_visualization - INFO - Route found with 1130 points
+2025-06-21 13:25:32,238 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.427818938723966, 8.607657500406672]
+2025-06-21 13:25:33,221 - vrp_map_visualization - INFO - Route found with 844 points
+2025-06-21 13:25:33,222 - vrp_map_visualization - INFO - Requesting route from [45.427818938723966, 8.607657500406672] to [44.395860608890224, 7.5398022227057595]
+2025-06-21 13:25:34,249 - vrp_map_visualization - INFO - Route found with 2255 points
+2025-06-21 13:25:34,252 - vrp_map_visualization - INFO - Requesting route from [45.4642, 9.1896] to [45.445216243097, 8.607309663264788]
+2025-06-21 13:25:35,223 - vrp_map_visualization - INFO - Route found with 931 points
+2025-06-21 13:25:35,224 - vrp_map_visualization - INFO - Requesting route from [45.445216243097, 8.607309663264788] to [44.90255330359502, 8.208195886635258]
+2025-06-21 13:25:36,229 - vrp_map_visualization - INFO - Route found with 1207 points
+2025-06-21 13:25:37,367 - vrp_map_visualization - INFO - Interactive map with street routing saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_interactive_map.html
+2025-06-21 13:25:38,034 - vrp_map_visualization - ERROR - Error creating static map: Stamen
+2025-06-21 13:25:40,767 - vrp_map_visualization - INFO - Fallback GPS plot saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_first_map_background_gps_fallback.png
+2025-06-21 13:25:40,768 - __main__ - INFO - Created 2 map visualizations for MODA_first
+2025-06-21 13:25:40,768 - __main__ - INFO - Scenario MODA_first completed:
+2025-06-21 13:25:40,768 - __main__ - INFO -   Quantum - Distance: 258.14, Runtime: 2.00ms
+2025-06-21 13:25:40,768 - __main__ - INFO -   Classical - Distance: 252.88, Runtime: 1.00ms
+2025-06-21 13:25:40,769 - __main__ - INFO -   OR-Tools - Distance: 0.00, Runtime: 2972.73ms
+2025-06-21 13:25:40,769 - __main__ - INFO -   Advanced - Distance: 0.00, Runtime: 0.00ms
+2025-06-21 13:25:40,769 - __main__ - INFO -   2-opt - Distance: 0.00, Runtime: 0.00ms
+2025-06-21 13:25:40,769 - __main__ - INFO - 
+============================================================
+2025-06-21 13:25:40,770 - __main__ - INFO - Processing scenario: MODA_small
+2025-06-21 13:25:40,770 - __main__ - INFO - ============================================================
+2025-06-21 13:25:40,770 - __main__ - INFO - Comparing optimization methods for MODA_small Asti Northern Italy VRPPD
+2025-06-21 13:25:40,771 - __main__ - INFO - Running quantum-enhanced Benders...
+2025-06-21 13:25:40,771 - vrp_optimizer_fixed - INFO - Starting VRP optimization with quantum-enhanced methods
+2025-06-21 13:25:40,772 - __main__ - INFO - Running simple classical heuristic...
+2025-06-21 13:25:40,772 - vrp_optimizer_fixed - INFO - Starting VRP optimization with classical methods
+2025-06-21 13:25:40,772 - __main__ - INFO - Running OR-Tools optimization...
+2025-06-21 13:25:40,773 - vrp_optimizer_fixed - INFO - Starting VRP optimization with OR-Tools
+2025-06-21 13:25:40,773 - vrp_optimizer_fixed - WARNING - OR-Tools configured for ride pooling with pickup-delivery constraints
+2025-06-21 13:25:40,773 - vrp_optimizer_fixed - INFO - Multi-depot VRPPD with 2 depots: ['depot_1', 'depot_2']
+2025-06-21 13:25:40,774 - vrp_optimizer_fixed - INFO - Vehicle capacities being set: [24000, 24000, 4000, 4000, 4000]
+2025-06-21 13:25:40,775 - vrp_optimizer_fixed - INFO - Vehicle 0 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:25:40,775 - vrp_optimizer_fixed - INFO - Vehicle 1 (heavy): max 540.0 minutes (9.0 hours)
+2025-06-21 13:25:40,776 - vrp_optimizer_fixed - INFO - Vehicle 2 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:25:40,776 - vrp_optimizer_fixed - INFO - Vehicle 3 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:25:40,776 - vrp_optimizer_fixed - INFO - Vehicle 4 (standard): max 600.0 minutes (10.0 hours)
+2025-06-21 13:25:40,777 - vrp_optimizer_fixed - INFO - Adding time dimension with max 600.0 minutes (10.0 hours)
+2025-06-21 13:25:40,777 - vrp_optimizer_fixed - INFO - No stop count constraint - vehicles limited only by time constraints
+2025-06-21 13:25:40,778 - vrp_optimizer_fixed - INFO - Solving with OR-Tools...
+2025-06-21 13:25:40,804 - vrp_optimizer_fixed - INFO - OR-Tools found solution with objective value: 0
+2025-06-21 13:25:40,804 - vrp_optimizer_fixed - INFO - OR-Tools solution: distance=0.60, vehicles=1, runtime=30.01ms
+2025-06-21 13:25:40,805 - __main__ - INFO - Running advanced heuristics...
+2025-06-21 13:25:40,805 - vrp_optimizer_fixed - INFO - Starting VRP optimization with advanced heuristics: best_of_multiple
+2025-06-21 13:25:40,806 - vrp_optimizer_fixed - WARNING - Advanced heuristics not yet implemented for ride pooling scenarios
+2025-06-21 13:25:40,806 - __main__ - INFO - Running 2-opt improvement...
+2025-06-21 13:25:40,806 - vrp_optimizer_fixed - INFO - Starting VRP optimization with greedy_insertion + 2-opt best
+2025-06-21 13:25:40,807 - vrp_optimizer_fixed - WARNING - 2-opt improvement not yet implemented for ride pooling scenarios
+2025-06-21 13:25:41,414 - __main__ - INFO - Comparison plot saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_comparison.png
+2025-06-21 13:25:42,135 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution.png
+2025-06-21 13:25:42,166 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_quantum_solution_gps_info.txt
+2025-06-21 13:25:42,886 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution.png
+2025-06-21 13:25:42,892 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_classical_solution_gps_info.txt
+2025-06-21 13:25:43,586 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution.png
+2025-06-21 13:25:43,593 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_ortools_solution_gps_info.txt
+2025-06-21 13:25:44,246 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution.png
+2025-06-21 13:25:44,252 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_advanced_solution_gps_info.txt
+2025-06-21 13:25:44,896 - __main__ - INFO - Solution visualization saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution.png
+2025-06-21 13:25:44,902 - __main__ - INFO - GPS coordinates saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_twopt_solution_gps_info.txt
+2025-06-21 13:25:44,903 - __main__ - INFO - Using classical solution for MODA_small map (ride pooling constraints)
+2025-06-21 13:25:44,934 - vrp_map_visualization - INFO - OSRM routing service is available
+2025-06-21 13:25:44,944 - vrp_map_visualization - INFO - Requesting route from [44.8987, 8.2065] to [44.90148853596916, 8.197000215104454]
+2025-06-21 13:25:45,934 - vrp_map_visualization - INFO - Route found with 131 points
+2025-06-21 13:25:45,935 - vrp_map_visualization - INFO - Requesting route from [44.90148853596916, 8.197000215104454] to [44.87863992281874, 8.223850683914684]
+2025-06-21 13:25:46,935 - vrp_map_visualization - INFO - Route found with 294 points
+2025-06-21 13:25:46,935 - vrp_map_visualization - INFO - Requesting route from [44.87863992281874, 8.223850683914684] to [44.8921063544203, 8.227329673335106]
+2025-06-21 13:25:47,938 - vrp_map_visualization - INFO - Route found with 268 points
+2025-06-21 13:25:47,939 - vrp_map_visualization - INFO - Requesting route from [44.8921063544203, 8.227329673335106] to [44.887837314863525, 8.17792289547387]
+2025-06-21 13:25:48,936 - vrp_map_visualization - INFO - Route found with 279 points
+2025-06-21 13:25:48,938 - vrp_map_visualization - INFO - Requesting route from [44.8987, 8.2065] to [44.90050985024898, 8.197135653589635]
+2025-06-21 13:25:49,933 - vrp_map_visualization - INFO - Route found with 131 points
+2025-06-21 13:25:49,934 - vrp_map_visualization - INFO - Requesting route from [44.90050985024898, 8.197135653589635] to [44.87742457551494, 8.215181402410987]
+2025-06-21 13:25:50,937 - vrp_map_visualization - INFO - Route found with 236 points
+2025-06-21 13:25:50,938 - vrp_map_visualization - INFO - Requesting route from [44.87742457551494, 8.215181402410987] to [44.90033955644098, 8.23873309175425]
+2025-06-21 13:25:51,933 - vrp_map_visualization - INFO - Route found with 143 points
+2025-06-21 13:25:51,933 - vrp_map_visualization - INFO - Requesting route from [44.90033955644098, 8.23873309175425] to [44.905916974802416, 8.189396163389617]
+2025-06-21 13:25:52,937 - vrp_map_visualization - INFO - Route found with 230 points
+2025-06-21 13:25:52,939 - vrp_map_visualization - INFO - Requesting route from [44.8987, 8.2065] to [44.90440881244081, 8.191785313677517]
+2025-06-21 13:25:53,940 - vrp_map_visualization - INFO - Route found with 145 points
+2025-06-21 13:25:53,940 - vrp_map_visualization - INFO - Requesting route from [44.90440881244081, 8.191785313677517] to [44.88244400826429, 8.21448767199699]
+2025-06-21 13:25:54,937 - vrp_map_visualization - INFO - Route found with 234 points
+2025-06-21 13:25:54,938 - vrp_map_visualization - INFO - Requesting route from [44.88244400826429, 8.21448767199699] to [44.908763239168664, 8.224392303479405]
+2025-06-21 13:25:55,934 - vrp_map_visualization - INFO - Route found with 164 points
+2025-06-21 13:25:55,935 - vrp_map_visualization - INFO - Requesting route from [44.908763239168664, 8.224392303479405] to [44.891213603902465, 8.203547248768945]
+2025-06-21 13:25:56,934 - vrp_map_visualization - INFO - Route found with 246 points
+2025-06-21 13:25:56,936 - vrp_map_visualization - INFO - Requesting route from [44.915, 8.185] to [44.9018549168676, 8.181934327536668]
+2025-06-21 13:25:57,933 - vrp_map_visualization - INFO - Route found with 70 points
+2025-06-21 13:25:57,934 - vrp_map_visualization - INFO - Requesting route from [44.9018549168676, 8.181934327536668] to [44.908675708587104, 8.230579649463275]
+2025-06-21 13:25:58,936 - vrp_map_visualization - INFO - Route found with 279 points
+2025-06-21 13:25:58,937 - vrp_map_visualization - INFO - Requesting route from [44.908675708587104, 8.230579649463275] to [44.88421965687173, 8.1888581942867]
+2025-06-21 13:25:59,936 - vrp_map_visualization - INFO - Route found with 342 points
+2025-06-21 13:25:59,937 - vrp_map_visualization - INFO - Requesting route from [44.88421965687173, 8.1888581942867] to [44.91163276143585, 8.229341629641398]
+2025-06-21 13:26:00,938 - vrp_map_visualization - INFO - Route found with 322 points
+2025-06-21 13:26:00,940 - vrp_map_visualization - INFO - Requesting route from [44.915, 8.185] to [44.88604081262546, 8.226588093285061]
+2025-06-21 13:26:01,939 - vrp_map_visualization - INFO - Route found with 350 points
+2025-06-21 13:26:01,940 - vrp_map_visualization - INFO - Requesting route from [44.88604081262546, 8.226588093285061] to [44.902733190138484, 8.185646372410424]
+2025-06-21 13:26:02,938 - vrp_map_visualization - INFO - Route found with 281 points
+2025-06-21 13:26:02,938 - vrp_map_visualization - INFO - Requesting route from [44.902733190138484, 8.185646372410424] to [44.88493255015388, 8.181227362683263]
+2025-06-21 13:26:03,937 - vrp_map_visualization - INFO - Route found with 258 points
+2025-06-21 13:26:03,937 - vrp_map_visualization - INFO - Requesting route from [44.88493255015388, 8.181227362683263] to [44.903390408082245, 8.225509132146517]
+2025-06-21 13:26:04,941 - vrp_map_visualization - INFO - Route found with 318 points
+2025-06-21 13:26:05,042 - vrp_map_visualization - INFO - Interactive map with street routing saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_interactive_map.html
+2025-06-21 13:26:05,157 - vrp_map_visualization - ERROR - Error creating static map: Stamen
+2025-06-21 13:26:05,961 - vrp_map_visualization - INFO - Fallback GPS plot saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results\MODA_small_map_background_gps_fallback.png
+2025-06-21 13:26:05,962 - __main__ - INFO - Created 2 map visualizations for MODA_small
+2025-06-21 13:26:05,962 - __main__ - INFO - Scenario MODA_small completed:
+2025-06-21 13:26:05,963 - __main__ - INFO -   Quantum - Distance: 0.84, Runtime: 1.00ms
+2025-06-21 13:26:05,963 - __main__ - INFO -   Classical - Distance: 0.84, Runtime: 0.00ms
+2025-06-21 13:26:05,963 - __main__ - INFO -   OR-Tools - Distance: 0.60, Runtime: 30.01ms
+2025-06-21 13:26:05,963 - __main__ - INFO -   Advanced - Distance: 0.00, Runtime: 0.00ms
+2025-06-21 13:26:05,964 - __main__ - INFO -   2-opt - Distance: 0.00, Runtime: 0.00ms
+2025-06-21 13:26:05,964 - __main__ - INFO - Generating summary report
+2025-06-21 13:26:06,786 - __main__ - INFO - 
+VRP analysis completed. Results saved to g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\results

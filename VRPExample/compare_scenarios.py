@@ -239,12 +239,11 @@ def analyze_scenario_differences():
                     if new_tw['size_min'] <= 0:
                         print("🔴 ERROR: Some time windows have zero or negative duration")
                         print("   This makes locations impossible to visit")
-            
-            # Check for unreachable time windows (e.g., pickup after dropoff)
+              # Check for unreachable time windows (e.g., pickup after dropoff)
             if new_moda_small.ride_requests:
                 for req in new_moda_small.ride_requests:
-                    pickup_loc = new_moda_small.locations.get(req.pickup_location_id)
-                    dropoff_loc = new_moda_small.locations.get(req.dropoff_location_id)
+                    pickup_loc = new_moda_small.locations.get(req.pickup_location)
+                    dropoff_loc = new_moda_small.locations.get(req.dropoff_location)
                     
                     if (pickup_loc and dropoff_loc and 
                         hasattr(pickup_loc, 'time_window_end') and hasattr(dropoff_loc, 'time_window_start') and
@@ -283,12 +282,11 @@ def analyze_scenario_differences():
             elif total_requests > 0:
                 print(f"ℹ️ Scenario has {total_requests} requests and {total_vehicles} vehicles")
                 print("   In VRP, vehicles can serve multiple passengers per day via multiple trips")
-                
-                # Check for unreachable requests (e.g., pickup after dropoff time windows)
+                  # Check for unreachable requests (e.g., pickup after dropoff time windows)
                 if new_moda_first.ride_requests:
                     for req in new_moda_first.ride_requests:
-                        pickup_loc = new_moda_first.locations.get(req.pickup_location_id)
-                        dropoff_loc = new_moda_first.locations.get(req.dropoff_location_id)
+                        pickup_loc = new_moda_first.locations.get(req.pickup_location)
+                        dropoff_loc = new_moda_first.locations.get(req.dropoff_location)
                         
                         if (pickup_loc and dropoff_loc and 
                             hasattr(pickup_loc, 'time_window_end') and hasattr(dropoff_loc, 'time_window_start') and
