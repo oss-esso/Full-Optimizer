@@ -869,11 +869,13 @@ def create_furgoni_scenario() -> VRPInstance:
     # Create depot location (Milan coordinates) - matching MODA format
     depot = Location("depot", 9.1896, 45.4642, demand=0, 
                     time_window_start=0, time_window_end=1440, service_time=5)
-    depot.address = "Milan Distribution Center"
-    depot.lat = 45.4642  # Added missing lat/lon attributes
-    depot.lon = 9.1896
+    depot.address = "Asti Distribution Center"
+    depot.lat = 44.5404  # Added missing lat/lon attributes
+    depot.lon = 8.1407
     instance.add_location(depot)
     
+
+
     # Vehicle data with calculated capacities - matching MODA format with max_time
     vehicles_data = {
         "FURGONE 1": 3500,
@@ -893,17 +895,17 @@ def create_furgoni_scenario() -> VRPInstance:
         vehicle_id = vehicle_name.lower().replace(" ", "_").replace(",", "").replace(".", "")
         # Set max_time based on vehicle type (matching MODA logic)
         if "CAMION" in vehicle_name:
-            max_time =  540 # Heavy vehicles: 9 hours (EU regulations)
+            max_time =  1440 # Heavy vehicles: 9 hours (EU regulations)
             vehicle_type = "heavy"
-            max_driving_time = 270  # 4.5 hours
+            max_driving_time = 1440  # 4.5 hours
             required_break_time = 45.0
-            max_total_work_time = 540
+            max_total_work_time = 1440
         else:
-            max_time = 600  # Light vehicles: 10 hours
+            max_time = 1440  # Light vehicles: 10 hours
             vehicle_type = "standard"
-            max_driving_time = 600.0
+            max_driving_time = 1440.0
             required_break_time = 0.0
-            max_total_work_time = 600.0
+            max_total_work_time = 1440.0
             
         vehicle = Vehicle(vehicle_id, capacity=capacity, depot_id="depot", max_time=max_time)
         vehicle.vehicle_type = vehicle_type
@@ -935,7 +937,7 @@ def create_furgoni_scenario() -> VRPInstance:
         ("paris_fr", "Rue de L'Abbaye 10 PARIGI FR", 2.3522, 48.8566, 0, 1440, 30, False),
         
         # CAMION 7.5 T. (1 delivery - 2755kg)
-        ("chiva_spagna", "Poligono I La Pamilla 196 46370 Chiva Spagna", -0.7167, 39.4667, 0, 1440, 45, False),
+        #("chiva_spagna", "Poligono I La Pamilla 196 46370 Chiva Spagna", -0.7167, 39.4667, 0, 1440, 45, False),
         
         # FURGONE 8 (1 delivery + 3 pickups with time constraints)
         ("cerro_al_lambro_mi", "Via Autosole 7 20070 Cerro Al Lambro MI", 9.3000, 45.3333, 0, 1440, 20, False),
@@ -965,6 +967,8 @@ def create_furgoni_scenario() -> VRPInstance:
         location = Location(location_id, lon, lat, demand=0,
                            time_window_start=tw_start, time_window_end=tw_end, 
                            service_time=service_time)
+        print(f"Adding location {location_id}"
+              f" and time window {tw_start}-{tw_end} minutes, service time {service_time} minutes")
         location.address = address
         location.lat = lat  # Added missing lat/lon attributes
         location.lon = lon
@@ -996,7 +1000,7 @@ def create_furgoni_scenario() -> VRPInstance:
         ("paris_fr", 1500),
         
         # CAMION 7.5 T.
-        ("chiva_spagna", 2700),
+        #("chiva_spagna", 2700),
         
         # FURGONE 8 delivery
         ("cerro_al_lambro_mi", 800),
