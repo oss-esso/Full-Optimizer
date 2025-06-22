@@ -338,6 +338,7 @@ class CleanVRPOptimizer:
         
         # First, identify and resolve conflicts by prioritizing certain pickup locations
         conflict_resolution = {}
+        skipped_requests_by_dropoff = {}  # Track skipped requests for diagnostics
         for request_id, request in requests_to_process:
             dropoff_location = request.dropoff_location
             pickup_location = request.pickup_location
@@ -353,15 +354,24 @@ class CleanVRPOptimizer:
                 # Prioritize depot_bay pickups over regular pickups
                 depot_requests = [r for r in requests if 'depot_bay' in r[1].pickup_location]
                 regular_requests = [r for r in requests if 'depot_bay' not in r[1].pickup_location]
-                
+                skipped = []
                 if depot_requests:
                     chosen = depot_requests[0]  # Choose first depot bay request
                     print(f"      → Prioritizing depot pickup: {chosen[1].pickup_location} → {dropoff}")
                     conflict_resolution[dropoff] = [chosen]
+                    # All other requests are skipped
+                    skipped = [r for r in requests if r != chosen]
                 elif regular_requests:
                     chosen = regular_requests[0]  # Choose first regular pickup
                     print(f"      → Using first pickup: {chosen[1].pickup_location} → {dropoff}")
                     conflict_resolution[dropoff] = [chosen]
+                    skipped = [r for r in requests if r != chosen]
+                # Print skipped requests for this dropoff
+                if skipped:
+                    print(f"      Skipped requests for {dropoff}:")
+                    for skip_id, skip_req in skipped:
+                        print(f"        - {skip_req.pickup_location} → {dropoff} (weight: {getattr(skip_req, 'passengers', '?')}kg)")
+                skipped_requests_by_dropoff[dropoff] = skipped
         
         # Now add the resolved pickup-delivery pairs
         for dropoff_location, requests in conflict_resolution.items():
@@ -400,7 +410,7 @@ class CleanVRPOptimizer:
             dropoff_index = manager.NodeToIndex(dropoff_idx)
             
             print(f"    Adding pickup-delivery pair: {pickup_location} → {dropoff_location} (weight: {request.passengers}kg)")
-            
+
             try:
                 routing.AddPickupAndDelivery(pickup_index, dropoff_index)
                 
@@ -470,12 +480,7 @@ class CleanVRPOptimizer:
         print(f"  Setting maximum absolute time to: {max_time} minutes ({max_time/60:.1f} hours)")
         
         routing.AddDimension(
-            time_callback_index,  # Time callback
-            120,                  # Allow 2 hours slack
-            max_time,             # Maximum absolute time (24 hours)
-            True,                 # Force start cumul to zero (like the working reference)
-            'Time'                # Dimension name
-        )
+            time_callback_index,            120,            max_time,            True,            'Time'        )
         
         time_dimension = routing.GetDimensionOrDie('Time')
         
@@ -502,43 +507,16 @@ class CleanVRPOptimizer:
         
         print("  ✅ Vehicle time span constraints added (9-hour driving limit per vehicle)")
         
-        # Add time windows for locations
-        time_window_count = 0
-        for i, location in enumerate(location_list):
-            if 'time_window' in location and location['time_window'] is not None:
-                time_window_start, time_window_end = location['time_window']
-                # Ensure values are proper integers (OR-Tools expects int64)
-                try:
-                    time_window_start = int(float(time_window_start))
-                    time_window_end = int(float(time_window_end))
-                    
-                    # Validate time windows are reasonable
-                    if time_window_start < 0:
-                        time_window_start = 0
-                    if time_window_end > 1440:  # 24 hours
-                        time_window_end = 1440
-                    if time_window_start >= time_window_end:
-                        print(f"    ⚠️ Invalid time window for {location['id']}: start >= end, skipping")
-                        continue
-                    
-                    # Make time windows more flexible by expanding them slightly
-                    # This helps avoid infeasibility with realistic travel times
-                    time_window_start = max(0, time_window_start - 30)  # 30 min earlier
-                    time_window_end = min(1440, time_window_end + 30)   # 30 min later
-                    
-                    print(f"    Time window for {location['id']}: [{time_window_start}, {time_window_end}] (expanded)")
-                      # Try to set the time window and catch any constraint conflicts
-                    try:
-                        time_dimension.CumulVar(i).SetRange(time_window_start, time_window_end)
-                        time_window_count += 1
-                    except Exception as e:
-                        print(f"    ⚠️ Failed to set time window for {location['id']}: {str(e)}")
-                        continue
-                        
-                except (ValueError, TypeError) as e:
-                    print(f"    ⚠️ Invalid time window values for {location['id']}: {location['time_window']}, skipping")
-        
-        print(f"✅ Time window constraints added for {time_window_count} locations")
+        # Apply time window constraints to all locations with time windows
+        locations_with_time_windows = 0
+        for idx, loc in enumerate(location_list):
+            tw_start = loc.get('time_window_start', None)
+            tw_end = loc.get('time_window_end', None)
+            if tw_start is not None and tw_end is not None:
+                index = manager.NodeToIndex(idx)
+                time_dimension.CumulVar(index).SetRange(int(tw_start), int(tw_end))
+                locations_with_time_windows += 1
+        print(f"✅ Time window constraints added for {locations_with_time_windows} locations")
         
     def _validate_capacity_constraints(self, routes, vehicle_list, vehicle_idx_to_vehicle=None):
         """Validate that no vehicle exceeds its capacity at any point. Uses robust mapping."""
@@ -845,6 +823,57 @@ def test_moda_small_scenario():
     print("🧪 Testing Clean VRP Optimizer with MODA_small scenario (order sensitivity test)")
     print("=" * 60)
     try:
+        from vrp_scenarios import create_furgoni_scenario
+    except ImportError:
+        print("❌ Could not import vrp_scenarios. Make sure the file is available.")
+        return
+    scenario = create_furgoni_scenario()
+    print(f"📊 Scenario details:")
+    print(f"  - Locations: {len(scenario.locations)}")
+    print(f"  - Vehicles: {len(scenario.vehicles)}")
+    print(f"  - Ride requests: {len(scenario.ride_requests)}")
+
+    # --- Get vehicle list from scenario ---
+    vehicle_ids = list(scenario.vehicles.keys())
+    vehicles_from_scenario = [scenario.vehicles[vid] for vid in vehicle_ids]
+    # Convert to dicts for CleanVRPOptimizer
+    vehicles_dicts = [{
+        'id': v.id,
+        'capacity': v.capacity,
+        'start_location': v.depot_id,
+        'end_location': v.depot_id,
+        'max_time': getattr(v, 'max_time', 9 * 60)
+    } for v in vehicles_from_scenario]
+
+    # --- First run: original order ---
+    print("\n================= RUN 1: Original vehicle order ================")
+    print("RUN 1 vehicle order:", [v['id'] for v in vehicles_dicts])
+    print("RUN 1 vehicle capacities:", [v['capacity'] for v in vehicles_dicts])
+    optimizer1 = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=[vars(l) for l in scenario.locations.values()], vrp_instance=None)
+    optimizer1.ride_requests = scenario.ride_requests
+    result1, status1, applied_constraints1 = optimizer1.solve(constraint_level="full", verbose=False)
+    print(f"\n=== RUN 1 RESULT ===")
+    if result1:
+        print(f"✅ SUCCESS - Status: {status1}")
+        print(f"   Constraints applied: {applied_constraints1}")
+        print(f"   Objective value: {result1['objective_value']}")
+        print(f"   Total distance: {result1['total_distance']:.1f} km")
+        for vehicle_id, route_data in result1['routes'].items():
+            route = route_data['route']
+            print(f"   Vehicle {vehicle_id}: {len(route)} stops, distance: {route_data['distance']:.1f} km")
+        # Plot the solution
+        optimizer1.plot_solution(result1, title="Furgoni VRP Solution")
+    else:
+        print(f"❌ FAILED - Status: {status1}")
+        print(f"   Constraints applied: {applied_constraints1}")
+
+
+
+def test_moda_inverted_scenario():
+    """Test the clean optimizer with MODA_small VRPPD scenario, twice with different vehicle orders."""
+    print("🧪 Testing Clean VRP Optimizer with MODA_small scenario (order sensitivity test)")
+    print("=" * 60)
+    try:
         from vrp_scenarios import create_moda_small_scenario
     except ImportError:
         print("❌ Could not import vrp_scenarios. Make sure the file is available.")
@@ -909,16 +938,17 @@ def test_moda_small_scenario():
         print(f"   Constraints applied: {applied_constraints2}")
 
 
-def test_moda_inverted_scenario():
-    """Test the clean optimizer with MODA_inverted VRPPD scenario, twice with different vehicle orders."""
-    print("🧪 Testing Clean VRP Optimizer with MODA_inverted scenario (order sensitivity test)")
+
+def test_constraint_levels():
+    """Test the clean optimizer with MODA_small VRPPD scenario, twice with different vehicle orders."""
+    print("🧪 Testing Clean VRP Optimizer with MODA_small scenario (order sensitivity test)")
     print("=" * 60)
     try:
-        from vrp_scenarios import create_moda_inverted_scenario
+        from vrp_scenarios import create_furgoni_scenario
     except ImportError:
         print("❌ Could not import vrp_scenarios. Make sure the file is available.")
         return
-    scenario = create_moda_inverted_scenario()
+    scenario = create_furgoni_scenario()
     print(f"📊 Scenario details:")
     print(f"  - Locations: {len(scenario.locations)}")
     print(f"  - Vehicles: {len(scenario.vehicles)}")
@@ -927,6 +957,57 @@ def test_moda_inverted_scenario():
     # --- Get vehicle list from scenario ---
     vehicle_ids = list(scenario.vehicles.keys())
     vehicles_from_scenario = [scenario.vehicles[vid] for vid in vehicle_ids]
+    # Convert to dicts for CleanVRPOptimizer
+    vehicles_dicts = [{
+        'id': v.id,
+        'capacity': v.capacity,
+        'start_location': v.depot_id,
+        'end_location': v.depot_id,
+        'max_time': getattr(v, 'max_time', 15 * 60)
+    } for v in vehicles_from_scenario]
+
+    levels = ["none",  "pickup_delivery", "time_windows", "capacity", "full"]
+    for i, level in enumerate(levels):
+
+        # --- First run: original order ---
+        print(f"\n================= RUN {i+1}: Level: {level} ================")
+        print("RUN 1 vehicle order:", [v['id'] for v in vehicles_dicts])
+        print("RUN 1 vehicle capacities:", [v['capacity'] for v in vehicles_dicts])
+        optimizer1 = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=[vars(l) for l in scenario.locations.values()], vrp_instance=None)
+        optimizer1.ride_requests = scenario.ride_requests
+        result1, status1, applied_constraints1 = optimizer1.solve(constraint_level=level, verbose=False)
+        print(f"\n=== RUN {i+1} RESULT ===")
+        if result1:
+            print(f"✅ SUCCESS - Status: {status1}")
+            print(f"   Constraints applied: {applied_constraints1}")
+            print(f"   Objective value: {result1['objective_value']}")
+            print(f"   Total distance: {result1['total_distance']:.1f} km")
+            for vehicle_id, route_data in result1['routes'].items():
+                route = route_data['route']
+                print(f"   Vehicle {vehicle_id}: {len(route)} stops, distance: {route_data['distance']:.1f} km")
+        else:
+            print(f"❌ FAILED - Status: {status1}")
+            print(f"   Constraints applied: {applied_constraints1}")
+
+def test_moda_first_scenario():
+    """Test the clean optimizer with MODA_first VRPPD scenario."""
+    print("🧪 Testing Clean VRP Optimizer with MODA_first scenario")
+    print("=" * 60)
+    try:
+        from vrp_scenarios import create_moda_first_scenario
+    except ImportError:
+        print("❌ Could not import vrp_scenarios. Make sure the file is available.")
+        return
+    scenario = create_moda_first_scenario()
+    print(f"📊 Scenario details:")
+    print(f"  - Locations: {len(scenario.locations)}")
+    print(f"  - Vehicles: {len(scenario.vehicles)}")
+    print(f"  - Ride requests: {len(scenario.ride_requests)}")
+
+    # --- Get vehicle list from scenario ---
+    vehicle_ids = list(scenario.vehicles.keys())
+    vehicles_from_scenario = [scenario.vehicles[vid] for vid in vehicle_ids]
+    # Convert to dicts for CleanVRPOptimizer
     vehicles_dicts = [{
         'id': v.id,
         'capacity': v.capacity,
@@ -935,49 +1016,24 @@ def test_moda_inverted_scenario():
         'max_time': getattr(v, 'max_time', 9 * 60)
     } for v in vehicles_from_scenario]
 
-    # --- First run: original (inverted) order ---
-    print("\n================= RUN 1: Inverted vehicle order ================")
-    print("RUN 1 vehicle order:", [v['id'] for v in vehicles_dicts])
-    print("RUN 1 vehicle capacities:", [v['capacity'] for v in vehicles_dicts])
-    optimizer1 = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=[vars(l) for l in scenario.locations.values()], vrp_instance=None)
-    optimizer1.ride_requests = scenario.ride_requests
-    result1, status1, applied_constraints1 = optimizer1.solve(constraint_level="full", verbose=False)
-    print(f"\n=== RUN 1 RESULT ===")
-    if result1:
-        print(f"✅ SUCCESS - Status: {status1}")
-        print(f"   Constraints applied: {applied_constraints1}")
-        print(f"   Objective value: {result1['objective_value']}")
-        print(f"   Total distance: {result1['total_distance']:.1f} km")
-        for vehicle_id, route_data in result1['routes'].items():
+    print("\n================= RUN: MODA_first scenario ================")
+    print("Vehicle order:", [v['id'] for v in vehicles_dicts])
+    print("Vehicle capacities:", [v['capacity'] for v in vehicles_dicts])
+    optimizer = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=[vars(l) for l in scenario.locations.values()], vrp_instance=None)
+    optimizer.ride_requests = scenario.ride_requests
+    result, status, applied_constraints = optimizer.solve(constraint_level="full", verbose=False)
+    print(f"\n=== MODA_first RESULT ===")
+    if result:
+        print(f"✅ SUCCESS - Status: {status}")
+        print(f"   Constraints applied: {applied_constraints}")
+        print(f"   Objective value: {result['objective_value']}")
+        print(f"   Total distance: {result['total_distance']:.1f} km")
+        for vehicle_id, route_data in result['routes'].items():
             route = route_data['route']
-            print(f"   Vehicle {vehicle_id}: {len(route)} stops, distance: {route_data['distance']:.1f} km")
+            print(f"   Vehicle {vehicle_id}: {route_data}")
     else:
-        print(f"❌ FAILED - Status: {status1}")
-        print(f"   Constraints applied: {applied_constraints1}")
-
-    # --- Second run: reversed (original) order ---
-    vehicles_dicts_reversed = list(reversed(vehicles_dicts))
-    print("\n================= RUN 2: Reversed vehicle order ================")
-    print("RUN 2 vehicle order:", [v['id'] for v in vehicles_dicts_reversed])
-    print("RUN 2 vehicle capacities:", [v['capacity'] for v in vehicles_dicts_reversed])
-    optimizer2 = CleanVRPOptimizer(vehicles=vehicles_dicts_reversed, locations=[vars(l) for l in scenario.locations.values()], vrp_instance=None)
-    optimizer2.ride_requests = scenario.ride_requests
-    result2, status2, applied_constraints2 = optimizer2.solve(constraint_level="full", verbose=False)
-    print(f"\n=== RUN 2 RESULT ===")
-    if result2:
-        print(f"✅ SUCCESS - Status: {status2}")
-        print(f"   Constraints applied: {applied_constraints2}")
-        print(f"   Objective value: {result2['objective_value']}")
-        print(f"   Total distance: {result2['total_distance']:.1f} km")
-        for vehicle_id, route_data in result2['routes'].items():
-            route = route_data['route']
-            print(f"   Vehicle {vehicle_id}: {len(route)} stops, distance: {route_data['distance']:.1f} km")
-    else:
-        print(f"❌ FAILED - Status: {status2}")
-        print(f"   Constraints applied: {applied_constraints2}")
-
-
-def test_constraint_levels():
+        print(f"❌ FAILED - Status: {status}")
+        print(f"   Constraints applied: {applied_constraints}")
     """Test the clean optimizer with different constraint levels."""
     import sys
     import os
@@ -1042,12 +1098,5 @@ def test_constraint_levels():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    test_moda_small_scenario()
     #test_moda_inverted_scenario()
-    # Esempio: esegui una run silenziosa
-    # from vrp_scenarios import create_moda_small_scenario
-    # scenario = create_moda_small_scenario()
-    # ... prepara vehicles_dicts e locations ...
-    # optimizer = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=locations)
-    # optimizer.ride_requests = scenario.ride_requests
-    # result, status, constraints = optimizer.solve(constraint_level="capacity", verbose=False)
+    test_moda_small_scenario()
