@@ -28,8 +28,9 @@ class Location:
 class Vehicle:
     """Represents a vehicle in the VRP fleet with driver regulations."""
     id: str
-    capacity: int
+    capacity: int  # Weight capacity in kg
     depot_id: str
+    volume_capacity: float = 0.0  # Volume capacity in m³
     max_distance: Optional[float] = None
     max_time: Optional[float] = None
     cost_per_km: float = 1.0
@@ -40,6 +41,10 @@ class Vehicle:
     required_break_time: Optional[float] = None  # Required break duration (minutes)
     max_total_work_time: Optional[float] = None  # Maximum total work time per day (minutes)
     break_frequency: Optional[float] = None  # How often breaks are required (minutes)
+    
+    # Truck speed profile settings for OSM routing
+    truck_speed_ratios: Optional[Dict[str, float]] = None  # Custom speed ratios by road type
+    use_truck_speeds: bool = True  # Whether to apply truck speed adjustments in OSM routing
 
 @dataclass
 class RideRequest:
@@ -47,7 +52,8 @@ class RideRequest:
     id: str
     pickup_location: str
     dropoff_location: str
-    passengers: float = 1.0  # Represents cargo load size (can be fractional)
+    passengers: float = 1.0  # Represents cargo weight in kg (can be fractional)
+    volume: float = 0.0  # Represents cargo volume in m³
     earliest_pickup: Optional[float] = None
     latest_dropoff: Optional[float] = None
 
@@ -178,3 +184,127 @@ class VRPInstance:
             export_data['vehicles'].append(vehicle_data)
         
         return export_data
+
+    def get_truck_speed_profile(self) -> Dict[str, float]:
+        """
+        Get truck speed profile for OSM routing based on vehicle fleet composition.
+        
+        Returns:
+            Dictionary of road type to speed ratio adjustments based on fleet composition.
+        """
+        if not self.vehicles:
+            # Default to standard truck profile if no vehicles defined
+            from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
+            return DEFAULT_TRUCK_SPEED_RATIOS['standard'].copy()
+        
+        # Analyze fleet composition to determine appropriate speed profile
+        vehicle_types = []
+        total_capacity = 0
+        
+        for vehicle in self.vehicles.values():
+            vehicle_type = getattr(vehicle, 'vehicle_type', 'standard')
+            capacity = getattr(vehicle, 'capacity', 0)
+            
+            vehicle_types.append(vehicle_type)
+            total_capacity += capacity
+        
+        # Calculate weighted average speed profile based on fleet composition
+        from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
+        
+        if not vehicle_types:
+            return DEFAULT_TRUCK_SPEED_RATIOS['standard'].copy()
+        
+        # Count vehicle types
+        type_counts = {}
+        type_capacities = {}
+        
+        for vehicle in self.vehicles.values():
+            vehicle_type = getattr(vehicle, 'vehicle_type', 'standard')
+            capacity = getattr(vehicle, 'capacity', 0)
+            
+            if vehicle_type not in type_counts:
+                type_counts[vehicle_type] = 0
+                type_capacities[vehicle_type] = 0
+            
+            type_counts[vehicle_type] += 1
+            type_capacities[vehicle_type] += capacity
+        
+        # Create weighted speed profile based on capacity distribution
+        combined_speed_ratios = {}
+        total_weight = sum(type_capacities.values())
+        
+        if total_weight == 0:
+            return DEFAULT_TRUCK_SPEED_RATIOS['standard'].copy()
+        
+        # Get all road types from any profile
+        all_road_types = set()
+        for profile in DEFAULT_TRUCK_SPEED_RATIOS.values():
+            all_road_types.update(profile.keys())
+        
+        # Calculate weighted average for each road type
+        for road_type in all_road_types:
+            weighted_ratio = 0.0
+            
+            for vehicle_type, capacity in type_capacities.items():
+                if vehicle_type in DEFAULT_TRUCK_SPEED_RATIOS:
+                    weight = capacity / total_weight
+                    ratio = DEFAULT_TRUCK_SPEED_RATIOS[vehicle_type].get(road_type, 
+                                                                        DEFAULT_TRUCK_SPEED_RATIOS[vehicle_type].get('default', 0.75))
+                    weighted_ratio += weight * ratio
+                else:
+                    # Unknown vehicle type, use standard profile
+                    weight = capacity / total_weight
+                    ratio = DEFAULT_TRUCK_SPEED_RATIOS['standard'].get(road_type,
+                                                                      DEFAULT_TRUCK_SPEED_RATIOS['standard'].get('default', 0.80))
+                    weighted_ratio += weight * ratio
+            
+            combined_speed_ratios[road_type] = weighted_ratio
+        
+        return combined_speed_ratios
+    
+    def should_use_truck_speeds(self) -> bool:
+        """
+        Determine if truck speed adjustments should be used based on vehicle specifications.
+        
+        Returns:
+            True if any vehicle in the fleet is configured to use truck speeds.
+        """
+        if not self.vehicles:
+            return False
+        
+        # Check if any vehicle explicitly enables truck speeds
+        for vehicle in self.vehicles.values():
+            if getattr(vehicle, 'use_truck_speeds', True):  # Default to True for realistic scenarios
+                return True
+        
+        return False
+    
+    def get_vehicle_speed_specs(self) -> Dict[str, Dict]:
+        """
+        Get detailed speed specifications for all vehicles in the fleet.
+        
+        Returns:
+            Dictionary mapping vehicle IDs to their speed specifications.
+        """
+        vehicle_specs = {}
+        
+        for vehicle_id, vehicle in self.vehicles.items():
+            specs = {
+                'vehicle_type': getattr(vehicle, 'vehicle_type', 'standard'),
+                'capacity': getattr(vehicle, 'capacity', 0),
+                'use_truck_speeds': getattr(vehicle, 'use_truck_speeds', True),
+                'truck_speed_ratios': getattr(vehicle, 'truck_speed_ratios', None)
+            }
+            
+            # If vehicle has custom speed ratios, use those; otherwise use default for type
+            if specs['truck_speed_ratios'] is None:
+                from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
+                vehicle_type = specs['vehicle_type']
+                if vehicle_type in DEFAULT_TRUCK_SPEED_RATIOS:
+                    specs['truck_speed_ratios'] = DEFAULT_TRUCK_SPEED_RATIOS[vehicle_type].copy()
+                else:
+                    specs['truck_speed_ratios'] = DEFAULT_TRUCK_SPEED_RATIOS['standard'].copy()
+            
+            vehicle_specs[vehicle_id] = specs
+        
+        return vehicle_specs

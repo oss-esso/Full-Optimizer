@@ -6,11 +6,6 @@ depot_1:
   Longitude: 8.206500
   Address: Asti Transportation Hub
 
-depot_2:
-  Latitude: 44.915000
-  Longitude: 8.185000
-  Address: Asti Nord Logistics
-
 pickup_1:
   Latitude: 44.901489
   Longitude: 8.197000
@@ -111,27 +106,4 @@ dropoff_10:
   Longitude: 8.225509
   Address: Dropoff 10 - Asti Est
 
-Google Maps Links:
---------------------
-depot_1: https://www.google.com/maps?q=44.8987,8.2065
-depot_2: https://www.google.com/maps?q=44.915,8.185
-pickup_1: https://www.google.com/maps?q=44.90148853596916,8.197000215104454
-dropoff_1: https://www.google.com/maps?q=44.87863992281874,8.223850683914684
-pickup_2: https://www.google.com/maps?q=44.90050985024898,8.197135653589635
-dropoff_2: https://www.google.com/maps?q=44.87742457551494,8.215181402410987
-pickup_3: https://www.google.com/maps?q=44.90440881244081,8.191785313677517
-dropoff_3: https://www.google.com/maps?q=44.88244400826429,8.21448767199699
-pickup_4: https://www.google.com/maps?q=44.9018549168676,8.181934327536668
-dropoff_4: https://www.google.com/maps?q=44.908675708587104,8.230579649463275
-pickup_5: https://www.google.com/maps?q=44.88604081262546,8.226588093285061
-dropoff_5: https://www.google.com/maps?q=44.902733190138484,8.185646372410424
-pickup_6: https://www.google.com/maps?q=44.8921063544203,8.227329673335106
-dropoff_6: https://www.google.com/maps?q=44.887837314863525,8.17792289547387
-pickup_7: https://www.google.com/maps?q=44.90033955644098,8.23873309175425
-dropoff_7: https://www.google.com/maps?q=44.905916974802416,8.189396163389617
-pickup_8: https://www.google.com/maps?q=44.908763239168664,8.224392303479405
-dropoff_8: https://www.google.com/maps?q=44.891213603902465,8.203547248768945
-pickup_9: https://www.google.com/maps?q=44.88421965687173,8.1888581942867
-dropoff_9: https://www.google.com/maps?q=44.91163276143585,8.229341629641398
-pickup_10: https://www.google.com/maps?q=44.88493255015388,8.181227362683263
-dropoff_10: https://www.google.com/maps?q=44.903390408082245,8.225509132146517
+depot_bay_1:

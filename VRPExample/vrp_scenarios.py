@@ -2,6 +2,50 @@ import numpy as np
 from typing import List, Dict, Tuple
 from vrp_data_models import VRPInstance, Location, Vehicle, RideRequest
 
+# Default truck speed profiles for different vehicle types
+DEFAULT_TRUCK_SPEED_RATIOS = {
+    'standard': {
+        'motorway': 80 / 130,      # Light trucks: 80 km/h, Cars: ~130 km/h
+        'trunk': 70 / 100,         # Light trucks: 70 km/h, Cars: ~100 km/h
+        'primary': 60 / 90,        # Light trucks: 60 km/h, Cars: ~90 km/h
+        'secondary': 50 / 70,      # Light trucks: 50 km/h, Cars: ~70 km/h
+        'tertiary': 45 / 60,       # Light trucks: 45 km/h, Cars: ~60 km/h
+        'residential': 30 / 50,    # Light trucks: 30 km/h, Cars: ~50 km/h
+        'service': 25 / 30,        # Light trucks: 25 km/h, Cars: ~30 km/h
+        'default': 0.80            # Light trucks ~20% slower than cars
+    },
+    'heavy': {
+        'motorway': 70 / 130,      # Heavy trucks: 70 km/h, Cars: ~130 km/h
+        'trunk': 60 / 100,         # Heavy trucks: 60 km/h, Cars: ~100 km/h
+        'primary': 50 / 90,        # Heavy trucks: 50 km/h, Cars: ~90 km/h
+        'secondary': 40 / 70,      # Heavy trucks: 40 km/h, Cars: ~70 km/h
+        'tertiary': 35 / 60,       # Heavy trucks: 35 km/h, Cars: ~60 km/h
+        'residential': 25 / 50,    # Heavy trucks: 25 km/h, Cars: ~50 km/h
+        'service': 20 / 30,        # Heavy trucks: 20 km/h, Cars: ~30 km/h
+        'default': 0.65            # Heavy trucks ~35% slower than cars
+    }
+}
+
+def calculate_cargo_volume(weight_kg: float, cargo_density_kg_m3: float = 200.0) -> float:
+    """
+    Calculate cargo volume based on weight and estimated density.
+    
+    Args:
+        weight_kg: Cargo weight in kilograms
+        cargo_density_kg_m3: Cargo density in kg/m³ (default: 200 kg/m³ for mixed cargo)
+    
+    Returns:
+        Volume in cubic meters
+    
+    Note:
+        Typical cargo densities:
+        - Dense cargo (machinery, metals): 500-800 kg/m³
+        - General cargo (packages, boxes): 150-300 kg/m³
+        - Light cargo (textiles, electronics): 50-150 kg/m³
+        - Mixed cargo (default): ~200 kg/m³
+    """
+    return weight_kg / cargo_density_kg_m3
+
 class VRPScenarioGenerator:
     """Generates various VRP scenarios for testing."""
     
@@ -419,22 +463,28 @@ def create_moda_small_scenario() -> VRPInstance:
     for i in range(total_vehicles):
         # Distribute heavy trucks: first 2 vehicles are heavy trucks
         if heavy_vehicle_count < heavy_trucks:
-            # Heavy truck (24-ton) with driver regulations
+            # Heavy truck (24-ton) with driver regulations and truck speed profile
             capacity = 24000
-            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=capacity, depot_id=depot_id, max_time=540)
+            volume_capacity = 67.0  # 67 m³ for 24t trucks
+            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=capacity, volume_capacity=volume_capacity, depot_id=depot_id, max_time=540)
             vehicle.vehicle_type = "heavy"
             vehicle.max_driving_time = 270.0  # 4.5 hours in minutes
             vehicle.required_break_time = 45.0  # 45-minute break
             vehicle.max_total_work_time = 540.0  # 9 hours total work time (EU regulations)
+            vehicle.use_truck_speeds = True  # Enable truck speed adjustments for OSM routing
+            vehicle.truck_speed_ratios = DEFAULT_TRUCK_SPEED_RATIOS['heavy'].copy()  # Heavy truck speed profile
             heavy_vehicle_count += 1
         else:
-            # Standard truck (4-ton)
+            # Standard truck (4-ton) with truck speed profile
             capacity = 4000
-            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=capacity, depot_id=depot_id, max_time=600)
+            volume_capacity = 24.0  # 24 m³ for 4t trucks
+            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=capacity, volume_capacity=volume_capacity, depot_id=depot_id, max_time=600)
             vehicle.vehicle_type = "standard"
             vehicle.max_driving_time = 600.0  # 10 hours (no break requirement)
             vehicle.required_break_time = 0.0
             vehicle.max_total_work_time = 600.0  # 10 hours total work time
+            vehicle.use_truck_speeds = True  # Enable truck speed adjustments for OSM routing
+            vehicle.truck_speed_ratios = DEFAULT_TRUCK_SPEED_RATIOS['standard'].copy()  # Standard truck speed profile
         
         instance.add_vehicle(vehicle)
         vehicle_id += 1    # Create cargo transport requests:
@@ -481,7 +531,8 @@ def create_moda_small_scenario() -> VRPInstance:
         instance.add_location(pickup_bay)
         
         # Create virtual pickup request from depot bay
-        depot_request = RideRequest(f"depot_request_{request_id}", pickup_bay_id, dropoff_id, passengers=cargo_weight)
+        cargo_volume = calculate_cargo_volume(cargo_weight)  # Calculate volume based on weight
+        depot_request = RideRequest(f"depot_request_{request_id}", pickup_bay_id, dropoff_id, passengers=cargo_weight, volume=cargo_volume)
         instance.add_ride_request(depot_request)
         depot_requests.append(depot_request)
         request_id += 1
@@ -511,7 +562,8 @@ def create_moda_small_scenario() -> VRPInstance:
         
         remaining_field_cargo -= cargo_weight
         
-        field_request = RideRequest(f"field_request_{request_id}", pickup_id, dropoff_id, passengers=cargo_weight)
+        cargo_volume = calculate_cargo_volume(cargo_weight)  # Calculate volume based on weight
+        field_request = RideRequest(f"field_request_{request_id}", pickup_id, dropoff_id, passengers=cargo_weight, volume=cargo_volume)
         instance.add_ride_request(field_request)
         field_requests.append(field_request)
         request_id += 1
@@ -793,20 +845,24 @@ def create_moda_first_scenario() -> VRPInstance:
         for i in range(vehicle_count):
             # Distribute heavy trucks proportionally
             if heavy_vehicle_count < heavy_trucks and (vehicle_id - 1) % 3 == 0:
-                # Every 3rd vehicle is a heavy truck (24-ton)
-                vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=24000, depot_id=depot_id, max_time=540)
+                # Every 3rd vehicle is a heavy truck (24-ton) with truck speed profile
+                vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=24000, volume_capacity=67.0, depot_id=depot_id, max_time=540)
                 vehicle.vehicle_type = "heavy"
                 vehicle.max_driving_time = 270.0  # 4.5 hours in minutes
                 vehicle.required_break_time = 45.0  # 45-minute break
                 vehicle.max_total_work_time = 540.0  # 9 hours total work time
+                vehicle.use_truck_speeds = True  # Enable truck speed adjustments for OSM routing  
+                vehicle.truck_speed_ratios = DEFAULT_TRUCK_SPEED_RATIOS['heavy'].copy()  # Heavy truck speed profile
                 heavy_vehicle_count += 1
             else:
-                # Standard truck (4-ton)
-                vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=4000, depot_id=depot_id, max_time=600)
+                # Standard truck (4-ton) with truck speed profile
+                vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=4000, volume_capacity=24.0, depot_id=depot_id, max_time=600)
                 vehicle.vehicle_type = "standard"
                 vehicle.max_driving_time = 600.0  # 10 hours (no break requirement)
                 vehicle.required_break_time = 0.0
                 vehicle.max_total_work_time = 600.0  # 10 hours total work time
+                vehicle.use_truck_speeds = True  # Enable truck speed adjustments for OSM routing
+                vehicle.truck_speed_ratios = DEFAULT_TRUCK_SPEED_RATIOS['standard'].copy()  # Standard truck speed profile
             
             instance.add_vehicle(vehicle)
             vehicle_id += 1
@@ -818,9 +874,10 @@ def create_moda_first_scenario() -> VRPInstance:
         
         # Generate realistic cargo weights (200kg to 8000kg per shipment for large scenario)
         cargo_weight = random.randint(200, 8000)
+        cargo_volume = calculate_cargo_volume(cargo_weight)  # Calculate volume based on weight
         total_cargo_weight += cargo_weight
         
-        request = RideRequest(f"request_{i+1}", pickup_id, dropoff_id, passengers=cargo_weight)
+        request = RideRequest(f"request_{i+1}", pickup_id, dropoff_id, passengers=cargo_weight, volume=cargo_volume)
         instance.add_ride_request(request)
       # Calculate total fleet capacity for reporting
     total_capacity = sum(vehicle.capacity for vehicle in instance.vehicles.values())

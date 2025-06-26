@@ -5,29 +5,29 @@ Scenario: small_delivery
 ------------------------------
 Problem size: 5 locations, 2 vehicles
 Quantum-Enhanced:
-  Objective: -320.000000
-  Total Distance: 320.0000
+  Objective: -360.000000
+  Total Distance: 360.0000
   Time-on-Route: N/A
   Vehicles Used: 1
-  Runtime: 15.33 ms
+  Runtime: 1.00 ms
 Simple Heuristic:
   Objective: -280.000000
   Total Distance: 280.0000
   Time-on-Route: N/A
   Vehicles Used: 1
-  Runtime: 0.00 ms
+  Runtime: 1.00 ms
 OR-Tools:
   Objective: 320.000000
   Total Distance: 320.0000
   Time-on-Route: N/A
   Vehicles Used: 2
-  Runtime: 2009.25 ms
+  Runtime: 2012.66 ms
 Advanced Heuristics:
   Objective: 280.000000
   Total Distance: 280.0000
   Time-on-Route: 0h 0m
   Vehicles Used: 1
-  Runtime: 12.67 ms
+  Runtime: 105.29 ms
 2-opt Improvement:
   Objective: 280.000000
   Total Distance: 280.0000
@@ -43,7 +43,7 @@ Quantum-Enhanced:
   Total Distance: 60.0000
   Time-on-Route: N/A
   Vehicles Used: 2
-  Runtime: 0.00 ms
+  Runtime: 1.00 ms
 Simple Heuristic:
   Objective: -60.000000
   Total Distance: 60.0000
@@ -55,7 +55,7 @@ OR-Tools:
   Total Distance: 54.0000
   Time-on-Route: N/A
   Vehicles Used: 2
-  Runtime: 2023.67 ms
+  Runtime: 2004.01 ms
 Advanced Heuristics:
   Objective: 0.000000
   Total Distance: 0.0000
@@ -73,57 +73,57 @@ Scenario: medium_delivery
 ------------------------------
 Problem size: 11 locations, 3 vehicles
 Quantum-Enhanced:
-  Objective: -1840.000000
-  Total Distance: 1840.0000
+  Objective: -1680.000000
+  Total Distance: 1680.0000
   Time-on-Route: N/A
   Vehicles Used: 3
   Runtime: 1.00 ms
 Simple Heuristic:
-  Objective: -1380.000000
-  Total Distance: 1380.0000
+  Objective: -960.000000
+  Total Distance: 960.0000
   Time-on-Route: N/A
   Vehicles Used: 3
-  Runtime: 0.00 ms
+  Runtime: 0.99 ms
 OR-Tools:
   Objective: 1340.000000
   Total Distance: 1340.0000
   Time-on-Route: N/A
   Vehicles Used: 3
-  Runtime: 5001.20 ms
+  Runtime: 5001.85 ms
 Advanced Heuristics:
   Objective: 1840.000000
   Total Distance: 1840.0000
   Time-on-Route: 0h 2m
   Vehicles Used: 3
-  Runtime: 16.00 ms
+  Runtime: 30.01 ms
 2-opt Improvement:
   Objective: 1560.000000
   Total Distance: 1560.0000
   Time-on-Route: 0h 1m
   Vehicles Used: 3
-  Runtime: 2.00 ms
+  Runtime: 3.00 ms
 
 Scenario: time_window
 ------------------------------
 Problem size: 6 locations, 2 vehicles
 Quantum-Enhanced:
-  Objective: -44.000000
-  Total Distance: 44.0000
+  Objective: -42.000000
+  Total Distance: 42.0000
   Time-on-Route: N/A
   Vehicles Used: 2
-  Runtime: 0.00 ms
+  Runtime: 2.00 ms
 Simple Heuristic:
   Objective: -36.000000
   Total Distance: 36.0000
   Time-on-Route: N/A
   Vehicles Used: 2
-  Runtime: 0.00 ms
+  Runtime: 1.00 ms
 OR-Tools:
   Objective: 0.000000
   Total Distance: 0.0000
   Time-on-Route: N/A
   Vehicles Used: 0
-  Runtime: 16.57 ms
+  Runtime: 27.80 ms
 Advanced Heuristics:
   Objective: 44.000000
   Total Distance: 44.0000
@@ -141,29 +141,29 @@ Scenario: multi_depot
 ------------------------------
 Problem size: 10 locations, 4 vehicles
 Quantum-Enhanced:
-  Objective: -92.000000
-  Total Distance: 92.0000
+  Objective: -78.000000
+  Total Distance: 78.0000
   Time-on-Route: N/A
   Vehicles Used: 3
-  Runtime: 0.00 ms
+  Runtime: 1.00 ms
 Simple Heuristic:
   Objective: -52.000000
   Total Distance: 52.0000
   Time-on-Route: N/A
   Vehicles Used: 3
-  Runtime: 0.00 ms
+  Runtime: 1.00 ms
 OR-Tools:
   Objective: 48.000000
   Total Distance: 48.0000
   Time-on-Route: N/A
   Vehicles Used: 2
-  Runtime: 2002.96 ms
+  Runtime: 2002.27 ms
 Advanced Heuristics:
   Objective: 72.000000
   Total Distance: 72.0000
   Time-on-Route: 0h 0m
   Vehicles Used: 2
-  Runtime: 3.00 ms
+  Runtime: 4.00 ms
 2-opt Improvement:
   Objective: 80.000000
   Total Distance: 80.0000
@@ -185,47 +185,13 @@ Simple Heuristic:
   Total Distance: 252.8753
   Time-on-Route: N/A
   Vehicles Used: 60
-  Runtime: 1.00 ms
+  Runtime: 2.00 ms
 OR-Tools:
   Objective: 0.000000
   Total Distance: 0.0000
   Time-on-Route: N/A
   Vehicles Used: 0
-  Runtime: 2972.73 ms
-Advanced Heuristics:
-  Objective: 0.000000
-  Total Distance: 0.0000
-  Time-on-Route: N/A
-  Vehicles Used: 0
-  Runtime: 0.00 ms
-2-opt Improvement:
-  Objective: 0.000000
-  Total Distance: 0.0000
-  Time-on-Route: N/A
-  Vehicles Used: 0
-  Runtime: 0.00 ms
-
-Scenario: MODA_small
-------------------------------
-Problem size: 22 locations, 5 vehicles
-Quantum-Enhanced:
-  Objective: -0.844896
-  Total Distance: 0.8449
-  Time-on-Route: N/A
-  Vehicles Used: 5
-  Runtime: 1.00 ms
-Simple Heuristic:
-  Objective: -0.844896
-  Total Distance: 0.8449
-  Time-on-Route: N/A
-  Vehicles Used: 5
-  Runtime: 0.00 ms
-OR-Tools:
-  Objective: 0.598803
-  Total Distance: 0.5988
-  Time-on-Route: N/A
-  Vehicles Used: 1
-  Runtime: 30.01 ms
+  Runtime: 3507.35 ms
 Advanced Heuristics:
   Objective: 0.000000
   Total Distance: 0.0000
