@@ -466,7 +466,9 @@ def create_moda_small_scenario() -> VRPInstance:
             # Heavy truck (24-ton) with driver regulations and truck speed profile
             capacity = 24000
             volume_capacity = 67.0  # 67 m³ for 24t trucks
-            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=capacity, volume_capacity=volume_capacity, depot_id=depot_id, max_time=540)
+            cost_per_km = 1.80  # €1.80/km for heavy trucks (higher fuel, maintenance, tolls)
+            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=capacity, volume_capacity=volume_capacity, 
+                            depot_id=depot_id, max_time=540, cost_per_km=cost_per_km)
             vehicle.vehicle_type = "heavy"
             vehicle.max_driving_time = 270.0  # 4.5 hours in minutes
             vehicle.required_break_time = 45.0  # 45-minute break
@@ -478,7 +480,9 @@ def create_moda_small_scenario() -> VRPInstance:
             # Standard truck (4-ton) with truck speed profile
             capacity = 4000
             volume_capacity = 24.0  # 24 m³ for 4t trucks
-            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=capacity, volume_capacity=volume_capacity, depot_id=depot_id, max_time=600)
+            cost_per_km = 0.95  # €0.95/km for standard trucks (lower operating costs)
+            vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=capacity, volume_capacity=volume_capacity, 
+                            depot_id=depot_id, max_time=600, cost_per_km=cost_per_km)
             vehicle.vehicle_type = "standard"
             vehicle.max_driving_time = 600.0  # 10 hours (no break requirement)
             vehicle.required_break_time = 0.0
@@ -846,7 +850,9 @@ def create_moda_first_scenario() -> VRPInstance:
             # Distribute heavy trucks proportionally
             if heavy_vehicle_count < heavy_trucks and (vehicle_id - 1) % 3 == 0:
                 # Every 3rd vehicle is a heavy truck (24-ton) with truck speed profile
-                vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=24000, volume_capacity=67.0, depot_id=depot_id, max_time=540)
+                cost_per_km = 1.80  # €1.80/km for heavy trucks
+                vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=24000, volume_capacity=67.0, 
+                                depot_id=depot_id, max_time=540, cost_per_km=cost_per_km)
                 vehicle.vehicle_type = "heavy"
                 vehicle.max_driving_time = 270.0  # 4.5 hours in minutes
                 vehicle.required_break_time = 45.0  # 45-minute break
@@ -856,7 +862,9 @@ def create_moda_first_scenario() -> VRPInstance:
                 heavy_vehicle_count += 1
             else:
                 # Standard truck (4-ton) with truck speed profile
-                vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=4000, volume_capacity=24.0, depot_id=depot_id, max_time=600)
+                cost_per_km = 0.95  # €0.95/km for standard trucks
+                vehicle = Vehicle(f"vehicle_{vehicle_id}", capacity=4000, volume_capacity=24.0, 
+                                depot_id=depot_id, max_time=600, cost_per_km=cost_per_km)
                 vehicle.vehicle_type = "standard"
                 vehicle.max_driving_time = 600.0  # 10 hours (no break requirement)
                 vehicle.required_break_time = 0.0

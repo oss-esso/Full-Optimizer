@@ -528,6 +528,7 @@ class CleanVRPOptimizer:
                 'id': vehicle.id,
                 'capacity': getattr(vehicle, 'capacity', 0),  # Weight capacity in kg
                 'volume_capacity': getattr(vehicle, 'volume_capacity', 0.0),  # Volume capacity in m³
+                'cost_per_km': getattr(vehicle, 'cost_per_km', 1.0),  # Cost per kilometer
                 'start_location': getattr(vehicle, 'depot_id', None),
                 'end_location': getattr(vehicle, 'depot_id', None),
                 'max_time': getattr(vehicle, 'max_time', 24 * 60)
@@ -606,14 +607,37 @@ class CleanVRPOptimizer:
         manager = pywrapcp.RoutingIndexManager(len(self.locations), len(self.vehicles), 0)
         routing = pywrapcp.RoutingModel(manager)
         
-        # Add distance callback
+        # Add distance callback with vehicle-specific costs
         def distance_callback(from_index, to_index):
             from_node = manager.IndexToNode(from_index)
             to_node = manager.IndexToNode(to_index)
-            return int(self.distance_calculator.distance_matrix[from_node][to_node] * 100)
+            distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+            # Return distance in meters for OR-Tools (base cost without vehicle-specific multiplier)
+            return int(distance_km * 1000)
         
         transit_callback_index = routing.RegisterTransitCallback(distance_callback)
-        routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+        
+        # Set vehicle-specific arc cost evaluators based on cost_per_km
+        print(f"\n💰 Setting vehicle-specific costs:")
+        for vehicle_id in range(len(self.vehicles)):
+            vehicle = self.vehicles[vehicle_id]
+            cost_per_km = vehicle.get('cost_per_km', 1.0)
+            
+            # Create vehicle-specific cost callback
+            def make_vehicle_cost_callback(v_id, cost_multiplier):
+                def vehicle_cost_callback(from_index, to_index):
+                    from_node = manager.IndexToNode(from_index)
+                    to_node = manager.IndexToNode(to_index)
+                    distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                    # Apply vehicle-specific cost per km (scaled for OR-Tools)
+                    return int(distance_km * cost_multiplier * 100)  # 100x scale for precision
+                return vehicle_cost_callback
+            
+            vehicle_callback_index = routing.RegisterTransitCallback(
+                make_vehicle_cost_callback(vehicle_id, cost_per_km))
+            routing.SetArcCostEvaluatorOfVehicle(vehicle_callback_index, vehicle_id)
+            
+            print(f"   {vehicle['id']}: €{cost_per_km:.2f}/km")
         
         # Apply constraints based on level
         applied_constraints = ["distance"]
@@ -655,17 +679,18 @@ class CleanVRPOptimizer:
         print(f"\n📦 Analyzing Dual Capacity Constraints:")
         print("-" * 50)
         
-        # Analyze vehicle capacities
+        # Analyze vehicle capacities and costs
         total_weight_capacity = 0
         total_volume_capacity = 0
         
         for vehicle in self.vehicles:
             weight_cap = vehicle.get('capacity', 0)
             volume_cap = vehicle.get('volume_capacity', 0.0)
+            cost_per_km = vehicle.get('cost_per_km', 1.0)
             total_weight_capacity += weight_cap
             total_volume_capacity += volume_cap
             
-            print(f"   {vehicle['id']}: {weight_cap}kg, {volume_cap:.1f}m³")
+            print(f"   {vehicle['id']}: {weight_cap}kg, {volume_cap:.1f}m³, €{cost_per_km:.2f}/km")
         
         print(f"\n   Total fleet capacity: {total_weight_capacity}kg, {total_volume_capacity:.1f}m³")
         
@@ -804,6 +829,7 @@ class CleanVRPOptimizer:
         solution_data = {
             'routes': [],
             'total_distance': 0,
+            'total_cost': 0,
             'total_time': 0,
             'capacity_analysis': []
         }
@@ -813,20 +839,24 @@ class CleanVRPOptimizer:
         volume_dimension = routing.GetDimensionOrDie('Volume')
         
         total_distance = 0
+        total_cost = 0
         
         for vehicle_id in range(len(self.vehicles)):
             vehicle = self.vehicles[vehicle_id]
+            cost_per_km = vehicle.get('cost_per_km', 1.0)
             route = {
                 'vehicle_id': vehicle['id'],
                 'vehicle_capacity_kg': vehicle.get('capacity', 0),
                 'vehicle_capacity_m3': vehicle.get('volume_capacity', 0.0),
+                'vehicle_cost_per_km': cost_per_km,
                 'stops': [],
                 'total_distance': 0,
+                'total_cost': 0,
                 'capacity_usage': []
             }
             
             index = routing.Start(vehicle_id)
-            route_distance = 0
+            route_distance_km = 0
             
             while not routing.IsEnd(index):
                 node_index = manager.IndexToNode(index)
@@ -859,17 +889,27 @@ class CleanVRPOptimizer:
                 route['stops'].append(stop_info)
                 route['capacity_usage'].append(stop_info)
                 
-                # Move to next stop
+                # Move to next stop and calculate distance
                 previous_index = index
                 index = solution.Value(routing.NextVar(index))
                 if not routing.IsEnd(index):
-                    route_distance += routing.GetArcCostForVehicle(previous_index, index, vehicle_id)
+                    # Calculate actual distance for this segment
+                    from_node = manager.IndexToNode(previous_index)
+                    to_node = manager.IndexToNode(index)
+                    segment_distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                    route_distance_km += segment_distance_km
             
-            route['total_distance'] = route_distance
-            total_distance += route_distance
+            # Calculate route cost
+            route_cost = route_distance_km * cost_per_km
+            route['total_distance'] = round(route_distance_km, 2)
+            route['total_cost'] = round(route_cost, 2)
+            
+            total_distance += route_distance_km
+            total_cost += route_cost
             solution_data['routes'].append(route)
         
-        solution_data['total_distance'] = total_distance
+        solution_data['total_distance'] = round(total_distance, 2)
+        solution_data['total_cost'] = round(total_cost, 2)
         
         # Print detailed capacity analysis
         self._print_capacity_analysis(solution_data)
@@ -884,7 +924,8 @@ class CleanVRPOptimizer:
         for route in solution_data['routes']:
             print(f"\n🚛 Vehicle: {route['vehicle_id']}")
             print(f"   Capacity: {route['vehicle_capacity_kg']}kg, {route['vehicle_capacity_m3']}m³")
-            print(f"   Route distance: {route['total_distance']}m")
+            print(f"   Cost rate: €{route['vehicle_cost_per_km']:.2f}/km")
+            print(f"   Route: {route['total_distance']}km, €{route['total_cost']:.2f}")
             
             if route['stops']:
                 print(f"   Stop-by-stop capacity usage:")
@@ -911,4 +952,8 @@ class CleanVRPOptimizer:
                 if volume_violations:
                     print(f"   ⚠️  WARNING: Volume capacity exceeded at {len(volume_violations)} stops!")
         
+        # Print total summary
+        print(f"\n💰 Solution Summary:")
+        print(f"   Total distance: {solution_data['total_distance']}km")
+        print(f"   Total cost: €{solution_data['total_cost']:.2f}")
         print("=" * 80)
