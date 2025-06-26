@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from VRPExample.vrp_optimizer_clean import CleanVRPOptimizer
+from VRPExample.vrp_optimizer_multiday import CleanVRPOptimizer
 
 def test_enhanced_clean_optimizer():
     """Test the enhanced clean optimizer with comprehensive constraints check."""

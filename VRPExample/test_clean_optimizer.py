@@ -5,7 +5,7 @@ import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
-from VRPExample.vrp_optimizer_clean import CleanVRPOptimizer
+from VRPExample.vrp_optimizer_multiday import CleanVRPOptimizer
 
 def main():
     """Test the CleanVRPOptimizer with different constraint levels."""

@@ -581,9 +581,169 @@ class CleanVRPOptimizer:
             locations.append(loc_dict)
         return locations
 
-    def solve(self, constraint_level: str = "none", verbose: bool = True, use_hybrid_calculator: bool = False):
+    def _setup_multi_day_nodes(self, location_list, max_days, verbose):
+        """Setup virtual nodes for multi-day scheduling with overnight stays."""
+        if max_days <= 1:
+            return location_list.copy(), [], []
+            
+        print(f"\n📅 Setting up multi-day nodes for {max_days} days...")
+        print(f"  🚛 Multi-day routing: vehicles can sleep along route when needed")
+        
+        original_locations = location_list.copy()
+        num_original = len(original_locations)
+        
+        # Create virtual night/morning node pairs for day transitions
+        night_nodes = []
+        morning_nodes = []
+        num_nights = max_days - 1  # If 3 days, need 2 nights
+        
+        for i in range(num_nights):
+            # Night node: represents "end of day i+1" - can be anywhere
+            night_node_id = num_original + i
+            night_location = {
+                'id': f'night_day_{i+1}',
+                'x': 0,  # Virtual coordinates - distance will be handled specially
+                'y': 0,
+                'demand': 0,
+                'volume_demand': 0,
+                'service_time': 0,  # No service time for overnight stay
+                'address': f"End of day {i+1} (sleep wherever vehicle stops)",
+                'time_window': (0, 1440),  # Can arrive anytime
+                'is_night_node': True,
+                'is_virtual': True,  # Mark as virtual node
+                'day': i + 1
+            }
+            location_list.append(night_location)
+            night_nodes.append(night_node_id)
+            
+            # Morning node: represents "start of day i+2" - same location as night
+            morning_node_id = num_original + num_nights + i
+            morning_location = {
+                'id': f'morning_day_{i+2}',
+                'x': 0,  # Virtual coordinates - distance will be handled specially
+                'y': 0,
+                'demand': 0,
+                'volume_demand': 0,
+                'service_time': 0,  # No service time for morning start
+                'address': f"Start of day {i+2} (wake up where vehicle slept)",
+                'time_window': (0, 1440),  # Can start anytime
+                'is_morning_node': True,
+                'is_virtual': True,  # Mark as virtual node
+                'day': i + 2
+            }
+            location_list.append(morning_location)
+            morning_nodes.append(morning_node_id)
+        
+        if verbose:
+            print(f"  ✅ Created {len(night_nodes)} night nodes and {len(morning_nodes)} morning nodes")
+            print(f"  📍 Total locations: {len(location_list)} (original: {num_original})")
+        
+        return location_list, night_nodes, morning_nodes
+
+    def _add_multi_day_constraints(self, routing, manager, location_list, night_nodes, morning_nodes, max_days):
+        """Add multi-day scheduling constraints with overnight stay behavior."""
+        if max_days <= 1:
+            return
+            
+        print(f"\n📅 Adding multi-day constraints for {max_days} days...")
+        print("    🚛 Vehicles can sleep along route when daily limits are exceeded")
+        
+        # Allow night and morning nodes to be dropped for free (they're optional)
+        for node in night_nodes:
+            routing.AddDisjunction([manager.NodeToIndex(node)], 0)
+            print(f"    Night node {node} can be dropped for free")
+            
+        for node in morning_nodes:
+            routing.AddDisjunction([manager.NodeToIndex(node)], 0)
+            print(f"    Morning node {node} can be dropped for free")
+        
+        # Create counting dimension to enforce day ordering
+        routing.AddConstantDimension(
+            1,  # increment by 1 at each node
+            len(location_list) + 1,  # max count is visit every node
+            True,  # start count at zero
+            "Counting"
+        )
+        count_dimension = routing.GetDimensionOrDie('Counting')
+        print("    Created counting dimension for day ordering")
+        
+        # Add constraints to enforce proper day ordering and continuity
+        solver = routing.solver()
+        
+        # Enforce ordering of night nodes (day 1 night before day 2 night, etc.)
+        for i in range(len(night_nodes)):
+            inode = night_nodes[i]
+            iidx = manager.NodeToIndex(inode)
+            iactive = routing.ActiveVar(iidx)
+            
+            for j in range(i + 1, len(night_nodes)):
+                # Make night node i come before night node j using count dimension
+                jnode = night_nodes[j]
+                jidx = manager.NodeToIndex(jnode)
+                jactive = routing.ActiveVar(jidx)
+                
+                # If both are active, i must come before j
+                solver.Add(iactive >= jactive)
+                solver.Add(count_dimension.CumulVar(iidx) * iactive * jactive <=
+                          count_dimension.CumulVar(jidx) * iactive * jactive)
+            
+            # If night node is active, corresponding morning node must be active
+            if i < len(morning_nodes):
+                morning_node = morning_nodes[i]
+                morning_idx = manager.NodeToIndex(morning_node)
+                morning_active = routing.ActiveVar(morning_idx)
+                
+                # Night active implies morning active
+                solver.Add(iactive <= morning_active)
+                
+                # Morning node must immediately follow night node in the same route
+                for v in range(len(self.vehicles)):
+                    solver.Add(
+                        (routing.VehicleVar(iidx) == v) * iactive * morning_active <=
+                        (routing.VehicleVar(morning_idx) == v)
+                    )
+        
+        print(f"    ✅ Added multi-day constraints for {len(night_nodes)} night/morning pairs")
+
+    def _create_multi_day_distance_callback(self, manager, location_list, night_nodes, morning_nodes):
+        """Create distance callback that handles virtual night/morning nodes."""
+        def distance_callback(from_index, to_index):
+            from_node = manager.IndexToNode(from_index)
+            to_node = manager.IndexToNode(to_index)
+            
+            from_loc = location_list[from_node]
+            to_loc = location_list[to_node]
+            
+            # Handle virtual nodes (night/morning)
+            if from_loc.get('is_virtual', False) or to_loc.get('is_virtual', False):
+                # Transitions involving virtual nodes
+                if from_loc.get('is_night_node', False) and to_loc.get('is_morning_node', False):
+                    # Night to morning: zero cost (sleeping in place)
+                    return 0
+                elif from_loc.get('is_virtual', False) or to_loc.get('is_virtual', False):
+                    # Other virtual transitions: small cost to avoid issues
+                    return 1000  # 1 km equivalent
+                else:
+                    # This shouldn't happen
+                    return 1000
+            else:
+                # Normal nodes: use OSM distance
+                distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                return int(distance_km * 1000)  # Convert to meters
+        
+        return distance_callback
+
+    def solve(self, constraint_level: str = "none", verbose: bool = True, use_hybrid_calculator: bool = False, 
+              max_days: int = 1, daily_time_limit_minutes: int = 480):
         """
         Solves the VRP with the specified level of constraints.
+        
+        Args:
+            constraint_level: Level of constraints to apply
+            verbose: Whether to print detailed progress
+            use_hybrid_calculator: Whether to use hybrid distance calculator
+            max_days: Maximum number of days for multi-day routing (1 = single day)
+            daily_time_limit_minutes: Daily driving time limit in minutes (default: 8 hours)
         
         Constraint levels:
         - "none": Just basic VRP
@@ -595,6 +755,18 @@ class CleanVRPOptimizer:
         print(f"🚀 Solving VRP with constraint level: {constraint_level}")
         print(f"   Vehicles: {len(self.vehicles)}")
         print(f"   Locations: {len(self.locations)}")
+        if max_days > 1:
+            print(f"   Multi-day routing: {max_days} days, {daily_time_limit_minutes} min/day")
+        
+        # Setup multi-day nodes if needed
+        working_locations = self.locations.copy()
+        night_nodes = []
+        morning_nodes = []
+        
+        if max_days > 1:
+            working_locations, night_nodes, morning_nodes = self._setup_multi_day_nodes(
+                working_locations, max_days, verbose
+            )
         
         # Analyze dual capacity constraints
         self._analyze_dual_capacity_constraints()
@@ -603,17 +775,22 @@ class CleanVRPOptimizer:
         from ortools.constraint_solver import routing_enums_pb2
         from ortools.constraint_solver import pywrapcp
         
-        # Create the routing model
-        manager = pywrapcp.RoutingIndexManager(len(self.locations), len(self.vehicles), 0)
+        # Create the routing model with potentially expanded location set
+        manager = pywrapcp.RoutingIndexManager(len(working_locations), len(self.vehicles), 0)
         routing = pywrapcp.RoutingModel(manager)
         
-        # Add distance callback with vehicle-specific costs
-        def distance_callback(from_index, to_index):
-            from_node = manager.IndexToNode(from_index)
-            to_node = manager.IndexToNode(to_index)
-            distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
-            # Return distance in meters for OR-Tools (base cost without vehicle-specific multiplier)
-            return int(distance_km * 1000)
+        # Add distance callback - handle multi-day virtual nodes if present
+        if max_days > 1:
+            distance_callback = self._create_multi_day_distance_callback(
+                manager, working_locations, night_nodes, morning_nodes
+            )
+        else:
+            # Standard callback for single-day routing
+            def distance_callback(from_index, to_index):
+                from_node = manager.IndexToNode(from_index)
+                to_node = manager.IndexToNode(to_index)
+                distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                return int(distance_km * 1000)  # Return distance in meters
         
         transit_callback_index = routing.RegisterTransitCallback(distance_callback)
         
@@ -628,9 +805,29 @@ class CleanVRPOptimizer:
                 def vehicle_cost_callback(from_index, to_index):
                     from_node = manager.IndexToNode(from_index)
                     to_node = manager.IndexToNode(to_index)
-                    distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
-                    # Apply vehicle-specific cost per km (scaled for OR-Tools)
+                    
+                    # Handle virtual nodes if multi-day routing
+                    if max_days > 1:
+                        from_loc = working_locations[from_node]
+                        to_loc = working_locations[to_node]
+                        
+                        if from_loc.get('is_virtual', False) or to_loc.get('is_virtual', False):
+                            if from_loc.get('is_night_node', False) and to_loc.get('is_morning_node', False):
+                                return 0  # Night to morning: no cost
+                            else:
+                                return int(100)  # Small cost for other virtual transitions
+                    
+                    # Normal distance calculation
+                    # For multi-day, only calculate distance for non-virtual nodes
+                    if max_days > 1 and from_node < len(self.locations) and to_node < len(self.locations):
+                        distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                    elif max_days == 1:
+                        distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                    else:
+                        distance_km = 1.0  # Fallback for virtual nodes
+                    
                     return int(distance_km * cost_multiplier * 100)  # 100x scale for precision
+                    
                 return vehicle_cost_callback
             
             vehicle_callback_index = routing.RegisterTransitCallback(
@@ -644,8 +841,56 @@ class CleanVRPOptimizer:
         
         if constraint_level in ["capacity", "full"]:
             # Add dual capacity constraints (weight and volume)
-            self._add_dual_capacity_constraints(routing, manager)
+            self._add_dual_capacity_constraints(routing, manager, working_locations)
             applied_constraints.append("dual_capacity")
+        
+        # Add time dimension for multi-day routing (always add for consistency)
+        if max_days > 1:
+            # Add time dimension with daily limits
+            def time_callback(from_index, to_index):
+                from_node = manager.IndexToNode(from_index)
+                to_node = manager.IndexToNode(to_index)
+                
+                # Handle virtual nodes
+                if max_days > 1:
+                    from_loc = working_locations[from_node]  
+                    to_loc = working_locations[to_node]
+                    
+                    if from_loc.get('is_night_node', False) and to_loc.get('is_morning_node', False):
+                        # Night to morning: overnight stay (reset daily time)
+                        return -(daily_time_limit_minutes * 60)  # Negative to reset counter
+                    elif from_loc.get('is_virtual', False) or to_loc.get('is_virtual', False):
+                        return 0  # No time for other virtual transitions
+                
+                # Normal time calculation for real nodes
+                if from_node < len(self.locations) and to_node < len(self.locations):
+                    time_minutes = self.distance_calculator.time_matrix[from_node][to_node]
+                    # Add service time for destination (except depot)
+                    if to_node > 0:  # Not depot
+                        service_time = working_locations[to_node].get('service_time', 0)
+                        time_minutes += service_time
+                    
+                    return int(time_minutes * 60)  # Convert to seconds
+                else:
+                    return 60  # 1 minute for virtual nodes
+            
+            time_callback_index = routing.RegisterTransitCallback(time_callback)
+            
+            # Add time dimension with daily limit
+            routing.AddDimension(
+                time_callback_index,
+                daily_time_limit_minutes * 60,  # Max slack (daily limit in seconds)
+                daily_time_limit_minutes * 60,  # Max cumulative time per vehicle per day
+                True,  # Start cumulative at zero
+                'Time'
+            )
+            
+            applied_constraints.append("time_dimension")
+            print(f"    Added time dimension with {daily_time_limit_minutes} min daily limit")
+            
+            # Add multi-day constraints
+            self._add_multi_day_constraints(routing, manager, working_locations, night_nodes, morning_nodes, max_days)
+            applied_constraints.append("multi_day")
         
         print(f"✅ Constraints applied: {applied_constraints}")
         
@@ -661,10 +906,14 @@ class CleanVRPOptimizer:
         
         if solution:
             print(f"✅ Solution found!")
-            solution_data = self._extract_solution(routing, manager, solution)
+            solution_data = self._extract_solution(routing, manager, solution, working_locations, max_days)
             solution_data['status'] = 'SUCCESS'
             solution_data['truck_speed_enabled'] = self.distance_calculator.use_truck_speeds
             solution_data['applied_constraints'] = applied_constraints
+            solution_data['max_days'] = max_days
+            if max_days > 1:
+                solution_data['night_nodes'] = night_nodes
+                solution_data['morning_nodes'] = morning_nodes
             return solution_data
         else:
             print(f"❌ No solution found")
@@ -740,18 +989,34 @@ class CleanVRPOptimizer:
         
         print("-" * 50)
     
-    def _add_dual_capacity_constraints(self, routing, manager):
+    def _add_dual_capacity_constraints(self, routing, manager, working_locations=None):
         """Add dual capacity constraints for both weight and volume."""
         print("\n📦 Adding dual capacity constraints (weight and volume)...")
+        
+        # Use working_locations if provided (for multi-day), otherwise use self.locations
+        locations_to_use = working_locations if working_locations is not None else self.locations
         
         # Weight capacity constraint
         print("  🔴 Adding weight capacity constraint...")
         def weight_demand_callback(from_index):
             from_node = manager.IndexToNode(from_index)
-            location = self.locations[from_node]
             
+            # Handle virtual nodes first
+            if working_locations and from_node < len(working_locations):
+                location = working_locations[from_node]
+                if location.get('is_virtual', False):
+                    return 0  # Virtual nodes have no demand
+            
+            # For real locations, get weight demand
             weight_demand = 0
-            # Handle ride requests for weight demand
+            
+            # Method 1: Simple demand at location (test scenarios)
+            if from_node < len(self.locations):
+                real_location = self.locations[from_node]
+                if 'demand' in real_location:
+                    weight_demand += real_location['demand']
+            
+            # Method 2: Pickup-delivery requests (scenario-based)
             if hasattr(self, 'ride_requests') and self.ride_requests:
                 requests_to_check = []
                 if isinstance(self.ride_requests, dict):
@@ -759,12 +1024,14 @@ class CleanVRPOptimizer:
                 elif isinstance(self.ride_requests, list):
                     requests_to_check = self.ride_requests
                 
+                location_id = self.locations[min(from_node, len(self.locations)-1)]['id']
+                
                 for request in requests_to_check:
                     # Check if this location is a pickup or dropoff
                     if hasattr(request, 'pickup_location') and hasattr(request, 'dropoff_location'):
-                        if request.pickup_location == location['id']:
+                        if request.pickup_location == location_id:
                             weight_demand += getattr(request, 'passengers', 0)  # pickup increases weight
-                        elif request.dropoff_location == location['id']:
+                        elif request.dropoff_location == location_id:
                             weight_demand -= getattr(request, 'passengers', 0)  # dropoff decreases weight
             
             return int(weight_demand)
@@ -785,10 +1052,22 @@ class CleanVRPOptimizer:
         print("  📦 Adding volume capacity constraint...")
         def volume_demand_callback(from_index):
             from_node = manager.IndexToNode(from_index)
-            location = self.locations[from_node]
+            
+            # Handle virtual nodes first
+            if working_locations and from_node < len(working_locations):
+                location = working_locations[from_node]
+                if location.get('is_virtual', False):
+                    return 0  # Virtual nodes have no volume demand
             
             volume_demand = 0.0
-            # Handle ride requests for volume demand
+            
+            # Method 1: Simple volume demand at location (test scenarios)
+            if from_node < len(self.locations):
+                real_location = self.locations[from_node]
+                if 'volume_demand' in real_location:
+                    volume_demand += real_location['volume_demand']
+            
+            # Method 2: Pickup-delivery requests (scenario-based)
             if hasattr(self, 'ride_requests') and self.ride_requests:
                 requests_to_check = []
                 if isinstance(self.ride_requests, dict):
@@ -796,12 +1075,14 @@ class CleanVRPOptimizer:
                 elif isinstance(self.ride_requests, list):
                     requests_to_check = self.ride_requests
                 
+                location_id = self.locations[min(from_node, len(self.locations)-1)]['id']
+                
                 for request in requests_to_check:
                     # Check if this location is a pickup or dropoff
                     if hasattr(request, 'pickup_location') and hasattr(request, 'dropoff_location'):
-                        if request.pickup_location == location['id']:
+                        if request.pickup_location == location_id:
                             volume_demand += getattr(request, 'volume', 0.0)  # pickup increases volume
-                        elif request.dropoff_location == location['id']:
+                        elif request.dropoff_location == location_id:
                             volume_demand -= getattr(request, 'volume', 0.0)  # dropoff decreases volume
             
             # Convert to integer (multiply by 1000 to preserve precision)
@@ -822,21 +1103,39 @@ class CleanVRPOptimizer:
         
         print("✅ Dual capacity constraints added")
         
-    def _extract_solution(self, routing, manager, solution):
-        """Extract solution from OR-Tools and analyze capacity usage per stop."""
+    def _extract_solution(self, routing, manager, solution, working_locations=None, max_days=1):
+        """Extract solution from OR-Tools and analyze capacity usage per stop, including multi-day routes."""
         print(f"\n📊 Extracting solution with dual capacity analysis...")
+        if max_days > 1:
+            print(f"   Multi-day routing: extracting {max_days}-day routes")
+        
+        # Use working_locations if provided, otherwise use self.locations
+        locations_to_use = working_locations if working_locations is not None else self.locations
         
         solution_data = {
             'routes': [],
             'total_distance': 0,
             'total_cost': 0,
             'total_time': 0,
-            'capacity_analysis': []
+            'capacity_analysis': [],
+            'multi_day_info': {
+                'max_days': max_days,
+                'overnight_stays': []
+            }
         }
         
-        # Get dimensions for capacity analysis
-        weight_dimension = routing.GetDimensionOrDie('Weight')
-        volume_dimension = routing.GetDimensionOrDie('Volume')
+        # Get dimensions for capacity analysis (safely)
+        weight_dimension = None
+        volume_dimension = None
+        try:
+            weight_dimension = routing.GetDimensionOrDie('Weight')
+        except:
+            print("   Weight dimension not found - capacity analysis will be limited")
+        
+        try:
+            volume_dimension = routing.GetDimensionOrDie('Volume')
+        except:
+            print("   Volume dimension not found - capacity analysis will be limited")
         
         total_distance = 0
         total_cost = 0
@@ -857,37 +1156,98 @@ class CleanVRPOptimizer:
             
             index = routing.Start(vehicle_id)
             route_distance_km = 0
+            current_day = 1
             
             while not routing.IsEnd(index):
                 node_index = manager.IndexToNode(index)
-                location = self.locations[node_index]
                 
-                # Get capacity usage at this stop
-                weight_var = weight_dimension.CumulVar(index)
-                volume_var = volume_dimension.CumulVar(index)
-                weight_usage = solution.Value(weight_var)
-                volume_usage = solution.Value(volume_var) / 1000.0  # Convert back from integer
+                # Make sure we don't exceed the available locations
+                if node_index >= len(locations_to_use):
+                    print(f"Warning: node_index {node_index} exceeds locations ({len(locations_to_use)})")
+                    break
+                    
+                location = locations_to_use[node_index]
                 
-                # Calculate utilization percentages
-                weight_utilization = (weight_usage / vehicle.get('capacity', 1)) * 100 if vehicle.get('capacity', 0) > 0 else 0
-                volume_utilization = (volume_usage / vehicle.get('volume_capacity', 1)) * 100 if vehicle.get('volume_capacity', 0) > 0 else 0
+                # Check if this is a virtual node (night/morning)
+                is_virtual = location.get('is_virtual', False)
+                is_night = location.get('is_night_node', False)
+                is_morning = location.get('is_morning_node', False)
                 
-                # Determine limiting constraint at this stop
-                limiting_constraint = "weight" if weight_utilization > volume_utilization else "volume"
-                if weight_utilization == volume_utilization:
-                    limiting_constraint = "balanced"
+                # Get capacity usage at this stop (only for real nodes with constraints)
+                weight_usage = 0
+                volume_usage = 0.0
+                weight_utilization = 0
+                volume_utilization = 0
                 
-                stop_info = {
-                    'location_id': location['id'],
-                    'weight_usage_kg': weight_usage,
-                    'volume_usage_m3': round(volume_usage, 2),
-                    'weight_utilization_pct': round(weight_utilization, 1),
-                    'volume_utilization_pct': round(volume_utilization, 1),
-                    'limiting_constraint': limiting_constraint
-                }
+                # Only calculate capacity if dimensions exist and not a virtual node
+                if not is_virtual:
+                    if weight_dimension is not None:
+                        try:
+                            weight_var = weight_dimension.CumulVar(index)
+                            weight_usage = solution.Value(weight_var)
+                            weight_utilization = (weight_usage / vehicle.get('capacity', 1)) * 100 if vehicle.get('capacity', 0) > 0 else 0
+                        except:
+                            pass
+                            
+                    if volume_dimension is not None:
+                        try:
+                            volume_var = volume_dimension.CumulVar(index)
+                            volume_usage = solution.Value(volume_var) / 1000.0  # Convert back from integer
+                            volume_utilization = (volume_usage / vehicle.get('volume_capacity', 1)) * 100 if vehicle.get('volume_capacity', 0) > 0 else 0
+                        except:
+                            pass
+                
+                # Handle virtual nodes specially
+                if is_virtual:
+                    if is_night:
+                        # Night node: end of current day
+                        stop_info = {
+                            'location_id': location['id'],
+                            'type': 'overnight_stay',
+                            'day': current_day,
+                            'message': f"End of day {current_day} - overnight stay"
+                        }
+                        solution_data['multi_day_info']['overnight_stays'].append({
+                            'vehicle_id': vehicle['id'],
+                            'day': current_day,
+                            'location': 'wherever vehicle stopped'
+                        })
+                    elif is_morning:
+                        # Morning node: start of next day
+                        current_day += 1
+                        stop_info = {
+                            'location_id': location['id'], 
+                            'type': 'morning_start',
+                            'day': current_day,
+                            'message': f"Start of day {current_day} - continue from overnight location"
+                        }
+                    else:
+                        stop_info = {
+                            'location_id': location['id'],
+                            'type': 'virtual',
+                            'message': 'Virtual node'
+                        }
+                else:
+                    # Regular node: determine limiting constraint at this stop
+                    limiting_constraint = "weight" if weight_utilization > volume_utilization else "volume"
+                    if weight_utilization == volume_utilization:
+                        limiting_constraint = "balanced"
+                    
+                    stop_info = {
+                        'location_id': location['id'],
+                        'day': current_day,
+                        'weight_usage_kg': weight_usage,
+                        'volume_usage_m3': round(volume_usage, 2),
+                        'weight_utilization_pct': round(weight_utilization, 1),
+                        'volume_utilization_pct': round(volume_utilization, 1),
+                        'limiting_constraint': limiting_constraint
+                    }
                 
                 route['stops'].append(stop_info)
-                route['capacity_usage'].append(stop_info)
+                
+                # Only add to capacity usage if it's a real node with capacity data
+                if not is_virtual and (weight_usage > 0 or volume_usage > 0):
+                    route['capacity_usage'].append(stop_info)
                 
                 # Move to next stop and calculate distance
                 previous_index = index
@@ -896,7 +1256,23 @@ class CleanVRPOptimizer:
                     # Calculate actual distance for this segment
                     from_node = manager.IndexToNode(previous_index)
                     to_node = manager.IndexToNode(index)
-                    segment_distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                    
+                    # Handle distance calculation for virtual nodes
+                    segment_distance_km = 0
+                    if max_days > 1:
+                        from_loc = locations_to_use[from_node]
+                        to_loc = locations_to_use[to_node]
+                        
+                        # Skip distance for virtual transitions
+                        if not (from_loc.get('is_virtual', False) or to_loc.get('is_virtual', False)):
+                            # Both are real nodes, use normal distance
+                            if from_node < len(self.locations) and to_node < len(self.locations):
+                                segment_distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                        # Virtual node transitions have 0 distance
+                    else:
+                        # Single day: normal distance calculation
+                        segment_distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                    
                     route_distance_km += segment_distance_km
             
             # Calculate route cost
@@ -930,22 +1306,32 @@ class CleanVRPOptimizer:
             if route['stops']:
                 print(f"   Stop-by-stop capacity usage:")
                 for i, stop in enumerate(route['stops']):
-                    constraint_icon = "🔴" if stop['limiting_constraint'] == "weight" else "📦" if stop['limiting_constraint'] == "volume" else "⚖️"
-                    print(f"     {i+1}. {stop['location_id']}: "
-                          f"{stop['weight_usage_kg']}kg ({stop['weight_utilization_pct']}%), "
-                          f"{stop['volume_usage_m3']}m³ ({stop['volume_utilization_pct']}%) "
-                          f"{constraint_icon} {stop['limiting_constraint']}")
+                    if stop.get('type') in ['overnight_stay', 'morning_start', 'virtual']:
+                        # Virtual node - show special message
+                        print(f"     {i+1}. {stop['location_id']}: {stop.get('message', 'Virtual node')}")
+                    else:
+                        # Regular node - show capacity info
+                        constraint_icon = "🔴" if stop.get('limiting_constraint') == "weight" else "📦" if stop.get('limiting_constraint') == "volume" else "⚖️"
+                        print(f"     {i+1}. {stop['location_id']}: "
+                              f"{stop.get('weight_usage_kg', 0)}kg ({stop.get('weight_utilization_pct', 0)}%), "
+                              f"{stop.get('volume_usage_m3', 0)}m³ ({stop.get('volume_utilization_pct', 0)}%) "
+                              f"{constraint_icon} {stop.get('limiting_constraint', 'unknown')}")
                 
-                # Find peak utilization
-                max_weight_stop = max(route['stops'], key=lambda x: x['weight_utilization_pct'])
-                max_volume_stop = max(route['stops'], key=lambda x: x['volume_utilization_pct'])
+                # Find peak utilization (only for regular nodes)
+                regular_stops = [stop for stop in route['stops'] if not stop.get('type') in ['overnight_stay', 'morning_start', 'virtual']]
+                if regular_stops:
+                    max_weight_stop = max(regular_stops, key=lambda x: x.get('weight_utilization_pct', 0))
+                    max_volume_stop = max(regular_stops, key=lambda x: x.get('volume_utilization_pct', 0))
+                    
+                    print(f"   Peak weight utilization: {max_weight_stop.get('weight_utilization_pct', 0)}% at {max_weight_stop['location_id']}")
+                    print(f"   Peak volume utilization: {max_volume_stop.get('volume_utilization_pct', 0)}% at {max_volume_stop['location_id']}")
+                else:
+                    print(f"   No regular stops with capacity data")
                 
-                print(f"   Peak weight utilization: {max_weight_stop['weight_utilization_pct']}% at {max_weight_stop['location_id']}")
-                print(f"   Peak volume utilization: {max_volume_stop['volume_utilization_pct']}% at {max_volume_stop['location_id']}")
-                
-                # Check for constraint violations
-                weight_violations = [s for s in route['stops'] if s['weight_utilization_pct'] > 100]
-                volume_violations = [s for s in route['stops'] if s['volume_utilization_pct'] > 100]
+                # Check for constraint violations (only for regular stops)
+                regular_stops_with_data = [s for s in route['stops'] if not s.get('type') in ['overnight_stay', 'morning_start', 'virtual'] and 'weight_utilization_pct' in s]
+                weight_violations = [s for s in regular_stops_with_data if s.get('weight_utilization_pct', 0) > 100]
+                volume_violations = [s for s in regular_stops_with_data if s.get('volume_utilization_pct', 0) > 100]
                 
                 if weight_violations:
                     print(f"   ⚠️  WARNING: Weight capacity exceeded at {len(weight_violations)} stops!")
@@ -957,3 +1343,243 @@ class CleanVRPOptimizer:
         print(f"   Total distance: {solution_data['total_distance']}km")
         print(f"   Total cost: €{solution_data['total_cost']:.2f}")
         print("=" * 80)
+    
+    def plot_multi_day_solution(self, solution_data, title="Multi-Day VRP Solution", save_filename=None):
+        """
+        Plot multi-day VRP solution with day-by-day routes and sleep nodes.
+        
+        Args:
+            solution_data: Solution data from _extract_solution
+            title: Plot title
+            save_filename: Optional filename to save the plot
+        """
+        if not solution_data or 'routes' not in solution_data:
+            print("No solution data to plot")
+            return
+            
+        # Determine if this is a multi-day solution
+        max_days = solution_data['multi_day_info']['max_days']
+        has_overnight_stays = len(solution_data['multi_day_info']['overnight_stays']) > 0
+        
+        if max_days == 1 and not has_overnight_stays:
+            # Single day solution - use single plot
+            self._plot_single_day_solution(solution_data, title, save_filename)
+        else:
+            # Multi-day solution - use day-by-day plots
+            self._plot_multi_day_routes(solution_data, title, save_filename)
+    
+    def _plot_single_day_solution(self, solution_data, title, save_filename=None):
+        """Plot single-day solution in one subplot."""
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+        
+        # Colors for different vehicles
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
+        
+        # Plot all locations first
+        depot_plotted = False
+        for loc in self.locations:
+            x, y = loc['x'], loc['y']
+            
+            # Different markers for different location types
+            if 'depot' in loc['id'].lower():
+                ax.plot(x, y, 's', color='black', markersize=12, 
+                       label='Depot' if not depot_plotted else "")
+                depot_plotted = True
+            elif 'pickup' in loc['id'].lower():
+                ax.plot(x, y, '^', color='green', markersize=8, alpha=0.7)
+            elif 'dropoff' in loc['id'].lower():
+                ax.plot(x, y, 'v', color='red', markersize=8, alpha=0.7)
+            else:
+                ax.plot(x, y, 'o', color='gray', markersize=6, alpha=0.5)
+                
+            # Add location ID as text
+            ax.annotate(loc['id'], (x, y), xytext=(5, 5), textcoords='offset points', 
+                       fontsize=8, alpha=0.7)
+        
+        # Plot routes
+        for i, route in enumerate(solution_data['routes']):
+            if not route['stops']:
+                continue
+                
+            color = colors[i % len(colors)]
+            route_x, route_y = [], []
+            
+            for stop in route['stops']:
+                # Skip virtual nodes
+                if stop.get('type') in ['overnight_stay', 'morning_start', 'virtual']:
+                    continue
+                    
+                # Find location coordinates
+                loc = next((l for l in self.locations if l['id'] == stop['location_id']), None)
+                if loc:
+                    route_x.append(loc['x'])
+                    route_y.append(loc['y'])
+            
+            # Plot route line
+            if len(route_x) > 1:
+                ax.plot(route_x, route_y, '-', color=color, linewidth=2, alpha=0.7,
+                       label=f"Vehicle {route['vehicle_id']}")
+                
+            # Plot route points
+            ax.plot(route_x, route_y, 'o', color=color, markersize=6)
+        
+        ax.set_xlabel('X Coordinate')
+        ax.set_ylabel('Y Coordinate')
+        ax.set_title(f"{title}\nTotal Distance: {solution_data['total_distance']}km, "
+                    f"Total Cost: €{solution_data['total_cost']:.2f}")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        if save_filename:
+            plt.savefig(save_filename, dpi=300, bbox_inches='tight')
+            print(f"📊 Plot saved to {save_filename}")
+        
+        plt.tight_layout()
+        plt.show()
+    
+    def _plot_multi_day_routes(self, solution_data, title, save_filename=None):
+        """Plot multi-day routes with separate subplots for each day."""
+        max_days = solution_data['multi_day_info']['max_days']
+        
+        # Determine how many days actually have activity
+        active_days = set()
+        for route in solution_data['routes']:
+            for stop in route['stops']:
+                if stop.get('day'):
+                    active_days.add(stop['day'])
+        
+        if not active_days:
+            active_days = {1}  # Fallback to single day
+            
+        num_days = max(active_days)
+        
+        # Create subplots - arrange in a grid
+        if num_days == 1:
+            fig, axes = plt.subplots(1, 1, figsize=(12, 8))
+            axes = [axes]
+        elif num_days == 2:
+            fig, axes = plt.subplots(1, 2, figsize=(20, 8))
+        elif num_days <= 4:
+            fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+            axes = axes.flatten()
+        else:
+            rows = (num_days + 2) // 3
+            fig, axes = plt.subplots(rows, 3, figsize=(18, 6*rows))
+            axes = axes.flatten()
+        
+        # Colors for different vehicles
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
+        
+        # Plot each day
+        for day in range(1, num_days + 1):
+            ax = axes[day - 1]
+            
+            # Plot all locations as background
+            depot_plotted = False
+            for loc in self.locations:
+                x, y = loc['x'], loc['y']
+                
+                if 'depot' in loc['id'].lower():
+                    ax.plot(x, y, 's', color='black', markersize=10, alpha=0.5,
+                           label='Depot' if not depot_plotted else "")
+                    depot_plotted = True
+                else:
+                    ax.plot(x, y, 'o', color='lightgray', markersize=4, alpha=0.3)
+                    
+                # Add location ID as text (smaller for background)
+                ax.annotate(loc['id'], (x, y), xytext=(3, 3), textcoords='offset points', 
+                           fontsize=6, alpha=0.5)
+            
+            # Track overnight stays for this day
+            overnight_locations = []
+            
+            # Plot routes for this day
+            for i, route in enumerate(solution_data['routes']):
+                if not route['stops']:
+                    continue
+                    
+                color = colors[i % len(colors)]
+                route_x, route_y = [], []
+                overnight_x, overnight_y = [], []
+                
+                # Collect points for this day
+                for stop in route['stops']:
+                    if stop.get('day') == day:
+                        if stop.get('type') == 'overnight_stay':
+                            # This is an overnight stay
+                            overnight_locations.append(stop)
+                            # Get coordinates of the last real location before overnight
+                            if route_x and route_y:
+                                overnight_x.append(route_x[-1])
+                                overnight_y.append(route_y[-1])
+                        elif stop.get('type') == 'morning_start':
+                            # Morning start - continue from overnight location
+                            if overnight_x and overnight_y:
+                                route_x.append(overnight_x[-1])
+                                route_y.append(overnight_y[-1])
+                        elif not stop.get('type') in ['virtual']:
+                            # Regular stop
+                            loc = next((l for l in self.locations if l['id'] == stop['location_id']), None)
+                            if loc:
+                                route_x.append(loc['x'])
+                                route_y.append(loc['y'])
+                
+                # Plot route line for this day
+                if len(route_x) > 1:
+                    ax.plot(route_x, route_y, '-', color=color, linewidth=2.5, alpha=0.8,
+                           label=f"Vehicle {route['vehicle_id']}")
+                    
+                # Plot route points
+                if route_x and route_y:
+                    ax.plot(route_x, route_y, 'o', color=color, markersize=8)
+                
+                # Plot overnight stays
+                if overnight_x and overnight_y:
+                    ax.plot(overnight_x, overnight_y, 'X', color=color, markersize=12, 
+                           markeredgewidth=2, label=f"Vehicle {route['vehicle_id']} - Overnight")
+                    
+                    # Add overnight annotation
+                    for ox, oy in zip(overnight_x, overnight_y):
+                        ax.annotate(f'Sleep\nVeh {route["vehicle_id"]}', (ox, oy), 
+                                   xytext=(10, 10), textcoords='offset points', 
+                                   fontsize=8, color=color, weight='bold',
+                                   bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+            
+            # Set subplot properties
+            ax.set_xlabel('X Coordinate')
+            ax.set_ylabel('Y Coordinate')
+            ax.set_title(f'Day {day}')
+            ax.grid(True, alpha=0.3)
+            
+            # Add legend only for the first subplot to avoid clutter
+            if day == 1:
+                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        # Hide unused subplots
+        for i in range(num_days, len(axes)):
+            axes[i].set_visible(False)
+        
+        # Set main title
+        fig.suptitle(f"{title}\nTotal Distance: {solution_data['total_distance']}km, "
+                    f"Total Cost: €{solution_data['total_cost']:.2f}\n"
+                    f"Multi-day routing: {num_days} days, "
+                    f"{len(solution_data['multi_day_info']['overnight_stays'])} overnight stays", 
+                    fontsize=14, fontweight='bold')
+        
+        if save_filename:
+            plt.savefig(save_filename, dpi=300, bbox_inches='tight')
+            print(f"📊 Multi-day plot saved to {save_filename}")
+        
+        plt.tight_layout()
+        plt.show()
+
+    def plot_solution(self, solution_data, title="VRP Solution", save_filename=None):
+        """
+        Main plotting function that automatically detects single vs multi-day solutions.
+        
+        Args:
+            solution_data: Solution data from _extract_solution
+            title: Plot title
+            save_filename: Optional filename to save the plot
+        """
+        self.plot_multi_day_solution(solution_data, title, save_filename)

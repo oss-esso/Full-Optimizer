@@ -1,4 +1,4 @@
-from vrp_optimizer_clean import CleanVRPOptimizer
+from VRPExample.vrp_optimizer_multiday import CleanVRPOptimizer
 
 
 def test_moda_small_scenario():

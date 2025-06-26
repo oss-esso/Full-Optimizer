@@ -1,6 +1,6 @@
 import logging
 from vrp_scenarios import create_furgoni_scenario
-from vrp_optimizer_clean import CleanVRPOptimizer
+from VRPExample.vrp_optimizer_multiday import CleanVRPOptimizer
 
 def main():
     logging.basicConfig(level=logging.INFO)
