@@ -2,19 +2,11 @@
 Clean VRP Optimizer - Built step by step to debug constraint issues
 """
 import logging
-import time
 from typing import Dict, List, Tuple, Optional
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 import matplotlib.pyplot as plt
 import numpy as np
-
-try:
-    from hybrid_travel_calculator import hybrid_calculator
-    HYBRID_CALCULATOR_AVAILABLE = True
-except ImportError:
-    HYBRID_CALCULATOR_AVAILABLE = False
-    hybrid_calculator = None
 
 class CleanVRPOptimizer:
     """A clean VRP optimizer built step by step to debug constraint issues."""
@@ -34,10 +26,6 @@ class CleanVRPOptimizer:
         self.distance_matrix_provider = distance_matrix_provider
         self.logger = logging.getLogger(__name__)
         self._active_ride_requests = []  # Track only ride requests actually added as pickup-delivery pairs
-        
-        # Add travel matrices for enhanced calculations
-        self.travel_time_matrix = None
-        self.distance_matrix = None
     
     def _convert_vehicles_from_instance(self, instance):
         """Convert VRPInstance vehicles to dict format (no capacity logic, just copy attributes)."""
@@ -99,63 +87,7 @@ class CleanVRPOptimizer:
             locations.append(loc_dict)
         return locations
 
-    def _setup_multi_day_nodes(self, location_list, max_days, verbose):
-        """Setup virtual nodes for multi-day scheduling with 'continue from where you left off' behavior."""
-        print(f"\n📅 Setting up multi-day nodes for {max_days} days...")
-        print(f"  🚛 TRUE multi-day: vehicles continue from their last location (no forced depot returns)")
-        
-        original_locations = location_list.copy()
-        num_original = len(original_locations)
-        
-        # Create virtual night/morning node pairs for day transitions
-        # These are "virtual" nodes that represent sleeping/waking at the same location
-        night_nodes = []
-        morning_nodes = []
-        num_nights = max_days - 1  # If 3 days, need 2 nights
-        
-        for i in range(num_nights):
-            # Night node: represents "end of day i+1" - can be anywhere
-            night_node_id = num_original + i
-            night_location = {
-                'id': f'night_day_{i+1}',
-                'x': 0,  # Virtual coordinates - distance will be handled specially
-                'y': 0,
-                'demand': 0,
-                'service_time': 0,  # No service time for overnight stay
-                'address': f"End of day {i+1} (sleep wherever vehicle stops)",
-                'time_window': (0, 1440),  # Can arrive anytime
-                'is_night_node': True,
-                'is_virtual': True,  # Mark as virtual node
-                'day': i + 1
-            }
-            location_list.append(night_location)
-            night_nodes.append(night_node_id)
-            
-            # Morning node: represents "start of day i+2" - same location as night
-            morning_node_id = num_original + num_nights + i
-            morning_location = {
-                'id': f'morning_day_{i+2}',
-                'x': 0,  # Virtual coordinates - distance will be handled specially
-                'y': 0,
-                'demand': 0,
-                'service_time': 0,  # No service time for morning start
-                'address': f"Start of day {i+2} (wake up where vehicle slept)",
-                'time_window': (0, 1440),  # Can start anytime
-                'is_morning_node': True,
-                'is_virtual': True,  # Mark as virtual node
-                'day': i + 2
-            }
-            location_list.append(morning_location)
-            morning_nodes.append(morning_node_id)
-        
-        print(f"  Created {len(night_nodes)} virtual night nodes: {night_nodes}")
-        print(f"  Created {len(morning_nodes)} virtual morning nodes: {morning_nodes}")
-        print(f"  Total locations: {len(location_list)} (was {num_original})")
-        print(f"  💡 Night→Morning pairs represent sleeping/waking at the same location")
-        
-        return location_list, night_nodes, morning_nodes
-
-    def solve(self, constraint_level: str = "none", verbose: bool = True, use_hybrid_calculator: bool = False, max_days: int = 1, time_limit: int = 120) -> Optional[Dict]:
+    def solve(self, constraint_level: str = "none", verbose: bool = True, use_hybrid_calculator: bool = False) -> Optional[Dict]:
         """
         Solves the VRP with the specified level of constraints.
         
@@ -165,36 +97,16 @@ class CleanVRPOptimizer:
         - "pickup_delivery": Add pickup-delivery constraints
         - "time_windows": Add time window constraints
         - "full": All constraints
-        
-        Parameters:
         - verbose: If False, suppresses OR-Tools search logging
         - use_hybrid_calculator: If True, uses hybrid travel calculator for realistic travel times
-        - max_days: Maximum number of days to schedule (1 = single day, >1 = multi-day with overnight stays)
-        - time_limit: Solver time limit in seconds (default: 120)
         """
         print(f"\n🚀 Solving with constraint level: {constraint_level}")
-        if max_days > 1:
-            print(f"📅 Multi-day scheduling enabled: up to {max_days} days")
-
-        # Build travel matrices if using hybrid calculator
-        if use_hybrid_calculator:
-            self._build_travel_matrices(use_hybrid_calculator=True)
 
         # Add comprehensive sanity check before solving
         self._print_comprehensive_sanity_check(constraint_level)
 
         location_list = self.locations
-        vehicle_list = self.vehicles
-        
-        # Multi-day setup: Add dummy nodes for overnight stays and morning starts
-        original_num_locations = len(location_list)
-        if max_days > 1:
-            location_list, night_nodes, morning_nodes = self._setup_multi_day_nodes(
-                location_list, max_days, verbose
-            )
-        else:
-            night_nodes = []
-            morning_nodes = []
+        vehicle_list =  self.vehicles
 
         # --- Robust vehicle index mapping ---
         # Map OR-Tools vehicle index to vehicle object (by start location and ID)
@@ -231,42 +143,10 @@ class CleanVRPOptimizer:
             from_node = manager.IndexToNode(from_index)
             to_node = manager.IndexToNode(to_index)
          
+            # Fallback to simple Euclidean distance calculation
             from_loc = location_list[from_node]
             to_loc = location_list[to_node]
             
-            # Handle virtual nodes for multi-day scheduling
-            from_is_virtual = from_loc.get('is_virtual', False)
-            to_is_virtual = to_loc.get('is_virtual', False)
-            from_is_night = from_loc.get('is_night_node', False)
-            to_is_night = to_loc.get('is_night_node', False)
-            from_is_morning = from_loc.get('is_morning_node', False)
-            to_is_morning = to_loc.get('is_morning_node', False)
-            
-            # Virtual node distance rules for "continue from where you left off":
-            # 1. Any location → night node: 0 distance (sleep where you are)
-            # 2. Night node → morning node: 0 distance (wake up where you slept)
-            # 3. Morning node → any location: 0 distance (already at the location)
-            if to_is_night:
-                return 0  # No distance to "sleep" - stay where you are
-            elif from_is_night and to_is_morning:
-                return 0  # No distance from night to morning - same location
-            elif from_is_morning:
-                return 0  # No distance from morning start - already at location
-            elif from_is_virtual or to_is_virtual:
-                return 0  # Any other virtual node transition
-            
-            # Use pre-built distance matrix if available (from hybrid calculator)
-            if self.distance_matrix is not None:
-                distance = self.distance_matrix[from_node][to_node]
-                
-                # Add penalty for unnecessary returns to depot (depot is usually index 0)
-                # This discourages vehicles from making empty trips back to depot
-                if from_node != 0 and to_node == 0:  # Going to depot from non-depot location
-                    distance += 10000  # Add penalty to discourage unnecessary returns
-                    
-                return distance
-            
-            # Fallback to regular distance calculation for real locations
             from_x = from_loc.get('x', 0)
             from_y = from_loc.get('y', 0)
             to_x = to_loc.get('x', 0)
@@ -303,7 +183,7 @@ class CleanVRPOptimizer:
             
         elif constraint_level == "time_windows":
             # Only add time windows, no capacity or pickup-delivery
-            self._add_time_window_constraints(routing, manager, location_list, vehicle_list, night_nodes, morning_nodes)
+            self._add_time_window_constraints(routing, manager, location_list, vehicle_list)
             applied_constraints.append("time_windows")
             
         elif constraint_level == "full":
@@ -315,53 +195,10 @@ class CleanVRPOptimizer:
             applied_constraints.append("capacity")
 
             
-            self._add_time_window_constraints(routing, manager, location_list, vehicle_list, night_nodes, morning_nodes)
+            self._add_time_window_constraints(routing, manager, location_list, vehicle_list)
             applied_constraints.append("time_windows")
         
         print(f"✅ Constraints applied: {applied_constraints}")
-        
-        # Add constraint penalties to prioritize constraint satisfaction over distance
-        if constraint_level in ["capacity", "pickup_delivery", "time_windows", "full"]:
-            print("\n⚖️ Adding constraint penalties to prioritize constraint satisfaction...")
-            
-            # Add high penalty for time window violations
-            if "time_windows" in applied_constraints:
-                time_dimension = routing.GetDimensionOrDie('Time')
-                # Add penalty for being late (soft time windows with high penalty)
-                penalty = 1000000  # Very high penalty for time window violations
-                for idx, loc in enumerate(location_list):
-                    time_window = loc.get('time_window', None)
-                    if time_window is not None and len(time_window) == 2:
-                        tw_start, tw_end = time_window
-                        index = manager.NodeToIndex(idx)
-                        # Add penalty for arriving after the time window
-                        time_dimension.SetCumulVarSoftUpperBound(index, int(tw_end), penalty)
-                        print(f"    Added penalty for late arrival at {loc['id']}: {penalty}")
-            
-            # Add penalty for vehicle max time violations using span cost coefficient
-            if "time_windows" in applied_constraints:
-                time_dimension = routing.GetDimensionOrDie('Time')
-                # Use span cost coefficient to penalize long routes
-                span_penalty = 1000  # Cost per minute of route duration
-                for vehicle_idx in range(len(vehicle_list)):
-                    vehicle = vehicle_list[vehicle_idx]
-                    vehicle_max_time = vehicle.get('max_time', 9 * 60)
-                    
-                    # Set cost coefficient for vehicle span (route duration)
-                    # This adds cost proportional to the route duration
-                    time_dimension.SetSpanCostCoefficientForVehicle(span_penalty, vehicle_idx)
-                    print(f"    Added span cost coefficient for vehicle {vehicle['id']}: {span_penalty} per minute")
-            
-            # Add penalty for capacity violations
-            if "capacity" in applied_constraints:
-                # The capacity constraints are hard constraints, but we can add penalties for load imbalance
-                print("    Capacity constraints are hard constraints (no penalties needed)")
-            
-            print("✅ Constraint penalties added")
-        
-        # Add multi-day constraints if enabled
-        if max_days > 1 and night_nodes and morning_nodes:
-            self._add_multi_day_constraints(routing, manager, location_list, night_nodes, morning_nodes, max_days)
         
           # 5. Set search parameters with constraint-focused strategy
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
@@ -371,12 +208,12 @@ class CleanVRPOptimizer:
             routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
         )
         
-        # Use AUTOMATIC for better optimization with constraints
+        # Use GUIDED_LOCAL_SEARCH for better optimization with constraints
         search_parameters.local_search_metaheuristic = (
-            routing_enums_pb2.LocalSearchMetaheuristic.AUTOMATIC
+            routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
         )
         
-        search_parameters.time_limit.seconds = time_limit  # Configurable time limit
+        search_parameters.time_limit.seconds = 120  # Increased time for better constraint satisfaction
         search_parameters.log_search = verbose  # Enable/disable detailed logging
         
         # Additional parameters to improve constraint satisfaction
@@ -390,7 +227,7 @@ class CleanVRPOptimizer:
         
         print(f"🔧 Search parameters:")
         print(f"  - First solution strategy: PATH_CHEAPEST_ARC")
-        print(f"  - Local search: AUTOMATIC")
+        print(f"  - Local search: GUIDED_LOCAL_SEARCH")
         print(f"  - Time limit: {search_parameters.time_limit.seconds} seconds")
         print(f"  - Solution limit: {search_parameters.solution_limit}")
         print(f"  - Unassigned node penalty: {penalty_cost}")
@@ -402,10 +239,7 @@ class CleanVRPOptimizer:
         print(f"  - Total vehicles: {routing.vehicles()}")
         print(f"  - Total constraints: {routing.solver().Constraints()}")
         
-        # Track solve time
-        start_time = time.time()
         solution = routing.SolveWithParameters(search_parameters)
-        solve_time = time.time() - start_time
         
         # Detailed status reporting
         status = routing.status()
@@ -429,18 +263,8 @@ class CleanVRPOptimizer:
             print("   Status detail: ROUTING_INVALID - Invalid problem")
         
         if solution:
-            print("✅ SOLUTION FOUND!")
-            print(f"   Objective: {solution.ObjectiveValue()}")
-            print(f"   Time: {solve_time:.2f}s")
+            print("✅ Solution found!")
             result = self._extract_solution(routing, manager, solution, location_list, vehicle_list, constraint_level, vehicle_idx_to_vehicle)
-            
-            # Add solve time to result
-            result['solve_time'] = solve_time
-            
-            # Enhanced success message based on constraint level
-            constraint_suffix = f" with {constraint_level} constraints" if constraint_level != "none" else ""
-            print(f"✅ SUCCESS WITH {constraint_level.upper()} LEVEL{constraint_suffix}!")
-            
             return result, "Success", applied_constraints
         else:
             print("❌ No solution found!")
@@ -646,64 +470,17 @@ class CleanVRPOptimizer:
         
         return pickup_delivery_count
         
-    def _add_time_window_constraints(self, routing, manager, location_list, vehicle_list, night_nodes=None, morning_nodes=None):
-        """Add time window constraints with multi-day support."""
+    def _add_time_window_constraints(self, routing, manager, location_list, vehicle_list):
+        """Add time window constraints."""
         print("\n⏰ Adding time window constraints...")
-        
-        # Create time callback with multi-day support
+          # Create time callback
         def time_callback(from_index, to_index):
             from_node = manager.IndexToNode(from_index)
             to_node = manager.IndexToNode(to_index)
             from_loc = location_list[from_node]
+            
+            # Fallback to simple calculation
             to_loc = location_list[to_node]
-            
-            # Handle virtual nodes for multi-day scheduling
-            from_is_virtual = from_loc.get('is_virtual', False)
-            to_is_virtual = to_loc.get('is_virtual', False)
-            from_is_night = from_loc.get('is_night_node', False)
-            to_is_night = to_loc.get('is_night_node', False)
-            from_is_morning = from_loc.get('is_morning_node', False)
-            to_is_morning = to_loc.get('is_morning_node', False)
-            
-            # Virtual node time rules for "continue from where you left off":
-            # 1. Any location → night node: 0 time (instant sleep)
-            # 2. Night node → morning node: 12 hours (overnight stay)
-            # 3. Morning node → any location: 0 time (already at location)
-            if to_is_night:
-                # Going to sleep - no travel time, just service time at current location
-                service_time = from_loc.get('service_time', 0)
-                return int(service_time)
-            elif from_is_night and to_is_morning:
-    # Overnight stay - 12 hours sleep time
-                overnight_time = 12 * 60  # 12 hours in minutes
-                return overnight_time
-            elif from_is_morning:
-                # Starting from morning node - no travel time, already at location
-                return 0
-            elif from_is_virtual or to_is_virtual:
-                # Any other virtual node transition
-                            return 0
-            
-            # Regular travel time calculation for real locations
-            if self.travel_time_matrix is not None:
-                # Use pre-built travel time matrix from hybrid calculator
-                travel_time = self.travel_time_matrix[from_node][to_node]
-                
-                # Add service time at the "to" location
-                service_time = to_loc.get('service_time', 0)
-                if hasattr(to_loc, 'service_time') and to_loc.service_time is not None:
-                    service_time = int(to_loc.service_time)
-                else:
-                    # Standard service time: 15 minutes per stop (except for depots)
-                    if 'depot' in to_loc.get('id', '').lower():
-                        service_time = 5  # 5 minutes at depot for loading/unloading
-                    else:
-                        service_time = 15  # 15 minutes at pickup/dropoff locations
-                
-                total_time = int(travel_time + service_time)
-                return total_time
-            
-            # Fallback to Euclidean distance calculation
             from_x = from_loc.get('x', 0)
             from_y = from_loc.get('y', 0)
             to_x = to_loc.get('x', 0)
@@ -713,9 +490,10 @@ class CleanVRPOptimizer:
             distance = ((to_x - from_x) ** 2 + (to_y - from_y) ** 2) ** 0.5
             
             # Convert coordinate distance to kilometers 
-            distance_km = distance * 111
+            # Using a smaller scaling factor to avoid overly long travel times
+            distance_km = distance * 111  # Reduced from 111 to make travel times more reasonable
             
-            # Calculate travel time based on 70 km/h average speed
+            # Calculate travel time based on 80 km/h average speed
             travel_time_hours = distance_km / 70.0
             travel_time_minutes = travel_time_hours * 60
             
@@ -781,101 +559,30 @@ class CleanVRPOptimizer:
                 print(f"    Location {loc['id']}: time window [{tw_start}-{tw_end}]")
         print(f"✅ Time window constraints added for {locations_with_time_windows} locations")
         
-    def _add_multi_day_constraints(self, routing, manager, location_list, night_nodes, morning_nodes, max_days):
-        """Add multi-day scheduling constraints with 'continue from where you left off' behavior."""
-        print(f"\n📅 Adding multi-day constraints for {max_days} days...")
-        print("    🚛 Vehicles continue from where they ended the previous day (realistic multi-day)")
+        # Add time window penalties (soft constraints with high penalties)
+        print("\n⚖️ Adding time window penalties...")
         
-        # Allow night and morning nodes to be dropped for free (they're optional)
-        for node in night_nodes:
-            routing.AddDisjunction([manager.NodeToIndex(node)], 0)
-            print(f"    Night node {node} can be dropped for free")
-            
-        for node in morning_nodes:
-            routing.AddDisjunction([manager.NodeToIndex(node)], 0)
-            print(f"    Morning node {node} can be dropped for free")
+        # Add penalty for being late (soft time windows with high penalty)
+        penalty = 1000000  # Very high penalty for time window violations
+        for idx, loc in enumerate(location_list):
+            time_window = loc.get('time_window', None)
+            if time_window is not None and len(time_window) == 2:
+                tw_start, tw_end = time_window
+                index = manager.NodeToIndex(idx)
+                # Add penalty for arriving after the time window
+                time_dimension.SetCumulVarSoftUpperBound(index, int(tw_end), penalty)
+                print(f"    Added penalty for late arrival at {loc['id']}: {penalty}")
         
-        # Create counting dimension to enforce day ordering
-        routing.AddConstantDimension(
-            1,  # increment by 1 at each node
-            len(location_list) + 1,  # max count is visit every node
-            True,  # start count at zero
-            "Counting"
-        )
-        count_dimension = routing.GetDimensionOrDie('Counting')
-        print("    Created counting dimension for day ordering")
+        # Add penalty for vehicle max time violations using span cost coefficient
+        span_penalty = 1000  # Cost per minute of route duration
+        for vehicle_idx in range(len(vehicle_list)):
+            vehicle = vehicle_list[vehicle_idx]
+            # Set cost coefficient for vehicle span (route duration)
+            # This adds cost proportional to the route duration
+            time_dimension.SetSpanCostCoefficientForVehicle(span_penalty, vehicle_idx)
+            print(f"    Added span cost coefficient for vehicle {vehicle['id']}: {span_penalty} per minute")
         
-        # Add constraints to enforce proper day ordering and continuity
-        solver = routing.solver()
-        
-        # Enforce ordering of night nodes (day 1 night before day 2 night, etc.)
-        for i in range(len(night_nodes)):
-            inode = night_nodes[i]
-            iidx = manager.NodeToIndex(inode)
-            iactive = routing.ActiveVar(iidx)
-            
-            for j in range(i + 1, len(night_nodes)):
-                # Make night node i come before night node j using count dimension
-                jnode = night_nodes[j]
-                jidx = manager.NodeToIndex(jnode)
-                jactive = routing.ActiveVar(jidx)
-                
-                # If both are active, i must come before j
-                solver.Add(iactive >= jactive)
-                solver.Add(count_dimension.CumulVar(iidx) * iactive * jactive <=
-                          count_dimension.CumulVar(jidx) * iactive * jactive)
-            
-            # If night node is active AND it's not the last night,
-            # it must transition to corresponding morning node
-            if i < len(morning_nodes):
-                i_morning_idx = manager.NodeToIndex(morning_nodes[i])
-                # Force night node and corresponding morning node to be both active or inactive
-                solver.Add(iactive == routing.ActiveVar(i_morning_idx))
-                
-                # Force morning node to immediately follow night node in sequence
-                solver.Add(count_dimension.CumulVar(iidx) + 1 ==
-                          count_dimension.CumulVar(i_morning_idx))
-                
-                # Add pickup-delivery constraint to ensure same vehicle handles the pair
-                routing.AddPickupAndDelivery(iidx, i_morning_idx)
-                
-                print(f"      Night {inode} ↔ Morning {morning_nodes[i]} paired directly via constraints")
-        
-        # Enforce ordering of morning nodes
-        for i in range(len(morning_nodes)):
-            inode = morning_nodes[i]
-            iidx = manager.NodeToIndex(inode)
-            iactive = routing.ActiveVar(iidx)
-            
-            for j in range(i + 1, len(morning_nodes)):
-                # Make morning node i come before morning node j
-                jnode = morning_nodes[j]
-                jidx = manager.NodeToIndex(jnode)
-                jactive = routing.ActiveVar(jidx)
-                
-                solver.Add(iactive >= jactive)
-                solver.Add(count_dimension.CumulVar(iidx) * iactive * jactive <=
-                          count_dimension.CumulVar(jidx) * iactive * jactive)
-        
-        # Add constraints to properly handle time at overnight stays
-        time_dimension = routing.GetDimensionOrDie('Time')
-        
-        # For each night node (if active), ensure it's within day time bounds
-        for i, node in enumerate(night_nodes):
-            idx = manager.NodeToIndex(node)
-            
-            # Link to morning node to enforce continuity
-            if i < len(morning_nodes):
-                morning_idx = manager.NodeToIndex(morning_nodes[i])
-                # Ensure the time difference between night and morning is ~12 hours
-                # This is already handled by the time callback which returns overnight time for night->morning transitions
-                
-        print(f"✅ Multi-day constraints added:")
-        print(f"    - {len(night_nodes)} night nodes with free dropping")
-        print(f"    - {len(morning_nodes)} morning nodes with free dropping")
-        print(f"    - Counting dimension for day ordering")
-        print(f"    - Strong night-morning linking constraints")
-        print(f"    - Realistic multi-day: vehicles continue from where they left off")
+        print("✅ Time window penalties added")
         
     def _validate_capacity_constraints(self, routes, vehicle_list, vehicle_idx_to_vehicle=None):
         """Validate that no vehicle exceeds its capacity at any point. Uses robust mapping."""
@@ -1043,8 +750,6 @@ class CleanVRPOptimizer:
     def _extract_solution(self, routing, manager, solution, location_list, vehicle_list, constraint_level: str = "none", vehicle_idx_to_vehicle=None) -> Dict:
         """Extract and format the solution. Uses robust vehicle mapping."""
         print("\n📋 Extracting solution...")
-        print(f"🔍 Starting route analysis for level {constraint_level}...")
-        
         routes = {}
         total_distance = 0
         total_time = 0
@@ -1060,21 +765,6 @@ class CleanVRPOptimizer:
                 print("  ⚠️ Time dimension not found, arrival times will be 0")
         for vehicle_idx in range(len(vehicle_list)):
             vehicle = vehicle_idx_to_vehicle[vehicle_idx] if vehicle_idx_to_vehicle else vehicle_list[vehicle_idx]
-            
-            # Add debug info for final route time
-            if has_time and time_dimension:
-                try:
-                    final_time_var = time_dimension.CumulVar(routing.End(vehicle_idx))
-                    final_time = solution.Value(final_time_var)
-                    route_length = 0
-                    temp_index = routing.Start(vehicle_idx)
-                    while not routing.IsEnd(temp_index):
-                        route_length += 1
-                        temp_index = solution.Value(routing.NextVar(temp_index))
-                    print(f"       DEBUG: Vehicle {vehicle_idx} - Final time: {final_time}, Route length: {route_length}")
-                except:
-                    pass
-            
             route = []
             index = routing.Start(vehicle_idx)
             route_distance = 0
@@ -1120,44 +810,8 @@ class CleanVRPOptimizer:
                 previous_index = index
                 index = solution.Value(routing.NextVar(index))
                 if not routing.IsEnd(index):
-                    # Calculate actual distance for tracking, even for virtual nodes
-                    prev_node = manager.IndexToNode(previous_index)
-                    curr_node = manager.IndexToNode(index)
-                    prev_loc = location_list[prev_node]
-                    curr_loc = location_list[curr_node]
-                    
-                    # Check if this is a virtual node transition
-                    prev_is_virtual = prev_loc.get('is_virtual', False)
-                    curr_is_virtual = curr_loc.get('is_virtual', False)
-                    
-                    # For distance tracking, we need to handle virtual nodes specially
-                    # Virtual nodes represent staying at the same location, so:
-                    # - Real → Virtual: distance from real location to where vehicle sleeps (0 if sleeping in place)
-                    # - Virtual → Virtual: 0 distance (night to morning at same location)  
-                    # - Virtual → Real: 0 distance (already at the location after waking up)
-                    # - Real → Real: normal distance calculation
-                    
-                    if prev_is_virtual and curr_is_virtual:
-                        # Virtual to virtual (night to morning) - no distance
-                        arc_cost_km = 0.0
-                    elif prev_is_virtual and not curr_is_virtual:
-                        # Virtual to real (morning to real location) - no distance, already there
-                        arc_cost_km = 0.0
-                    elif not prev_is_virtual and curr_is_virtual:
-                        # Real to virtual (real location to night) - no distance, sleep in place
-                        arc_cost_km = 0.0
-                    else:
-                        # Real to real - calculate actual distance
-                        prev_x = prev_loc.get('x', 0)
-                        prev_y = prev_loc.get('y', 0)
-                        curr_x = curr_loc.get('x', 0)
-                        curr_y = curr_loc.get('y', 0)
-                        
-                        # Calculate Euclidean distance
-                        distance = ((curr_x - prev_x) ** 2 + (curr_y - prev_y) ** 2) ** 0.5
-                        distance_km = distance * 111  # Convert to km
-                        arc_cost_km = distance_km
-                    
+                    arc_cost_meters = routing.GetArcCostForVehicle(previous_index, index, vehicle_idx)
+                    arc_cost_km = arc_cost_meters / 1000.0
                     route_distance += arc_cost_km
             # Add final location (end depot)
             if not routing.IsEnd(index):
@@ -1214,35 +868,9 @@ class CleanVRPOptimizer:
                         })
             if len(route) >= 2 and has_time:
                 route_time = route[-1]['arrival_time'] - route[0]['arrival_time']
-            # Calculate actual distance by tracking real locations only
-            real_locations = []
-            for stop in route:
-                # Find the location details
-                for loc in location_list:
-                    if loc['id'] == stop['location_id']:
-                        if not loc.get('is_virtual', False):
-                            real_locations.append(loc)
-                        break
-            
-            # Calculate distance between consecutive real locations
-            actual_distance = 0.0
-            for i in range(1, len(real_locations)):
-                prev_loc = real_locations[i-1]
-                curr_loc = real_locations[i]
-                
-                prev_x = prev_loc.get('x', 0)
-                prev_y = prev_loc.get('y', 0)
-                curr_x = curr_loc.get('x', 0)
-                curr_y = curr_loc.get('y', 0)
-                
-                # Calculate Euclidean distance
-                distance = ((curr_x - prev_x) ** 2 + (curr_y - prev_y) ** 2) ** 0.5
-                distance_km = distance * 111  # Convert to km
-                actual_distance += distance_km
-            
             routes[vehicle['id']] = {
                 'route': route,
-                'distance': actual_distance,  # Use actual distance between real locations
+                'distance': route_distance,
                 'time': route_time
             }
             # Calculate total service time for this vehicle
@@ -1258,39 +886,18 @@ class CleanVRPOptimizer:
             # Calculate driving time (route_time - total_service_time)
             driving_time = max(0, route_time - total_service_time) if route_time > 0 else 0
             
-            total_distance += actual_distance  # Use actual distance instead of route_distance
+            total_distance += route_distance
             total_time += route_time
             
-            # Enhanced route analysis like in enhanced optimizer
-            vehicle_capacity = vehicle.get('capacity', 0)
-            vehicle_max_time = vehicle.get('max_time', 540)
-            
-            print(f"    Vehicle {vehicle['id']}: {len(route)} stops, {route_time}min total ({route_time/vehicle_max_time*100:.1f}% of {vehicle_max_time}min limit)")
-            print(f"       📏 Distance: {actual_distance:.2f} km")
-            print(f"       🚗 Driving time: {driving_time}min, Service time: {total_service_time}min")
-            print(f"       🔍 Math check: {driving_time}min + {total_service_time}min = {driving_time + total_service_time}min (OR-Tools: {route_time}min)")
+            print(f"  Vehicle {vehicle['id']}: {len(route)} stops, distance: {route_distance:.1f} km")
+            print(f"    ⏱️ Time breakdown: {route_time}min total = {driving_time}min driving + {total_service_time}min service")
             
             if has_capacity and len(route) > 1:
-                capacity_utilization = (max_manual_load / vehicle_capacity * 100) if vehicle_capacity > 0 else 0
-                remaining_capacity = vehicle_capacity - max_manual_load
-                
-                print(f"       📦 Max load: {max_manual_load}kg ({capacity_utilization:.1f}% of {vehicle_capacity}kg capacity)")
-                
-                if capacity_utilization < 50:
-                    print(f"       📊 Low capacity utilization: {capacity_utilization:.1f}%")
-                elif capacity_utilization > 90:
-                    print(f"       📊 High capacity utilization: {capacity_utilization:.1f}%")
+                print(f"    📦 Load tracking: max load reached = {max_manual_load}kg (capacity: {vehicle.get('capacity', 'N/A')}kg)")
+                if max_manual_load > vehicle.get('capacity', 0):
+                    print(f"    ⚠️ WARNING: Max load {max_manual_load}kg exceeds capacity {vehicle.get('capacity', 'N/A')}kg!")
                 else:
-                    print(f"       📊 Good capacity utilization: {capacity_utilization:.1f}%")
-                    
-                print(f"       📦 Remaining capacity: {remaining_capacity}kg")
-                
-                if max_manual_load > vehicle_capacity:
-                    print(f"       ⚠️ WARNING: Max load {max_manual_load}kg exceeds capacity {vehicle_capacity}kg!")
-                else:
-                    print(f"       ✅ Load within capacity limits")
-        
-        print("✅ Route analysis completed successfully")
+                    print(f"    ✅ Load within capacity limits")
         for vehicle_idx, vehicle in vehicle_idx_to_vehicle.items():
             print(f"Vehicle {vehicle['id']} capacity: {vehicle.get('capacity', 'N/A')}")
         if self.ride_requests:
@@ -1530,10 +1137,10 @@ class CleanVRPOptimizer:
             print("   ℹ️ No time windows found (all locations have 0-1440 range)")
         
         # Pickup-dropoff feasibility check
-        impossible_pairs = 0
-        tight_pairs = 0
         if hasattr(self, 'ride_requests') and self.ride_requests:
             print(f"\n🔄 PICKUP-DROPOFF FEASIBILITY:")
+            impossible_pairs = 0
+            tight_pairs = 0
             
             requests_to_analyze = []
             if isinstance(self.ride_requests, dict):
@@ -1613,53 +1220,6 @@ class CleanVRPOptimizer:
                 print("   ✅ No obvious constraint conflicts detected")
         
         print("=" * 60)
-    
-    def _build_travel_matrices(self, use_hybrid_calculator: bool = False):
-        """Pre-build travel time and distance matrices using hybrid approach when available."""
-        if use_hybrid_calculator and HYBRID_CALCULATOR_AVAILABLE:
-            print("🌍 Building realistic travel time matrix using hybrid approach...")
-            print("   (Haversine + OSRM correction factor - much faster than full OSRM)")
-            
-            # Extract coordinates from locations
-            coordinates = []
-            for location in self.locations:
-                coordinates.append((location.get('y', 0), location.get('x', 0)))  # (lat, lon)
-            
-            # Get corrected travel time matrix using hybrid approach
-            self.travel_time_matrix = hybrid_calculator.get_corrected_travel_time_matrix(coordinates)
-            
-            # Build corresponding distance matrix (we still need this for cost calculation)
-            n = len(coordinates)
-            self.distance_matrix = [[0 for _ in range(n)] for _ in range(n)]
-            
-            for i in range(n):
-                for j in range(n):
-                    if i == j:
-                        self.distance_matrix[i][j] = 0
-                    else:
-                        distance_km = hybrid_calculator.calculate_haversine_distance(coordinates[i], coordinates[j])
-                        self.distance_matrix[i][j] = int(distance_km * 1000)  # meters for OR-Tools
-            
-            print(f"✅ Hybrid travel matrices built: {n}x{n} locations")
-            
-            # Add summary like in enhanced optimizer
-            avg_travel_time = sum(sum(row) for row in self.travel_time_matrix) / (n * n)
-            min_travel_time = min(min(row) for row in self.travel_time_matrix)
-            max_travel_time = max(max(row) for row in self.travel_time_matrix)
-            
-            print(f"📊 Hybrid Travel Time Matrix Summary:")
-            print(f"  Locations: {n}")
-            print(f"  Total routes: {n * n}")
-            print(f"  Average travel time: {avg_travel_time:.1f} minutes")
-            print(f"  Min travel time: {min_travel_time:.0f} minutes")
-            print(f"  Max travel time: {max_travel_time:.0f} minutes")
-        else:
-            if use_hybrid_calculator and not HYBRID_CALCULATOR_AVAILABLE:
-                print("⚠️ Hybrid calculator requested but not available, falling back to simple calculation")
-            
-            # Fallback to simple calculation
-            self.travel_time_matrix = None
-            self.distance_matrix = None
 
 def test_moda_small_scenario():
     """Test the clean optimizer with MODA_small VRPPD scenario, twice with different vehicle orders."""
@@ -1670,7 +1230,6 @@ def test_moda_small_scenario():
     except ImportError:
         print("❌ Could not import vrp_scenarios. Make sure the file is available.")
         return
-    
     scenario = create_furgoni_scenario()
     print(f"📊 Scenario details:")
     print(f"  - Locations: {len(scenario.locations)}")
@@ -1695,555 +1254,252 @@ def test_moda_small_scenario():
     print("RUN 1 vehicle capacities:", [v['capacity'] for v in vehicles_dicts])
     optimizer1 = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=None, vrp_instance=scenario)
     optimizer1.ride_requests = scenario.ride_requests
-    result1, status1, applied_constraints1 = optimizer1.solve(constraint_level="full", verbose=False, use_hybrid_calculator=True)
+    result1, status1, applied_constraints1 = optimizer1.solve(constraint_level="full", verbose=False)
     print(f"\n=== RUN 1 RESULT ===")
     if result1:
-        print(f"✅ Solution found - Objective: {result1['objective_value']}")
+        print(f"✅ SUCCESS - Status: {status1}")
+        print(f"   Constraints applied: {applied_constraints1}")
+        print(f"   Objective value: {result1['objective_value']}")
         print(f"   Total distance: {result1['total_distance']:.1f} km")
-        print(f"   Solve time: {result1.get('solve_time', 'N/A'):.2f}s")
-        vehicles_used = len([v for v in result1['routes'].values() if len(v['route']) > 1])
-        print(f"   Vehicles used: {vehicles_used}/{len(vehicles_dicts)}")
-    else:
-        print(f"❌ No solution found - Status: {status1}")
-
-    # --- Test different max_days values on the MODA scenario ---
-    max_days_to_test = [1, 2, 3]
-    results = {}
-    
-    for max_days in max_days_to_test:
-        print(f"\n--- Testing {max_days} day{'s' if max_days > 1 else ''} ---")
-        optimizer = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=None, vrp_instance=scenario)
-        optimizer.ride_requests = scenario.ride_requests
-        result, status, constraints = optimizer.solve(
-            constraint_level="full", 
-            verbose=False, 
-            use_hybrid_calculator=True,
-            max_days=max_days
-        )
-        
-        results[max_days] = {
-            'result': result,
-            'status': status,
-            'constraints': constraints
-        }
-        
-        if result:
-            print(f"✅ {max_days}-day solution found")
-            print(f"   Objective: {result['objective_value']}")
-            print(f"   Total distance: {result['total_distance']:.1f} km")
-            print(f"   Solve time: {result.get('solve_time', 'N/A'):.2f}s")
-        else:
-            print(f"❌ {max_days}-day solution failed: {status}")
-    
-    # --- Compare all results ---
-    print(f"\n📊 COMPARISON: Different max_days values")
-    print("="*60)
-    successful_results = [(days, data) for days, data in results.items() if data['result'] is not None]
-    
-    if successful_results:
-        best_result = min(successful_results, key=lambda x: x[1]['result']['objective_value'])
-        print(f"🏆 Best result: {best_result[0]} days with objective {best_result[1]['result']['objective_value']}")
-        
-        for days, data in successful_results:
-            result = data['result']
-            print(f"  {days} day{'s' if days > 1 else ''}: Objective {result['objective_value']}, Distance {result['total_distance']:.1f}km")
-    else:
-        print("❌ No successful results to compare")
-
-
-def test_multi_day_scenario():
-    """Test multi-day scheduling capability."""
-    print("\n" + "="*80)
-    print("🧪 TESTING MULTI-DAY VRP SCHEDULING")
-    print("="*80)
-    
-    # Create a challenging test scenario that REQUIRES multi-day scheduling
-    locations = [
-        {'id': 'depot', 'x': 0, 'y': 0, 'demand': 0, 'service_time': 0, 'time_window': (0, 1440), 'address': 'Main Depot'},
-        {'id': 'location_1', 'x': 0.5, 'y': 0.5, 'demand': 10, 'service_time': 60, 'time_window': (60, 1440), 'address': 'Location 1'},
-        {'id': 'location_2', 'x': 1.0, 'y': 1.0, 'demand': 15, 'service_time': 60, 'time_window': (120, 1440), 'address': 'Location 2'},
-        {'id': 'location_3', 'x': 1.5, 'y': 1.5, 'demand': 20, 'service_time': 60, 'time_window': (180, 1440), 'address': 'Location 3'},
-        {'id': 'location_4', 'x': 2.0, 'y': 2.0, 'demand': 25, 'service_time': 60, 'time_window': (240, 1440), 'address': 'Location 4'},
-        {'id': 'location_5', 'x': 2.5, 'y': 2.5, 'demand': 30, 'service_time': 60, 'time_window': (300, 1440), 'address': 'Location 5'},
-        {'id': 'location_6', 'x': 3.0, 'y': 3.0, 'demand': 35, 'service_time': 60, 'time_window': (360, 1440), 'address': 'Location 6'},
-    ]
-    
-    vehicles = [
-        {'id': 'vehicle_1', 'capacity': 300, 'start_location': 'depot', 'end_location': 'depot', 'max_time': 180}
-    ]
-    
-    print(f"📍 Test scenario:")
-    print(f"  - {len(locations)} locations (including depot)")
-    print(f"  - {len(vehicles)} vehicle with 3-hour daily limit (very restrictive!)")
-    print(f"  - Locations spread out with 1-hour service times")
-    print(f"  - Single day should struggle, multi-day should visit more locations")
-    
-    # Test single day (should struggle with far locations)
-    print(f"\n--- Single Day Test ---")
-    optimizer_1day = CleanVRPOptimizer(vehicles=vehicles, locations=locations)
-    result_1day, status_1day, constraints_1day = optimizer_1day.solve(
-        constraint_level="time_windows", 
-        verbose=False, 
-        max_days=1
-    )
-    
-    if result_1day:
-        print(f"✅ Single day solution found")
-        print(f"   Objective: {result_1day['objective_value']}")
-        for vehicle_id, route_data in result_1day['routes'].items():
-            print(f"   {vehicle_id}: {len(route_data['route'])} stops")
-    else:
-        print(f"❌ Single day solution failed: {status_1day}")
-    
-    # Test multi-day (should handle far locations better)
-    print(f"\n--- Multi-Day Test (3 days) ---")
-    optimizer_3day = CleanVRPOptimizer(vehicles=vehicles, locations=locations)
-    result_3day, status_3day, constraints_3day = optimizer_3day.solve(
-        constraint_level="time_windows", 
-        verbose=False, 
-        max_days=3
-    )
-    
-    if result_3day:
-        print(f"✅ Multi-day solution found")
-        print(f"   Objective: {result_3day['objective_value']}")
-        print(f"   Total distance: {result_3day['total_distance']:.1f} km")
-        
-        day_transitions = 0
-        for vehicle_id, route_data in result_3day['routes'].items():
+        for vehicle_id, route_data in result1['routes'].items():
             route = route_data['route']
-            print(f"   {vehicle_id}: {len(route)} stops, distance: {route_data['distance']:.1f} km")
-            # Show day transitions
-            for i, stop in enumerate(route):
-                location_id = stop['location_id']
-                if 'night' in location_id or 'morning' in location_id:
-                    day_transitions += 1
-                    print(f"     Stop {i+1}: {location_id} (day transition at {stop['arrival_time']}min)")
-        
-        print(f"   🌙 Total day transitions: {day_transitions}")
+            print(f"   Vehicle {vehicle_id}: {len(route)} stops, distance: {route_data['distance']:.1f} km")
+        # Plot the solution
+        optimizer1.plot_solution(result1, title="Furgoni VRP Solution")
     else:
-        print(f"❌ Multi-day solution failed: {status_3day}")
-    
-    # Compare solutions if both exist
-    if result_1day and result_3day:
-        print(f"\n📊 COMPARISON: Single Day vs Multi-Day")
-        improvement = (result_1day['objective_value'] - result_3day['objective_value']) / result_1day['objective_value'] * 100
-        print(f"   Single Day  - Objective: {result_1day['objective_value']:,}, Distance: {result_1day['total_distance']:.1f} km")
-        print(f"   Multi-Day   - Objective: {result_3day['objective_value']:,}, Distance: {result_3day['total_distance']:.1f} km")
-        if improvement > 0:
-            print(f"   🎉 Multi-day improved objective by {improvement:.1f}%")
-        else:
-            print(f"   📊 Single-day was better by {-improvement:.1f}%")
-    
-    # Plot the multi-day solution if available
-    if result_3day:
-        try:
-            import matplotlib.pyplot as plt
-            import matplotlib.colors as mcolors
-            
-            print(f"\n🎨 Creating multi-day route visualization...")
-            
-            fig, ax = plt.subplots(1, 1, figsize=(12, 10))
-            
-            # Create location lookup for coordinates
-            location_lookup = {loc['id']: (loc['x'], loc['y']) for loc in locations}
-            
-            # Plot all locations first
-            for loc in locations:
-                if loc['id'] == 'depot':
-                    ax.scatter(loc['x'], loc['y'], c='red', s=200, marker='s', label='Depot', zorder=5)
-                    ax.annotate('DEPOT', (loc['x'], loc['y']), xytext=(5, 5), 
-                               textcoords='offset points', fontsize=10, fontweight='bold')
-                else:
-                    ax.scatter(loc['x'], loc['y'], c='lightblue', s=100, marker='o', zorder=3)
-                    ax.annotate(f'{loc["id"]}\n(D:{loc["demand"]})', (loc['x'], loc['y']), 
-                               xytext=(5, 5), textcoords='offset points', fontsize=8)
-            
-            # Define colors for different days
-            day_colors = ['blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive']
-            
-            # Process routes to identify days and plot them
-            for vehicle_id, route_data in result_3day['routes'].items():
+        print(f"❌ FAILED - Status: {status1}")
+        print(f"   Constraints applied: {applied_constraints1}")
+
+
+
+def test_moda_inverted_scenario():
+    """Test the clean optimizer with MODA_small VRPPD scenario, twice with different vehicle orders."""
+    print("🧪 Testing Clean VRP Optimizer with MODA_small scenario (order sensitivity test)")
+    print("=" * 60)
+    try:
+        from vrp_scenarios import create_moda_small_scenario
+    except ImportError:
+        print("❌ Could not import vrp_scenarios. Make sure the file is available.")
+        return
+    scenario = create_moda_small_scenario()
+    print(f"📊 Scenario details:")
+    print(f"  - Locations: {len(scenario.locations)}")
+    print(f"  - Vehicles: {len(scenario.vehicles)}")
+    print(f"  - Ride requests: {len(scenario.ride_requests)}")
+
+    # --- Get vehicle list from scenario ---
+    vehicle_ids = list(scenario.vehicles.keys())
+    vehicles_from_scenario = [scenario.vehicles[vid] for vid in vehicle_ids]
+    # Convert to dicts for CleanVRPOptimizer
+    vehicles_dicts = [{
+        'id': v.id,
+        'capacity': v.capacity,
+        'start_location': v.depot_id,
+        'end_location': v.depot_id,
+        'max_time': getattr(v, 'max_time', 24 * 60)
+    } for v in vehicles_from_scenario]
+
+    # --- First run: original order ---
+    print("\n================= RUN 1: Original vehicle order ================")
+    print("RUN 1 vehicle order:", [v['id'] for v in vehicles_dicts])
+    print("RUN 1 vehicle capacities:", [v['capacity'] for v in vehicles_dicts])
+    optimizer1 = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=None, vrp_instance=scenario)
+    optimizer1.ride_requests = scenario.ride_requests
+    result1, status1, applied_constraints1 = optimizer1.solve(constraint_level="full", verbose=False)
+    print(f"\n=== RUN 1 RESULT ===")
+    if result1:
+        print(f"✅ SUCCESS - Status: {status1}")
+        print(f"   Constraints applied: {applied_constraints1}")
+        print(f"   Objective value: {result1['objective_value']}")
+        print(f"   Total distance: {result1['total_distance']:.1f} km")
+        for vehicle_id, route_data in result1['routes'].items():
+            route = route_data['route']
+            print(f"   Vehicle {vehicle_id}: {len(route)} stops, distance: {route_data['distance']:.1f} km")
+    else:
+        print(f"❌ FAILED - Status: {status1}")
+        print(f"   Constraints applied: {applied_constraints1}")
+
+    # --- Second run: reversed order ---
+    vehicles_dicts_reversed = list(reversed(vehicles_dicts))
+    print("\n================= RUN 2: Reversed vehicle order ================")
+    print("RUN 2 vehicle order:", [v['id'] for v in vehicles_dicts_reversed])
+    print("RUN 2 vehicle capacities:", [v['capacity'] for v in vehicles_dicts_reversed])
+    optimizer2 = CleanVRPOptimizer(vehicles=vehicles_dicts_reversed, locations=None, vrp_instance=scenario)
+    optimizer2.ride_requests = scenario.ride_requests
+    result2, status2, applied_constraints2 = optimizer2.solve(constraint_level="full", verbose=False)
+    print(f"\n=== RUN 2 RESULT ===")
+    if result2:
+        print(f"✅ SUCCESS - Status: {status2}")
+        print(f"   Constraints applied: {applied_constraints2}")
+        print(f"   Objective value: {result2['objective_value']}")
+        print(f"   Total distance: {result2['total_distance']:.1f} km")
+        for vehicle_id, route_data in result2['routes'].items():
+            route = route_data['route']
+            print(f"   Vehicle {vehicle_id}: {len(route)} stops, distance: {route_data['distance']:.1f} km")
+    else:
+        print(f"❌ FAILED - Status: {status2}")
+        print(f"   Constraints applied: {applied_constraints2}")
+
+
+
+def test_constraint_levels():
+    """Test the clean optimizer with MODA_small VRPPD scenario, twice with different vehicle orders."""
+    print("🧪 Testing Clean VRP Optimizer with MODA_small scenario (order sensitivity test)")
+    print("=" * 60)
+    try:
+        from vrp_scenarios import create_furgoni_scenario
+    except ImportError:
+        print("❌ Could not import vrp_scenarios. Make sure the file is available.")
+        return
+    scenario = create_furgoni_scenario()
+    print(f"📊 Scenario details:")
+    print(f"  - Locations: {len(scenario.locations)}")
+    print(f"  - Vehicles: {len(scenario.vehicles)}")
+    print(f"  - Ride requests: {len(scenario.ride_requests)}")
+
+    # --- Get vehicle list from scenario ---
+    vehicle_ids = list(scenario.vehicles.keys())
+    vehicles_from_scenario = [scenario.vehicles[vid] for vid in vehicle_ids]
+    # Convert to dicts for CleanVRPOptimizer
+    vehicles_dicts = [{
+        'id': v.id,
+        'capacity': v.capacity,
+        'start_location': v.depot_id,
+        'end_location': v.depot_id,
+        'max_time': getattr(v, 'max_time', 24 * 60)
+    } for v in vehicles_from_scenario]
+
+    levels = ["none",  "pickup_delivery", "time_windows", "capacity", "full"]
+    for i, level in enumerate(levels):
+
+        # --- First run: original order ---
+        print(f"\n================= RUN {i+1}: Level: {level} ================")
+        print("RUN 1 vehicle order:", [v['id'] for v in vehicles_dicts])
+        print("RUN 1 vehicle capacities:", [v['capacity'] for v in vehicles_dicts])
+        optimizer1 = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=None, vrp_instance=scenario)
+        optimizer1.ride_requests = scenario.ride_requests
+        result1, status1, applied_constraints1 = optimizer1.solve(constraint_level=level, verbose=False)
+        print(f"\n=== RUN {i+1} RESULT ===")
+        if result1:
+            print(f"✅ SUCCESS - Status: {status1}")
+            print(f"   Constraints applied: {applied_constraints1}")
+            print(f"   Objective value: {result1['objective_value']}")
+            print(f"   Total distance: {result1['total_distance']:.1f} km")
+            for vehicle_id, route_data in result1['routes'].items():
                 route = route_data['route']
-                if len(route) <= 1:  # Skip empty or depot-only routes
-                    continue
-                
-                print(f"   📍 Plotting route for {vehicle_id}...")
-                
-                # Identify day segments by looking at time_windows and cumulative time
-                day_segments = []
-                current_day = 0
-                current_segment = []
-                last_departure_time = 0
-                
-                for i, stop in enumerate(route):
-                    location_id = stop['location_id']
-                    
-                    # Skip depot at start/end for segmentation (but include in plotting)
-                    if location_id == 'depot' and (i == 0 or i == len(route) - 1):
-                        current_segment.append(stop)
-                        continue
-                    
-                    arrival_time = stop.get('arrival_time', 0)
-                    
-                    # Check for day transition (large time gap or time reset)
-                    if arrival_time < last_departure_time or (arrival_time - last_departure_time > 12 * 60):  # 12 hours gap
-                        if current_segment and len(current_segment) > 1:
-                            day_segments.append((current_day, current_segment.copy()))
-                            current_segment = [current_segment[0]]  # Keep depot for next day
-                        current_day += 1
-                    
-                    current_segment.append(stop)
-                    last_departure_time = stop.get('departure_time', arrival_time)
-                
-                # Add final segment
-                if current_segment and len(current_segment) > 1:
-                    day_segments.append((current_day, current_segment))
-                
-                # If no clear day transitions found, split route into reasonable segments
-                if not day_segments and route and len(route) > 3:
-                    # Simple fallback: split by route length
-                    route_length = len(route)
-                    if route_length > 10:  # Multiple days likely
-                        segment_size = max(4, route_length // 3)  # Aim for 3 days
-                        for day in range(3):
-                            start_idx = day * segment_size
-                            end_idx = min((day + 1) * segment_size + 1, route_length)  # +1 for overlap
-                            if start_idx < route_length:
-                                segment = route[start_idx:end_idx]
-                                if len(segment) > 1:
-                                    day_segments.append((day, segment))
-                    else:
-                        day_segments = [(0, route)]
-                elif not day_segments:
-                    day_segments = [(0, route)]
-                
-                # Plot each day segment with different color
-                for day_num, segment in day_segments:
-                    if len(segment) < 2:
-                        continue
-                    
-                    color = day_colors[day_num % len(day_colors)]
-                    
-                    # Get coordinates for this segment
-                    segment_coords = []
-                    segment_locations = []
-                    for stop in segment:
-                        loc_id = stop['location_id']
-                        if loc_id in location_lookup:
-                            segment_coords.append(location_lookup[loc_id])
-                            segment_locations.append(loc_id)
-                    
-                    if len(segment_coords) >= 2:
-                        # Plot route lines for this day
-                        x_coords = [coord[0] for coord in segment_coords]
-                        y_coords = [coord[1] for coord in segment_coords]
-                        
-                        # Only add label if not already added for this day
-                        existing_labels = [l.get_label() for l in ax.get_lines()]
-                        day_label = f'Day {day_num + 1}'
-                        use_label = day_label if day_label not in existing_labels else None
-                        
-                        ax.plot(x_coords, y_coords, color=color, linewidth=2, alpha=0.7, label=use_label)
-                        
-                        # Add arrows to show direction
-                        for i in range(len(x_coords) - 1):
-                            dx = x_coords[i+1] - x_coords[i]
-                            dy = y_coords[i+1] - y_coords[i]
-                            if abs(dx) > 0.1 or abs(dy) > 0.1:  # Only add arrow if movement is significant
-                                ax.annotate('', xy=(x_coords[i+1], y_coords[i+1]), 
-                                           xytext=(x_coords[i], y_coords[i]),
-                                           arrowprops=dict(arrowstyle='->', color=color, alpha=0.8, lw=1))
-                        
-                        print(f"     Day {day_num + 1}: {len(segment)} stops ({', '.join(segment_locations[:5])}{', ...' if len(segment_locations) > 5 else ''}), color: {color}")
-            
-            ax.set_xlabel('X Coordinate (km)')
-            ax.set_ylabel('Y Coordinate (km)')
-            ax.set_title(f'Multi-Day VRP Solution\n{len(locations)-1} locations, {len(vehicles)} vehicle, 3 days max')
-            ax.grid(True, alpha=0.3)
-            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-            
-            # Add statistics text box
-            stats_text = f"Objective: {result_3day['objective_value']:,}\n"
-            stats_text += f"Total Distance: {result_3day['total_distance']:.1f} km\n"
-            stats_text += f"Total Routes: {len([r for r in result_3day['routes'].values() if len(r['route']) > 1])}"
-            
-            ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, 
-                   bbox=dict(boxstyle="round,pad=0.3", facecolor="lightyellow", alpha=0.8),
-                   verticalalignment='top', fontsize=9)
-            
-            plt.tight_layout()
-            
-            # Save the plot
-            plot_filename = 'multi_day_vrp_solution.png'
-            plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
-            print(f"   💾 Plot saved as: {plot_filename}")
-            
-            plt.show()
-            
-        except ImportError:
-            print(f"   ⚠️  Matplotlib not available - skipping plot generation")
-        except Exception as e:
-            print(f"   ❌ Error creating plot: {e}")
+                print(f"   Vehicle {vehicle_id}: {len(route)} stops, distance: {route_data['distance']:.1f} km")
+        else:
+            print(f"❌ FAILED - Status: {status1}")
+            print(f"   Constraints applied: {applied_constraints1}")
+
+def test_moda_first_scenario():
+    """Test the clean optimizer with MODA_first VRPPD scenario."""
+    print("🧪 Testing Clean VRP Optimizer with MODA_first scenario")
+    print("=" * 60)
+    try:
+        from vrp_scenarios import create_moda_first_scenario
+    except ImportError:
+        print("❌ Could not import vrp_scenarios. Make sure the file is available.")
+        return
+    scenario = create_moda_first_scenario()
+    print(f"📊 Scenario details:")
+    print(f"  - Locations: {len(scenario.locations)}")
+    print(f"  - Vehicles: {len(scenario.vehicles)}")
+    print(f"  - Ride requests: {len(scenario.ride_requests)}")
+
+    # --- Get vehicle list from scenario ---
+    vehicle_ids = list(scenario.vehicles.keys())
+    vehicles_from_scenario = [scenario.vehicles[vid] for vid in vehicle_ids]
+    # Convert to dicts for CleanVRPOptimizer
+    vehicles_dicts = [{
+        'id': v.id,
+        'capacity': v.capacity,
+        'start_location': v.depot_id,
+        'end_location': v.depot_id,
+        'max_time': getattr(v, 'max_time', 24 * 60)
+    } for v in vehicles_from_scenario]
+
+    print("\n================= RUN: MODA_first scenario ================")
+    print("Vehicle order:", [v['id'] for v in vehicles_dicts])
+    print("Vehicle capacities:", [v['capacity'] for v in vehicles_dicts])
+    optimizer = CleanVRPOptimizer(vehicles=vehicles_dicts, locations=None, vrp_instance=scenario)
+    optimizer.ride_requests = scenario.ride_requests
+    result, status, applied_constraints = optimizer.solve(constraint_level="full", verbose=False)
+    print(f"\n=== MODA_first RESULT ===")
+    if result:
+        print(f"✅ SUCCESS - Status: {status}")
+        print(f"   Constraints applied: {applied_constraints}")
+        print(f"   Objective value: {result['objective_value']}")
+        print(f"   Total distance: {result['total_distance']:.1f} km")
+        for vehicle_id, route_data in result['routes'].items():
+            route = route_data['route']
+            print(f"   Vehicle {vehicle_id}: {route_data}")
+    else:
+        print(f"❌ FAILED - Status: {status}")
+        print(f"   Constraints applied: {applied_constraints}")
+    """Test the clean optimizer with different constraint levels."""
+    import sys
+    import os
     
-    print(f"\n🏁 Multi-day test completed!")
+    print("🧪 Testing Clean VRP Optimizer with different constraint levels")
+    print("=" * 60)
+    
+    # Create a simple test scenario
+    # 1. Define the Vehicle List
+    vehicle_list = [
+        {"id": 0, "capacity": 15, "start_location": "A", "end_location": "A"},
+        {"id": 1, "capacity": 15, "start_location": "A", "end_location": "A"},
+    ]
+
+    # 2. Define the Location List
+    location_list = [
+        {"id": "A", "demand": 0, "time_window": (0, 0)},  # Depot
+        {"id": "B", "demand": -1, "time_window": (7, 12), "pickup": "C"},
+        {"id": "C", "demand": 1, "time_window": (7, 12), "delivery": "B"},
+        {"id": "D", "demand": 2, "time_window": (8, 15)},
+        {"id": "E", "demand": 1, "time_window": (9, 14)},
+    ]
+    
+    optimizer = CleanVRPOptimizer(
+        vehicles=vehicle_list,
+        locations=location_list,
+        distance_matrix_provider="google"
+    )
+    
+    # Test each constraint level
+    levels = ["none", "capacity", "pickup_delivery", "time_windows", "full"]
+    
+    for level in levels:
+        print(f"\n{'='*20} TESTING LEVEL: {level.upper()} {'='*20}")
+        
+        try:
+            solution = optimizer.solve(constraint_level=level)
+            
+            if solution:
+                print(f"✅ SUCCESS - {level} constraints work!")
+                print(f"   Objective value: {solution['objective_value']}")
+                print(f"   Total distance: {solution['total_distance']}")
+                
+                # Show first few routes
+                for vehicle_id, route_data in list(solution['routes'].items())[:2]:
+                    route = route_data['route']
+                    print(f"   {vehicle_id}: {len(route)} stops")
+                    for stop in route[:3]:
+                        print(f"     - {stop['location_id']} (load: {stop['load']})")
+                    if len(route) > 3:
+                        print(f"     - ... and {len(route)-3} more stops")
+            else:
+                print(f"❌ FAILED - {level} constraints cause infeasibility!")
+                print("   🛑 STOPPING HERE to debug")
+                break
+                
+        except Exception as e:
+            print(f"💥 ERROR at {level} level: {str(e)}")
+            print("   🛑 STOPPING HERE to debug")
+            break
 
 
 if __name__ == "__main__":
-    import logging
-    import argparse
-    import time
-    
-    # Set up argument parser
-    parser = argparse.ArgumentParser(description='Clean VRP Optimizer with Multi-Day Scheduling')
-    
-    # Scenario selection
-    parser.add_argument('--scenario', type=str, default='multi_day_test',
-                        choices=['multi_day_test', 'furgoni', 'moda_small'],
-                        help='Which scenario to run (default: multi_day_test)')
-    
-    # Multi-day scheduling options
-    parser.add_argument('--days', type=int, default=1,
-                        help='Number of days to schedule (1=single day, >1=multi-day). Default: 1')
-    parser.add_argument('--start-hour', type=int, default=6,
-                        help='Daily start hour (0-23). Default: 6 (6 AM)')
-    parser.add_argument('--end-hour', type=int, default=18,
-                        help='Daily end hour (0-23). Default: 18 (6 PM)')
-    parser.add_argument('--max-vehicle-time', type=int, default=None,
-                        help='Maximum vehicle working time per day in minutes. Default: uses scenario default')
-    
-    # Constraint level
-    parser.add_argument('--constraints', type=str, default='time_windows',
-                        choices=['none', 'capacity', 'pickup_delivery', 'time_windows', 'full'],
-                        help='Constraint level to apply (default: time_windows)')
-    
-    # Solver options
-    parser.add_argument('--time-limit', type=int, default=120,
-                        help='Solver time limit in seconds (default: 120)')
-    parser.add_argument('--verbose', action='store_true', default=False,
-                        help='Enable detailed solver logging')
-    parser.add_argument('--hybrid-calculator', action='store_true', default=False,
-                        help='Use hybrid travel time calculator if available')
-    
-    # Plotting options
-    parser.add_argument('--plot', action='store_true', default=False,
-                        help='Generate and save route plots')
-    parser.add_argument('--plot-filename', type=str, default='vrp_solution.png',
-                        help='Filename for saved plot (default: vrp_solution.png)')
-    
-    # Analysis options
-    parser.add_argument('--compare-days', action='store_true', default=False,
-                        help='Compare solutions for 1, 2, and 3 days')
-    parser.add_argument('--summary', action='store_true', default=False,
-                        help='Show detailed scenario summary before solving')
-    
-    args = parser.parse_args()
-    
-    # Set up logging
-    log_level = logging.DEBUG if args.verbose else logging.INFO
-    logging.basicConfig(level=log_level, format='%(levelname)s: %(message)s')
-    
-    print("🚚 CLEAN VRP OPTIMIZER WITH COMMAND-LINE INTERFACE")
-    print("=" * 60)
-    print(f"📊 Configuration:")
-    print(f"   - Scenario: {args.scenario}")
-    print(f"   - Days: {args.days}")
-    print(f"   - Working hours: {args.start_hour}:00 - {args.end_hour}:00")
-    print(f"   - Constraints: {args.constraints}")
-    print(f"   - Time limit: {args.time_limit}s")
-    print(f"   - Hybrid calculator: {args.hybrid_calculator}")
-    print(f"   - Plot results: {args.plot}")
-    
-    if args.compare_days:
-        print(f"   - Compare multiple days: Yes")
-    
-    def run_scenario_with_args(scenario_name, vehicles, locations, vrp_instance=None, ride_requests=None):
-        """Run a scenario with the command-line arguments."""
-        
-        # Override vehicle max_time if specified
-        if args.max_vehicle_time is not None:
-            for vehicle in vehicles:
-                vehicle['max_time'] = args.max_vehicle_time
-            print(f"   🕒 Override vehicle max time: {args.max_vehicle_time} minutes")
-        
-        # Create optimizer
-        optimizer = CleanVRPOptimizer(vehicles=vehicles, locations=locations, vrp_instance=vrp_instance)
-        if ride_requests:
-            optimizer.ride_requests = ride_requests
-        
-        # Show summary if requested
-        if args.summary:
-            optimizer._print_comprehensive_sanity_check(args.constraints)
-        
-        # Run optimization
-        print(f"\n🚀 Running {scenario_name} scenario...")
-        start_time = time.time()
-        
-        result, status, constraints = optimizer.solve(
-            constraint_level=args.constraints,
-            verbose=args.verbose,
-            use_hybrid_calculator=args.hybrid_calculator,
-            max_days=args.days,
-            time_limit=args.time_limit
-        )
-        
-        solve_time = time.time() - start_time
-        
-        # Display results
-        print(f"\n📊 RESULTS for {scenario_name}:")
-        print("=" * 50)
-        
-        if result:
-            print(f"✅ Solution found!")
-            print(f"   🎯 Objective: {result['objective_value']:,}")
-            print(f"   📏 Total distance: {result['total_distance']:.1f} km")
-            print(f"   ⏱️  Solve time: {solve_time:.2f}s")
-            print(f"   🚛 Vehicle utilization:")
-            
-            active_routes = 0
-            for vehicle_id, route_data in result['routes'].items():
-                if len(route_data['route']) > 1:  # More than just depot
-                    active_routes += 1
-                    route_stops = len(route_data['route'])
-                    route_distance = route_data['distance']
-                    route_time = route_data['time']
-                    print(f"      {vehicle_id}: {route_stops} stops, {route_distance:.1f} km, {route_time:.0f} min")
-            
-            print(f"   📈 Success rate: {active_routes}/{len(vehicles)} vehicles used")
-            
-            # Validation summary
-            if 'validation_results' in result:
-                valid_constraints = sum(result['validation_results'].values())
-                total_constraints = len(result['validation_results'])
-                print(f"   ✅ Constraint validation: {valid_constraints}/{total_constraints} passed")
-            
-            # Plot if requested
-            if args.plot:
-                try:
-                    import matplotlib.pyplot as plt
-                    print(f"\n🎨 Generating plot...")
-                    optimizer.plot_solution(result, f"{scenario_name} Solution")
-                    plt.savefig(args.plot_filename, dpi=300, bbox_inches='tight')
-                    print(f"   💾 Plot saved as: {args.plot_filename}")
-                except ImportError:
-                    print(f"   ⚠️ Matplotlib not available for plotting")
-                except Exception as e:
-                    print(f"   ❌ Plotting error: {e}")
-        else:
-            print(f"❌ No solution found")
-            print(f"   Status: {status}")
-            print(f"   Solve time: {solve_time:.2f}s")
-            print(f"   💡 Try: --days {args.days + 1} or --time-limit {args.time_limit * 2}")
-        
-        return result, solve_time
-    
-    # Run the selected scenario
-    if args.scenario == 'multi_day_test':
-        # Create test scenario with configurable parameters
-        locations = [
-            {'id': 'depot', 'x': 0, 'y': 0, 'demand': 0, 'service_time': 0, 'time_window': (0, 1440), 'address': 'Main Depot'},
-            {'id': 'location_1', 'x': 0.5, 'y': 0.5, 'demand': 10, 'service_time': 60, 'time_window': (60, 1440), 'address': 'Location 1'},
-            {'id': 'location_2', 'x': 1.0, 'y': 1.0, 'demand': 15, 'service_time': 60, 'time_window': (120, 1440), 'address': 'Location 2'},
-            {'id': 'location_3', 'x': 1.5, 'y': 1.5, 'demand': 20, 'service_time': 60, 'time_window': (180, 1440), 'address': 'Location 3'},
-            {'id': 'location_4', 'x': 2.0, 'y': 2.0, 'demand': 25, 'service_time': 60, 'time_window': (240, 1440), 'address': 'Location 4'},
-            {'id': 'location_5', 'x': 2.5, 'y': 2.5, 'demand': 30, 'service_time': 60, 'time_window': (300, 1440), 'address': 'Location 5'},
-            {'id': 'location_6', 'x': 3.0, 'y': 3.0, 'demand': 35, 'service_time': 60, 'time_window': (360, 1440), 'address': 'Location 6'},
-        ]
-        
-        # Calculate working hours in minutes
-        working_hours = (args.end_hour - args.start_hour) * 60
-        vehicle_max_time = args.max_vehicle_time if args.max_vehicle_time else min(180, working_hours)  # Default 3 hours or working day
-        
-        vehicles = [
-            {'id': 'vehicle_1', 'capacity': 300, 'start_location': 'depot', 'end_location': 'depot', 'max_time': vehicle_max_time}
-        ]
-        
-        if args.compare_days:
-            print(f"\n🔄 COMPARING DIFFERENT DAY CONFIGURATIONS")
-            print("=" * 60)
-            
-            results = {}
-            for test_days in [1, 2, 3]:
-                print(f"\n--- Testing {test_days} day{'s' if test_days > 1 else ''} ---")
-                
-                # Temporarily override args.days
-                original_days = args.days
-                args.days = test_days
-                
-                result, solve_time = run_scenario_with_args(
-                    f"Multi-Day Test ({test_days} days)", 
-                    vehicles, 
-                    locations
-                )
-                
-                results[test_days] = {'result': result, 'solve_time': solve_time}
-                
-                # Restore original days
-                args.days = original_days
-            
-            # Compare results
-            print(f"\n📊 COMPARISON SUMMARY:")
-            print("=" * 50)
-            successful_results = [(days, data) for days, data in results.items() if data['result'] is not None]
-            
-            if successful_results:
-                best_result = min(successful_results, key=lambda x: x[1]['result']['objective_value'])
-                print(f"🏆 Best solution: {best_result[0]} days (objective: {best_result[1]['result']['objective_value']:,})")
-                
-                for days, data in successful_results:
-                    result = data['result']
-                    solve_time = data['solve_time']
-                    print(f"   {days} day{'s' if days > 1 else ''}: Obj {result['objective_value']:,}, "
-                          f"Dist {result['total_distance']:.1f}km, Time {solve_time:.2f}s")
-            else:
-                print("❌ No successful solutions found")
-        else:
-            run_scenario_with_args("Multi-Day Test", vehicles, locations)
-    
-    elif args.scenario == 'furgoni':
-        try:
-            from vrp_scenarios import create_furgoni_scenario
-            scenario = create_furgoni_scenario()
-            
-            # Convert vehicles and get ride requests
-            vehicle_ids = list(scenario.vehicles.keys())
-            vehicles_from_scenario = [scenario.vehicles[vid] for vid in vehicle_ids]
-            vehicles_dicts = [{
-                'id': v.id,
-                'capacity': v.capacity,
-                'start_location': v.depot_id,
-                'end_location': v.depot_id,
-                'max_time': getattr(v, 'max_time', 24 * 60)
-            } for v in vehicles_from_scenario]
-            
-            run_scenario_with_args("Furgoni", vehicles_dicts, None, scenario, scenario.ride_requests)
-            
-        except ImportError:
-            print("❌ Could not import furgoni scenario. Make sure vrp_scenarios.py is available.")
-    
-    elif args.scenario == 'moda_small':
-        try:
-            from vrp_scenarios import create_moda_small_scenario
-            scenario = create_moda_small_scenario()
-            
-            # Convert vehicles and get ride requests
-            vehicle_ids = list(scenario.vehicles.keys())
-            vehicles_from_scenario = [scenario.vehicles[vid] for vid in vehicle_ids]
-            vehicles_dicts = [{
-                'id': v.id,
-                'capacity': v.capacity,
-                'start_location': v.depot_id,
-                'end_location': v.depot_id,
-                'max_time': getattr(v, 'max_time', 24 * 60)
-            } for v in vehicles_from_scenario]
-            
-            run_scenario_with_args("MODA Small", vehicles_dicts, None, scenario, scenario.ride_requests)
-            
-        except ImportError:
-            print("❌ Could not import MODA small scenario. Make sure vrp_scenarios.py is available.")
-    
-    print(f"\n🎉 Clean VRP Optimizer execution completed!")
-    print(f"💡 Try different options:")
-    print(f"   python vrp_optimizer_clean.py --days 3 --constraints full --plot")
-    print(f"   python vrp_optimizer_clean.py --scenario furgoni --days 4 --compare-days")
-    print(f"   python vrp_optimizer_clean.py --scenario moda_small --constraints full --hybrid-calculator")
+    logging.basicConfig(level=logging.INFO)
+    #test_moda_inverted_scenario()
+    test_moda_small_scenario()
