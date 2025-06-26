@@ -129,6 +129,9 @@ class SequentialMultiDayVRP:
         available_customers = [loc for i, loc in enumerate(day_locations) if i > 0 and not loc.get('is_overnight_node', False)]
         unvisited = list(range(len(available_customers)))
         
+        # Smart customer assignment: distance-aware with vehicle capacity consideration
+        vehicle_assignments = self._assign_customers_to_vehicles(active_vehicles, available_customers, unvisited)
+        
         for vehicle_idx, vehicle in enumerate(active_vehicles):
             vehicle_id = vehicle['id']
             current_time = 0  # Minutes from start of day
@@ -163,9 +166,8 @@ class SequentialMultiDayVRP:
                 'arrival_time': current_time
             })
             
-            # Visit customers until time limit reached
-            customers_for_this_vehicle = unvisited[:len(unvisited)//len(active_vehicles) + (1 if vehicle_idx < len(unvisited)%len(active_vehicles) else 0)]
-            unvisited = unvisited[len(customers_for_this_vehicle):]
+            # Get customers assigned to this vehicle
+            customers_for_this_vehicle = vehicle_assignments.get(vehicle_id, [])
             
             if not customers_for_this_vehicle:
                 print(f"    No customers assigned to {vehicle_id}")
@@ -187,35 +189,27 @@ class SequentialMultiDayVRP:
                     
                     print(f"    📍 Currently at position {current_pos} {current_coords} (driving time so far: {current_time:.1f} min)")
                     
-                    # Calculate travel time to this customer
+                    # Calculate travel time to this customer using precise method
+                    travel_time = self._get_precise_travel_time(current_pos, customer_abs_idx)
+                    travel_distance = 0
                     try:
                         if current_pos < len(self.locations) and customer_abs_idx < len(self.locations):
-                            travel_time = self.distance_calculator.time_matrix[current_pos][customer_abs_idx]
                             travel_distance = self.distance_calculator.distance_matrix[current_pos][customer_abs_idx]
                         else:
-                            # Fallback
+                            # Fallback distance calculation
                             current_loc = self.locations[current_pos] if current_pos < len(self.locations) else start_location
                             dx = current_loc['x'] - customer['x']
                             dy = current_loc['y'] - customer['y']
                             travel_distance = (dx**2 + dy**2)**0.5 * 100
-                            travel_time = travel_distance * 1.5
                     except:
-                        travel_time = 60  # Default fallback
-                        travel_distance = 40
+                        travel_distance = 40.0  # Default fallback
                     
-                    service_time = customer.get('service_time', 0)
+                    # Get precise service time
+                    service_time = self._get_precise_service_time(customer_abs_idx)
                     total_stop_time = travel_time + service_time
                     
-                    # Check if we can complete this stop and return to depot within time limit
-                    return_time = 0
-                    try:
-                        return_time = self.distance_calculator.time_matrix[customer_abs_idx][0]
-                    except:
-                        depot_coords = self.locations[0]
-                        dx = customer['x'] - depot_coords['x']
-                        dy = customer['y'] - depot_coords['y']
-                        return_distance = (dx**2 + dy**2)**0.5 * 100
-                        return_time = return_distance * 1.5
+                    # Calculate precise return time to depot
+                    return_time = self._get_precise_travel_time(customer_abs_idx, 0)
                     
                     projected_time_after_customer = current_time + total_stop_time
                     projected_time_with_return = projected_time_after_customer + return_time
@@ -338,12 +332,12 @@ class SequentialMultiDayVRP:
             
             # Return to depot if no overnight stop
             if vehicle_id not in overnight_locations:
+                # Use precise time calculation for return to depot
+                return_time = self._get_precise_travel_time(current_pos, 0)
                 try:
-                    return_time = self.distance_calculator.time_matrix[current_pos][0] if current_pos < len(self.locations) else 30
-                    return_distance = self.distance_calculator.distance_matrix[current_pos][0] if current_pos < len(self.locations) else 20
+                    return_distance = self.distance_calculator.distance_matrix[current_pos][0] if current_pos < len(self.locations) else 20.0
                 except:
-                    return_time = 30
-                    return_distance = 20
+                    return_distance = 20.0
                 
                 current_time += return_time
                 route_distance += return_distance
@@ -368,10 +362,18 @@ class SequentialMultiDayVRP:
                 'total_time': current_time
             }
             
+            # Calculate precise metrics for this route
+            precise_metrics = self._calculate_precise_route_metrics(route_stops, include_detailed_breakdown=True)
+            
             # Update vehicle state
             self.vehicle_states[vehicle_id]['remaining_capacity'] -= total_demand
             
             print(f"  ✅ {vehicle_id}: {route_distance:.1f} km, {total_demand} demand, {current_time:.1f} min, overnight: {vehicle_id in overnight_locations}")
+            print(f"     📊 Precise metrics: Travel: {precise_metrics['travel_time']:.1f}min, Service: {precise_metrics['service_time']:.1f}min")
+            print(f"     ⚡ Time efficiency: {precise_metrics['time_utilization']:.1%} of daily limit")
+            
+            # Store precise metrics in route data
+            day_routes[vehicle_id]['precise_metrics'] = precise_metrics
         
         # --- REPORT: Travel time from depot to each location ---
         print(f"\n🕒 Travel time from depot to each location (Day {day_num}):")
@@ -545,14 +547,24 @@ class SequentialMultiDayVRP:
                 self.vehicle_states[vehicle_id]['overnight_position'] = overnight_location_idx
                 print(f"    📍 {vehicle_id} will start Day {day_num + 1} at location {overnight_location_idx}")
             
-            # Vehicles that didn't stay overnight return to depot (inactive for remaining days)
+            # Vehicles that didn't stay overnight return to depot (remain active for next day)
             for vehicle in active_vehicles:
                 vehicle_id = vehicle['id']
                 if vehicle_id not in overnight_vehicles:
-                    self.vehicle_states[vehicle_id]['is_active'] = False
+                    # Keep vehicle active but reset to depot
+                    self.vehicle_states[vehicle_id]['is_active'] = True  # Keep active!
                     self.vehicle_states[vehicle_id]['current_location_idx'] = 0  # Return to depot
                     self.vehicle_states[vehicle_id]['overnight_position'] = None
-                    print(f"    🏠 {vehicle_id} returned to depot (inactive for remaining days)")
+                    print(f"    🏠 {vehicle_id} returned to depot (available for next day)")
+                    
+            # Only mark vehicles as inactive if there are no more customers
+            remaining_customers = len(unvisited_customers)
+            if remaining_customers == 0:
+                for vehicle in active_vehicles:
+                    vehicle_id = vehicle['id']
+                    if vehicle_id not in overnight_vehicles:
+                        self.vehicle_states[vehicle_id]['is_active'] = False
+                        print(f"    🏁 {vehicle_id} finished - no more customers remaining")
             
             print(f"\n  📊 Day {day_num} Summary:")
             print(f"    Customers visited today: {len(visited_today)}")
@@ -835,18 +847,436 @@ class SequentialMultiDayVRP:
         plt.tight_layout()
         
         # Save plot with enhanced filename
+        from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"enhanced_sequential_vrp_{timestamp}.png"
+        filename = f"enhanced_sequential_vrp_new_{timestamp}.png"
         plt.savefig(filename, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
         print(f"  📊 Enhanced plot saved as: {filename}")
         
         plt.show()
         return filename
+    
+    def print_detailed_time_analysis(self, solution):
+        """
+        Print detailed time analysis inspired by the original VRP optimizer's precision.
+        """
+        print(f"\n🕰️ DETAILED TIME ANALYSIS (High Precision):")
+        print("=" * 60)
+        
+        total_travel_time = 0
+        total_service_time = 0
+        total_efficiency = 0
+        active_vehicles = 0
+        
+        for vehicle_id, vehicle_data in solution['vehicle_routes'].items():
+            if vehicle_data['days_active'] > 0:
+                active_vehicles += 1
+                print(f"\n🚛 {vehicle_id.upper()} - Detailed Time Breakdown:")
+                print("-" * 45)
+                
+                daily_travel_times = []
+                daily_service_times = []
+                daily_efficiencies = []
+                
+                # Analyze each day's precise metrics
+                for day_num in sorted(self.daily_solutions.keys()):
+                    day_solution = self.daily_solutions[day_num]
+                    
+                    if vehicle_id in day_solution['routes']:
+                        day_route = day_solution['routes'][vehicle_id]
+                        
+                        if 'precise_metrics' in day_route:
+                            metrics = day_route['precise_metrics']
+                            
+                            daily_travel_times.append(metrics['travel_time'])
+                            daily_service_times.append(metrics['service_time'])
+                            daily_efficiencies.append(metrics['time_utilization'])
+                            
+                            print(f"  📅 Day {day_num}:")
+                            print(f"     🛣️  Travel Time: {metrics['travel_time']:.1f} min")
+                            print(f"     🔧 Service Time: {metrics['service_time']:.1f} min")
+                            print(f"     ⏱️  Total Time: {metrics['total_time']:.1f} min")
+                            print(f"     ⚡ Efficiency: {metrics['time_utilization']:.1%}")
+                            print(f"     👥 Customers: {metrics['customer_count']}")
+                            
+                            if metrics['customer_count'] > 0:
+                                print(f"     📊 Avg Time/Customer: {metrics['avg_time_per_customer']:.1f} min")
+                
+                # Vehicle summary
+                vehicle_total_travel = sum(daily_travel_times)
+                vehicle_total_service = sum(daily_service_times)
+                vehicle_avg_efficiency = sum(daily_efficiencies) / len(daily_efficiencies) if daily_efficiencies else 0
+                
+                total_travel_time += vehicle_total_travel
+                total_service_time += vehicle_total_service
+                total_efficiency += vehicle_avg_efficiency
+                
+                print(f"  📈 Vehicle Summary:")
+                print(f"     Total Travel: {vehicle_total_travel:.1f} min")
+                print(f"     Total Service: {vehicle_total_service:.1f} min")
+                print(f"     Avg Daily Efficiency: {vehicle_avg_efficiency:.1%}")
+        
+        # Overall analysis
+        if active_vehicles > 0:
+            avg_efficiency = total_efficiency / active_vehicles
+            print(f"\n📊 FLEET TIME EFFICIENCY ANALYSIS:")
+            print("-" * 40)
+            print(f"Fleet Travel Time: {total_travel_time:.1f} min")
+            print(f"Fleet Service Time: {total_service_time:.1f} min") 
+            print(f"Fleet Total Time: {total_travel_time + total_service_time:.1f} min")
+            print(f"Average Fleet Efficiency: {avg_efficiency:.1%}")
+            print(f"Time per Vehicle: {(total_travel_time + total_service_time) / active_vehicles:.1f} min")
+            
+            # Time distribution analysis
+            if total_travel_time + total_service_time > 0:
+                travel_percentage = total_travel_time / (total_travel_time + total_service_time) * 100
+                service_percentage = total_service_time / (total_travel_time + total_service_time) * 100
+                print(f"\n⚖️ TIME DISTRIBUTION:")
+                print(f"Travel: {travel_percentage:.1f}% | Service: {service_percentage:.1f}%")
+                
+                if travel_percentage > 70:
+                    print("⚠️  High travel time ratio - consider route optimization")
+                elif service_percentage > 60:
+                    print("ℹ️  High service time ratio - efficient routing")
+    
+    def _assign_customers_to_vehicles(self, active_vehicles, available_customers, unvisited_indices):
+        """
+        OR-Tools-based optimal customer assignment strategy.
+        Uses assignment problem solver to find optimal vehicle-customer pairing.
+        Considers vehicle suitability, distances, and load balancing.
+        """
+        print(f"  🧠 OR-Tools Optimal Assignment: {len(available_customers)} customers to {len(active_vehicles)} vehicles")
+        
+        if not available_customers or not active_vehicles:
+            return {v['id']: [] for v in active_vehicles}
+        
+        # Prepare vehicle information
+        vehicle_info = []
+        for vehicle in active_vehicles:
+            capacity = vehicle.get('capacity', 1000)
+            vehicle_type = vehicle['id']
+            is_truck = 'truck' in vehicle_type.lower()
+            
+            # Get starting position for distance calculations
+            vehicle_state = self.vehicle_states[vehicle['id']]
+            if 'overnight_position' in vehicle_state and vehicle_state['overnight_position'] is not None:
+                start_pos = vehicle_state['overnight_position']
+            else:
+                start_pos = 0  # Depot
+                
+            vehicle_info.append({
+                'id': vehicle['id'],
+                'capacity': capacity,
+                'start_pos': start_pos,
+                'is_truck': is_truck,
+                'type': vehicle_type
+            })
+        
+        # Prepare customer information
+        customer_info = []
+        for idx in unvisited_indices:
+            customer = available_customers[idx]
+            customer_abs_idx = customer.get('original_customer_idx', idx + 1)
+            demand = customer.get('demand', 0)
+            
+            customer_info.append({
+                'idx': idx,
+                'id': customer['id'],
+                'abs_idx': customer_abs_idx,
+                'demand': demand,
+                'coordinates': (customer['x'], customer['y'])
+            })
+        
+        # Create assignment problem using OR-Tools
+        from ortools.linear_solver import pywraplp
+        
+        # Create the solver
+        solver = pywraplp.Solver.CreateSolver('SCIP')
+        if not solver:
+            print("  ⚠️  OR-Tools solver not available, falling back to simple assignment")
+            return self._fallback_assignment(active_vehicles, available_customers, unvisited_indices)
+        
+        # Create decision variables: x[i][j] = 1 if customer i is assigned to vehicle j
+        num_customers = len(customer_info)
+        num_vehicles = len(vehicle_info)
+        
+        x = {}
+        for i in range(num_customers):
+            for j in range(num_vehicles):
+                x[i, j] = solver.IntVar(0, 1, f'x_{i}_{j}')
+        
+        # Constraint: Each customer is assigned to exactly one vehicle
+        for i in range(num_customers):
+            solver.Add(solver.Sum([x[i, j] for j in range(num_vehicles)]) == 1)
+        
+        # Optional: Add workload balancing constraints
+        # Don't let one vehicle get overloaded while others are idle
+        max_customers_per_vehicle = max(2, (num_customers + num_vehicles - 1) // num_vehicles + 1)
+        for j in range(num_vehicles):
+            solver.Add(solver.Sum([x[i, j] for i in range(num_customers)]) <= max_customers_per_vehicle)
+        
+        # Calculate cost matrix (distance + vehicle suitability + workload balancing)
+        cost_matrix = []
+        
+        # Calculate workload for each vehicle (customers already assigned from previous days)
+        vehicle_workloads = []
+        for j, vehicle in enumerate(vehicle_info):
+            total_customers_assigned = 0
+            vehicle_id = vehicle['id']
+            # Count customers assigned to this vehicle in previous days
+            for day_num, day_solution in self.daily_solutions.items():
+                if isinstance(day_solution, dict) and 'routes' in day_solution:
+                    if vehicle_id in day_solution['routes']:
+                        route = day_solution['routes'][vehicle_id]['stops']
+                        # Count customer stops (not depot or overnight)
+                        customer_stops = [stop for stop in route if not stop.get('is_overnight', False) and stop['location_id'] != 'depot']
+                        total_customers_assigned += len(customer_stops)
+            vehicle_workloads.append(total_customers_assigned)
+        
+        for i, customer in enumerate(customer_info):
+            customer_costs = []
+            for j, vehicle in enumerate(vehicle_info):
+                
+                # Calculate distance cost
+                try:
+                    if vehicle['start_pos'] < len(self.locations):
+                        distance = self.distance_calculator.distance_matrix[vehicle['start_pos']][customer['abs_idx']]
+                    else:
+                        # Fallback calculation
+                        start_loc = self.locations[vehicle['start_pos']] if vehicle['start_pos'] < len(self.locations) else self.locations[0]
+                        dx = start_loc['x'] - customer['coordinates'][0]
+                        dy = start_loc['y'] - customer['coordinates'][1]
+                        distance = (dx**2 + dy**2)**0.5 * 100
+                except:
+                    distance = 100.0
+                
+                # Base cost is distance
+                cost = distance
+                
+                # Add vehicle suitability factors (stronger preferences)
+                # Trucks are better for long distances, vans for short
+                if distance > 150 and vehicle['is_truck']:
+                    cost *= 0.6  # 40% discount for trucks on long routes
+                elif distance <= 100 and not vehicle['is_truck']:
+                    cost *= 0.7  # 30% discount for vans on short routes
+                elif distance > 200 and not vehicle['is_truck']:
+                    cost *= 1.5  # 50% penalty for vans on very long routes
+                elif distance <= 80 and vehicle['is_truck']:
+                    cost *= 1.3  # 30% penalty for trucks on very short routes
+                
+                # Add workload balancing factor (prefer vehicles with less prior work)
+                workload_penalty = vehicle_workloads[j] * 25  # Penalty per customer already handled
+                cost += workload_penalty
+                
+                # Add capacity consideration
+                if customer['demand'] > 100 and vehicle['is_truck']:
+                    cost *= 0.9  # Small bonus for trucks handling high-demand customers
+                elif customer['demand'] > 120 and not vehicle['is_truck']:
+                    cost *= 1.2  # Penalty for vans handling very high demand
+                
+                customer_costs.append(int(cost * 100))  # Scale to integers
+            cost_matrix.append(customer_costs)
+        
+        # Set objective: minimize total assignment cost
+        objective_terms = []
+        for i in range(num_customers):
+            for j in range(num_vehicles):
+                objective_terms.append(cost_matrix[i][j] * x[i, j])
+        solver.Minimize(solver.Sum(objective_terms))
+        
+        # Solve the assignment problem
+        print(f"  🔍 Solving assignment problem with {num_customers} customers and {num_vehicles} vehicles...")
+        status = solver.Solve()
+        
+        # Extract results
+        assignments = {v['id']: [] for v in vehicle_info}
+        
+        if status == pywraplp.Solver.OPTIMAL:
+            print(f"  ✅ Optimal assignment found! Total cost: {solver.Objective().Value():.0f}")
+            
+            for i in range(num_customers):
+                for j in range(num_vehicles):
+                    if x[i, j].solution_value() > 0.5:  # Assigned
+                        vehicle_id = vehicle_info[j]['id']
+                        customer_idx = customer_info[i]['idx']
+                        assignments[vehicle_id].append(customer_idx)
+                        
+                        distance = cost_matrix[i][j] / 100.0
+                        print(f"    → {customer_info[i]['id']} → {vehicle_id} (cost: {distance:.1f})")
+        else:
+            print(f"  ⚠️  Assignment solver failed (status: {status}), using fallback")
+            return self._fallback_assignment(active_vehicles, available_customers, unvisited_indices)
+        
+        # Print assignment summary
+        total_customers = sum(len(customers) for customers in assignments.values())
+        print(f"  📊 Assignment Summary: {total_customers}/{len(customer_info)} customers assigned")
+        for vehicle_id, customers in assignments.items():
+            vehicle_type = next(v['type'] for v in vehicle_info if v['id'] == vehicle_id)
+            print(f"    {vehicle_id} ({vehicle_type}): {len(customers)} customers")
+        
+        return assignments
+    
+    def _fallback_assignment(self, active_vehicles, available_customers, unvisited_indices):
+        """
+        Simple fallback assignment when OR-Tools is not available.
+        """
+        assignments = {v['id']: [] for v in active_vehicles}
+        
+        # Simple round-robin assignment
+        for i, idx in enumerate(unvisited_indices):
+            vehicle_idx = i % len(active_vehicles)
+            vehicle_id = active_vehicles[vehicle_idx]['id']
+            assignments[vehicle_id].append(idx)
+            
+        return assignments
+    
+    # ...existing code...
+    
+    def _calculate_precise_route_metrics(self, route_stops, include_detailed_breakdown=True):
+        """
+        Calculate precise metrics for a route including detailed time breakdown.
+        Inspired by the original VRP optimizer's precision tracking.
+        """
+        metrics = {
+            'total_distance': 0.0,
+            'total_time': 0.0,
+            'travel_time': 0.0,
+            'service_time': 0.0,
+            'stop_count': len(route_stops),
+            'customer_count': 0
+        }
+        
+        if include_detailed_breakdown:
+            metrics['time_breakdown'] = []
+            metrics['cumulative_times'] = []
+        
+        current_time = 0.0
+        
+        for i in range(len(route_stops) - 1):
+            current_stop = route_stops[i]
+            next_stop = route_stops[i + 1]
+            
+            # Get original customer indices for matrix lookup
+            current_idx = current_stop.get('original_customer_idx', 0)
+            next_idx = next_stop.get('original_customer_idx', 0)
+            
+            # Calculate travel time and distance
+            try:
+                if (current_idx < len(self.locations) and 
+                    next_idx < len(self.locations) and
+                    hasattr(self.distance_calculator, 'time_matrix')):
+                    travel_time = self.distance_calculator.time_matrix[current_idx][next_idx]
+                    travel_distance = self.distance_calculator.distance_matrix[current_idx][next_idx]
+                else:
+                    # Fallback calculation
+                    dx = next_stop['coordinates'][0] - current_stop['coordinates'][0]
+                    dy = next_stop['coordinates'][1] - current_stop['coordinates'][1]
+                    travel_distance = (dx**2 + dy**2)**0.5 * 100
+                    travel_time = travel_distance * 1.5  # Assume 40 km/h average speed
+            except:
+                travel_time = 30.0  # Default fallback
+                travel_distance = 20.0
+            
+            # Add travel time
+            current_time += travel_time
+            metrics['total_distance'] += travel_distance
+            metrics['travel_time'] += travel_time
+            
+            # Add service time at destination (skip depot)
+            if not next_stop.get('is_overnight', False) and next_idx != 0:
+                # Get service time from location data
+                if next_idx < len(self.locations):
+                    service_time = self.locations[next_idx].get('service_time', 20.0)
+                else:
+                    service_time = 20.0  # Default service time
+                
+                current_time += service_time
+                metrics['service_time'] += service_time
+                metrics['customer_count'] += 1
+            
+            if include_detailed_breakdown:
+                segment_info = {
+                    'from': current_stop['location_id'],
+                    'to': next_stop['location_id'],
+                    'travel_time': travel_time,
+                    'travel_distance': travel_distance,
+                    'service_time': service_time if not next_stop.get('is_overnight', False) and next_idx != 0 else 0,
+                    'cumulative_time': current_time
+                }
+                metrics['time_breakdown'].append(segment_info)
+                metrics['cumulative_times'].append(current_time)
+        
+        metrics['total_time'] = current_time
+        
+        # Calculate efficiency metrics
+        if metrics['customer_count'] > 0:
+            metrics['avg_time_per_customer'] = metrics['total_time'] / metrics['customer_count']
+            metrics['avg_distance_per_customer'] = metrics['total_distance'] / metrics['customer_count']
+        else:
+            metrics['avg_time_per_customer'] = 0.0
+            metrics['avg_distance_per_customer'] = 0.0
+        
+        # Time utilization (compared to daily limit)
+        metrics['time_utilization'] = min(metrics['total_time'] / self.daily_time_limit_minutes, 1.0)
+        
+        return metrics
+    
+    def _get_precise_travel_time(self, from_idx, to_idx):
+        """
+        Get precise travel time between two locations with multiple fallback methods.
+        """
+        try:
+            # Primary method: use calculated time matrix
+            if (hasattr(self.distance_calculator, 'time_matrix') and
+                from_idx < len(self.distance_calculator.time_matrix) and
+                to_idx < len(self.distance_calculator.time_matrix[0])):
+                return self.distance_calculator.time_matrix[from_idx][to_idx]
+        except:
+            pass
+        
+        try:
+            # Secondary method: calculate from distance matrix with average speed
+            if (hasattr(self.distance_calculator, 'distance_matrix') and
+                from_idx < len(self.distance_calculator.distance_matrix) and
+                to_idx < len(self.distance_calculator.distance_matrix[0])):
+                distance_km = self.distance_calculator.distance_matrix[from_idx][to_idx]
+                avg_speed_kmh = 40.0  # Assume 40 km/h average speed
+                return (distance_km / avg_speed_kmh) * 60.0  # Convert to minutes
+        except:
+            pass
+        
+        try:
+            # Tertiary method: Euclidean distance estimation
+            if from_idx < len(self.locations) and to_idx < len(self.locations):
+                from_loc = self.locations[from_idx]
+                to_loc = self.locations[to_idx]
+                dx = to_loc['x'] - from_loc['x']
+                dy = to_loc['y'] - from_loc['y']
+                euclidean_dist_km = (dx**2 + dy**2)**0.5 * 100  # Convert to km
+                return euclidean_dist_km * 1.5  # Assume 40 km/h with 1.5x road factor
+        except:
+            pass
+        
+        # Final fallback
+        return 60.0  # 1 hour default
+    
+    def _get_precise_service_time(self, location_idx):
+        """
+        Get precise service time for a location with fallback.
+        """
+        try:
+            if location_idx < len(self.locations):
+                location = self.locations[location_idx]
+                return location.get('service_time', 20.0)
+        except:
+            pass
+        
+        return 20.0  # Default 20 minutes service time
 
 
 def test_sequential_multiday():
     """Test the sequential multi-day VRP implementation with large scenario."""
-    print("🧪 TESTING SEQUENTIAL MULTI-DAY VRP IMPLEMENTATION")
+    print("🧪 TESTING SEQUENTIAL MULTI-DAY VRP IMPLEMENTATION (NEW VERSION)")
     print("=" * 60)
     
     # Create large test scenario with realistic customer distribution across Switzerland
@@ -902,8 +1332,11 @@ def test_sequential_multiday():
     if solution:
         # Plot the solution with enhanced visualization
         plot_filename = sequential_vrp.plot_sequential_solution(solution, 
-                                                               "Enhanced Sequential Multi-Day VRP - Large Switzerland Scenario")
+                                                               "Enhanced Sequential Multi-Day VRP (NEW) - Large Switzerland Scenario")
         print(f"\n� Solution plotted and saved as: {plot_filename}")
+        
+        # Add detailed time analysis
+        sequential_vrp.print_detailed_time_analysis(solution)
         
         return solution
     else:
