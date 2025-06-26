@@ -591,73 +591,174 @@ class CleanVRPOptimizer:
         
         original_locations = location_list.copy()
         num_original = len(original_locations)
+        num_vehicles = len(self.vehicles)
         
-        # Create virtual night/morning node pairs for day transitions
-        night_nodes = []
-        morning_nodes = []
+        # Create separate overnight stay nodes for each vehicle
+        # This ensures each vehicle has its own "dinner room" (overnight stay location)
+        vehicle_night_nodes = {}  # Dict[vehicle_id, List[node_id]]
+        vehicle_morning_nodes = {}  # Dict[vehicle_id, List[node_id]]
+        night_node_sets = []  # List of sets of night nodes (one set per night)
+        morning_node_sets = []  # List of sets of morning nodes (one set per morning)
+        
         num_nights = max_days - 1  # If 3 days, need 2 nights
         
-        for i in range(num_nights):
-            # Night node: represents "end of day i+1" - can be anywhere
-            night_node_id = num_original + i
-            night_location = {
-                'id': f'night_day_{i+1}',
-                'x': 0,  # Virtual coordinates - distance will be handled specially
-                'y': 0,
-                'demand': 0,
-                'volume_demand': 0,
-                'service_time': 0,  # No service time for overnight stay
-                'address': f"End of day {i+1} (sleep wherever vehicle stops)",
-                'time_window': (0, 1440),  # Can arrive anytime
-                'is_night_node': True,
-                'is_virtual': True,  # Mark as virtual node
-                'day': i + 1
-            }
-            location_list.append(night_location)
-            night_nodes.append(night_node_id)
+        for vehicle_idx, vehicle in enumerate(self.vehicles):
+            vehicle_id = vehicle['id']
+            vehicle_night_nodes[vehicle_id] = []
+            vehicle_morning_nodes[vehicle_id] = []
             
-            # Morning node: represents "start of day i+2" - same location as night
-            morning_node_id = num_original + num_nights + i
-            morning_location = {
-                'id': f'morning_day_{i+2}',
-                'x': 0,  # Virtual coordinates - distance will be handled specially
-                'y': 0,
-                'demand': 0,
-                'volume_demand': 0,
-                'service_time': 0,  # No service time for morning start
-                'address': f"Start of day {i+2} (wake up where vehicle slept)",
-                'time_window': (0, 1440),  # Can start anytime
-                'is_morning_node': True,
-                'is_virtual': True,  # Mark as virtual node
-                'day': i + 2
-            }
-            location_list.append(morning_location)
-            morning_nodes.append(morning_node_id)
+            for night_idx in range(num_nights):
+                # Night node: represents "end of day (night_idx+1)" for this specific vehicle
+                night_node_id = num_original + vehicle_idx * num_nights * 2 + night_idx
+                night_location = {
+                    'id': f'night_day_{night_idx+1}_vehicle_{vehicle_id}',
+                    'x': 0,  # Virtual coordinates - distance will be handled specially
+                    'y': 0,
+                    'demand': 0,
+                    'volume_demand': 0,
+                    'service_time': 0,  # No service time for overnight stay
+                    'address': f"End of day {night_idx+1} - {vehicle_id} sleeps here",
+                    'time_window': (0, 1440),  # Can arrive anytime
+                    'is_night_node': True,
+                    'is_virtual': True,
+                    'day': night_idx + 1,
+                    'vehicle_id': vehicle_id,  # Restrict to this vehicle
+                    'vehicle_idx': vehicle_idx
+                }
+                location_list.append(night_location)
+                vehicle_night_nodes[vehicle_id].append(night_node_id)
+                
+                # Add to night node set for this night
+                if night_idx >= len(night_node_sets):
+                    night_node_sets.append([])
+                night_node_sets[night_idx].append(night_node_id)
+                
+                # Morning node: represents "start of day (night_idx+2)" for this specific vehicle
+                morning_node_id = num_original + vehicle_idx * num_nights * 2 + num_nights + night_idx
+                morning_location = {
+                    'id': f'morning_day_{night_idx+2}_vehicle_{vehicle_id}',
+                    'x': 0,  # Virtual coordinates - distance will be handled specially
+                    'y': 0,
+                    'demand': 0,
+                    'volume_demand': 0,
+                    'service_time': 0,  # No service time for morning start
+                    'address': f"Start of day {night_idx+2} - {vehicle_id} wakes up here",
+                    'time_window': (0, 1440),  # Can start anytime
+                    'is_morning_node': True,
+                    'is_virtual': True,
+                    'day': night_idx + 2,
+                    'vehicle_id': vehicle_id,  # Restrict to this vehicle
+                    'vehicle_idx': vehicle_idx
+                }
+                location_list.append(morning_location)
+                vehicle_morning_nodes[vehicle_id].append(morning_node_id)
+                
+                # Add to morning node set for this morning
+                if night_idx >= len(morning_node_sets):
+                    morning_node_sets.append([])
+                morning_node_sets[night_idx].append(morning_node_id)
         
         if verbose:
-            print(f"  ✅ Created {len(night_nodes)} night nodes and {len(morning_nodes)} morning nodes")
+            print(f"  ✅ Created {num_vehicles} sets of overnight nodes for {num_nights} nights")
             print(f"  📍 Total locations: {len(location_list)} (original: {num_original})")
+            print(f"  🚛 Each vehicle has its own overnight stay options")
         
-        return location_list, night_nodes, morning_nodes
+        # Return the data structures needed for constraints
+        return location_list, vehicle_night_nodes, vehicle_morning_nodes, night_node_sets, morning_node_sets
 
-    def _add_multi_day_constraints(self, routing, manager, location_list, night_nodes, morning_nodes, max_days):
-        """Add multi-day scheduling constraints with overnight stay behavior."""
+    def _add_multi_day_constraints(self, routing, manager, location_list, vehicle_night_nodes, vehicle_morning_nodes, night_node_sets, morning_node_sets, max_days):
+        """Add multi-day scheduling constraints with vehicle-specific overnight stay behavior."""
         if max_days <= 1:
             return
             
-        print(f"\n📅 Adding multi-day constraints for {max_days} days...")
-        print("    🚛 Vehicles can sleep along route when daily limits are exceeded")
+        print(f"\n📅 Adding FIXED VEHICLE-SPECIFIC multi-day constraints for {max_days} days...")
+        print("    🚛 Each vehicle has its own overnight stay options (FIXED IMPLEMENTATION v2)")
         
-        # Allow night and morning nodes to be dropped for free (they're optional)
-        for node in night_nodes:
-            routing.AddDisjunction([manager.NodeToIndex(node)], 0)
-            print(f"    Night node {node} can be dropped for free")
+        solver = routing.solver()
+        num_vehicles = len(self.vehicles)
+        
+        # 1. For each night, create disjunctions to ensure each vehicle selects AT MOST ONE overnight stay
+        for night_idx, night_node_set in enumerate(night_node_sets):
+            print(f"    Night {night_idx + 1}: Creating disjunctions for {len(night_node_set)} vehicle-specific nodes")
             
-        for node in morning_nodes:
-            routing.AddDisjunction([manager.NodeToIndex(node)], 0)
-            print(f"    Morning node {node} can be dropped for free")
+            # Group night nodes by vehicle
+            for vehicle_idx, vehicle in enumerate(self.vehicles):
+                vehicle_id = vehicle['id']
+                
+                # Find this vehicle's night node for this night
+                vehicle_night_node = None
+                for node_id in night_node_set:
+                    if node_id < len(location_list):
+                        node_location = location_list[node_id]
+                        if node_location.get('vehicle_idx') == vehicle_idx:
+                            vehicle_night_node = node_id
+                            break
+                
+                if vehicle_night_node is not None:
+                    # Create disjunction: this vehicle can visit this night node or not (penalty = 0 for not visiting)
+                    routing.AddDisjunction([manager.NodeToIndex(vehicle_night_node)], 0)
+                    
+                    # Restrict this night node to only this specific vehicle
+                    node_idx = manager.NodeToIndex(vehicle_night_node)
+                    for v in range(num_vehicles):
+                        if v != vehicle_idx:
+                            # Other vehicles cannot visit this node
+                            solver.Add(routing.VehicleVar(node_idx) != v)
         
-        # Create counting dimension to enforce day ordering
+        # 2. For each morning, create disjunctions to ensure each vehicle selects AT MOST ONE morning start
+        for morning_idx, morning_node_set in enumerate(morning_node_sets):
+            print(f"    Morning {morning_idx + 2}: Creating disjunctions for {len(morning_node_set)} vehicle-specific nodes")
+            
+            # Group morning nodes by vehicle
+            for vehicle_idx, vehicle in enumerate(self.vehicles):
+                vehicle_id = vehicle['id']
+                
+                # Find this vehicle's morning node for this morning
+                vehicle_morning_node = None
+                for node_id in morning_node_set:
+                    if node_id < len(location_list):
+                        node_location = location_list[node_id]
+                        if node_location.get('vehicle_idx') == vehicle_idx:
+                            vehicle_morning_node = node_id
+                            break
+                
+                if vehicle_morning_node is not None:
+                    # Create disjunction: this vehicle can visit this morning node or not (penalty = 0 for not visiting)
+                    routing.AddDisjunction([manager.NodeToIndex(vehicle_morning_node)], 0)
+                    
+                    # Restrict this morning node to only this specific vehicle
+                    node_idx = manager.NodeToIndex(vehicle_morning_node)
+                    for v in range(num_vehicles):
+                        if v != vehicle_idx:
+                            # Other vehicles cannot visit this node
+                            solver.Add(routing.VehicleVar(node_idx) != v)
+        
+        # 3. Enforce night-morning pairing: if a vehicle visits a night node, it must visit the corresponding morning node
+        for vehicle_idx, vehicle in enumerate(self.vehicles):
+            vehicle_id = vehicle['id']
+            
+            if vehicle_id in vehicle_night_nodes and vehicle_id in vehicle_morning_nodes:
+                night_nodes = vehicle_night_nodes[vehicle_id]
+                morning_nodes = vehicle_morning_nodes[vehicle_id]
+                
+                for i, (night_node, morning_node) in enumerate(zip(night_nodes, morning_nodes)):
+                    night_idx = manager.NodeToIndex(night_node)
+                    morning_idx = manager.NodeToIndex(morning_node)
+                    
+                    night_active = routing.ActiveVar(night_idx)
+                    morning_active = routing.ActiveVar(morning_idx)
+                    
+                    # If night node is visited, morning node must be visited
+                    solver.Add(night_active <= morning_active)
+                    
+                    # If morning node is visited, night node must be visited
+                    solver.Add(morning_active <= night_active)
+                    
+                    # Both nodes must be visited by the same vehicle (this vehicle)
+                    solver.Add((routing.VehicleVar(night_idx) == vehicle_idx) >= night_active)
+                    solver.Add((routing.VehicleVar(morning_idx) == vehicle_idx) >= morning_active)
+        
+        # 4. Create counting dimension to enforce day ordering
         routing.AddConstantDimension(
             1,  # increment by 1 at each node
             len(location_list) + 1,  # max count is visit every node
@@ -667,46 +768,32 @@ class CleanVRPOptimizer:
         count_dimension = routing.GetDimensionOrDie('Counting')
         print("    Created counting dimension for day ordering")
         
-        # Add constraints to enforce proper day ordering and continuity
-        solver = routing.solver()
-        
-        # Enforce ordering of night nodes (day 1 night before day 2 night, etc.)
-        for i in range(len(night_nodes)):
-            inode = night_nodes[i]
-            iidx = manager.NodeToIndex(inode)
-            iactive = routing.ActiveVar(iidx)
+        # 5. Enforce ordering of night nodes within each vehicle's route
+        for vehicle_idx, vehicle in enumerate(self.vehicles):
+            vehicle_id = vehicle['id']
             
-            for j in range(i + 1, len(night_nodes)):
-                # Make night node i come before night node j using count dimension
-                jnode = night_nodes[j]
-                jidx = manager.NodeToIndex(jnode)
-                jactive = routing.ActiveVar(jidx)
+            if vehicle_id in vehicle_night_nodes:
+                night_nodes = vehicle_night_nodes[vehicle_id]
                 
-                # If both are active, i must come before j
-                solver.Add(iactive >= jactive)
-                solver.Add(count_dimension.CumulVar(iidx) * iactive * jactive <=
-                          count_dimension.CumulVar(jidx) * iactive * jactive)
-            
-            # If night node is active, corresponding morning node must be active
-            if i < len(morning_nodes):
-                morning_node = morning_nodes[i]
-                morning_idx = manager.NodeToIndex(morning_node)
-                morning_active = routing.ActiveVar(morning_idx)
-                
-                # Night active implies morning active
-                solver.Add(iactive <= morning_active)
-                
-                # Morning node must immediately follow night node in the same route
-                for v in range(len(self.vehicles)):
-                    solver.Add(
-                        (routing.VehicleVar(iidx) == v) * iactive * morning_active <=
-                        (routing.VehicleVar(morning_idx) == v)
-                    )
+                # Night nodes must be visited in order (day 1 night before day 2 night, etc.)
+                for i in range(len(night_nodes)):
+                    for j in range(i + 1, len(night_nodes)):
+                        night_i_idx = manager.NodeToIndex(night_nodes[i])
+                        night_j_idx = manager.NodeToIndex(night_nodes[j])
+                        
+                        night_i_active = routing.ActiveVar(night_i_idx)
+                        night_j_active = routing.ActiveVar(night_j_idx)
+                        
+                        # If both are active, i must come before j in the route
+                        solver.Add(
+                            count_dimension.CumulVar(night_i_idx) * night_i_active * night_j_active <=
+                            count_dimension.CumulVar(night_j_idx) * night_i_active * night_j_active
+                        )
         
-        print(f"    ✅ Added multi-day constraints for {len(night_nodes)} night/morning pairs")
+        print(f"    ✅ Added multi-day constraints for {len(night_node_sets)} nights across {num_vehicles} vehicles")
 
-    def _create_multi_day_distance_callback(self, manager, location_list, night_nodes, morning_nodes):
-        """Create distance callback that handles virtual night/morning nodes."""
+    def _create_multi_day_distance_callback(self, manager, location_list, vehicle_night_nodes, vehicle_morning_nodes):
+        """Create distance callback that handles vehicle-specific virtual night/morning nodes."""
         def distance_callback(from_index, to_index):
             from_node = manager.IndexToNode(from_index)
             to_node = manager.IndexToNode(to_index)
@@ -718,8 +805,20 @@ class CleanVRPOptimizer:
             if from_loc.get('is_virtual', False) or to_loc.get('is_virtual', False):
                 # Transitions involving virtual nodes
                 if from_loc.get('is_night_node', False) and to_loc.get('is_morning_node', False):
-                    # Night to morning: zero cost (sleeping in place)
-                    return 0
+                    # Night to morning: check if they're a valid pair for the same vehicle
+                    from_vehicle_id = from_loc.get('vehicle_id')
+                    to_vehicle_id = to_loc.get('vehicle_id')
+                    from_day = from_loc.get('day')
+                    to_day = to_loc.get('day')
+                    
+                    if (from_vehicle_id == to_vehicle_id and 
+                        to_day == from_day + 1):
+                        # Valid night->morning transition: zero cost (sleeping in place)
+                        return 0
+                    else:
+                        # Invalid night->morning transition: high penalty
+                        return 999999000  # Very high cost
+                        
                 elif from_loc.get('is_virtual', False) or to_loc.get('is_virtual', False):
                     # Other virtual transitions: small cost to avoid issues
                     return 1000  # 1 km equivalent
@@ -760,11 +859,13 @@ class CleanVRPOptimizer:
         
         # Setup multi-day nodes if needed
         working_locations = self.locations.copy()
-        night_nodes = []
-        morning_nodes = []
+        vehicle_night_nodes = {}
+        vehicle_morning_nodes = {}
+        night_node_sets = []
+        morning_node_sets = []
         
         if max_days > 1:
-            working_locations, night_nodes, morning_nodes = self._setup_multi_day_nodes(
+            working_locations, vehicle_night_nodes, vehicle_morning_nodes, night_node_sets, morning_node_sets = self._setup_multi_day_nodes(
                 working_locations, max_days, verbose
             )
         
@@ -782,7 +883,7 @@ class CleanVRPOptimizer:
         # Add distance callback - handle multi-day virtual nodes if present
         if max_days > 1:
             distance_callback = self._create_multi_day_distance_callback(
-                manager, working_locations, night_nodes, morning_nodes
+                manager, working_locations, vehicle_night_nodes, vehicle_morning_nodes
             )
         else:
             # Standard callback for single-day routing
@@ -889,7 +990,7 @@ class CleanVRPOptimizer:
             print(f"    Added time dimension with {daily_time_limit_minutes} min daily limit")
             
             # Add multi-day constraints
-            self._add_multi_day_constraints(routing, manager, working_locations, night_nodes, morning_nodes, max_days)
+            self._add_multi_day_constraints(routing, manager, working_locations, vehicle_night_nodes, vehicle_morning_nodes, night_node_sets, morning_node_sets, max_days)
             applied_constraints.append("multi_day")
         
         print(f"✅ Constraints applied: {applied_constraints}")
@@ -912,8 +1013,10 @@ class CleanVRPOptimizer:
             solution_data['applied_constraints'] = applied_constraints
             solution_data['max_days'] = max_days
             if max_days > 1:
-                solution_data['night_nodes'] = night_nodes
-                solution_data['morning_nodes'] = morning_nodes
+                solution_data['vehicle_night_nodes'] = vehicle_night_nodes
+                solution_data['vehicle_morning_nodes'] = vehicle_morning_nodes
+                solution_data['night_node_sets'] = night_node_sets
+                solution_data['morning_node_sets'] = morning_node_sets
             return solution_data
         else:
             print(f"❌ No solution found")
@@ -1343,243 +1446,3 @@ class CleanVRPOptimizer:
         print(f"   Total distance: {solution_data['total_distance']}km")
         print(f"   Total cost: €{solution_data['total_cost']:.2f}")
         print("=" * 80)
-    
-    def plot_multi_day_solution(self, solution_data, title="Multi-Day VRP Solution", save_filename=None):
-        """
-        Plot multi-day VRP solution with day-by-day routes and sleep nodes.
-        
-        Args:
-            solution_data: Solution data from _extract_solution
-            title: Plot title
-            save_filename: Optional filename to save the plot
-        """
-        if not solution_data or 'routes' not in solution_data:
-            print("No solution data to plot")
-            return
-            
-        # Determine if this is a multi-day solution
-        max_days = solution_data['multi_day_info']['max_days']
-        has_overnight_stays = len(solution_data['multi_day_info']['overnight_stays']) > 0
-        
-        if max_days == 1 and not has_overnight_stays:
-            # Single day solution - use single plot
-            self._plot_single_day_solution(solution_data, title, save_filename)
-        else:
-            # Multi-day solution - use day-by-day plots
-            self._plot_multi_day_routes(solution_data, title, save_filename)
-    
-    def _plot_single_day_solution(self, solution_data, title, save_filename=None):
-        """Plot single-day solution in one subplot."""
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
-        
-        # Colors for different vehicles
-        colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
-        
-        # Plot all locations first
-        depot_plotted = False
-        for loc in self.locations:
-            x, y = loc['x'], loc['y']
-            
-            # Different markers for different location types
-            if 'depot' in loc['id'].lower():
-                ax.plot(x, y, 's', color='black', markersize=12, 
-                       label='Depot' if not depot_plotted else "")
-                depot_plotted = True
-            elif 'pickup' in loc['id'].lower():
-                ax.plot(x, y, '^', color='green', markersize=8, alpha=0.7)
-            elif 'dropoff' in loc['id'].lower():
-                ax.plot(x, y, 'v', color='red', markersize=8, alpha=0.7)
-            else:
-                ax.plot(x, y, 'o', color='gray', markersize=6, alpha=0.5)
-                
-            # Add location ID as text
-            ax.annotate(loc['id'], (x, y), xytext=(5, 5), textcoords='offset points', 
-                       fontsize=8, alpha=0.7)
-        
-        # Plot routes
-        for i, route in enumerate(solution_data['routes']):
-            if not route['stops']:
-                continue
-                
-            color = colors[i % len(colors)]
-            route_x, route_y = [], []
-            
-            for stop in route['stops']:
-                # Skip virtual nodes
-                if stop.get('type') in ['overnight_stay', 'morning_start', 'virtual']:
-                    continue
-                    
-                # Find location coordinates
-                loc = next((l for l in self.locations if l['id'] == stop['location_id']), None)
-                if loc:
-                    route_x.append(loc['x'])
-                    route_y.append(loc['y'])
-            
-            # Plot route line
-            if len(route_x) > 1:
-                ax.plot(route_x, route_y, '-', color=color, linewidth=2, alpha=0.7,
-                       label=f"Vehicle {route['vehicle_id']}")
-                
-            # Plot route points
-            ax.plot(route_x, route_y, 'o', color=color, markersize=6)
-        
-        ax.set_xlabel('X Coordinate')
-        ax.set_ylabel('Y Coordinate')
-        ax.set_title(f"{title}\nTotal Distance: {solution_data['total_distance']}km, "
-                    f"Total Cost: €{solution_data['total_cost']:.2f}")
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        
-        if save_filename:
-            plt.savefig(save_filename, dpi=300, bbox_inches='tight')
-            print(f"📊 Plot saved to {save_filename}")
-        
-        plt.tight_layout()
-        plt.show()
-    
-    def _plot_multi_day_routes(self, solution_data, title, save_filename=None):
-        """Plot multi-day routes with separate subplots for each day."""
-        max_days = solution_data['multi_day_info']['max_days']
-        
-        # Determine how many days actually have activity
-        active_days = set()
-        for route in solution_data['routes']:
-            for stop in route['stops']:
-                if stop.get('day'):
-                    active_days.add(stop['day'])
-        
-        if not active_days:
-            active_days = {1}  # Fallback to single day
-            
-        num_days = max(active_days)
-        
-        # Create subplots - arrange in a grid
-        if num_days == 1:
-            fig, axes = plt.subplots(1, 1, figsize=(12, 8))
-            axes = [axes]
-        elif num_days == 2:
-            fig, axes = plt.subplots(1, 2, figsize=(20, 8))
-        elif num_days <= 4:
-            fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-            axes = axes.flatten()
-        else:
-            rows = (num_days + 2) // 3
-            fig, axes = plt.subplots(rows, 3, figsize=(18, 6*rows))
-            axes = axes.flatten()
-        
-        # Colors for different vehicles
-        colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
-        
-        # Plot each day
-        for day in range(1, num_days + 1):
-            ax = axes[day - 1]
-            
-            # Plot all locations as background
-            depot_plotted = False
-            for loc in self.locations:
-                x, y = loc['x'], loc['y']
-                
-                if 'depot' in loc['id'].lower():
-                    ax.plot(x, y, 's', color='black', markersize=10, alpha=0.5,
-                           label='Depot' if not depot_plotted else "")
-                    depot_plotted = True
-                else:
-                    ax.plot(x, y, 'o', color='lightgray', markersize=4, alpha=0.3)
-                    
-                # Add location ID as text (smaller for background)
-                ax.annotate(loc['id'], (x, y), xytext=(3, 3), textcoords='offset points', 
-                           fontsize=6, alpha=0.5)
-            
-            # Track overnight stays for this day
-            overnight_locations = []
-            
-            # Plot routes for this day
-            for i, route in enumerate(solution_data['routes']):
-                if not route['stops']:
-                    continue
-                    
-                color = colors[i % len(colors)]
-                route_x, route_y = [], []
-                overnight_x, overnight_y = [], []
-                
-                # Collect points for this day
-                for stop in route['stops']:
-                    if stop.get('day') == day:
-                        if stop.get('type') == 'overnight_stay':
-                            # This is an overnight stay
-                            overnight_locations.append(stop)
-                            # Get coordinates of the last real location before overnight
-                            if route_x and route_y:
-                                overnight_x.append(route_x[-1])
-                                overnight_y.append(route_y[-1])
-                        elif stop.get('type') == 'morning_start':
-                            # Morning start - continue from overnight location
-                            if overnight_x and overnight_y:
-                                route_x.append(overnight_x[-1])
-                                route_y.append(overnight_y[-1])
-                        elif not stop.get('type') in ['virtual']:
-                            # Regular stop
-                            loc = next((l for l in self.locations if l['id'] == stop['location_id']), None)
-                            if loc:
-                                route_x.append(loc['x'])
-                                route_y.append(loc['y'])
-                
-                # Plot route line for this day
-                if len(route_x) > 1:
-                    ax.plot(route_x, route_y, '-', color=color, linewidth=2.5, alpha=0.8,
-                           label=f"Vehicle {route['vehicle_id']}")
-                    
-                # Plot route points
-                if route_x and route_y:
-                    ax.plot(route_x, route_y, 'o', color=color, markersize=8)
-                
-                # Plot overnight stays
-                if overnight_x and overnight_y:
-                    ax.plot(overnight_x, overnight_y, 'X', color=color, markersize=12, 
-                           markeredgewidth=2, label=f"Vehicle {route['vehicle_id']} - Overnight")
-                    
-                    # Add overnight annotation
-                    for ox, oy in zip(overnight_x, overnight_y):
-                        ax.annotate(f'Sleep\nVeh {route["vehicle_id"]}', (ox, oy), 
-                                   xytext=(10, 10), textcoords='offset points', 
-                                   fontsize=8, color=color, weight='bold',
-                                   bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
-            
-            # Set subplot properties
-            ax.set_xlabel('X Coordinate')
-            ax.set_ylabel('Y Coordinate')
-            ax.set_title(f'Day {day}')
-            ax.grid(True, alpha=0.3)
-            
-            # Add legend only for the first subplot to avoid clutter
-            if day == 1:
-                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        
-        # Hide unused subplots
-        for i in range(num_days, len(axes)):
-            axes[i].set_visible(False)
-        
-        # Set main title
-        fig.suptitle(f"{title}\nTotal Distance: {solution_data['total_distance']}km, "
-                    f"Total Cost: €{solution_data['total_cost']:.2f}\n"
-                    f"Multi-day routing: {num_days} days, "
-                    f"{len(solution_data['multi_day_info']['overnight_stays'])} overnight stays", 
-                    fontsize=14, fontweight='bold')
-        
-        if save_filename:
-            plt.savefig(save_filename, dpi=300, bbox_inches='tight')
-            print(f"📊 Multi-day plot saved to {save_filename}")
-        
-        plt.tight_layout()
-        plt.show()
-
-    def plot_solution(self, solution_data, title="VRP Solution", save_filename=None):
-        """
-        Main plotting function that automatically detects single vs multi-day solutions.
-        
-        Args:
-            solution_data: Solution data from _extract_solution
-            title: Plot title
-            save_filename: Optional filename to save the plot
-        """
-        self.plot_multi_day_solution(solution_data, title, save_filename)
