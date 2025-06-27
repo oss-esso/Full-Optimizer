@@ -626,74 +626,42 @@ class SequentialMultiDayVRP:
         return full_solution
     
     def plot_sequential_solution(self, solution, title="Sequential Multi-Day VRP Solution"):
-        """Plot the sequential multi-day solution with enhanced visualization."""
+        """Plot the sequential multi-day solution with clean visualization."""
         if not solution or solution.get('status') != 'SUCCESS':
             print("❌ Cannot plot: No valid solution provided")
             return
         
         print(f"\n🎨 Plotting sequential multi-day solution...")
         
-        plt.figure(figsize=(20, 14))
-        plt.title(title, fontsize=20, fontweight='bold', pad=20)
+        plt.figure(figsize=(12, 8))
+        plt.title(title, fontsize=14, pad=10)
         
-        # Enhanced color schemes
-        # Different colors for each day
-        day_colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F']
-        # Different line styles for each vehicle type
-        vehicle_styles = {
-            'truck': '-',      # Solid line for trucks
-            'van': '--',       # Dashed line for vans  
-            'sprinter': '-.',  # Dash-dot line for sprinters
-            'default': ':'     # Dotted line for others
-        }
-        # Different markers for vehicle types
-        vehicle_markers = {
-            'truck': 's',      # Square for trucks
-            'van': '^',        # Triangle for vans
-            'sprinter': 'D',   # Diamond for sprinters
-            'default': 'o'     # Circle for others
-        }
+        # Colors for different vehicles/days
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
+        # Line styles for different days
+        day_styles = ['-', '--', '-.', ':']
         
-        # Plot original customer locations with enhanced styling
+        # Plot all locations
         for i, loc in enumerate(self.locations):
             x, y = loc['x'], loc['y']
             if i == 0:  # Depot
-                plt.scatter(x, y, c='black', marker='s', s=600, alpha=0.9,
-                           edgecolors='yellow', linewidth=5, zorder=20)
-                plt.annotate('🏠 DEPOT', (x, y), xytext=(20, 20), textcoords='offset points',
-                           fontsize=16, fontweight='bold',
-                           bbox=dict(boxstyle="round,pad=0.5", facecolor="yellow", alpha=0.9),
-                           arrowprops=dict(arrowstyle='->', lw=2))
+                plt.plot(x, y, 's', color='black', markersize=12, 
+                        label='Depot' if 'Depot' not in plt.gca().get_legend_handles_labels()[1] else "")
             else:  # Customer
-                plt.scatter(x, y, c='lightblue', marker='o', s=300, alpha=0.8,
-                           edgecolors='darkblue', linewidth=2, zorder=10)
-                plt.annotate(loc['id'], (x, y), xytext=(12, 12), textcoords='offset points',
-                           fontsize=10, fontweight='bold',
-                           bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8))
+                plt.plot(x, y, 'o', color='gray', markersize=6, alpha=0.6)
+            
+            # Add location ID as text
+            plt.annotate(loc['id'], (x, y), xytext=(5, 5), textcoords='offset points', fontsize=8, alpha=0.7)
         
-        # Helper function to get vehicle style
-        def get_vehicle_style(vehicle_id):
-            vehicle_lower = vehicle_id.lower()
-            if 'truck' in vehicle_lower:
-                return vehicle_styles['truck'], vehicle_markers['truck']
-            elif 'van' in vehicle_lower:
-                return vehicle_styles['van'], vehicle_markers['van']
-            elif 'sprinter' in vehicle_lower:
-                return vehicle_styles['sprinter'], vehicle_markers['sprinter']
-            else:
-                return vehicle_styles['default'], vehicle_markers['default']
-        
-        # Plot vehicle routes by day with enhanced styling
+        # Plot vehicle routes by day
         for vehicle_idx, (vehicle_id, vehicle_data) in enumerate(solution['vehicle_routes'].items()):
             full_route = vehicle_data['full_route']
             
             if len(full_route) < 2:
                 continue
             
-            # Get vehicle-specific styling
-            vehicle_line_style, vehicle_marker = get_vehicle_style(vehicle_id)
-            
-            print(f"  Plotting {vehicle_id} route with style {vehicle_line_style} and marker {vehicle_marker}")
+            vehicle_color = colors[vehicle_idx % len(colors)]
+            print(f"  Plotting {vehicle_id} route with color {vehicle_color}")
             
             # Split route by days
             current_day_route = []
@@ -718,13 +686,13 @@ class SequentialMultiDayVRP:
             if current_day_route:
                 day_routes.append((current_day, current_day_route))
             
-            # Plot each day's route with day-specific colors
+            # Plot each day's route
             for day_num, day_route in day_routes:
                 if len(day_route) < 2:
                     continue
                 
-                # Use day-specific color
-                day_color = day_colors[(day_num - 1) % len(day_colors)]
+                # Apply day-specific line style
+                day_style = day_styles[(day_num - 1) % len(day_styles)]
                 
                 # Get coordinates
                 day_coords = [stop['coordinates'] for stop in day_route]
@@ -733,126 +701,66 @@ class SequentialMultiDayVRP:
                     x_coords = [coord[0] for coord in day_coords]
                     y_coords = [coord[1] for coord in day_coords]
                     
-                    # Plot route line with enhanced styling
-                    plt.plot(x_coords, y_coords, color=day_color, linestyle=vehicle_line_style,
-                            linewidth=5, alpha=0.8, 
+                    # Plot route with clean styling
+                    plt.plot(x_coords, y_coords, linestyle=day_style, color=vehicle_color, 
+                            linewidth=2, alpha=0.8, marker='o', markersize=4,
                             label=f'{vehicle_id} Day {day_num}')
                     
-                    # Add route markers at stops
-                    plt.scatter(x_coords[1:-1], y_coords[1:-1], 
-                              c=day_color, marker=vehicle_marker, s=80, alpha=0.9,
-                              edgecolors='white', linewidth=1, zorder=15)
-                    
-                    # Add enhanced direction arrows
+                    # Add arrows to show direction
                     for i in range(len(x_coords) - 1):
                         dx = x_coords[i + 1] - x_coords[i]
                         dy = y_coords[i + 1] - y_coords[i]
                         if abs(dx) > 0.01 or abs(dy) > 0.01:
-                            # Calculate arrow position (2/3 along the segment)
-                            arrow_x = x_coords[i] + dx * 0.67
-                            arrow_y = y_coords[i] + dy * 0.67
-                            plt.arrow(arrow_x, arrow_y, dx * 0.15, dy * 0.15,
-                                    head_width=0.03, head_length=0.02,
-                                    fc=day_color, ec=day_color, alpha=0.9, zorder=12)
+                            plt.annotate('', xy=(x_coords[i+1], y_coords[i+1]), 
+                                       xytext=(x_coords[i], y_coords[i]),
+                                       arrowprops=dict(arrowstyle='->', color=vehicle_color, alpha=0.6))
                 
-                # Mark overnight locations with enhanced styling
+                # Mark overnight locations
                 overnight_coords = [stop['coordinates'] for stop in day_route if stop['is_overnight']]
                 for coord in overnight_coords:
-                    plt.scatter(coord[0], coord[1], c='red', marker='*', s=800,
-                               alpha=0.95, edgecolors='white', linewidth=4, zorder=25)
-                    plt.annotate(f'🌙 {vehicle_id}\nDay {day_num}', coord, xytext=(30, 30),
-                               textcoords='offset points', fontsize=12,
-                               bbox=dict(boxstyle="round,pad=0.4", facecolor="red", alpha=0.9),
-                               color='white', fontweight='bold',
-                               arrowprops=dict(arrowstyle='->', color='red', lw=2))
+                    plt.plot(coord[0], coord[1], '*', color='red', markersize=15, 
+                           label='Overnight' if 'Overnight' not in plt.gca().get_legend_handles_labels()[1] else "")
+                    plt.annotate(f'Overnight D{day_num}', (coord[0], coord[1]), 
+                               xytext=(5, 5), textcoords='offset points', fontsize=8)
         
-        # Customize plot with enhanced styling
-        plt.xlabel('Longitude', fontsize=16, fontweight='bold')
-        plt.ylabel('Latitude', fontsize=16, fontweight='bold')
-        plt.grid(True, alpha=0.4, linestyle='--')
+        # Customize plot with clean styling
+        plt.xlabel('Longitude', fontsize=12)
+        plt.ylabel('Latitude', fontsize=12)
+        plt.grid(True, alpha=0.3)
         
-        # Create enhanced legend
-        legend_elements = []
-        
-        # Vehicle type legend (by line style and marker)
-        unique_vehicle_types = set()
-        for vehicle_id in solution['vehicle_routes'].keys():
-            vehicle_lower = vehicle_id.lower()
-            if 'truck' in vehicle_lower and 'truck' not in unique_vehicle_types:
-                unique_vehicle_types.add('truck')
-                legend_elements.append(plt.Line2D([0], [0], color='gray', linestyle=vehicle_styles['truck'],
-                                                marker=vehicle_markers['truck'], linewidth=4, markersize=8,
-                                                label='Truck Routes'))
-            elif 'van' in vehicle_lower and 'van' not in unique_vehicle_types:
-                unique_vehicle_types.add('van')
-                legend_elements.append(plt.Line2D([0], [0], color='gray', linestyle=vehicle_styles['van'],
-                                                marker=vehicle_markers['van'], linewidth=4, markersize=8,
-                                                label='Van Routes'))
-            elif 'sprinter' in vehicle_lower and 'sprinter' not in unique_vehicle_types:
-                unique_vehicle_types.add('sprinter')
-                legend_elements.append(plt.Line2D([0], [0], color='gray', linestyle=vehicle_styles['sprinter'],
-                                                marker=vehicle_markers['sprinter'], linewidth=4, markersize=8,
-                                                label='Sprinter Routes'))
-        
-        # Day color legend
-        for day_idx in range(min(len(day_colors), solution['total_days'])):
-            day_color = day_colors[day_idx]
-            legend_elements.append(plt.Line2D([0], [0], color=day_color, linewidth=5,
-                                            label=f'Day {day_idx + 1}'))
-        
-        # Location markers
-        legend_elements.extend([
-            plt.Line2D([0], [0], marker='s', color='w', markerfacecolor='black',
-                      markersize=15, markeredgecolor='yellow', markeredgewidth=3,
-                      label='Depot', linestyle='None'),
-            plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='lightblue',
-                      markersize=12, markeredgecolor='darkblue', markeredgewidth=2,
-                      label='Customer', linestyle='None'),
-            plt.Line2D([0], [0], marker='*', color='w', markerfacecolor='red',
-                      markersize=20, markeredgecolor='white', markeredgewidth=3,
-                      label='Overnight Stay', linestyle='None')
-        ])
-        
-        # Create legend with multiple columns for better organization
-        plt.legend(handles=legend_elements, loc='center left', bbox_to_anchor=(1.02, 0.5), 
-                  fontsize=12, ncol=1, framealpha=0.9)
-        
-        # Add enhanced summary box
+        # Clean up legend using automatic legend creation
+        # Handle legend duplicates by using the labels already created
+        handles, labels = plt.gca().get_legend_handles_labels()
+        by_label = dict(zip(labels, handles))
+        plt.legend(by_label.values(), by_label.keys(), 
+                 bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+                
+        # Add simple summary title
         total_distance = sum(route['total_distance'] for route in solution['vehicle_routes'].values())
         total_overnight_stays = sum(route['total_overnight_stays'] for route in solution['vehicle_routes'].values())
         
-        summary_text =  f"📊 ENHANCED SEQUENTIAL SOLUTION SUMMARY\n"
-        summary_text += f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        summary_text += f"🚛 Total Distance: {total_distance:.1f} km\n"
-        summary_text += f"🌙 Total Overnight Stays: {total_overnight_stays}\n"
-        summary_text += f"📅 Days Required: {solution['total_days']}\n"
-        summary_text += f"🚐 Active Vehicles: {len(solution['vehicle_routes'])}\n"
-        summary_text += f"⏱️  Daily Time Limit: {self.daily_time_limit_minutes} min\n"
-        summary_text += f"📍 Customers Served: {len(self.locations) - 1}\n"
-        
-        # Add cost estimation if available
+        # Calculate cost if available
         total_cost = 0
         for vehicle_id, route_data in solution['vehicle_routes'].items():
             vehicle = next((v for v in self.vehicles if v['id'] == vehicle_id), None)
             if vehicle and 'cost_per_km' in vehicle:
                 total_cost += route_data['total_distance'] * vehicle['cost_per_km']
         
-        if total_cost > 0:
-            summary_text += f"💰 Estimated Cost: {total_cost:.2f} CHF"
+        cost_text = f", Cost: {total_cost:.2f} CHF" if total_cost > 0 else ""
         
-        plt.text(0.02, 0.98, summary_text, transform=plt.gca().transAxes,
-                verticalalignment='top', fontsize=13, fontweight='bold',
-                bbox=dict(boxstyle="round,pad=0.8", facecolor="lightblue", alpha=0.95, edgecolor='darkblue'))
+        plt.title(f"{title}\nTotal Distance: {total_distance:.1f} km, Days: {solution['total_days']}, Overnights: {total_overnight_stays}{cost_text}", 
+                 fontsize=12)
         
         plt.tight_layout()
         
-        # Save plot with enhanced filename
+        # Save plot with clean filename
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"enhanced_sequential_vrp_new_{timestamp}.png"
-        plt.savefig(filename, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='none')
-        print(f"  📊 Enhanced plot saved as: {filename}")
+        filename = f"vrp_solution_new_{timestamp}.png"
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        print(f"  📊 Plot saved as: {filename}")
         
+        plt.axis('equal')  # Ensure map has correct proportions
         plt.show()
         return filename
     
@@ -1310,14 +1218,19 @@ def test_sequential_multiday():
         {'id': 'interlaken', 'x': 46.6863, 'y': 7.8632, 'demand': 90, 'volume_demand': 2.4, 'service_time': 23, 'address': 'Interlaken'},
         {'id': 'bern', 'x': 46.9481, 'y': 7.4474, 'demand': 210, 'volume_demand': 5.4, 'service_time': 42, 'address': 'Bern'},
         {'id': 'fribourg', 'x': 46.8057, 'y': 7.1608, 'demand': 125, 'volume_demand': 3.3, 'service_time': 27, 'address': 'Fribourg'},
+        
+        # Additional challenging locations
+        {'id': 'zermatt', 'x': 46.0207, 'y': 7.7491, 'demand': 60, 'volume_demand': 1.5, 'service_time': 15, 'address': 'Zermatt'},
+        {'id': 'appenzell', 'x': 47.3319, 'y': 9.4108, 'demand': 70, 'volume_demand': 1.8, 'service_time': 18, 'address': 'Appenzell'},
+        {'id': 'aarau', 'x': 47.3911, 'y': 8.0431, 'demand': 135, 'volume_demand': 3.5, 'service_time': 29, 'address': 'Aarau'},
     ]
     
     vehicles = [
-        {'id': 'truck_40t_alpha', 'capacity': 800, 'volume_capacity': 18.0, 'cost_per_km': 2.20},
-        {'id': 'truck_24t_beta', 'capacity': 500, 'volume_capacity': 12.0, 'cost_per_km': 1.80},
-        {'id': 'van_7t_gamma', 'capacity': 350, 'volume_capacity': 10.0, 'cost_per_km': 1.20},
-        {'id': 'van_4t_delta', 'capacity': 250, 'volume_capacity': 8.0, 'cost_per_km': 0.95},
-        {'id': 'sprinter_3t_epsilon', 'capacity': 180, 'volume_capacity': 6.0, 'cost_per_km': 0.75},
+        {'id': 'truck_40t_alpha', 'capacity': 800, 'volume_capacity': 18.0, 'cost_per_km': 2.20, 'max_daily_km': 600},
+        {'id': 'truck_24t_beta', 'capacity': 500, 'volume_capacity': 12.0, 'cost_per_km': 1.80, 'max_daily_km': 650},
+        {'id': 'van_7t_gamma', 'capacity': 350, 'volume_capacity': 10.0, 'cost_per_km': 1.20, 'max_daily_km': 700},
+        {'id': 'van_4t_delta', 'capacity': 250, 'volume_capacity': 8.0, 'cost_per_km': 0.95, 'max_daily_km': 750},
+        {'id': 'sprinter_3t_epsilon', 'capacity': 180, 'volume_capacity': 6.0, 'cost_per_km': 0.75, 'max_daily_km': 800},
     ]
     
     print(f"📍 Large test scenario: {len(locations)} locations, {len(vehicles)} vehicles")
