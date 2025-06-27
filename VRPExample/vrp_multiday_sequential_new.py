@@ -27,7 +27,7 @@ from datetime import datetime
 
 # Import the distance calculator from the original file
 spec = importlib.util.spec_from_file_location("vrp_original", 
-                                              os.path.join(os.path.dirname(__file__), "vrp_optimizer_clean copy.py"))
+                                              os.path.join(os.path.dirname(__file__), "vrp_optimizer_clean_copy.py"))
 vrp_original = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vrp_original)
 OSMDistanceCalculator = vrp_original.OSMDistanceCalculator
