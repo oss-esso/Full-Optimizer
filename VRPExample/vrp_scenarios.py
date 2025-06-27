@@ -1255,7 +1255,7 @@ def create_overnight_test_scenario() -> VRPInstance:
     # Delivery locations with time windows - matching furgoni format
     # Format: (location_id, address, lon, lat, tw_start, tw_end, service_time, is_pickup)
     locations_data = [
-        ("cormano_mi", "via dell'Artigianato 1, 20032 Cormano MI, Italy", 9.1667, 45.5333, 480, 840, 30, False),  # Close destination
+        ("cormano_mi", "via dell'Artigianato 1, 20032 Cormano MI, Italy", 9.1667, 45.5333, 0, 1440, 30, False),  # Close destination
         ("malmo_sweden", "Malmö, Sweden - Menarini Diagnostics", 13.0038, 55.6050, 0, 1440, 30, False),  # Far destination - commented out for testing
     ]
     

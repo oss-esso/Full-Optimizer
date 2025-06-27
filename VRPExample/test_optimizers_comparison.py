@@ -1,11 +1,11 @@
 """
-Test file to compare the two VRP optimizers on the Cormano scenario.
+Test file to compare the two VRP optimizers on the overnight test scenario.
 
 This test compares:
 1. CleanVRPOptimizer (original from vrp_optimizer_clean.py)
 2. CleanVRPOptimizer (OSM-enhanced copy from vrp_optimizer_clean_copy.py)
 
-Both are tested on the Cormano scenario to evaluate:
+Both are tested on the overnight test scenario to evaluate:
 - Distance calculation differences (Manhattan vs OSM)
 - Solution quality and feasibility
 - Capacity constraint handling
@@ -20,9 +20,9 @@ from typing import Dict, Optional, Tuple
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def test_cormano_scenario_comparison():
-    """Compare both optimizers on the Cormano scenario."""
-    print("🧪 VRP Optimizers Comparison Test on Cormano Scenario")
+def test_overnight_scenario_comparison():
+    """Compare both optimizers on the overnight test scenario."""
+    print("🧪 VRP Optimizers Comparison Test on Overnight Test Scenario")
     print("=" * 80)
     
     # Import scenario creation function
@@ -299,12 +299,12 @@ def test_single_constraint_level():
     print("=" * 60)
     
     try:
-        from vrp_scenarios import create_cormano_scenario
+        from vrp_scenarios import create_overnight_test_scenario
     except ImportError:
-        print("❌ Error: Could not import create_cormano_scenario")
+        print("❌ Error: Could not import create_overnight_test_scenario")
         return
     
-    scenario = create_cormano_scenario()
+    scenario = create_overnight_test_scenario()
     
     # Convert vehicles
     vehicles_dicts = [{
@@ -345,7 +345,7 @@ if __name__ == "__main__":
     test_type = "full"  # Options: "full", "quick"
     
     if test_type == "full":
-        test_cormano_scenario_comparison()
+        test_overnight_scenario_comparison()
     elif test_type == "quick":
         test_single_constraint_level()
     else:
