@@ -824,46 +824,55 @@ class CleanVRPOptimizer:
                 previous_index = index
                 index = solution.Value(routing.NextVar(index))
                 if not routing.IsEnd(index):
-                    arc_cost_meters = routing.GetArcCostForVehicle(previous_index, index, vehicle_idx)
-                    arc_cost_km = arc_cost_meters / 1000.0
-                    route_distance += arc_cost_km
-            # Add final location (end depot)
-            if not routing.IsEnd(index):
-                node_index = manager.IndexToNode(index)
-                location = location_list[node_index]
-                arrival_time = 0
-                load = 0
+                    # Calculate actual distance directly from coordinates to avoid scaling issues
+                    from_node = manager.IndexToNode(previous_index)
+                    to_node = manager.IndexToNode(index)
+                    from_loc = location_list[from_node]
+                    to_loc = location_list[to_node]
+                    
+                    from_x = from_loc.get('x', 0)
+                    from_y = from_loc.get('y', 0)
+                    to_x = to_loc.get('x', 0)
+                    to_y = to_loc.get('y', 0)
+                    
+                    # Calculate Euclidean distance and convert to km consistently
+                    distance = ((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5
+                    distance_km = distance * 111  # Same scaling as in distance_callback
+                    route_distance += distance_km
+                else:
+                    # Handle the final return to depot - calculate distance from last stop to depot
+                    if len(route) > 0:  # Only if there were actual stops (not just depot)
+                        from_node = manager.IndexToNode(previous_index)
+                        to_node = manager.IndexToNode(routing.End(vehicle_idx))  # End depot
+                        from_loc = location_list[from_node]
+                        to_loc = location_list[to_node]
+                        
+                        from_x = from_loc.get('x', 0)
+                        from_y = from_loc.get('y', 0)
+                        to_x = to_loc.get('x', 0)
+                        to_y = to_loc.get('y', 0)
+                        
+                        # Calculate return distance to depot
+                        distance = ((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5
+                        distance_km = distance * 111  # Same scaling as in distance_callback
+                        route_distance += distance_km
+            # Add final location (end depot) - this should always happen for complete routes
+            final_node_index = manager.IndexToNode(routing.End(vehicle_idx))
+            final_location = location_list[final_node_index]
+            
+            # Only add final depot if it's different from the last stop (avoid duplicates)
+            if len(route) == 0 or route[-1]['location_id'] != final_location['id']:
+                final_arrival_time = 0
+                final_load = 0
+                
+                # Get final arrival time if time dimension exists
                 if has_time and time_dimension:
                     try:
-                        arrival_time = solution.Value(time_dimension.CumulVar(index))
-                        print(f"    Vehicle {vehicle_idx}, final stop {location['id']}: arrival_time = {arrival_time} minutes")
+                        final_arrival_time = solution.Value(time_dimension.CumulVar(routing.End(vehicle_idx)))
                     except Exception as e:
-                        print(f"    ⚠️ Failed to get final arrival time for {location['id']}: {str(e)}")
-                        arrival_time = 0
-                if has_capacity:
-                    try:
-                        capacity_dimension = routing.GetDimensionOrDie('Capacity')
-                        load = solution.Value(capacity_dimension.CumulVar(index))
-                    except:
-                        load = 0
-                if has_capacity and hasattr(self, '_active_ride_requests') and self._active_ride_requests:
-                    for req in self._active_ride_requests:
-                        if hasattr(req, 'pickup_location') and hasattr(req, 'dropoff_location') and hasattr(req, 'passengers'):
-                            if req.pickup_location == location['id']:
-                                manual_load += int(req.passengers)
-                            elif req.dropoff_location == location['id']:
-                                manual_load -= int(req.passengers)
-                    max_manual_load = max(max_manual_load, manual_load)
-                route.append({
-                    'location_id': location['id'],
-                    'location_name': location.get('address', location['id']),
-                    'coordinates': (location.get('x', 0), location.get('y', 0)),
-                    'arrival_time': arrival_time,
-                    'load': manual_load if has_capacity else load
-                })
-            else:
-                final_node_index = manager.IndexToNode(routing.End(vehicle_idx))
-                final_location = location_list[final_node_index]
+                        final_arrival_time = 0
+                
+                # Calculate final load
                 if has_capacity and hasattr(self, '_active_ride_requests') and self._active_ride_requests:
                     final_manual_load = 0
                     for req in self._active_ride_requests:
@@ -872,14 +881,21 @@ class CleanVRPOptimizer:
                                 final_manual_load += int(req.passengers)
                             elif req.dropoff_location == final_location['id']:
                                 final_manual_load -= int(req.passengers)
-                    if len(route) == 0 or route[-1]['location_id'] != final_location['id']:
-                        route.append({
-                            'location_id': final_location['id'],
-                            'location_name': final_location.get('address', final_location['id']),
-                            'coordinates': (final_location.get('x', 0), final_location.get('y', 0)),
-                            'arrival_time': 0,
-                            'load': final_manual_load if has_capacity else 0
-                        })
+                    final_load = final_manual_load
+                elif has_capacity:
+                    try:
+                        capacity_dimension = routing.GetDimensionOrDie('Capacity')
+                        final_load = solution.Value(capacity_dimension.CumulVar(routing.End(vehicle_idx)))
+                    except:
+                        final_load = 0
+                
+                route.append({
+                    'location_id': final_location['id'],
+                    'location_name': final_location.get('address', final_location['id']),
+                    'coordinates': (final_location.get('x', 0), final_location.get('y', 0)),
+                    'arrival_time': final_arrival_time,
+                    'load': final_load
+                })
             if len(route) >= 2 and has_time:
                 route_time = route[-1]['arrival_time'] - route[0]['arrival_time']
             routes[vehicle['id']] = {

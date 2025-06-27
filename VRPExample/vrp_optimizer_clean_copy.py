@@ -684,7 +684,7 @@ class CleanVRPOptimizer:
         
         if solution:
             print(f"✅ Solution found!")
-            solution_data = self._extract_solution(routing, manager, solution)
+            solution_data = self._extract_solution(routing, manager, solution, constraint_level)
             solution_data['status'] = 'SUCCESS'
             solution_data['truck_speed_enabled'] = self.distance_calculator.use_truck_speeds
             solution_data['applied_constraints'] = applied_constraints
@@ -731,7 +731,8 @@ class CleanVRPOptimizer:
             
             for request in requests_to_analyze:
                 weight = getattr(request, 'passengers', 0)
-                volume = getattr(request, 'volume', 0.0)
+                # Only add volume demand if fleet has volume capacity
+                volume = getattr(request, 'volume', 0.0) if total_volume_capacity > 0 else 0.0
                 total_weight_demand += weight
                 total_volume_demand += volume
             
@@ -806,26 +807,33 @@ class CleanVRPOptimizer:
         
         # Volume capacity constraint
         print("  📦 Adding volume capacity constraint...")
+        
+        # Check if fleet has any volume capacity
+        total_fleet_volume_capacity = sum(vehicle.get('volume_capacity', 0.0) for vehicle in self.vehicles)
+        
         def volume_demand_callback(from_index):
             from_node = manager.IndexToNode(from_index)
             location = self.locations[from_node]
             
             volume_demand = 0.0
-            # Handle ride requests for volume demand
-            if hasattr(self, 'ride_requests') and self.ride_requests:
-                requests_to_check = []
-                if isinstance(self.ride_requests, dict):
-                    requests_to_check = list(self.ride_requests.values())
-                elif isinstance(self.ride_requests, list):
-                    requests_to_check = self.ride_requests
-                
-                for request in requests_to_check:
-                    # Check if this location is a pickup or dropoff
-                    if hasattr(request, 'pickup_location') and hasattr(request, 'dropoff_location'):
-                        if request.pickup_location == location['id']:
-                            volume_demand += getattr(request, 'volume', 0.0)  # pickup increases volume
-                        elif request.dropoff_location == location['id']:
-                            volume_demand -= getattr(request, 'volume', 0.0)  # dropoff decreases volume
+            
+            # Only calculate volume demand if fleet has volume capacity
+            if total_fleet_volume_capacity > 0:
+                # Handle ride requests for volume demand
+                if hasattr(self, 'ride_requests') and self.ride_requests:
+                    requests_to_check = []
+                    if isinstance(self.ride_requests, dict):
+                        requests_to_check = list(self.ride_requests.values())
+                    elif isinstance(self.ride_requests, list):
+                        requests_to_check = self.ride_requests
+                    
+                    for request in requests_to_check:
+                        # Check if this location is a pickup or dropoff
+                        if hasattr(request, 'pickup_location') and hasattr(request, 'dropoff_location'):
+                            if request.pickup_location == location['id']:
+                                volume_demand += getattr(request, 'volume', 0.0)  # pickup increases volume
+                            elif request.dropoff_location == location['id']:
+                                volume_demand -= getattr(request, 'volume', 0.0)  # dropoff decreases volume
             
             # Convert to integer (multiply by 1000 to preserve precision)
             return int(volume_demand * 1000)
@@ -936,21 +944,56 @@ class CleanVRPOptimizer:
         
         print("✅ Time window constraints added")
     
-    def _extract_solution(self, routing, manager, solution):
+    def _extract_solution(self, routing, manager, solution, constraint_level):
         """Extract solution from OR-Tools and analyze capacity usage per stop."""
-        print(f"\n📊 Extracting solution with dual capacity analysis...")
+        print(f"\n📊 Extracting solution...")
         
         solution_data = {
             'routes': [],
             'total_distance': 0,
             'total_cost': 0,
-            'total_time': 0,
-            'capacity_analysis': []
+            'total_time': 0
         }
         
-        # Get dimensions for capacity analysis
-        weight_dimension = routing.GetDimensionOrDie('Weight')
-        volume_dimension = routing.GetDimensionOrDie('Volume')
+        # Check if dimensions exist (only created when constraints are applied)
+        weight_dimension = None
+        volume_dimension = None
+        has_capacity_dimensions = False
+        
+        # Safely check for dimension existence using a more robust approach
+        try:
+            # Get list of all dimension names from the routing model
+            all_dimension_names = []
+            
+            # Instead of using GetDimensionOrDie, check if dimensions were actually created
+            # by looking at what constraint level was used
+            if constraint_level in ["capacity", "full"]:
+                # Only try to get dimensions if we actually added capacity constraints
+                try:
+                    weight_dimension = routing.GetDimensionOrDie('Weight')
+                    all_dimension_names.append('Weight')
+                except:
+                    pass
+                
+                try:
+                    volume_dimension = routing.GetDimensionOrDie('Volume')
+                    all_dimension_names.append('Volume')
+                except:
+                    pass
+                
+                if weight_dimension and volume_dimension:
+                    has_capacity_dimensions = True
+                    print("📦 Found capacity dimensions - will analyze dual capacity usage")
+                else:
+                    print("📦 Capacity constraints were expected but dimensions not found - using basic extraction")
+            else:
+                print("📦 No capacity constraints applied - using basic solution extraction")
+                
+        except Exception as e:
+            print(f"📦 Error checking dimensions: {e} - using basic solution extraction")
+            weight_dimension = None
+            volume_dimension = None
+            has_capacity_dimensions = False
         
         total_distance = 0
         total_cost = 0
@@ -965,8 +1008,7 @@ class CleanVRPOptimizer:
                 'vehicle_cost_per_km': cost_per_km,
                 'stops': [],
                 'total_distance': 0,
-                'total_cost': 0,
-                'capacity_usage': []
+                'total_cost': 0
             }
             
             index = routing.Start(vehicle_id)
@@ -976,32 +1018,36 @@ class CleanVRPOptimizer:
                 node_index = manager.IndexToNode(index)
                 location = self.locations[node_index]
                 
-                # Get capacity usage at this stop
-                weight_var = weight_dimension.CumulVar(index)
-                volume_var = volume_dimension.CumulVar(index)
-                weight_usage = solution.Value(weight_var)
-                volume_usage = solution.Value(volume_var) / 1000.0  # Convert back from integer
-                
-                # Calculate utilization percentages
-                weight_utilization = (weight_usage / vehicle.get('capacity', 1)) * 100 if vehicle.get('capacity', 0) > 0 else 0
-                volume_utilization = (volume_usage / vehicle.get('volume_capacity', 1)) * 100 if vehicle.get('volume_capacity', 0) > 0 else 0
-                
-                # Determine limiting constraint at this stop
-                limiting_constraint = "weight" if weight_utilization > volume_utilization else "volume"
-                if weight_utilization == volume_utilization:
-                    limiting_constraint = "balanced"
-                
                 stop_info = {
-                    'location_id': location['id'],
-                    'weight_usage_kg': weight_usage,
-                    'volume_usage_m3': round(volume_usage, 2),
-                    'weight_utilization_pct': round(weight_utilization, 1),
-                    'volume_utilization_pct': round(volume_utilization, 1),
-                    'limiting_constraint': limiting_constraint
+                    'location_id': location['id']
                 }
                 
+                # Add capacity analysis only if dimensions exist
+                if has_capacity_dimensions and weight_dimension and volume_dimension:
+                    # Get capacity usage at this stop
+                    weight_var = weight_dimension.CumulVar(index)
+                    volume_var = volume_dimension.CumulVar(index)
+                    weight_usage = solution.Value(weight_var)
+                    volume_usage = solution.Value(volume_var) / 1000.0  # Convert back from integer
+                    
+                    # Calculate utilization percentages
+                    weight_utilization = (weight_usage / vehicle.get('capacity', 1)) * 100 if vehicle.get('capacity', 0) > 0 else 0
+                    volume_utilization = (volume_usage / vehicle.get('volume_capacity', 1)) * 100 if vehicle.get('volume_capacity', 0) > 0 else 0
+                    
+                    # Determine limiting constraint at this stop
+                    limiting_constraint = "weight" if weight_utilization > volume_utilization else "volume"
+                    if weight_utilization == volume_utilization:
+                        limiting_constraint = "balanced"
+                    
+                    stop_info.update({
+                        'weight_usage_kg': weight_usage,
+                        'volume_usage_m3': round(volume_usage, 2),
+                        'weight_utilization_pct': round(weight_utilization, 1),
+                        'volume_utilization_pct': round(volume_utilization, 1),
+                        'limiting_constraint': limiting_constraint
+                    })
+                
                 route['stops'].append(stop_info)
-                route['capacity_usage'].append(stop_info)
                 
                 # Move to next stop and calculate distance
                 previous_index = index
@@ -1012,6 +1058,42 @@ class CleanVRPOptimizer:
                     to_node = manager.IndexToNode(index)
                     segment_distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
                     route_distance_km += segment_distance_km
+                else:
+                    # Handle final return to depot
+                    from_node = manager.IndexToNode(previous_index)
+                    to_node = manager.IndexToNode(index)  # This is the end depot
+                    segment_distance_km = self.distance_calculator.distance_matrix[from_node][to_node]
+                    route_distance_km += segment_distance_km
+                    
+                    # Add the final depot stop to the route
+                    depot_location = self.locations[to_node]
+                    final_stop_info = {
+                        'location_id': depot_location['id']
+                    }
+                    
+                    # Add capacity info for final depot stop if dimensions exist
+                    if has_capacity_dimensions and weight_dimension and volume_dimension:
+                        weight_var = weight_dimension.CumulVar(index)
+                        volume_var = volume_dimension.CumulVar(index)
+                        weight_usage = solution.Value(weight_var)
+                        volume_usage = solution.Value(volume_var) / 1000.0
+                        
+                        weight_utilization = (weight_usage / vehicle.get('capacity', 1)) * 100 if vehicle.get('capacity', 0) > 0 else 0
+                        volume_utilization = (volume_usage / vehicle.get('volume_capacity', 1)) * 100 if vehicle.get('volume_capacity', 0) > 0 else 0
+                        
+                        limiting_constraint = "weight" if weight_utilization > volume_utilization else "volume"
+                        if weight_utilization == volume_utilization:
+                            limiting_constraint = "balanced"
+                        
+                        final_stop_info.update({
+                            'weight_usage_kg': weight_usage,
+                            'volume_usage_m3': round(volume_usage, 2),
+                            'weight_utilization_pct': round(weight_utilization, 1),
+                            'volume_utilization_pct': round(volume_utilization, 1),
+                            'limiting_constraint': limiting_constraint
+                        })
+                    
+                    route['stops'].append(final_stop_info)
             
             # Calculate route cost
             route_cost = route_distance_km * cost_per_km
@@ -1025,10 +1107,32 @@ class CleanVRPOptimizer:
         solution_data['total_distance'] = round(total_distance, 2)
         solution_data['total_cost'] = round(total_cost, 2)
         
-        # Print detailed capacity analysis
-        self._print_capacity_analysis(solution_data)
+        # Print solution summary
+        if has_capacity_dimensions and weight_dimension and volume_dimension:
+            self._print_capacity_analysis(solution_data)
+        else:
+            self._print_basic_solution_summary(solution_data)
         
         return solution_data
+        
+    def _print_basic_solution_summary(self, solution_data):
+        """Print basic solution summary without capacity analysis."""
+        print(f"\n📊 Solution Summary:")
+        print("=" * 50)
+        
+        for route in solution_data['routes']:
+            print(f"\n🚛 Vehicle: {route['vehicle_id']}")
+            print(f"   Route: {route['total_distance']}km, €{route['total_cost']:.2f}")
+            print(f"   Stops: {len(route['stops'])}")
+            
+            if route['stops']:
+                stop_names = [stop['location_id'] for stop in route['stops']]
+                print(f"   Route: {' → '.join(stop_names)}")
+        
+        print(f"\n💰 Total Summary:")
+        print(f"   Total distance: {solution_data['total_distance']}km")
+        print(f"   Total cost: €{solution_data['total_cost']:.2f}")
+        print("=" * 50)
         
     def _print_capacity_analysis(self, solution_data):
         """Print detailed capacity analysis for each route and stop."""
@@ -1041,30 +1145,37 @@ class CleanVRPOptimizer:
             print(f"   Cost rate: €{route['vehicle_cost_per_km']:.2f}/km")
             print(f"   Route: {route['total_distance']}km, €{route['total_cost']:.2f}")
             
-            if route['stops']:
+            if route['stops'] and len(route['stops']) > 0 and 'weight_usage_kg' in route['stops'][0]:
                 print(f"   Stop-by-stop capacity usage:")
                 for i, stop in enumerate(route['stops']):
-                    constraint_icon = "🔴" if stop['limiting_constraint'] == "weight" else "📦" if stop['limiting_constraint'] == "volume" else "⚖️"
+                    constraint_icon = "🔴" if stop.get('limiting_constraint') == "weight" else "📦" if stop.get('limiting_constraint') == "volume" else "⚖️"
                     print(f"     {i+1}. {stop['location_id']}: "
-                          f"{stop['weight_usage_kg']}kg ({stop['weight_utilization_pct']}%), "
-                          f"{stop['volume_usage_m3']}m³ ({stop['volume_utilization_pct']}%) "
-                          f"{constraint_icon} {stop['limiting_constraint']}")
+                          f"{stop.get('weight_usage_kg', 0)}kg ({stop.get('weight_utilization_pct', 0)}%), "
+                          f"{stop.get('volume_usage_m3', 0)}m³ ({stop.get('volume_utilization_pct', 0)}%) "
+                          f"{constraint_icon} {stop.get('limiting_constraint', 'unknown')}")
                 
-                # Find peak utilization
-                max_weight_stop = max(route['stops'], key=lambda x: x['weight_utilization_pct'])
-                max_volume_stop = max(route['stops'], key=lambda x: x['volume_utilization_pct'])
-                
-                print(f"   Peak weight utilization: {max_weight_stop['weight_utilization_pct']}% at {max_weight_stop['location_id']}")
-                print(f"   Peak volume utilization: {max_volume_stop['volume_utilization_pct']}% at {max_volume_stop['location_id']}")
-                
-                # Check for constraint violations
-                weight_violations = [s for s in route['stops'] if s['weight_utilization_pct'] > 100]
-                volume_violations = [s for s in route['stops'] if s['volume_utilization_pct'] > 100]
-                
-                if weight_violations:
-                    print(f"   ⚠️  WARNING: Weight capacity exceeded at {len(weight_violations)} stops!")
-                if volume_violations:
-                    print(f"   ⚠️  WARNING: Volume capacity exceeded at {len(volume_violations)} stops!")
+                # Find peak utilization only if capacity data exists
+                stops_with_capacity = [s for s in route['stops'] if 'weight_utilization_pct' in s]
+                if stops_with_capacity:
+                    max_weight_stop = max(stops_with_capacity, key=lambda x: x['weight_utilization_pct'])
+                    max_volume_stop = max(stops_with_capacity, key=lambda x: x['volume_utilization_pct'])
+                    
+                    print(f"   Peak weight utilization: {max_weight_stop['weight_utilization_pct']}% at {max_weight_stop['location_id']}")
+                    print(f"   Peak volume utilization: {max_volume_stop['volume_utilization_pct']}% at {max_volume_stop['location_id']}")
+                    
+                    # Check for constraint violations
+                    weight_violations = [s for s in stops_with_capacity if s['weight_utilization_pct'] > 100]
+                    volume_violations = [s for s in stops_with_capacity if s['volume_utilization_pct'] > 100]
+                    
+                    if weight_violations:
+                        print(f"   ⚠️  WARNING: Weight capacity exceeded at {len(weight_violations)} stops!")
+                    if volume_violations:
+                        print(f"   ⚠️  WARNING: Volume capacity exceeded at {len(volume_violations)} stops!")
+            else:
+                print(f"   Stops: {len(route['stops'])} locations")
+                if route['stops']:
+                    stop_names = [stop['location_id'] for stop in route['stops']]
+                    print(f"   Route: {' → '.join(stop_names)}")
         
         # Print total summary
         print(f"\n💰 Solution Summary:")

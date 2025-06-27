@@ -321,6 +321,15 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
     except Exception as e:
         print(f"! Error creating MODA_small scenario: {str(e)}")
     
+    # Add the overnight test scenario for overnight/multi-day testing
+    try:
+        print("Creating overnight test scenario...")
+        overnight_scenario = create_overnight_test_scenario()
+        scenarios["overnight_test"] = overnight_scenario
+        print("+ Added overnight test scenario (2 vehicles, 1 close + 1 far destination)")
+    except Exception as e:
+        print(f"! Error creating overnight test scenario: {str(e)}")
+    
     # NOTE: Offline/OSM realistic scenarios are disabled to focus on MODA scenarios
     # This reduces testing complexity and focuses on the core VRPPD use cases
     
@@ -1187,5 +1196,362 @@ def create_furgoni_scenario() -> VRPInstance:
     print(f"  - {len(pickup_requests)} unique pickup bays at depot (for pickups)")
     print(f"  - Each bay serves 1 request (delivery or pickup)")
     print(f"  - 💡 Optimizer decides which bays to visit per vehicle")
+    
+    return instance
+
+def create_overnight_test_scenario() -> VRPInstance:
+    """
+    Create a simplified overnight test scenario with close and far destinations.
+    
+    This scenario is designed to test overnight/multi-day routing features:
+    - 2 vehicles with 8-hour (480 minute) daily driving limits
+    - 1 close delivery (Cormano, ~150km from depot)
+    - 1 far delivery (Malmö, Sweden, ~1500km from depot)  
+    - The far delivery exceeds daily driving limits and needs overnight handling
+    
+    Returns:
+        VRPInstance: Configured scenario for overnight feature testing
+    """
+    import random
+    random.seed(42)  # For reproducibility
+    
+    instance = VRPInstance("Overnight Test Scenario")
+    instance.is_realistic = True  # Added missing attribute
+    
+    # === LOCATIONS ===
+    
+    # 1. Main depot (Asti, Italy) - matching furgoni format
+    depot = Location("depot", 8.2065, 44.8987, demand=0, 
+                    time_window_start=0, time_window_end=1440, service_time=5)
+    depot.address = "Asti Distribution Center, Italy"
+    depot.lat = 44.8987  # Added missing lat/lon attributes
+    depot.lon = 8.2065
+    instance.add_location(depot)
+    
+    # === VEHICLES ===
+    
+    # Vehicle data with calculated capacities - matching furgoni format with max_time
+    vehicles_data = {
+        "FURGONE_1": 3500,  # Standard truck
+        "FURGONE_2": 3500,  # Standard truck
+    }
+    
+    # Add vehicles to the scenario with proper attributes (matching furgoni format)
+    for vehicle_name, capacity in vehicles_data.items():
+        vehicle_type = 'standard' if capacity <= 5000 else 'heavy'
+        max_driving_time = 480  # 8 hours daily limit for overnight testing
+        
+        vehicle = Vehicle(
+            vehicle_name, 
+            capacity=capacity, 
+            depot_id="depot",
+            max_time=max_driving_time,
+            vehicle_type=vehicle_type
+        )
+        instance.add_vehicle(vehicle)
+    
+    # === DELIVERY LOCATIONS ===
+    
+    # Delivery locations with time windows - matching furgoni format
+    # Format: (location_id, address, lon, lat, tw_start, tw_end, service_time, is_pickup)
+    locations_data = [
+        ("cormano_mi", "via dell'Artigianato 1, 20032 Cormano MI, Italy", 9.1667, 45.5333, 480, 840, 30, False),  # Close destination
+        ("malmo_sweden", "Malmö, Sweden - Menarini Diagnostics", 13.0038, 55.6050, 0, 1440, 30, False),  # Far destination - commented out for testing
+    ]
+    
+    # Add all locations with proper attributes (matching furgoni format)
+    for location_id, address, lon, lat, tw_start, tw_end, service_time, is_pickup in locations_data:
+        location = Location(location_id, lon, lat, demand=0,
+                           time_window_start=tw_start, time_window_end=tw_end, 
+                           service_time=service_time)
+        location.address = address
+        location.lat = lat  # Added missing lat/lon attributes
+        location.lon = lon
+        location.is_pickup = is_pickup
+        instance.add_location(location)
+    
+    # === DELIVERY CARGO REQUESTS ===
+    
+    # Create delivery/pickup requests using furgoni depot bay pattern
+    # Delivery cargo data: create depot bays for each delivery
+    delivery_cargo = [
+        # FURGONE_1 - Close delivery (feasible within 8h)
+        ("cormano_mi", 700),
+        
+        # FURGONE_2 - Far delivery (exceeds 8h limit - needs overnight)
+         ("malmo_sweden", 1500),  # Temporarily commented out for testing
+    ]
+    
+    # Create depot bays for delivery cargo (following furgoni/MODA pattern)
+    depot_requests = []
+    request_id = 1
+    depot_location = instance.locations["depot"]
+
+    for dropoff_id, cargo_weight in delivery_cargo:
+        # Create virtual pickup bay at depot for this delivery
+        pickup_bay_id = f"depot_bay_{request_id}"
+        pickup_bay = Location(
+            pickup_bay_id, 
+            depot_location.x,
+            depot_location.y,
+            demand=0,
+            time_window_start=0,
+            time_window_end=1440,
+            service_time=5
+        )
+        pickup_bay.lat = depot_location.lat
+        pickup_bay.lon = depot_location.lon
+        pickup_bay.address = f"Depot Loading Bay {request_id}"
+        instance.add_location(pickup_bay)
+        
+        # Create request from depot bay to dropoff location
+        depot_request = RideRequest(f"delivery_request_{request_id}", pickup_bay_id, dropoff_id, 
+                                   passengers=cargo_weight, 
+                                   volume=calculate_cargo_volume(cargo_weight),
+                                   earliest_pickup=0,
+                                   latest_dropoff=1440)
+        instance.add_ride_request(depot_request)
+        depot_requests.append(depot_request)
+        request_id += 1
+
+    # No pickup requests in this simplified overnight test scenario
+    pickup_requests = []
+    
+    # === CALCULATE DISTANCES ===
+    
+    # Calculate distance matrix using same method as furgoni
+    instance.calculate_distance_matrix(distance_method="manhattan")
+    
+    # === SCENARIO SUMMARY ===
+    
+    # Add summary statistics (matching furgoni format)
+    total_capacity = sum(vehicle.capacity for vehicle in instance.vehicles.values())
+    total_delivery_weight = sum(r.passengers for r in depot_requests)
+    total_pickup_weight = sum(r.passengers for r in pickup_requests)
+    total_cargo_weight = total_delivery_weight + total_pickup_weight
+    
+    print(f"Created Overnight Test scenario with depot bay pattern:")
+    print(f"  - Total locations: {len(instance.locations)}")
+    print(f"  - Main depot: 1")
+    print(f"  - Depot bays: {len(depot_requests)} (for deliveries)")
+    print(f"  - Pickup bays: {len(pickup_requests)} (for pickups)")
+    print(f"  - Delivery destinations: {len([l for l in instance.locations.values() if not getattr(l, 'is_pickup', False) and l.id != 'depot' and not l.id.startswith('depot_bay') and not l.id.startswith('pickup_bay')])}")
+    print(f"  - Field pickup locations: {len([l for l in instance.locations.values() if getattr(l, 'is_pickup', False)])}")
+    print(f"  - Vehicles: {len(instance.vehicles)}")
+    print(f"  - Ride requests: {len(instance.ride_requests)} ({len(depot_requests)} depot→delivery + {len(pickup_requests)} pickup→depot)")
+    print(f"Fleet composition: {len([v for v in instance.vehicles.values() if v.vehicle_type == 'standard'])} light vehicles + {len([v for v in instance.vehicles.values() if v.vehicle_type == 'heavy'])} heavy vehicles")
+    
+    print(f"\nCapacity utilization:")
+    print(f"  - Total fleet capacity: {total_capacity:,} kg")
+    print(f"  - Depot cargo (via bays): {total_delivery_weight:,} kg")
+    print(f"  - Field pickup cargo: {total_pickup_weight:,} kg")
+    print(f"  - Total cargo: {total_cargo_weight:,} kg = {total_cargo_weight/total_capacity*100:.1f}% of fleet capacity")
+    
+    print(f"\n📦 Depot Bay Strategy (matching furgoni/MODA pattern):")
+    print(f"  - {len(depot_requests)} depot bays at same coordinates as main depot (for deliveries)")
+    print(f"  - {len(pickup_requests)} unique pickup bays at depot (for pickups)")
+    print(f"  - Each bay serves 1 request (delivery or pickup)")
+    print(f"  - � Optimizer decides which bays to visit per vehicle")
+    
+    print(f"\n🌙 OVERNIGHT FEATURE TEST SPECIFICS:")
+    print(f"  - ⏰ Daily driving limit: 8 hours (480 minutes) per vehicle")
+    print(f"  - ✅ Close delivery: Depot → Cormano (~150km, ~3h travel) - FEASIBLE")
+    print(f"  - ❌ Far delivery: Depot → Malmö (~1500km, ~15-20h travel) - EXCEEDS LIMIT")
+    print(f"  - � Expected: Close delivery succeeds, far delivery needs overnight planning")
+    
+    # Print estimated travel times for verification
+    if hasattr(instance, 'distance_matrix') and instance.distance_matrix is not None:
+        print(f"\n📊 Distance verification:")
+        location_names = list(instance.locations.keys())
+        depot_idx = location_names.index("depot")
+        if "cormano_mi" in location_names:
+            cormano_idx = location_names.index("cormano_mi")
+            distance_cormano = instance.distance_matrix[depot_idx][cormano_idx]
+            estimated_time_cormano = distance_cormano / 50 * 60  # minutes at 50km/h
+            print(f"  - Depot → Cormano: {distance_cormano:.1f} km (~{estimated_time_cormano:.0f} min)")
+        if "malmo_sweden" in location_names:
+            malmo_idx = location_names.index("malmo_sweden")
+            distance_malmo = instance.distance_matrix[depot_idx][malmo_idx]
+            estimated_time_malmo = distance_malmo / 50 * 60  # minutes at 50km/h
+            print(f"  - Depot → Malmö: {distance_malmo:.1f} km (~{estimated_time_malmo:.0f} min)")
+    
+    return instance
+
+
+def create_cormano_scenario() -> VRPInstance:
+    """
+    Create a simplified overnight test scenario with close and far destinations.
+    
+    This scenario is designed to test overnight/multi-day routing features:
+    - 2 vehicles with 8-hour (480 minute) daily driving limits
+    - 1 close delivery (Cormano, ~150km from depot)
+    - 1 far delivery (Malmö, Sweden, ~1500km from depot)  
+    - The far delivery exceeds daily driving limits and needs overnight handling
+    
+    Returns:
+        VRPInstance: Configured scenario for overnight feature testing
+    """
+    import random
+    random.seed(42)  # For reproducibility
+    
+    instance = VRPInstance("Overnight Test Scenario")
+    instance.is_realistic = True  # Added missing attribute
+    
+    # === LOCATIONS ===
+    
+    # 1. Main depot (Asti, Italy) - matching furgoni format
+    depot = Location("depot", 8.2065, 44.8987, demand=0, 
+                    time_window_start=0, time_window_end=1440, service_time=5)
+    depot.address = "Asti Distribution Center, Italy"
+    depot.lat = 44.8987  # Added missing lat/lon attributes
+    depot.lon = 8.2065
+    instance.add_location(depot)
+    
+    # === VEHICLES ===
+    
+    # Vehicle data with calculated capacities - matching furgoni format with max_time
+    vehicles_data = {
+        "FURGONE_1": 3500,  # Standard truck
+        "FURGONE_2": 3500,  # Standard truck
+    }
+    
+    # Add vehicles to the scenario with proper attributes (matching furgoni format)
+    for vehicle_name, capacity in vehicles_data.items():
+        vehicle_type = 'standard' if capacity <= 5000 else 'heavy'
+        max_driving_time = 480  # 8 hours daily limit for overnight testing
+        
+        vehicle = Vehicle(
+            vehicle_name, 
+            capacity=capacity, 
+            depot_id="depot",
+            max_time=max_driving_time,
+            vehicle_type=vehicle_type
+        )
+        instance.add_vehicle(vehicle)
+    
+    # === DELIVERY LOCATIONS ===
+    
+    # Delivery locations with time windows - matching furgoni format
+    # Format: (location_id, address, lon, lat, tw_start, tw_end, service_time, is_pickup)
+    locations_data = [
+        ("cormano_mi", "via dell'Artigianato 1, 20032 Cormano MI, Italy", 9.1667, 45.5333, 0, 1440, 30, False),  # Close destination
+        # ("malmo_sweden", "Malmö, Sweden - Menarini Diagnostics", 13.0038, 55.6050, 0, 1440, 30, False),  # Far destination - commented out for testing
+    ]
+    
+    # Add all locations with proper attributes (matching furgoni format)
+    for location_id, address, lon, lat, tw_start, tw_end, service_time, is_pickup in locations_data:
+        location = Location(location_id, lon, lat, demand=0,
+                           time_window_start=tw_start, time_window_end=tw_end, 
+                           service_time=service_time)
+        location.address = address
+        location.lat = lat  # Added missing lat/lon attributes
+        location.lon = lon
+        location.is_pickup = is_pickup
+        instance.add_location(location)
+    
+    # === DELIVERY CARGO REQUESTS ===
+    
+    # Create delivery/pickup requests using furgoni depot bay pattern
+    # Delivery cargo data: create depot bays for each delivery
+    delivery_cargo = [
+        # FURGONE_1 - Close delivery (feasible within 8h)
+        ("cormano_mi", 700),
+        
+        # FURGONE_2 - Far delivery (exceeds 8h limit - needs overnight)
+        # ("malmo_sweden", 1500),  # Temporarily commented out for testing
+    ]
+    
+    # Create depot bays for delivery cargo (following furgoni/MODA pattern)
+    depot_requests = []
+    request_id = 1
+    depot_location = instance.locations["depot"]
+
+    for dropoff_id, cargo_weight in delivery_cargo:
+        # Create virtual pickup bay at depot for this delivery
+        pickup_bay_id = f"depot_bay_{request_id}"
+        pickup_bay = Location(
+            pickup_bay_id, 
+            depot_location.x,
+            depot_location.y,
+            demand=0,
+            time_window_start=0,
+            time_window_end=1440,
+            service_time=5
+        )
+        pickup_bay.lat = depot_location.lat
+        pickup_bay.lon = depot_location.lon
+        pickup_bay.address = f"Depot Loading Bay {request_id}"
+        instance.add_location(pickup_bay)
+        
+        # Create request from depot bay to dropoff location
+        depot_request = RideRequest(f"delivery_request_{request_id}", pickup_bay_id, dropoff_id, 
+                                   passengers=cargo_weight, 
+                                   volume=calculate_cargo_volume(cargo_weight),
+                                   earliest_pickup=0,
+                                   latest_dropoff=1440)
+        instance.add_ride_request(depot_request)
+        depot_requests.append(depot_request)
+        request_id += 1
+
+    # No pickup requests in this simplified overnight test scenario
+    pickup_requests = []
+    
+    # === CALCULATE DISTANCES ===
+    
+    # Calculate distance matrix using same method as furgoni
+    instance.calculate_distance_matrix(distance_method="manhattan")
+    
+    # === SCENARIO SUMMARY ===
+    
+    # Add summary statistics (matching furgoni format)
+    total_capacity = sum(vehicle.capacity for vehicle in instance.vehicles.values())
+    total_delivery_weight = sum(r.passengers for r in depot_requests)
+    total_pickup_weight = sum(r.passengers for r in pickup_requests)
+    total_cargo_weight = total_delivery_weight + total_pickup_weight
+    
+    print(f"Created Overnight Test scenario with depot bay pattern:")
+    print(f"  - Total locations: {len(instance.locations)}")
+    print(f"  - Main depot: 1")
+    print(f"  - Depot bays: {len(depot_requests)} (for deliveries)")
+    print(f"  - Pickup bays: {len(pickup_requests)} (for pickups)")
+    print(f"  - Delivery destinations: {len([l for l in instance.locations.values() if not getattr(l, 'is_pickup', False) and l.id != 'depot' and not l.id.startswith('depot_bay') and not l.id.startswith('pickup_bay')])}")
+    print(f"  - Field pickup locations: {len([l for l in instance.locations.values() if getattr(l, 'is_pickup', False)])}")
+    print(f"  - Vehicles: {len(instance.vehicles)}")
+    print(f"  - Ride requests: {len(instance.ride_requests)} ({len(depot_requests)} depot→delivery + {len(pickup_requests)} pickup→depot)")
+    print(f"Fleet composition: {len([v for v in instance.vehicles.values() if v.vehicle_type == 'standard'])} light vehicles + {len([v for v in instance.vehicles.values() if v.vehicle_type == 'heavy'])} heavy vehicles")
+    
+    print(f"\nCapacity utilization:")
+    print(f"  - Total fleet capacity: {total_capacity:,} kg")
+    print(f"  - Depot cargo (via bays): {total_delivery_weight:,} kg")
+    print(f"  - Field pickup cargo: {total_pickup_weight:,} kg")
+    print(f"  - Total cargo: {total_cargo_weight:,} kg = {total_cargo_weight/total_capacity*100:.1f}% of fleet capacity")
+    
+    print(f"\n📦 Depot Bay Strategy (matching furgoni/MODA pattern):")
+    print(f"  - {len(depot_requests)} depot bays at same coordinates as main depot (for deliveries)")
+    print(f"  - {len(pickup_requests)} unique pickup bays at depot (for pickups)")
+    print(f"  - Each bay serves 1 request (delivery or pickup)")
+    print(f"  - � Optimizer decides which bays to visit per vehicle")
+    
+    print(f"\n🌙 OVERNIGHT FEATURE TEST SPECIFICS:")
+    print(f"  - ⏰ Daily driving limit: 8 hours (480 minutes) per vehicle")
+    print(f"  - ✅ Close delivery: Depot → Cormano (~150km, ~3h travel) - FEASIBLE")
+    print(f"  - ❌ Far delivery: Depot → Malmö (~1500km, ~15-20h travel) - EXCEEDS LIMIT")
+    print(f"  - � Expected: Close delivery succeeds, far delivery needs overnight planning")
+    
+    # Print estimated travel times for verification
+    if hasattr(instance, 'distance_matrix') and instance.distance_matrix is not None:
+        print(f"\n📊 Distance verification:")
+        location_names = list(instance.locations.keys())
+        depot_idx = location_names.index("depot")
+        if "cormano_mi" in location_names:
+            cormano_idx = location_names.index("cormano_mi")
+            distance_cormano = instance.distance_matrix[depot_idx][cormano_idx]
+            estimated_time_cormano = distance_cormano / 50 * 60  # minutes at 50km/h
+            print(f"  - Depot → Cormano: {distance_cormano:.1f} km (~{estimated_time_cormano:.0f} min)")
+        if "malmo_sweden" in location_names:
+            malmo_idx = location_names.index("malmo_sweden")
+            distance_malmo = instance.distance_matrix[depot_idx][malmo_idx]
+            estimated_time_malmo = distance_malmo / 50 * 60  # minutes at 50km/h
+            print(f"  - Depot → Malmö: {distance_malmo:.1f} km (~{estimated_time_malmo:.0f} min)")
     
     return instance
