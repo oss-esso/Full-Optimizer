@@ -15,10 +15,619 @@ Both are tested on the overnight test scenario to evaluate:
 import time
 import logging
 from typing import Dict, Optional, Tuple
+import os
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+def create_interactive_vrp_map(scenario, solution, sequential_vrp):
+    """Create an interactive HTML map showing the VRP solution with detailed information."""
+    
+    # Check if folium is available
+    try:
+        import folium
+        from folium import plugins
+        import requests
+    except ImportError:
+        print("❌ Folium not available. Install with: pip install folium")
+        return None
+    
+    # OSRM routing service setup
+    osrm_url = "http://router.project-osrm.org"
+    routing_session = requests.Session()
+    
+    def get_street_route(start_coords, end_coords):
+        """Get actual street route between two points using OSRM."""
+        try:
+            # Use OSRM routing API to get actual route
+            url = f"{osrm_url}/route/v1/driving/{start_coords[1]},{start_coords[0]};{end_coords[1]},{end_coords[0]}"
+            params = {
+                'overview': 'full',
+                'geometries': 'geojson'
+            }
+            
+            response = routing_session.get(url, params=params, timeout=5)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data['code'] == 'Ok' and 'routes' in data and len(data['routes']) > 0:
+                # Extract coordinates from the route geometry
+                route_coords = data['routes'][0]['geometry']['coordinates']
+                # Convert from [lon, lat] to [lat, lon] for folium
+                street_route = [[coord[1], coord[0]] for coord in route_coords]
+                return street_route
+            else:
+                # Fall back to straight line
+                return [start_coords, end_coords]
+                
+        except Exception as e:
+            print(f"  ⚠️ OSRM routing failed: {e}, using straight line")
+            return [start_coords, end_coords]
+    
+    # Check if locations have GPS coordinates
+    has_gps = False
+    print("🔍 Checking GPS coordinates in scenario locations...")
+    for loc_id, loc in scenario.locations.items():
+        # Check for different GPS coordinate attributes
+        lat = getattr(loc, 'lat', None) or getattr(loc, 'latitude', None)
+        lon = getattr(loc, 'lon', None) or getattr(loc, 'longitude', None)
+        
+        if lat is not None and lon is not None:
+            has_gps = True
+            print(f"  ✅ {loc_id}: lat={lat}, lon={lon}")
+            break
+        else:
+            print(f"  ❌ {loc_id}: lat={getattr(loc, 'lat', 'None')}, lon={getattr(loc, 'lon', 'None')}")
+    
+    if not has_gps:
+        print("❌ No GPS coordinates found in scenario locations")
+        # Let's try to find coordinates in x,y format and see if they could be GPS
+        print("🔍 Checking if x,y coordinates might be GPS coordinates...")
+        for loc_id, loc in list(scenario.locations.items())[:3]:
+            x = getattr(loc, 'x', None)
+            y = getattr(loc, 'y', None)
+            print(f"  - {loc_id}: x={x}, y={y}")
+        return None
+    
+    # Calculate map center from locations with GPS coordinates
+    lats = []
+    lons = []
+    for loc_id, loc in scenario.locations.items():
+        lat = getattr(loc, 'lat', None) or getattr(loc, 'latitude', None)
+        lon = getattr(loc, 'lon', None) or getattr(loc, 'longitude', None)
+        
+        if lat is not None and lon is not None:
+            lats.append(lat)
+            lons.append(lon)
+    
+    if not lats:
+        print("❌ No valid GPS coordinates found")
+        return None
+    
+    center_lat = sum(lats) / len(lats)
+    center_lon = sum(lons) / len(lons)
+    
+    print(f"📍 Map center: lat={center_lat:.4f}, lon={center_lon:.4f}")
+    print(f"📊 Found {len(lats)} locations with GPS coordinates")
+    
+    # Create the map
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=6,
+        tiles='OpenStreetMap'
+    )
+    
+    # Add alternative tile layers
+    folium.TileLayer(
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr='Esri',
+        name='Satellite',
+        overlay=False,
+        control=True
+    ).add_to(m)
+    
+    # Get depot coordinates
+    depot_coords = None
+    depot_location = None
+    for loc_id, loc in scenario.locations.items():
+        if 'depot' in str(loc_id).lower() and not 'bay' in str(loc_id).lower():
+            lat = getattr(loc, 'lat', None) or getattr(loc, 'latitude', None)
+            lon = getattr(loc, 'lon', None) or getattr(loc, 'longitude', None)
+            if lat is not None and lon is not None:
+                depot_coords = (lat, lon)
+                depot_location = loc
+                print(f"🏭 Found depot at: lat={lat}, lon={lon}")
+                break
+    
+    # Add depot marker
+    if depot_coords and depot_location:
+        folium.Marker(
+            location=depot_coords,
+            popup=f"<b>🏭 Main Depot</b><br>ID: {getattr(depot_location, 'id', 'depot')}<br>Address: {getattr(depot_location, 'address', 'N/A')}",
+            tooltip="Main Depot",
+            icon=folium.Icon(color='red', icon='home', prefix='fa')
+        ).add_to(m)
+        print("✅ Added depot marker to map")
+    
+    # Color palette for vehicles
+    vehicle_colors = ['blue', 'green', 'purple', 'orange', 'darkred', 'black', 'gray', 'pink', 'lightblue', 'lightgreen']
+    
+    # Process each vehicle's route
+    route_info = {}
+    markers_added = 0
+    
+    print(f"🔍 Solution structure keys: {list(solution.keys())}")
+    
+    # Check different possible solution structures
+    vehicle_routes = solution.get('vehicle_routes', {})
+    if not vehicle_routes:
+        # Try alternative structure - daily solutions
+        daily_solutions = solution.get('daily_solutions', {})
+        print(f"🔍 Found daily_solutions with {len(daily_solutions)} days")
+        
+        # Convert daily solutions to vehicle routes format
+        vehicle_routes = {}
+        for day_num, day_data in daily_solutions.items():
+            routes = day_data.get('routes', {})
+            for vehicle_id, route in routes.items():
+                if vehicle_id not in vehicle_routes:
+                    vehicle_routes[vehicle_id] = {'daily_routes': {}}
+                vehicle_routes[vehicle_id]['daily_routes'][day_num] = route
+    
+    print(f"🔍 Processing {len(vehicle_routes)} vehicle routes")
+    
+    for vehicle_id, route_data in vehicle_routes.items():
+        vehicle_index = list(vehicle_routes.keys()).index(vehicle_id)
+        color = vehicle_colors[vehicle_index % len(vehicle_colors)]
+        
+        route_info[vehicle_id] = {
+            'color': color,
+            'total_distance': 0,
+            'total_time': 0,
+            'customers_served': 0,
+            'overnight_stays': 0
+        }
+        
+        print(f"🚛 Processing vehicle {vehicle_id} with route_data keys: {list(route_data.keys())}")
+        
+        # Process daily routes
+        daily_routes = route_data.get('daily_routes', {})
+        if not daily_routes:
+            # Try alternative: full_route structure from sequential solver
+            full_route = route_data.get('full_route', {})
+            if full_route:
+                print(f"  🔍 Found full_route with type: {type(full_route)}")
+                if isinstance(full_route, dict):
+                    # full_route is a dictionary of day -> route data
+                    daily_routes = full_route
+                elif isinstance(full_route, list):
+                    # full_route is a flat list of stops - process directly without day grouping
+                    print(f"  📍 Processing {len(full_route)} stops from flat full_route")
+                    for i, stop in enumerate(full_route):
+                        if stop.get('is_overnight', False):
+                            # Handle overnight stops separately
+                            coords = stop.get('coordinates')
+                            if coords and isinstance(coords, (list, tuple)) and len(coords) >= 2:
+                                lat, lon = coords[1], coords[0]  # coordinates might be [lon, lat]
+                                if lat and lon:
+                                    # Create overnight marker
+                                    popup_text = f"""
+                                    <b>🛏️ Overnight Stop</b><br>
+                                    <b>Vehicle:</b> {vehicle_id}<br>
+                                    <b>Stop #:</b> {i + 1}<br>
+                                    <b>Location ID:</b> {stop.get('location_id', 'N/A')}<br>
+                                    <b>Coordinates:</b> ({lat:.4f}, {lon:.4f})<br>
+                                    <b>Distance from depot:</b> {((lat - depot_coords[0])**2 + (lon - depot_coords[1])**2)**0.5:.2f} km
+                                    """
+                                    
+                                    folium.Marker(
+                                        location=[lat, lon],
+                                        popup=folium.Popup(popup_text, max_width=300),
+                                        tooltip=f"Overnight: {vehicle_id}",
+                                        icon=folium.Icon(color='darkblue', icon='bed', prefix='fa')
+                                    ).add_to(m)
+                                    
+                                    markers_added += 1
+                                    route_info[vehicle_id]['overnight_stays'] += 1
+                                    print(f"    🛏️ Added overnight marker at ({lat:.4f}, {lon:.4f})")
+                            continue
+                        
+                        # Handle regular stops
+                        stop_id = stop.get('location_id', f'stop_{i}')
+                        
+                        # Find location in scenario
+                        location = None
+                        for loc_id, loc in scenario.locations.items():
+                            if str(loc_id) == str(stop_id):
+                                location = loc
+                                break
+                        
+                        if location:
+                            lat = getattr(location, 'lat', None) or getattr(location, 'latitude', None)
+                            lon = getattr(location, 'lon', None) or getattr(location, 'longitude', None)
+                            
+                            if lat is not None and lon is not None:
+                                # Determine marker type and icon
+                                if 'depot' in str(stop_id).lower():
+                                    if 'bay' in str(stop_id).lower():
+                                        icon_type = 'cube'
+                                        marker_color = 'orange'
+                                        location_type = '📦 Depot Bay'
+                                    else:
+                                        icon_type = 'home'
+                                        marker_color = 'red'
+                                        location_type = '🏭 Depot'
+                                elif 'pickup' in str(stop_id).lower():
+                                    icon_type = 'arrow-up'
+                                    marker_color = 'green'
+                                    location_type = '📤 Pickup'
+                                else:
+                                    icon_type = 'map-marker'
+                                    marker_color = color
+                                    location_type = '📍 Delivery'
+                                
+                                # Get service time information
+                                arrival_time = stop.get('arrival_time', 'N/A')
+                                service_time = getattr(location, 'service_time', 15)
+                                
+                                # Format times if they're numeric (minutes)
+                                if isinstance(arrival_time, (int, float)):
+                                    hours = int(arrival_time // 60)
+                                    mins = int(arrival_time % 60)
+                                    arrival_time = f"{hours:02d}:{mins:02d}"
+                                
+                                # Create popup with detailed information
+                                popup_text = f"""
+                                <b>{location_type}: {stop_id}</b><br>
+                                <b>Vehicle:</b> {vehicle_id}<br>
+                                <b>Stop #:</b> {i + 1}<br>
+                                <b>Address:</b> {getattr(location, 'address', getattr(location, 'name', 'N/A'))}<br>
+                                <b>Arrival:</b> {arrival_time}<br>
+                                <b>Service Time:</b> {service_time} min<br>
+                                <b>Coordinates:</b> ({lat:.4f}, {lon:.4f})
+                                """
+                                
+                                folium.Marker(
+                                    location=[lat, lon],
+                                    popup=folium.Popup(popup_text, max_width=300),
+                                    tooltip=f"{location_type}: {stop_id}",
+                                    icon=folium.Icon(color=marker_color, icon=icon_type, prefix='fa')
+                                ).add_to(m)
+                                
+                                markers_added += 1
+                                print(f"    ✅ Added marker for {stop_id} at ({lat:.4f}, {lon:.4f})")
+                                
+                                if not 'depot' in str(stop_id).lower():
+                                    route_info[vehicle_id]['customers_served'] += 1
+                        else:
+                            print(f"    ❌ Location not found for stop: {stop_id}")
+                    
+                    # Add OSRM-based route lines for flat route structure
+                    print(f"  🗺️ Drawing OSRM routes for {vehicle_id} (flat route with {len(full_route)} stops)")
+                    
+                    # Collect coordinates for route lines (excluding overnight stops)
+                    route_coords = []
+                    for stop in full_route:
+                        if stop.get('is_overnight', False):
+                            continue
+                        
+                        stop_id = stop.get('location_id', 'unknown')
+                        
+                        # Find location in scenario
+                        location = None
+                        for loc_id, loc in scenario.locations.items():
+                            if str(loc_id) == str(stop_id):
+                                location = loc
+                                break
+                        
+                        if location:
+                            lat = getattr(location, 'lat', None) or getattr(location, 'latitude', None)
+                            lon = getattr(location, 'lon', None) or getattr(location, 'longitude', None)
+                            if lat is not None and lon is not None:
+                                route_coords.append([lat, lon])
+                    
+                    # Draw OSRM-based route lines between consecutive stops
+                    if len(route_coords) > 1:
+                        all_route_coords = []
+                        
+                        for i in range(len(route_coords) - 1):
+                            start_coord = route_coords[i]
+                            end_coord = route_coords[i + 1]
+                            
+                            # Get street-following route from OSRM
+                            street_route = get_street_route(start_coord, end_coord)
+                            
+                            # Add this segment to the full route (avoid duplicating points)
+                            if i == 0:
+                                all_route_coords.extend(street_route)
+                            else:
+                                # Skip the first point to avoid duplication
+                                all_route_coords.extend(street_route[1:])
+                        
+                        # Draw the complete route with OSRM-based paths
+                        if len(all_route_coords) > 1:
+                            folium.PolyLine(
+                                locations=all_route_coords,
+                                color=color,
+                                weight=4,
+                                opacity=0.8,
+                                popup=f"{vehicle_id} - Multi-Day Route (OSRM)"
+                            ).add_to(m)
+                            print(f"    ✅ Added OSRM route with {len(all_route_coords)} points")
+                        else:
+                            # Fallback to simple line if OSRM fails completely
+                            folium.PolyLine(
+                                locations=route_coords,
+                                color=color,
+                                weight=4,
+                                opacity=0.8,
+                                popup=f"{vehicle_id} - Multi-Day Route (Direct)"
+                            ).add_to(m)
+                            print(f"    ⚠️ Used direct routes as fallback")
+                    
+                    # Skip the normal day-by-day processing for flat list
+                    continue
+            else:
+                # Try alternative: direct stops
+                stops = route_data.get('stops', [])
+                if stops:
+                    daily_routes = {'1': {'stops': stops}}
+        
+        # Process normal day-by-day structure (if we have it)
+        for day_num, day_route in daily_routes.items():
+            day_stops = day_route.get('stops', [])
+            print(f"  📅 Day {day_num}: {len(day_stops)} stops")
+                
+        for day_num, day_route in daily_routes.items():
+            day_stops = day_route.get('stops', [])
+            print(f"  📅 Day {day_num}: {len(day_stops)} stops")
+            
+            # Add markers for regular stops
+            for i, stop in enumerate(day_stops):
+                if stop.get('is_overnight', False):
+                    continue  # Handle overnight stops separately
+                
+                # Handle different stop formats
+                stop_id = stop.get('location_id', stop.get('id', stop.get('location', f'stop_{i}')))
+                
+                # Find location in scenario
+                location = None
+                for loc_id, loc in scenario.locations.items():
+                    if str(loc_id) == str(stop_id):
+                        location = loc
+                        break
+                
+                if location:
+                    lat = getattr(location, 'lat', None) or getattr(location, 'latitude', None)
+                    lon = getattr(location, 'lon', None) or getattr(location, 'longitude', None)
+                    
+                    if lat is not None and lon is not None:
+                        # Determine marker type and icon
+                        if 'depot' in str(stop_id).lower():
+                            if 'bay' in str(stop_id).lower():
+                                icon_type = 'cube'
+                                marker_color = 'orange'
+                                location_type = '📦 Depot Bay'
+                            else:
+                                icon_type = 'home'
+                                marker_color = 'red'
+                                location_type = '🏭 Depot'
+                        elif 'pickup' in str(stop_id).lower():
+                            icon_type = 'arrow-up'
+                            marker_color = 'green'
+                            location_type = '📤 Pickup'
+                        else:
+                            icon_type = 'map-marker'
+                            marker_color = color
+                            location_type = '📍 Delivery'
+                        
+                        # Get service time information
+                        arrival_time = stop.get('arrival_time', 'N/A')
+                        service_time = stop.get('service_time', getattr(location, 'service_time', 15))
+                        departure_time = stop.get('departure_time', 'N/A')
+                        
+                        # Format times if they're numeric (minutes)
+                        if isinstance(arrival_time, (int, float)):
+                            hours = int(arrival_time // 60)
+                            mins = int(arrival_time % 60)
+                            arrival_time = f"{hours:02d}:{mins:02d}"
+                        
+                        if isinstance(departure_time, (int, float)):
+                            hours = int(departure_time // 60)
+                            mins = int(departure_time % 60)
+                            departure_time = f"{hours:02d}:{mins:02d}"
+                        
+                        # Create popup with detailed information
+                        popup_text = f"""
+                        <b>{location_type}: {stop_id}</b><br>
+                        <b>Vehicle:</b> {vehicle_id}<br>
+                        <b>Day:</b> {day_num}<br>
+                        <b>Stop #:</b> {i + 1}<br>
+                        <b>Address:</b> {getattr(location, 'address', getattr(location, 'name', 'N/A'))}<br>
+                        <b>Arrival:</b> {arrival_time}<br>
+                        <b>Service Time:</b> {service_time} min<br>
+                        <b>Departure:</b> {departure_time}<br>
+                        <b>Coordinates:</b> ({lat:.4f}, {lon:.4f})
+                        """
+                        
+                        folium.Marker(
+                            location=[lat, lon],
+                            popup=folium.Popup(popup_text, max_width=300),
+                            tooltip=f"{location_type}: {stop_id} (Day {day_num})",
+                            icon=folium.Icon(color=marker_color, icon=icon_type, prefix='fa')
+                        ).add_to(m)
+                        
+                        markers_added += 1
+                        print(f"    ✅ Added marker for {stop_id} at ({lat:.4f}, {lon:.4f})")
+                        
+                        if not 'depot' in str(stop_id).lower():
+                            route_info[vehicle_id]['customers_served'] += 1
+                else:
+                    print(f"    ❌ Location not found for stop: {stop_id}")
+            
+            # Add overnight stop if exists
+            if day_route.get('overnight_location') or day_route.get('overnight_position'):
+                overnight_pos = day_route.get('overnight_position')
+                overnight_loc = day_route.get('overnight_location')
+                
+                if overnight_pos:
+                    if isinstance(overnight_pos, tuple) and len(overnight_pos) == 2:
+                        lat, lon = overnight_pos
+                    elif isinstance(overnight_pos, dict):
+                        lat, lon = overnight_pos.get('x', 0), overnight_pos.get('y', 0)
+                    else:
+                        continue
+                    
+                    # Create overnight marker
+                    popup_text = f"""
+                    <b>🛏️ Overnight Stop</b><br>
+                    <b>Vehicle:</b> {vehicle_id}<br>
+                    <b>Day:</b> {day_num}<br>
+                    <b>Type:</b> Road overnight<br>
+                    <b>Coordinates:</b> ({lat:.4f}, {lon:.4f})<br>
+                    <b>Distance from depot:</b> {((lat - depot_coords[0])**2 + (lon - depot_coords[1])**2)**0.5:.2f} km
+                    """
+                    
+                    folium.Marker(
+                        location=[lat, lon],
+                        popup=folium.Popup(popup_text, max_width=300),
+                        tooltip=f"Overnight: {vehicle_id} (Day {day_num})",
+                        icon=folium.Icon(color='darkblue', icon='bed', prefix='fa')
+                    ).add_to(m)
+                    
+                    markers_added += 1
+                    route_info[vehicle_id]['overnight_stays'] += 1
+                    print(f"    🛏️ Added overnight marker at ({lat:.4f}, {lon:.4f})")
+            
+            # Add route lines for this day with OSRM-based routing
+            if len(day_stops) > 1:
+                route_coords = []
+                for stop in day_stops:
+                    if stop.get('is_overnight', False):
+                        continue
+                    
+                    stop_id = stop.get('location_id', stop.get('id', stop.get('location')))
+                    location = None
+                    for loc_id, loc in scenario.locations.items():
+                        if str(loc_id) == str(stop_id):
+                            location = loc
+                            break
+                    
+                    if location:
+                        lat = getattr(location, 'lat', None) or getattr(location, 'latitude', None)
+                        lon = getattr(location, 'lon', None) or getattr(location, 'longitude', None)
+                        if lat is not None and lon is not None:
+                            route_coords.append([lat, lon])
+                
+                # Draw OSRM-based route lines between consecutive stops
+                if len(route_coords) > 1:
+                    print(f"  🗺️ Drawing OSRM routes for {vehicle_id} - Day {day_num} ({len(route_coords)} stops)")
+                    
+                    # Get OSRM routes between consecutive stops
+                    all_route_coords = []
+                    
+                    for i in range(len(route_coords) - 1):
+                        start_coord = route_coords[i]
+                        end_coord = route_coords[i + 1]
+                        
+                        # Get street-following route from OSRM
+                        street_route = get_street_route(start_coord, end_coord)
+                        
+                        # Add this segment to the full route (avoid duplicating points)
+                        if i == 0:
+                            all_route_coords.extend(street_route)
+                        else:
+                            # Skip the first point to avoid duplication
+                            all_route_coords.extend(street_route[1:])
+                    
+                    # Draw the complete route with OSRM-based paths
+                    if len(all_route_coords) > 1:
+                        folium.PolyLine(
+                            locations=all_route_coords,
+                            color=color,
+                            weight=4,
+                            opacity=0.8,
+                            popup=f"{vehicle_id} - Day {day_num} (OSRM Routes)"
+                        ).add_to(m)
+                        print(f"    ✅ Added OSRM route with {len(all_route_coords)} points")
+                    else:
+                        # Fallback to simple line if OSRM fails completely
+                        folium.PolyLine(
+                            locations=route_coords,
+                            color=color,
+                            weight=4,
+                            opacity=0.8,
+                            popup=f"{vehicle_id} - Day {day_num} (Direct Routes)"
+                        ).add_to(m)
+                        print(f"    ⚠️ Used direct routes as fallback")
+    
+    print(f"✅ Added {markers_added} markers to the map")
+    
+    # Create legend
+    legend_html = f'''
+    <div style="position: fixed; 
+                bottom: 50px; left: 50px; width: 350px; height: auto; max-height: 400px;
+                background-color: white; border:2px solid grey; z-index:9999; 
+                font-size:12px; padding: 10px;
+                box-shadow: 0 0 15px rgba(0,0,0,0.2);
+                border-radius: 5px;
+                overflow-y: auto;">
+    <h4 style="margin-top:0; margin-bottom:10px;">VRP Solution - {len(route_info)} Vehicles</h4>
+    <div style="max-height: 300px; overflow-y: auto;">
+    '''
+    
+    # Add vehicle information to legend
+    for vehicle_id, info in route_info.items():
+        legend_html += f'''
+        <div style="margin-bottom: 8px; padding: 5px; border-left: 4px solid {info['color']}; background-color: #f9f9f9;">
+            <b>{vehicle_id}</b><br>
+            <span style="font-size: 11px;">
+                📍 {info['customers_served']} customers<br>
+                🛏️ {info['overnight_stays']} overnight stays<br>
+            </span>
+        </div>
+        '''
+    
+    legend_html += '''
+    </div>
+    <hr style="margin: 10px 0;">
+    <div style="font-size: 11px;">
+        <b>Legend:</b><br>
+        🏭 Red: Main Depot<br>
+        📦 Orange: Depot Bays<br>
+        📤 Green: Pickup Points<br>
+        📍 Colored: Deliveries<br>
+        🛏️ Dark Blue: Overnight<br>
+        <br>
+        <b>Route Lines:</b><br>
+        Colored lines show vehicle routes<br>
+        using OSRM street routing<br>
+    </div>
+    </div>
+    '''
+    
+    # Add layer control and legend
+    folium.LayerControl().add_to(m)
+    m.get_root().html.add_child(folium.Element(legend_html))
+    
+    # Add title
+    title_html = f'''
+    <h3 align="center" style="font-size:16px"><b>Sequential Multi-Day VRP Solution</b></h3>
+    <p align="center" style="font-size:12px">MODA Furgoni Scenario - {len(route_info)} Active Vehicles - 7 Days Max</p>
+    '''
+    m.get_root().html.add_child(folium.Element(title_html))
+    
+    # Save the map
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    html_filename = f"vrp_interactive_map_{timestamp}.html"
+    html_path = os.path.join(os.path.dirname(__file__), html_filename)
+    
+    m.save(html_path)
+    print(f"📊 Map saved with {markers_added} markers and {len(route_info)} vehicle routes")
+    
+    return html_path
 
 def test_overnight_scenario_comparison():
     """Compare both optimizers on the overnight test scenario."""
