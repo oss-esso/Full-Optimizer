@@ -273,46 +273,62 @@ def test_single_constraint_level():
         print(f"❌ OSM optimizer error: {e}")
 
 def test_overnight_node_creation():
-    """Test the sequential multi-day VRP optimizer with overnight nodes.
+    """Test the sequential multi-day VRP optimizer on the realistic MODA furgoni scenario.
     
-    This tests that the sequential multi-day VRP solver correctly adds overnight nodes:
-    1. On the way from the depot to distant locations (like Malmö)
-    2. On the way back from distant locations to the depot
+    This tests the sequential multi-day VRP solver on a complex, realistic scenario with:
+    - Multiple vehicles with different capacities
+    - Real pickup and delivery requests
+    - Realistic time constraints and routing
+    - Multi-day planning when daily limits are exceeded
     
-    Both scenarios should create overnight nodes when the daily time limit is reached,
-    ensuring realistic multi-day planning with proper rest periods.
+    The solver should create overnight nodes when needed and ensure all vehicles return to depot.
     """
     print("\n" + "="*80)
-    print("🌙 Testing Sequential Multi-Day VRP with Overnight Nodes (Both Directions)")
+    print("🚛 Testing Sequential Multi-Day VRP on MODA Furgoni Scenario")
     print("="*80)
     
     try:
         import sys
         import os
         import importlib.util
-        from vrp_scenarios import create_overnight_test_scenario
+        from vrp_scenarios import create_furgoni_scenario
         
-        print("📦 Using overnight test scenario for multiday test")
+        print("📦 Using MODA furgoni scenario for multiday test")
     except ImportError as e:
         print(f"❌ Error importing required modules: {e}")
         return
     
     # Create the test scenario
-    print("\n📦 Creating overnight test scenario...")
-    scenario = create_overnight_test_scenario()
+    print("\n📦 Creating MODA furgoni scenario...")
+    scenario = create_furgoni_scenario()
     
-    # Check if Malmö is in the scenario locations
-    has_malmo = False
+    # Analyze the scenario
+    print(f"\n📊 Furgoni Scenario Analysis:")
+    print(f"  - Total locations: {len(scenario.locations)}")
+    print(f"  - Total vehicles: {len(scenario.vehicles)}")
+    print(f"  - Total requests: {len(scenario.ride_requests)}")
+    
+    # Show some key locations
+    depot_found = False
+    pickup_locations = []
+    delivery_locations = []
+    
     for loc_id, loc in scenario.locations.items():
-        if 'malmö' in str(loc_id).lower() or 'malmo' in str(loc_id).lower():
-            has_malmo = True
-            malmo_location = loc
-            print(f"✅ Found Malmö in scenario locations: {loc_id}")
-            print(f"    Position: ({loc.x}, {loc.y})")
-            print(f"    Address: {getattr(loc, 'address', 'Not available')}")
-            
-    if not has_malmo:
-        print("❌ Malmö not found in scenario locations. Cannot test overnight nodes.")
+        if 'depot' in str(loc_id).lower():
+            depot_found = True
+            print(f"  ✅ Depot found: {loc_id} at ({loc.x}, {loc.y})")
+            if hasattr(loc, 'address'):
+                print(f"      Address: {loc.address}")
+        elif any(keyword in str(loc_id).lower() for keyword in ['pickup', 'via', 'source']):
+            pickup_locations.append(loc_id)
+        else:
+            delivery_locations.append(loc_id)
+    
+    print(f"  - Pickup locations: {len(pickup_locations)}")
+    print(f"  - Delivery locations: {len(delivery_locations)}")
+    
+    if not depot_found:
+        print("❌ No depot found in scenario locations.")
         print("Available locations:")
         for loc_id, loc in scenario.locations.items():
             print(f" - Location ID: {loc_id}")
@@ -377,7 +393,7 @@ def test_overnight_node_creation():
         
         # Solve the multi-day problem
         print("\n🚀 Solving sequential multi-day VRP...")
-        solution = sequential_vrp.solve_sequential_multiday(max_days=3)
+        solution = sequential_vrp.solve_sequential_multiday(max_days=7)
         
         if solution:
             print("\n✅ Sequential Multi-Day VRP solution found!")
@@ -397,31 +413,20 @@ def test_overnight_node_creation():
             
             print(f"\n📊 Total overnight stays: {total_overnight_stays}")
             
-            # Check if there are overnight nodes between depot and Malmö
-            print("\n📊 Analyzing overnight nodes between depot and Malmö:")
+            # Analyze overnight positions in the solution
+            print("\n📊 Analyzing overnight positions and route patterns:")
             
-            # Get depot and Malmö coordinates
+            # Get depot coordinates
             depot_coords = None
-            malmo_coords = None
             for loc_id, loc in scenario.locations.items():
-                if loc_id == 'depot':
+                if 'depot' in loc_id.lower():
                     depot_coords = (loc.x, loc.y)
                     print(f"  - Depot coordinates: {depot_coords}")
-                elif 'malmo' in loc_id.lower():
-                    malmo_coords = (loc.x, loc.y)
-                    print(f"  - Malmö coordinates: {malmo_coords}")
+                    break
             
-            if depot_coords and malmo_coords:
-                # Calculate a bounding box between depot and Malmö with some margin
-                min_x = min(depot_coords[0], malmo_coords[0]) - 1
-                max_x = max(depot_coords[0], malmo_coords[0]) + 1
-                min_y = min(depot_coords[1], malmo_coords[1]) - 1
-                max_y = max(depot_coords[1], malmo_coords[1]) + 1
-                
-                print(f"  - Route bounding box: ({min_x}, {min_y}) to ({max_x}, {max_y})")
-                
-                # Check overnight locations against this bounding box
-                depot_to_malmo_overnights = 0
+            if depot_coords:
+                # Analyze all overnight positions
+                all_overnight_positions = 0
                 overnight_positions = []
                 
                 # Extract overnight positions from the solution
@@ -461,38 +466,42 @@ def test_overnight_node_creation():
                                 x, y = stop['coordinates']
                                 overnight_positions.append((day_num, vehicle_id, x, y))
                 
-                # Check if any overnight positions fall within the bounding box
+                # Check if any overnight positions exist
                 print("\n🛏️ Overnight positions found:")
                 for day, vehicle_id, x, y in overnight_positions:
-                    in_bounding_box = (min_x <= x <= max_x and min_y <= y <= max_y)
-                    box_status = "✅ In route corridor" if in_bounding_box else "❌ Outside route corridor"
-                    
-                    # Calculate progress towards Malmö
-                    if depot_coords and malmo_coords:
-                        total_distance = ((malmo_coords[0] - depot_coords[0])**2 + 
-                                         (malmo_coords[1] - depot_coords[1])**2)**0.5
-                        overnight_distance = ((x - depot_coords[0])**2 + 
+                    # Calculate distance from depot
+                    if depot_coords:
+                        distance_from_depot = ((x - depot_coords[0])**2 + 
                                              (y - depot_coords[1])**2)**0.5
-                        progress = (overnight_distance / total_distance) * 100 if total_distance > 0 else 0
                         
-                        # Check if this position is between depot and Malmö
-                        if in_bounding_box:
-                            depot_to_malmo_overnights += 1
-                            
+                        all_overnight_positions += 1
                         print(f"  • Day {day}, {vehicle_id}: ({x:.4f}, {y:.4f})")
-                        print(f"    {box_status}, Progress to Malmö: {progress:.1f}%")
+                        print(f"    Distance from depot: {distance_from_depot:.2f} km")
                 
-                print(f"\n📊 Found {depot_to_malmo_overnights} overnight nodes in route corridor between depot and Malmö")
+                print(f"\n📊 Found {all_overnight_positions} overnight positions across all days")
             else:
-                print("❌ Could not perform route analysis: missing coordinates for depot or Malmö")
+                print("❌ Could not perform route analysis: missing depot coordinates")
                 
             # Plot the solution
             try:
                 plot_filename = sequential_vrp.plot_sequential_solution(solution, 
-                                                               "Sequential Multi-Day VRP - Overnight Test Scenario")
+                                                               "Sequential Multi-Day VRP - MODA Furgoni Scenario")
                 print(f"\n📊 Solution plotted and saved as: {plot_filename}")
             except Exception as plot_error:
                 print(f"❌ Error plotting solution: {plot_error}")
+            
+            # Create interactive HTML map visualization
+            try:
+                print("\n🗺️ Creating interactive HTML map visualization...")
+                html_map_path = create_interactive_vrp_map(scenario, solution, sequential_vrp)
+                if html_map_path:
+                    print(f"📊 Interactive map saved as: {html_map_path}")
+                else:
+                    print("❌ Could not create interactive map")
+            except Exception as map_error:
+                print(f"❌ Error creating interactive map: {map_error}")
+                import traceback
+                traceback.print_exc()
                 
             return solution
         else:

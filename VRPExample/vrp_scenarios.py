@@ -1234,6 +1234,7 @@ def create_overnight_test_scenario() -> VRPInstance:
     vehicles_data = {
         "FURGONE_1": 3500,  # Standard truck
         "FURGONE_2": 3500,  # Standard truck
+        "FURGONE_3": 3500,  # Standard truck
     }
     
     # Add vehicles to the scenario with proper attributes (matching furgoni format)
@@ -1257,6 +1258,7 @@ def create_overnight_test_scenario() -> VRPInstance:
     locations_data = [
         ("cormano_mi", "via dell'Artigianato 1, 20032 Cormano MI, Italy", 9.1667, 45.5333, 0, 1440, 30, False),  # Close destination
         ("malmo_sweden", "Malmö, Sweden - Menarini Diagnostics", 13.0038, 55.6050, 0, 1440, 30, False),  # Far destination - commented out for testing
+        ("castelfidardo", "via Jesina 27/P 60022 Castelfidardo", 13.5500, 43.4667, 0, 1440, 15, True)
     ]
     
     # Add all locations with proper attributes (matching furgoni format)
@@ -1282,6 +1284,12 @@ def create_overnight_test_scenario() -> VRPInstance:
          ("malmo_sweden", 1500),  # Temporarily commented out for testing
     ]
     
+    pickup_cargo = [
+        # FURGONE 8 pickups
+        ("castelfidardo", 550),
+    ]
+
+
     # Create depot bays for delivery cargo (following furgoni/MODA pattern)
     depot_requests = []
     request_id = 1
@@ -1316,6 +1324,27 @@ def create_overnight_test_scenario() -> VRPInstance:
 
     # No pickup requests in this simplified overnight test scenario
     pickup_requests = []
+    pickup_bay_counter = 1
+    for pickup_id, cargo_weight in pickup_cargo:
+        # Create a unique depot bay for each pickup
+        pickup_bay_id = f"pickup_bay_{pickup_bay_counter}"
+        pickup_bay = Location(
+            pickup_bay_id,
+            depot_location.x,
+            depot_location.y,
+            demand=0,
+            service_time=5
+        )
+        pickup_bay.lat = depot_location.lat
+        pickup_bay.lon = depot_location.lon
+        pickup_bay.address = f"Depot Pickup Bay {pickup_bay_counter}"
+        instance.add_location(pickup_bay)
+        # Create request from pickup location to unique depot bay
+        pickup_request = RideRequest(f"pickup_request_{request_id}", pickup_id, pickup_bay_id, passengers=cargo_weight)
+        instance.add_ride_request(pickup_request)
+        pickup_requests.append(pickup_request)
+        request_id += 1
+        pickup_bay_counter += 1    
     
     # === CALCULATE DISTANCES ===
     
