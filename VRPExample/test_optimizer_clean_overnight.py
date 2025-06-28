@@ -963,19 +963,54 @@ def test_overnight_node_creation():
     # Convert vehicles to format needed for SequentialMultiDayVRP
     vehicles = []
     for v_id, v in scenario.vehicles.items():
+        # Determine truck speed ratios based on vehicle type
+        vehicle_id_str = str(v_id).lower()
+        if 'camion' in vehicle_id_str or '16_t' in vehicle_id_str or '75_t' in vehicle_id_str:
+            # Heavy trucks (camion) use heavy speed ratios
+            from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
+            truck_speed_ratios = DEFAULT_TRUCK_SPEED_RATIOS['heavy']
+            vehicle_type = 'camion'
+        else:
+            # Light trucks (furgoni) use standard speed ratios
+            from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
+            truck_speed_ratios = DEFAULT_TRUCK_SPEED_RATIOS['standard']
+            vehicle_type = 'furgone'
+        
         vehicle = {
             'id': str(v_id),
             'capacity': v.capacity,
             'volume_capacity': getattr(v, 'volume_capacity', v.capacity * 0.001),
             'cost_per_km': getattr(v, 'cost_per_km', 1.0),
             'max_daily_km': getattr(v, 'max_daily_km', 600),
-            'max_time': getattr(v, 'max_time', 24 * 60)  # Make sure max_time is included
+            'max_time': getattr(v, 'max_time', 24 * 60),  # Make sure max_time is included
+            'truck_speed_ratios': truck_speed_ratios,
+            'type': vehicle_type
         }
         vehicles.append(vehicle)
     
     print(f"\n📊 Converted Data for Sequential Multi-Day VRP:")
     print(f"  - Locations: {len(locations)}")
     print(f"  - Vehicles: {len(vehicles)}")
+    
+    # Show vehicle types and speed ratios
+    print(f"\n🚛 Vehicle Fleet Composition:")
+    furgoni_count = sum(1 for v in vehicles if v['type'] == 'furgone')
+    camion_count = sum(1 for v in vehicles if v['type'] == 'camion')
+    print(f"  - Furgoni (light trucks): {furgoni_count}")
+    print(f"  - Camion (heavy trucks): {camion_count}")
+    
+    for vehicle in vehicles:
+        print(f"  - {vehicle['id']} ({vehicle['type']}): {vehicle['capacity']}kg capacity")
+        if vehicle['type'] == 'camion':
+            print(f"    Using heavy truck speed ratios: {vehicle['truck_speed_ratios']}")
+        else:
+            print(f"    Using standard truck speed ratios: {vehicle['truck_speed_ratios']}")
+    
+    # Show speed ratio comparison
+    print(f"\n🚗 Speed Ratio Comparison:")
+    from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
+    print(f"  Standard (furgoni): {DEFAULT_TRUCK_SPEED_RATIOS['standard']}")
+    print(f"  Heavy (camion): {DEFAULT_TRUCK_SPEED_RATIOS['heavy']}")
     
     # Import and run the sequential multi-day VRP solver
     try:
@@ -987,8 +1022,63 @@ def test_overnight_node_creation():
         
         print("\n📋 Testing Sequential Multi-Day VRP with overnight nodes...")
         
-        # Create sequential VRP solver
-        sequential_vrp = vrp_multiday.SequentialMultiDayVRP(vehicles, locations)
+        # Create sequential VRP solver with mixed fleet support and database caching
+        db_path = "test_moda_furgoni_routes.db"
+        print(f"  - Using route database: {db_path}")
+        sequential_vrp = vrp_multiday.SequentialMultiDayVRP(vehicles, locations, use_truck_speeds=True, db_path=db_path)
+        
+        # Show database stats after initialization
+        if hasattr(sequential_vrp, 'distance_calculator') and hasattr(sequential_vrp.distance_calculator, 'get_cache_stats'):
+            cache_stats = sequential_vrp.distance_calculator.get_cache_stats()
+            print(f"  - Route database initialized with {cache_stats['total_routes']} cached routes")
+            print(f"  - Database size: {cache_stats['database_size_mb']:.2f} MB")
+        
+        # Demonstrate different travel times for different truck types
+        print(f"\n🚛 Travel Time Examples for Different Truck Types:")
+        print(f"  - Showing how speed ratios affect travel times between sample locations")
+        
+        # Find some example locations to demonstrate
+        sample_locations = []
+        for i, location in enumerate(locations[:5]):  # Take first 5 locations
+            sample_locations.append((i, location))
+        
+        if len(sample_locations) >= 2:
+            # Pick two locations for comparison
+            loc1_idx, loc1 = sample_locations[0]
+            loc2_idx, loc2 = sample_locations[1] if len(sample_locations) > 1 else sample_locations[0]
+            
+            print(f"  📍 Route example: {loc1['id']} → {loc2['id']}")
+            
+            # Get distance first (same for all vehicles)
+            if hasattr(sequential_vrp, 'distance_calculator'):
+                try:
+                    distance = sequential_vrp.distance_calculator.distance_matrix[loc1_idx][loc2_idx]
+                    print(f"     Distance: {distance:.1f}km")
+                    
+                    # Show travel time for each vehicle type
+                    furgone_vehicles = [v for v in vehicles if v['type'] == 'furgone']
+                    camion_vehicles = [v for v in vehicles if v['type'] == 'camion']
+                    
+                    if furgone_vehicles:
+                        furgone_time = sequential_vrp.get_vehicle_travel_time(loc1_idx, loc2_idx, furgone_vehicles[0]['id'])
+                        furgone_speed = distance / (furgone_time / 60) if furgone_time > 0 else 0
+                        print(f"     🚐 Furgone time: {furgone_time:.1f}min (avg {furgone_speed:.1f}km/h)")
+                    
+                    if camion_vehicles:
+                        camion_time = sequential_vrp.get_vehicle_travel_time(loc1_idx, loc2_idx, camion_vehicles[0]['id'])
+                        camion_speed = distance / (camion_time / 60) if camion_time > 0 else 0
+                        print(f"     🚛 Camion time: {camion_time:.1f}min (avg {camion_speed:.1f}km/h)")
+                        
+                        # Show the difference
+                        if furgone_vehicles and camion_time > 0 and furgone_time > 0:
+                            time_diff = camion_time - furgone_time
+                            pct_diff = (time_diff / furgone_time) * 100
+                            print(f"     ⚡ Camion is {time_diff:.1f}min slower ({pct_diff:+.1f}%)")
+                    
+                except Exception as e:
+                    print(f"     ⚠️ Could not calculate travel time example: {e}")
+        else:
+            print(f"     ⚠️ Not enough locations for travel time demonstration")
         
         # Use max_time from scenario vehicles instead of hardcoding
         # Get max_time from the first vehicle (assuming all vehicles use the same max_time)

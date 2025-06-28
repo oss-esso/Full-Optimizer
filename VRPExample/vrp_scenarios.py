@@ -5,23 +5,23 @@ from vrp_data_models import VRPInstance, Location, Vehicle, RideRequest
 # Default truck speed profiles for different vehicle types
 DEFAULT_TRUCK_SPEED_RATIOS = {
     'standard': {
-        'motorway': 80 / 130,      # Light trucks: 80 km/h, Cars: ~130 km/h
-        'trunk': 70 / 100,         # Light trucks: 70 km/h, Cars: ~100 km/h
-        'primary': 60 / 90,        # Light trucks: 60 km/h, Cars: ~90 km/h
-        'secondary': 50 / 70,      # Light trucks: 50 km/h, Cars: ~70 km/h
-        'tertiary': 45 / 60,       # Light trucks: 45 km/h, Cars: ~60 km/h
-        'residential': 30 / 50,    # Light trucks: 30 km/h, Cars: ~50 km/h
+        'motorway': 130 / 130,      # Light trucks: 80 km/h, Cars: ~130 km/h
+        'trunk': 100 / 100,         # Light trucks: 70 km/h, Cars: ~100 km/h
+        'primary': 90 / 90,        # Light trucks: 60 km/h, Cars: ~90 km/h
+        'secondary': 70 / 70,      # Light trucks: 50 km/h, Cars: ~70 km/h
+        'tertiary': 60 / 60,       # Light trucks: 45 km/h, Cars: ~60 km/h
+        'residential': 40 / 50,    # Light trucks: 30 km/h, Cars: ~50 km/h
         'service': 25 / 30,        # Light trucks: 25 km/h, Cars: ~30 km/h
         'default': 0.80            # Light trucks ~20% slower than cars
     },
     'heavy': {
-        'motorway': 70 / 130,      # Heavy trucks: 70 km/h, Cars: ~130 km/h
-        'trunk': 60 / 100,         # Heavy trucks: 60 km/h, Cars: ~100 km/h
-        'primary': 50 / 90,        # Heavy trucks: 50 km/h, Cars: ~90 km/h
-        'secondary': 40 / 70,      # Heavy trucks: 40 km/h, Cars: ~70 km/h
-        'tertiary': 35 / 60,       # Heavy trucks: 35 km/h, Cars: ~60 km/h
+        'motorway': 90 / 130,      # Heavy trucks: 70 km/h, Cars: ~130 km/h
+        'trunk': 80 / 100,         # Heavy trucks: 60 km/h, Cars: ~100 km/h
+        'primary': 70 / 90,        # Heavy trucks: 50 km/h, Cars: ~90 km/h
+        'secondary': 70 / 70,      # Heavy trucks: 40 km/h, Cars: ~70 km/h
+        'tertiary': 60 / 60,       # Heavy trucks: 35 km/h, Cars: ~60 km/h
         'residential': 25 / 50,    # Heavy trucks: 25 km/h, Cars: ~50 km/h
-        'service': 20 / 30,        # Heavy trucks: 20 km/h, Cars: ~30 km/h
+        'service': 15 / 30,        # Heavy trucks: 20 km/h, Cars: ~30 km/h
         'default': 0.65            # Heavy trucks ~35% slower than cars
     }
 }

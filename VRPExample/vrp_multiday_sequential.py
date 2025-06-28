@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """
-Sequential Multi-Day VRP Implementation
-======================================
+Sequential Multi-Day VRP Implementation with Cached OSRM Routing
+==============================================================
 
-This implements a day-by-day approach to multi-day VRP:
+This implements a day-by-day approach to multi-day VRP with realistic OSRM routing:
 1. Generate overnight nodes for current day
-2. Solve optimization for current day only
+2. Solve optimization for current day only using cached OSRM routes
 3. Keep only overnight locations reached
 4. Use overnight locations as starting points for next day
 5. Repeat until all days are solved
+
+Features:
+- Cached OSRM routing with persistent SQLite database
+- Truck speed adjustments based on road composition
+- Realistic travel times and distances
+- Database grows over time for faster subsequent runs
 
 This approach scales much better for weekly scenarios and is more realistic.
 """
@@ -23,26 +29,53 @@ import importlib.util
 import matplotlib.pyplot as plt
 import numpy as np
 import copy
+import logging
+from typing import Dict, List, Tuple, Optional
 from datetime import datetime
 
-# Import the distance calculator from the original file
-spec = importlib.util.spec_from_file_location("vrp_original", 
-                                              os.path.join(os.path.dirname(__file__), "vrp_optimizer_clean_copy.py"))
-vrp_original = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(vrp_original)
-OSMDistanceCalculator = vrp_original.OSMDistanceCalculator
+# Import the cached OSRM calculator and truck speed profiles
+from route_database import CachedOSRMDistanceCalculator, RouteDatabase
+from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
 
 class SequentialMultiDayVRP:
     """
-    Sequential Multi-Day VRP that solves day by day.
+    Sequential Multi-Day VRP that solves day by day with cached OSRM routing.
+    
+    Features:
+    - Uses cached OSRM routing with persistent SQLite database
+    - Applies truck speed adjustments based on road composition
+    - Builds comprehensive route database over time
     """
     
-    def __init__(self, vehicles, locations):
+    def __init__(self, vehicles, locations, use_truck_speeds=True, db_path="vrp_routes_cache.db"):
         self.vehicles = vehicles
         self.locations = locations
+        self.use_truck_speeds = use_truck_speeds
         
-        # Initialize distance calculator
-        self.distance_calculator = OSMDistanceCalculator(self.locations)
+        # Store vehicle-specific truck speed ratios
+        self.vehicle_speed_ratios = {}
+        for vehicle in vehicles:
+            vehicle_id = vehicle['id']
+            if hasattr(vehicle, 'truck_speed_ratios') or 'truck_speed_ratios' in vehicle:
+                speed_ratios = getattr(vehicle, 'truck_speed_ratios', 
+                                     vehicle.get('truck_speed_ratios'))
+                self.vehicle_speed_ratios[vehicle_id] = speed_ratios
+                vehicle_type = vehicle.get('vehicle_type', 'unknown')
+                print(f"  🚛 {vehicle_id} ({vehicle_type}): Using specific truck speed ratios")
+            else:
+                self.vehicle_speed_ratios[vehicle_id] = DEFAULT_TRUCK_SPEED_RATIOS['standard']
+                print(f"  🚛 {vehicle_id}: Using default standard truck speed ratios")
+        
+        # Initialize cached OSRM distance calculator without speed adjustments
+        # We'll apply vehicle-specific speed adjustments on-demand
+        print(f"🚛 Initializing cached OSRM routing with mixed vehicle types: {use_truck_speeds}")
+        self.distance_calculator = CachedOSRMDistanceCalculator(
+            locations=self.locations,
+            truck_speed_ratios=None,  # Don't apply speed adjustments in matrix
+            use_truck_speeds=False,   # We'll handle this per-vehicle
+            use_road_composition=True,  # Always use road composition for realism
+            db_path=db_path
+        )
         
         self.daily_time_limit_minutes = 480  # 8 hours per day
         
@@ -135,7 +168,8 @@ class SequentialMultiDayVRP:
         print("=" * 40)
         
         available_customers = [loc for i, loc in enumerate(day_locations) if i > 0 and not loc.get('is_overnight_node', False)]
-        unvisited = list(range(len(available_customers)))
+        all_customer_indices = set(range(len(available_customers)))  # Track all available customers
+        assigned_customers = set()  # Track globally assigned customers across all vehicles
         
         for vehicle_idx, vehicle in enumerate(active_vehicles):
             vehicle_id = vehicle['id']
@@ -171,76 +205,217 @@ class SequentialMultiDayVRP:
                 'arrival_time': current_time
             })
             
-            # Visit customers until time limit reached
-            customers_for_this_vehicle = unvisited[:len(unvisited)//len(active_vehicles) + (1 if vehicle_idx < len(unvisited)%len(active_vehicles) else 0)]
-            unvisited = unvisited[len(customers_for_this_vehicle):]
+            # Visit customers until time limit reached (greedy approach)
+            # Each vehicle considers all remaining unvisited customers
             
-            if not customers_for_this_vehicle:
-                print(f"    No customers assigned to {vehicle_id}")
+            # Calculate which customers this vehicle can consider (not yet assigned)
+            vehicle_available_customers = all_customer_indices - assigned_customers
+            
+            if not vehicle_available_customers:
+                print(f"    No customers remaining for {vehicle_id}")
                 # If started from overnight position, stay there; if from depot, stay at depot
                 if current_pos != 0:  # Not at depot
                     print(f"    Staying at current position (no customers to visit)")
                 else:
                     print(f"    {current_time:05.1f} - No work, staying at depot")
             else:
-                for customer_rel_idx in customers_for_this_vehicle:
-                    customer = available_customers[customer_rel_idx]
-                    customer_abs_idx = customer.get('original_customer_idx', customer_rel_idx + 1)
+                # Greedy assignment: keep taking customers until time/capacity constraints are hit
+                while vehicle_available_customers and vehicle_state['remaining_capacity'] > 0:
+                    # Find the best customer to visit next (for now, just take the first available)
+                    # Convert set to list for indexing, then sort for consistent behavior
+                    available_indices = sorted(list(vehicle_available_customers))
                     
-                    # Get current position coordinates
-                    if current_pos < len(self.locations):
-                        current_coords = (self.locations[current_pos]['x'], self.locations[current_pos]['y'])
-                    else:
-                        current_coords = (start_location['x'], start_location['y'])
-                    
-                    print(f"    📍 Currently at position {current_pos} {current_coords} (driving time so far: {current_time:.1f} min)")
-                    
-                    # Calculate travel time to this customer
-                    try:
-                        if current_pos < len(self.locations) and customer_abs_idx < len(self.locations):
-                            travel_time = self.distance_calculator.time_matrix[current_pos][customer_abs_idx]
-                            travel_distance = self.distance_calculator.distance_matrix[current_pos][customer_abs_idx]
+                    # Try each remaining customer until we find one we can visit
+                    customer_assigned = False
+                    for customer_rel_idx in available_indices:
+                        customer = available_customers[customer_rel_idx]
+                        customer_abs_idx = customer.get('original_customer_idx', customer_rel_idx + 1)
+                        
+                        # Check capacity constraint first
+                        if customer.get('demand', 0) > vehicle_state['remaining_capacity']:
+                            print(f"      ❌ {customer['id']} demand ({customer.get('demand', 0)}) exceeds vehicle capacity ({vehicle_state['remaining_capacity']})")
+                            continue  # Try next customer
+                        
+                        # Get current position coordinates
+                        if current_pos < len(self.locations):
+                            current_coords = (self.locations[current_pos]['x'], self.locations[current_pos]['y'])
                         else:
-                            # Fallback
-                            current_loc = self.locations[current_pos] if current_pos < len(self.locations) else start_location
-                            dx = current_loc['x'] - customer['x']
-                            dy = current_loc['y'] - customer['y']
-                            travel_distance = (dx**2 + dy**2)**0.5 * 100
-                            travel_time = travel_distance * 1.5
-                    except:
-                        travel_time = 60  # Default fallback
-                        travel_distance = 40
-                    
-                    service_time = customer.get('service_time', 0)
-                    total_stop_time = travel_time + service_time
-                    
-                    # Check if we can complete this stop and return to depot within time limit
-                    return_time = 0
-                    try:
-                        return_time = self.distance_calculator.time_matrix[customer_abs_idx][0]
-                    except:
-                        depot_coords = self.locations[0]
-                        dx = customer['x'] - depot_coords['x']
-                        dy = customer['y'] - depot_coords['y']
-                        return_distance = (dx**2 + dy**2)**0.5 * 100
-                        return_time = return_distance * 1.5
-                    
-                    projected_time_after_customer = current_time + total_stop_time
-                    projected_time_with_return = projected_time_after_customer + return_time
-                    
-                    print(f"      🔍 Evaluating customer {customer['id']}:")
-                    print(f"         Travel time to customer: {travel_time:.1f} min")
-                    print(f"         Service time: {service_time:.1f} min")
-                    print(f"         Return time to depot: {return_time:.1f} min")
-                    print(f"         Current driving time: {current_time:.1f} min")
-                    print(f"         Time after this customer: {projected_time_after_customer:.1f} min")
-                    print(f"         Time with return to depot: {projected_time_with_return:.1f} min")
-                    print(f"         Daily limit: {self.daily_time_limit_minutes} min")
-                    
-                    # First check: Can we reach the customer within the daily limit?
-                    if projected_time_after_customer > self.daily_time_limit_minutes:
-                        # Can't reach the customer - create overnight stop ON THE ROAD towards this customer
-                        print(f"      🚨 CAN'T REACH CUSTOMER! Creating overnight stop ON THE ROAD")
+                            current_coords = (start_location['x'], start_location['y'])
+                        
+                        print(f"    📍 Currently at position {current_pos} {current_coords} (driving time so far: {current_time:.1f} min)")
+                        
+                        # Calculate travel time to this customer
+                        try:
+                            if current_pos < len(self.locations) and customer_abs_idx < len(self.locations):
+                                travel_time = self.distance_calculator.time_matrix[current_pos][customer_abs_idx]
+                                travel_distance = self.distance_calculator.distance_matrix[current_pos][customer_abs_idx]
+                            else:
+                                # Fallback
+                                current_loc = self.locations[current_pos] if current_pos < len(self.locations) else start_location
+                                dx = current_loc['x'] - customer['x']
+                                dy = current_loc['y'] - customer['y']
+                                travel_distance = (dx**2 + dy**2)**0.5 * 100
+                                travel_time = travel_distance * 1.5
+                        except:
+                            travel_time = 60  # Default fallback
+                            travel_distance = 40
+                        
+                        service_time = customer.get('service_time', 0)
+                        total_stop_time = travel_time + service_time
+                        
+                        # Check if we can complete this stop and return to depot within time limit
+                        return_time = 0
+                        try:
+                            return_time = self.distance_calculator.time_matrix[customer_abs_idx][0]
+                        except:
+                            depot_coords = self.locations[0]
+                            dx = customer['x'] - depot_coords['x']
+                            dy = customer['y'] - depot_coords['y']
+                            return_distance = (dx**2 + dy**2)**0.5 * 100
+                            return_time = return_distance * 1.5
+                        
+                        projected_time_after_customer = current_time + total_stop_time
+                        projected_time_with_return = projected_time_after_customer + return_time
+                        
+                        print(f"      🔍 Evaluating customer {customer['id']}:")
+                        print(f"         Travel time to customer: {travel_time:.1f} min")
+                        print(f"         Service time: {service_time:.1f} min")
+                        print(f"         Return time to depot: {return_time:.1f} min")
+                        print(f"         Current driving time: {current_time:.1f} min")
+                        print(f"         Time after this customer: {projected_time_after_customer:.1f} min")
+                        print(f"         Time with return to depot: {projected_time_with_return:.1f} min")
+                        print(f"         Daily limit: {self.daily_time_limit_minutes} min")
+                        
+                        # First check: Can we reach the customer within the daily limit?
+                        if projected_time_after_customer > self.daily_time_limit_minutes:
+                            # Can't reach the customer - create overnight stop ON THE ROAD towards this customer
+                            print(f"      🚨 CAN'T REACH CUSTOMER! Creating overnight stop ON THE ROAD")
+                            
+                            # Calculate how much time we can use to travel towards this customer
+                            remaining_time = self.daily_time_limit_minutes - current_time
+                            print(f"         Remaining time available: {remaining_time:.1f} min")
+                            
+                            # Get current position coordinates
+                            if current_pos < len(self.locations):
+                                current_coords = (self.locations[current_pos]['x'], self.locations[current_pos]['y'])
+                            else:
+                                current_coords = (start_location['x'], start_location['y'])
+                            
+                            if remaining_time > 30:  # Only move if we have meaningful time left
+                                # Calculate how far we can travel towards the customer
+                                # Assume average speed for calculating position on route
+                                max_travel_time = remaining_time - 30  # Leave 30 min buffer for setup
+                                travel_ratio = min(max_travel_time / travel_time, 0.8) if travel_time > 0 else 0  # Max 80% of the way
+                                
+                                # Calculate intermediate position on the road to customer
+                                dx = customer['x'] - current_coords[0]
+                                dy = customer['y'] - current_coords[1]
+                                
+                                overnight_x = current_coords[0] + (dx * travel_ratio)
+                                overnight_y = current_coords[1] + (dy * travel_ratio)
+                                
+                                print(f"         Moving {travel_ratio:.1%} of the way towards {customer['id']}")
+                                print(f"         From: {current_coords}")
+                                print(f"         To overnight position: ({overnight_x:.1f}, {overnight_y:.1f})")
+                                
+                                # Update time and distance for partial travel
+                                partial_travel_time = max_travel_time
+                                partial_travel_distance = travel_distance * travel_ratio
+                                current_time += partial_travel_time
+                                route_distance += partial_travel_distance
+                                
+                                # Create temporary location for overnight position
+                                temp_overnight_idx = len(self.locations)  # Use next available index
+                                overnight_location = {
+                                    'id': f'road_overnight_{vehicle_id}_day{day_num}',
+                                    'x': overnight_x,
+                                    'y': overnight_y,
+                                    'demand': 0,
+                                    'is_overnight_node': True,
+                                    'is_road_position': True,
+                                    'target_customer': customer['id'],
+                                    'original_customer_idx': temp_overnight_idx
+                                }
+                                
+                                # Add this position to locations temporarily for next day
+                                self.locations.append(overnight_location)
+                                overnight_locations[vehicle_id] = temp_overnight_idx
+                                
+                            else:
+                                # Not enough time to move significantly, stay at current position
+                                print(f"         Not enough time to move significantly, staying at current position")
+                                overnight_x = current_coords[0]
+                                overnight_y = current_coords[1]
+                                
+                                overnight_location = {
+                                    'id': f'overnight_pos_{vehicle_id}_day{day_num}',
+                                    'x': overnight_x,
+                                    'y': overnight_y,
+                                    'demand': 0,
+                                    'is_overnight_node': True,
+                                    'original_customer_idx': current_pos
+                                }
+                                overnight_locations[vehicle_id] = current_pos
+                            
+                            print(f"         Would NOT visit {customer['id']} today")
+                            
+                            route_stops.append({
+                                'location_id': overnight_location['id'],
+                                'coordinates': (overnight_location['x'], overnight_location['y']),
+                                'is_overnight': True,
+                                'demand': 0,
+                                'original_customer_idx': overnight_locations[vehicle_id],
+                                'arrival_time': current_time
+                            })
+                            
+                            print(f"      🌙 {vehicle_id} stays overnight ON THE ROAD at ({overnight_location['x']:.1f}, {overnight_location['y']:.1f})")
+                            print(f"         Final driving time for day: {current_time:.1f} min")
+                            
+                            # Mark that we couldn't assign this customer but found overnight stop
+                            customer_assigned = True  # We did something (overnight stop)
+                            break  # Exit customer loop for this vehicle
+                            
+                        else:
+                            # We CAN reach the customer - visit them first
+                            current_time += total_stop_time
+                            route_distance += travel_distance
+                            total_demand += customer.get('demand', 0)
+                            current_pos = customer_abs_idx
+                            
+                            # Update vehicle capacity
+                            vehicle_state['remaining_capacity'] -= customer.get('demand', 0)
+                            
+                            # Remove customer from unvisited list
+                            # Mark customer as assigned globally 
+                            assigned_customers.add(customer_rel_idx)
+                            # Update vehicle available customers
+                            vehicle_available_customers = all_customer_indices - assigned_customers
+                            visited_customers.add(customer_abs_idx)
+                            
+                            route_stops.append({
+                                'location_id': customer['id'],
+                                'coordinates': (customer['x'], customer['y']),
+                                'is_overnight': False,
+                                'demand': customer.get('demand', 0),
+                                'original_customer_idx': customer_abs_idx,
+                                'arrival_time': current_time
+                            })
+                            
+                            print(f"      ✅ Visit {customer['id']} (demand: {customer.get('demand', 0)}) - driving time now: {current_time:.1f} min")
+                            print(f"         Position after visit: ({customer['x']:.1f}, {customer['y']:.1f})")
+                            
+                            # Mark that we successfully assigned this customer
+                            customer_assigned = True
+                            
+                            # Now check if we can return to depot or need overnight stop on the way back
+                            if projected_time_with_return > self.daily_time_limit_minutes:
+                                print(f"      🚨 CAN'T RETURN TO DEPOT! Will need overnight stop on return journey")
+                                # Stop processing more customers - we need to start return journey
+                                break
+                            else:
+                                print(f"      ✅ Can complete return trip to depot within time limit")
+                                # Continue to next customer (if any)
+                                break  # Move to next customer in the while loop
                         
                         # Calculate how much time we can use to travel towards this customer
                         remaining_time = self.daily_time_limit_minutes - current_time
@@ -322,6 +497,8 @@ class SequentialMultiDayVRP:
                         print(f"      🌙 {vehicle_id} stays overnight ON THE ROAD at ({overnight_location['x']:.1f}, {overnight_location['y']:.1f})")
                         print(f"         Final driving time for day: {current_time:.1f} min")
                         
+                        # Set flag to exit main while loop after overnight stop
+                        customer_assigned = True  # Mark that we did something (overnight stop)
                         break
                     else:
                         # We CAN reach the customer - visit them first
@@ -330,6 +507,13 @@ class SequentialMultiDayVRP:
                         total_demand += customer.get('demand', 0)
                         current_pos = customer_abs_idx
                         
+                        # Update vehicle capacity
+                        vehicle_state['remaining_capacity'] -= customer.get('demand', 0)
+                        
+                        # Mark customer as assigned globally
+                        assigned_customers.add(customer_rel_idx)
+                        # Update vehicle available customers
+                        vehicle_available_customers = all_customer_indices - assigned_customers
                         visited_customers.add(customer_abs_idx)
                         
                         route_stops.append({
@@ -344,6 +528,9 @@ class SequentialMultiDayVRP:
                         print(f"      ✅ Visit {customer['id']} (demand: {customer.get('demand', 0)}) - driving time now: {current_time:.1f} min")
                         print(f"         Position after visit: ({customer['x']:.1f}, {customer['y']:.1f})")
                         
+                        # Mark that we successfully assigned this customer
+                        customer_assigned = True
+                        
                         # Now check if we can return to depot or need overnight stop on the way back
                         if projected_time_with_return > self.daily_time_limit_minutes:
                             print(f"      🚨 CAN'T RETURN TO DEPOT! Will need overnight stop on return journey")
@@ -352,6 +539,17 @@ class SequentialMultiDayVRP:
                         else:
                             print(f"      ✅ Can complete return trip to depot within time limit")
                             # Continue to next customer (if any)
+                            break  # Move to next customer in the while loop
+                    
+                    # If we couldn't assign any customer, break out of the while loop
+                    if not customer_assigned:
+                        print(f"      ⚠️ No suitable customers remaining for {vehicle_id}")
+                        break
+                    
+                    # If an overnight stop was created, break out of the main while loop
+                    if vehicle_id in overnight_locations:
+                        print(f"      🌙 Overnight stop created for {vehicle_id}, ending day")
+                        break
             
             # Return to depot if no overnight stop
             if vehicle_id not in overnight_locations:
@@ -550,6 +748,82 @@ class SequentialMultiDayVRP:
             'overnight_locations': overnight_locations
         }
     
+    def get_vehicle_travel_time(self, from_idx, to_idx, vehicle_id):
+        """
+        Get travel time between two locations for a specific vehicle type.
+        Applies vehicle-specific speed ratios based on road composition.
+        
+        Args:
+            from_idx: Source location index
+            to_idx: Destination location index 
+            vehicle_id: Vehicle ID to get speed ratios for
+            
+        Returns:
+            Travel time in minutes
+        """
+        # Get base time from OSRM
+        base_time = self.distance_calculator.time_matrix[from_idx][to_idx]
+        
+        # If no road composition data or not using truck speeds, return base time
+        if not hasattr(self.distance_calculator, 'road_composition_matrix') or not self.use_truck_speeds:
+            return base_time
+        
+        # Get vehicle speed ratios
+        vehicle = next((v for v in self.vehicles if v['id'] == vehicle_id), None)
+        if not vehicle or 'truck_speed_ratios' not in vehicle:
+            return base_time
+        
+        # Apply vehicle-specific speed adjustment
+        speed_ratio = self._calculate_vehicle_weighted_ratio(from_idx, to_idx, vehicle_id)
+        adjusted_time = base_time / speed_ratio
+        
+        return adjusted_time
+    
+    def _calculate_vehicle_weighted_ratio(self, from_idx, to_idx, vehicle_id):
+        """
+        Calculate weighted speed ratio for a specific vehicle based on road composition.
+        
+        Args:
+            from_idx: Source location index
+            to_idx: Destination location index
+            vehicle_id: Vehicle ID to get speed ratios for
+            
+        Returns:
+            Weighted speed ratio (lower = slower)
+        """
+        # Get vehicle speed ratios
+        vehicle = next((v for v in self.vehicles if v['id'] == vehicle_id), None)
+        if not vehicle or 'truck_speed_ratios' not in vehicle:
+            return 1.0
+        
+        vehicle_ratios = vehicle['truck_speed_ratios']
+        
+        # Get road composition
+        if not hasattr(self.distance_calculator, 'road_composition_matrix'):
+            return vehicle_ratios.get('default', 0.8)
+        
+        try:
+            composition = self.distance_calculator.road_composition_matrix[from_idx][to_idx]
+            if not composition:
+                return vehicle_ratios.get('default', 0.8)
+        except (IndexError, KeyError):
+            return vehicle_ratios.get('default', 0.8)
+        
+        # Calculate weighted ratio
+        total_weight = 0
+        weighted_ratio = 0
+        
+        for road_type, percentage in composition.items():
+            if percentage > 0:
+                ratio = vehicle_ratios.get(road_type, vehicle_ratios.get('default', 0.8))
+                weighted_ratio += ratio * percentage
+                total_weight += percentage
+        
+        if total_weight > 0:
+            return weighted_ratio / total_weight
+        else:
+            return vehicle_ratios.get('default', 0.8)
+    
     def solve_sequential_multiday(self, max_days=3):
         """
         Solve multi-day VRP sequentially, day by day.
@@ -621,21 +895,27 @@ class SequentialMultiDayVRP:
                 total_demand = sum(self.locations[idx].get('demand', 0) for idx in unvisited_customers)
                 total_capacity = sum(self.vehicle_states[v['id']]['remaining_capacity'] for v in active_vehicles)
                 
-                # Estimate total time needed (rough approximation)
+                # Estimate total time needed (more realistic approximation)
                 total_time_estimate = 0
                 for customer_idx in unvisited_customers:
-                    # Time from depot to customer + service time
+                    # Time from depot to customer + service time + return to depot
                     depot_to_customer_time = self.distance_calculator.time_matrix[0][customer_idx]
+                    customer_to_depot_time = self.distance_calculator.time_matrix[customer_idx][0]
                     service_time = self.locations[customer_idx].get('service_time', 0)
-                    total_time_estimate += depot_to_customer_time + service_time
+                    # Each customer requires round trip + service time
+                    total_time_estimate += depot_to_customer_time + service_time + customer_to_depot_time
+                
+                # More conservative time feasibility: assume less than perfect parallelization
+                # Divide by vehicles but add routing overhead factor
+                estimated_time_per_vehicle = total_time_estimate / len(active_vehicles) * 1.3  # 30% routing overhead
                 
                 # Check if can be solved in one day: capacity OK AND time feasible
                 capacity_ok = total_demand <= total_capacity
-                time_feasible = total_time_estimate <= self.daily_time_limit_minutes * len(active_vehicles) * 0.8  # 80% utilization
+                time_feasible = estimated_time_per_vehicle <= self.daily_time_limit_minutes * 0.9  # 90% utilization
                 
                 print(f"  📊 Feasibility check:")
                 print(f"    Total demand: {total_demand} / {total_capacity} (capacity)")
-                print(f"    Est. time: {total_time_estimate:.1f} / {self.daily_time_limit_minutes * len(active_vehicles) * 0.8:.1f} min")
+                print(f"    Est. time per vehicle: {estimated_time_per_vehicle:.1f} / {self.daily_time_limit_minutes * 0.9:.1f} min")
                 print(f"    Capacity OK: {capacity_ok}, Time feasible: {time_feasible}")
                 
                 # Determine if this is the final day (all customers can be served)
@@ -1019,11 +1299,11 @@ def test_sequential_multiday():
     ]
     
     vehicles = [
-        {'id': 'truck_40t_alpha', 'capacity': 800, 'volume_capacity': 18.0, 'cost_per_km': 2.20, 'max_daily_km': 600},
-        {'id': 'truck_24t_beta', 'capacity': 500, 'volume_capacity': 12.0, 'cost_per_km': 1.80, 'max_daily_km': 650},
-        {'id': 'van_7t_gamma', 'capacity': 350, 'volume_capacity': 10.0, 'cost_per_km': 1.20, 'max_daily_km': 700},
-        {'id': 'van_4t_delta', 'capacity': 250, 'volume_capacity': 8.0, 'cost_per_km': 0.95, 'max_daily_km': 750},
-        {'id': 'sprinter_3t_epsilon', 'capacity': 180, 'volume_capacity': 6.0, 'cost_per_km': 0.75, 'max_daily_km': 800},
+        {'id': 'truck_40t_alpha', 'capacity': 800, 'volume_capacity': 18.0, 'cost_per_km': 2.20, 'max_daily_km': 600, 'truck_speed_ratios': DEFAULT_TRUCK_SPEED_RATIOS['heavy']},
+        {'id': 'truck_24t_beta', 'capacity': 500, 'volume_capacity': 12.0, 'cost_per_km': 1.80, 'max_daily_km': 650, 'truck_speed_ratios': DEFAULT_TRUCK_SPEED_RATIOS['heavy']},
+        {'id': 'van_7t_gamma', 'capacity': 350, 'volume_capacity': 10.0, 'cost_per_km': 1.20, 'max_daily_km': 700, 'truck_speed_ratios': DEFAULT_TRUCK_SPEED_RATIOS['standard']},
+        {'id': 'van_4t_delta', 'capacity': 250, 'volume_capacity': 8.0, 'cost_per_km': 0.95, 'max_daily_km': 750, 'truck_speed_ratios': DEFAULT_TRUCK_SPEED_RATIOS['standard']},
+        {'id': 'sprinter_3t_epsilon', 'capacity': 180, 'volume_capacity': 6.0, 'cost_per_km': 0.75, 'max_daily_km': 800, 'truck_speed_ratios': DEFAULT_TRUCK_SPEED_RATIOS['standard']},
     ]
     
     print(f"📍 Large test scenario: {len(locations)} locations, {len(vehicles)} vehicles")
@@ -1031,8 +1311,9 @@ def test_sequential_multiday():
     print(f"📊 Total volume: {sum(loc.get('volume_demand', 0) for loc in locations):.1f} m³")
     print(f"🕒 Total service time: {sum(loc.get('service_time', 0) for loc in locations)} minutes")
     
-    # Test the sequential implementation
-    sequential_vrp = SequentialMultiDayVRP(vehicles, locations)
+    # Test the sequential implementation with cached OSRM routing
+    print(f"\n🚛 Initializing Sequential Multi-Day VRP with cached OSRM routing...")
+    sequential_vrp = SequentialMultiDayVRP(vehicles, locations, use_truck_speeds=True, db_path="switzerland_routes.db")
     solution = sequential_vrp.solve_sequential_multiday(max_days=7)
     
     if solution:

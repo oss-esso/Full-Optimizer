@@ -1,0 +1,322 @@
+{
+  "depot\u2192winterthur": {
+    "distance_km": 55.590900000000005,
+    "car_time_minutes": 133.45333333333332,
+    "truck_time_minutes": 205.31282051282048,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 55.590900000000005
+    },
+    "cached_at": "2025-06-28T08:29:13.802443"
+  },
+  "depot\u2192basel": {
+    "distance_km": 170.4578,
+    "car_time_minutes": 310.52333333333337,
+    "truck_time_minutes": 462.2457759294126,
+    "truck_ratio": 0.6717710566613202,
+    "composition": {
+      "default": 82.7424,
+      "motorway": 87.7159
+    },
+    "cached_at": "2025-06-28T08:29:14.828309"
+  },
+  "depot\u2192bern": {
+    "distance_km": 157.5844,
+    "car_time_minutes": 365.84666666666664,
+    "truck_time_minutes": 557.3865366273064,
+    "truck_ratio": 0.6563607884761093,
+    "composition": {
+      "default": 133.8924,
+      "motorway": 23.6922
+    },
+    "cached_at": "2025-06-28T08:29:15.803925"
+  },
+  "depot\u2192lucerne": {
+    "distance_km": 65.93469999999999,
+    "car_time_minutes": 108.50500000000001,
+    "truck_time_minutes": 162.5637948420287,
+    "truck_ratio": 0.6674610426352294,
+    "composition": {
+      "default": 38.7226,
+      "motorway": 27.212400000000002
+    },
+    "cached_at": "2025-06-28T08:29:16.796548"
+  },
+  "depot\u2192st_gallen": {
+    "distance_km": 101.6542,
+    "car_time_minutes": 285.01500000000004,
+    "truck_time_minutes": 438.48461538461544,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 101.65419999999997
+    },
+    "cached_at": "2025-06-28T08:29:17.793055"
+  },
+  "winterthur\u2192depot": {
+    "distance_km": 55.590900000000005,
+    "car_time_minutes": 133.52333333333334,
+    "truck_time_minutes": 205.4205128205128,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 55.591
+    },
+    "cached_at": "2025-06-28T08:29:18.780019"
+  },
+  "winterthur\u2192basel": {
+    "distance_km": 226.04870000000003,
+    "car_time_minutes": 444.0466666666667,
+    "truck_time_minutes": 666.3195103504437,
+    "truck_ratio": 0.6664170263198882,
+    "composition": {
+      "default": 138.33340000000004,
+      "motorway": 87.7159
+    },
+    "cached_at": "2025-06-28T08:29:19.821911"
+  },
+  "winterthur\u2192bern": {
+    "distance_km": 213.17520000000002,
+    "car_time_minutes": 499.37,
+    "truck_time_minutes": 762.7439078276072,
+    "truck_ratio": 0.6547020498954492,
+    "composition": {
+      "default": 189.4834,
+      "motorway": 23.6922
+    },
+    "cached_at": "2025-06-28T08:29:20.803085"
+  },
+  "winterthur\u2192lucerne": {
+    "distance_km": 121.52560000000001,
+    "car_time_minutes": 242.02833333333334,
+    "truck_time_minutes": 367.0022845998446,
+    "truck_ratio": 0.6594736422342038,
+    "composition": {
+      "default": 94.31360000000001,
+      "motorway": 27.212400000000002
+    },
+    "cached_at": "2025-06-28T08:29:21.797814"
+  },
+  "winterthur\u2192st_gallen": {
+    "distance_km": 73.9898,
+    "car_time_minutes": 218.67333333333332,
+    "truck_time_minutes": 336.4205128205128,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 73.9898
+    },
+    "cached_at": "2025-06-28T08:29:22.792004"
+  },
+  "basel\u2192depot": {
+    "distance_km": 170.4578,
+    "car_time_minutes": 310.495,
+    "truck_time_minutes": 465.0012756973701,
+    "truck_ratio": 0.6677293509234905,
+    "composition": {
+      "default": 99.02620000000002,
+      "motorway": 71.4316
+    },
+    "cached_at": "2025-06-28T08:29:23.811146"
+  },
+  "basel\u2192winterthur": {
+    "distance_km": 226.04870000000003,
+    "car_time_minutes": 443.9483333333334,
+    "truck_time_minutes": 669.2325877322132,
+    "truck_ratio": 0.6633692702229481,
+    "composition": {
+      "default": 154.61710000000002,
+      "motorway": 71.4316
+    },
+    "cached_at": "2025-06-28T08:29:24.814286"
+  },
+  "basel\u2192bern": {
+    "distance_km": 131.0778,
+    "car_time_minutes": 381.21666666666664,
+    "truck_time_minutes": 586.4871794871794,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 131.07780000000002
+    },
+    "cached_at": "2025-06-28T08:29:25.792103"
+  },
+  "basel\u2192lucerne": {
+    "distance_km": 132.2759,
+    "car_time_minutes": 305.39500000000004,
+    "truck_time_minutes": 464.83072777645606,
+    "truck_ratio": 0.6570026070799454,
+    "composition": {
+      "default": 110.38210000000001,
+      "motorway": 21.8938
+    },
+    "cached_at": "2025-06-28T08:29:26.800630"
+  },
+  "basel\u2192st_gallen": {
+    "distance_km": 315.76890000000003,
+    "car_time_minutes": 582.8016666666666,
+    "truck_time_minutes": 874.998671514366,
+    "truck_ratio": 0.6660600588775842,
+    "composition": {
+      "default": 195.90240000000003,
+      "motorway": 119.86619999999999
+    },
+    "cached_at": "2025-06-28T08:29:27.825356"
+  },
+  "bern\u2192depot": {
+    "distance_km": 157.5936,
+    "car_time_minutes": 365.7866666666667,
+    "truck_time_minutes": 557.1274859517038,
+    "truck_ratio": 0.6565582849351216,
+    "composition": {
+      "default": 133.16429999999997,
+      "motorway": 24.429199999999998
+    },
+    "cached_at": "2025-06-28T08:29:28.810068"
+  },
+  "bern\u2192winterthur": {
+    "distance_km": 213.1845,
+    "car_time_minutes": 499.24,
+    "truck_time_minutes": 762.3752538278436,
+    "truck_ratio": 0.6548481177652918,
+    "composition": {
+      "default": 188.75519999999997,
+      "motorway": 24.429199999999998
+    },
+    "cached_at": "2025-06-28T08:29:29.800333"
+  },
+  "bern\u2192basel": {
+    "distance_km": 131.0778,
+    "car_time_minutes": 381.0783333333333,
+    "truck_time_minutes": 586.274358974359,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 131.07780000000002
+    },
+    "cached_at": "2025-06-28T08:29:30.790020"
+  },
+  "bern\u2192lucerne": {
+    "distance_km": 111.84060000000001,
+    "car_time_minutes": 323.26666666666665,
+    "truck_time_minutes": 497.3333333333333,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 111.84060000000001
+    },
+    "cached_at": "2025-06-28T08:29:31.792262"
+  },
+  "bern\u2192st_gallen": {
+    "distance_km": 302.9047,
+    "car_time_minutes": 638.0933333333334,
+    "truck_time_minutes": 966.548671068543,
+    "truck_ratio": 0.6601771358579447,
+    "composition": {
+      "default": 230.04059999999996,
+      "motorway": 72.8638
+    },
+    "cached_at": "2025-06-28T08:29:32.823268"
+  },
+  "lucerne\u2192depot": {
+    "distance_km": 65.93469999999999,
+    "car_time_minutes": 108.46166666666666,
+    "truck_time_minutes": 162.49887492857465,
+    "truck_ratio": 0.6674610314338502,
+    "composition": {
+      "default": 38.722500000000004,
+      "motorway": 27.2123
+    },
+    "cached_at": "2025-06-28T08:29:33.798067"
+  },
+  "lucerne\u2192winterthur": {
+    "distance_km": 121.52560000000001,
+    "car_time_minutes": 241.915,
+    "truck_time_minutes": 366.83043672860776,
+    "truck_ratio": 0.6594736308071841,
+    "composition": {
+      "default": 94.3134,
+      "motorway": 27.2123
+    },
+    "cached_at": "2025-06-28T08:29:34.806580"
+  },
+  "lucerne\u2192basel": {
+    "distance_km": 132.2759,
+    "car_time_minutes": 305.32,
+    "truck_time_minutes": 464.7111207801972,
+    "truck_ratio": 0.6570103153275144,
+    "composition": {
+      "default": 110.358,
+      "motorway": 21.9179
+    },
+    "cached_at": "2025-06-28T08:29:35.797675"
+  },
+  "lucerne\u2192bern": {
+    "distance_km": 111.84060000000001,
+    "car_time_minutes": 323.3366666666667,
+    "truck_time_minutes": 497.4410256410257,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 111.8407
+    },
+    "cached_at": "2025-06-28T08:29:36.791907"
+  },
+  "lucerne\u2192st_gallen": {
+    "distance_km": 211.24579999999997,
+    "car_time_minutes": 380.7683333333333,
+    "truck_time_minutes": 572.4545356508671,
+    "truck_ratio": 0.6651503475300599,
+    "composition": {
+      "default": 135.5988,
+      "motorway": 75.64689999999999
+    },
+    "cached_at": "2025-06-28T08:29:37.810581"
+  },
+  "st_gallen\u2192depot": {
+    "distance_km": 101.6542,
+    "car_time_minutes": 285.01500000000004,
+    "truck_time_minutes": 438.48461538461544,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 101.6541
+    },
+    "cached_at": "2025-06-28T08:29:38.791121"
+  },
+  "st_gallen\u2192winterthur": {
+    "distance_km": 73.9898,
+    "car_time_minutes": 218.63,
+    "truck_time_minutes": 336.3538461538461,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 73.9897
+    },
+    "cached_at": "2025-06-28T08:29:39.789574"
+  },
+  "st_gallen\u2192basel": {
+    "distance_km": 315.77009999999996,
+    "car_time_minutes": 582.8866666666667,
+    "truck_time_minutes": 872.2691414674993,
+    "truck_ratio": 0.6682417604341963,
+    "composition": {
+      "default": 179.6202,
+      "motorway": 136.15049999999997
+    },
+    "cached_at": "2025-06-28T08:29:40.821326"
+  },
+  "st_gallen\u2192bern": {
+    "distance_km": 302.8967,
+    "car_time_minutes": 638.2099999999999,
+    "truck_time_minutes": 966.8757927030887,
+    "truck_ratio": 0.6600744426704077,
+    "composition": {
+      "default": 230.77020000000002,
+      "motorway": 72.12679999999999
+    },
+    "cached_at": "2025-06-28T08:29:41.817126"
+  },
+  "st_gallen\u2192lucerne": {
+    "distance_km": 211.247,
+    "car_time_minutes": 380.8683333333333,
+    "truck_time_minutes": 572.6049653173702,
+    "truck_ratio": 0.6651502456361593,
+    "composition": {
+      "default": 135.6004,
+      "motorway": 75.64699999999999
+    },
+    "cached_at": "2025-06-28T08:29:42.812580"
+  }
+}

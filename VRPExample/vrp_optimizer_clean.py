@@ -7,6 +7,388 @@ from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 import matplotlib.pyplot as plt
 import numpy as np
+import requests
+import time
+
+class OSMDistanceCalculator:
+    """OSM-based calculator for distances and travel times using actual routes."""
+    
+    def __init__(self, locations: List[Dict], osrm_url: str = "http://router.project-osrm.org",
+                 truck_speed_ratios: Optional[Dict] = None, use_truck_speeds: bool = False,
+                 use_road_composition: bool = False):
+        """
+        Initialize the calculator with locations and OSRM service.
+        
+        Args:
+            locations: List of location dictionaries with 'id', 'x', 'y' keys
+            osrm_url: OSRM service URL for routing
+            truck_speed_ratios: Dictionary of road type to speed ratio adjustments
+            use_truck_speeds: Whether to apply truck speed adjustments
+            use_road_composition: Whether to use detailed road composition for truck adjustments
+        """
+        self.locations = locations
+        self.osrm_url = osrm_url
+        self.truck_speed_ratios = truck_speed_ratios or {}
+        self.use_truck_speeds = use_truck_speeds
+        self.use_road_composition = use_road_composition
+        self.location_index = {loc['id']: i for i, loc in enumerate(locations)}
+        self.logger = logging.getLogger(__name__)
+        
+        # Cache for route data to avoid repeated API calls
+        self.route_cache = {}
+        
+        # Cache for road composition data (when use_road_composition is True)
+        self.road_composition_cache = {}
+        
+        # Pre-calculate distance and time matrices using actual OSRM routes
+        self.distance_matrix = None
+        self.time_matrix = None
+        self._calculate_osm_matrices()
+    
+    def _calculate_osm_matrices(self):
+        """Calculate distance and time matrices using OSRM routing."""
+        n = len(self.locations)
+        self.distance_matrix = np.zeros((n, n))
+        self.time_matrix = np.zeros((n, n))
+        
+        print(f"🗺️ Calculating OSM route matrices for {n} locations...")
+        
+        # Try to use OSRM table service for bulk calculation (much faster)
+        # But if we need road composition, use individual routes
+        if not self.use_road_composition and self._calculate_bulk_matrix():
+            print("✅ Successfully retrieved OSM route matrix")
+            return
+        
+        # Fallback to individual route calculations
+        print("⚠️ Bulk matrix failed, calculating individual routes...")
+        if self.use_road_composition:
+            print("  🛣️ Using detailed road composition analysis...")
+        
+        successful_routes = 0
+        total_routes = n * (n - 1)  # No self-routes
+        
+        for i, loc1 in enumerate(self.locations):
+            for j, loc2 in enumerate(self.locations):
+                if i != j:
+                    try:
+                        if self.use_road_composition:
+                            # Use detailed route with road composition
+                            distance_km, time_minutes, road_composition = self._get_route_with_road_composition(loc1, loc2)
+                        else:
+                            # Use standard route
+                            distance_km, time_minutes = self._get_osm_route(loc1, loc2)
+                        
+                        self.distance_matrix[i, j] = distance_km
+                        self.time_matrix[i, j] = time_minutes
+                        successful_routes += 1
+                        
+                        # Add small delay to avoid overwhelming OSRM
+                        time.sleep(0.05)
+                        
+                    except Exception as e:
+                        self.logger.warning(f"Failed to get route {loc1['id']} → {loc2['id']}: {e}")
+                        # Fallback to Haversine distance
+                        distance_km = self._haversine_distance(loc1, loc2)
+                        time_minutes = distance_km * 60 / 50  # 50 km/h average speed
+                        
+                        self.distance_matrix[i, j] = distance_km
+                        self.time_matrix[i, j] = time_minutes
+        
+        print(f"✅ OSM routing completed: {successful_routes}/{total_routes} routes successful")
+        
+        # Apply truck speed adjustments after individual route calculation
+        if self.use_truck_speeds and self.truck_speed_ratios:
+            print(f"  🚛 Applying truck speed adjustments...")
+            self._apply_truck_speed_adjustments()
+    
+    def _calculate_bulk_matrix(self) -> bool:
+        """Try to calculate matrix using OSRM table service (bulk calculation)."""
+        try:
+            # Build coordinate string for OSRM table service
+            coordinates = []
+            for loc in self.locations:
+                # Use lat/lon if available, otherwise convert x/y
+                if 'lat' in loc and 'lon' in loc:
+                    coordinates.append(f"{loc['lon']},{loc['lat']}")
+                else:
+                    # Assume x/y are already in lon/lat format
+                    coordinates.append(f"{loc['x']},{loc['y']}")
+            
+            coordinate_string = ";".join(coordinates)
+            
+            # Call OSRM table service
+            url = f"{self.osrm_url}/table/v1/driving/{coordinate_string}"
+            params = {
+                'annotations': 'distance,duration'
+            }
+            
+            response = requests.get(url, params=params, timeout=60)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data['code'] == 'Ok':
+                # Extract distance matrix (convert from meters to kilometers)
+                if 'distances' in data:
+                    distance_matrix_m = np.array(data['distances'])
+                    self.distance_matrix = distance_matrix_m / 1000.0  # Convert to km
+                
+                # Extract duration matrix (convert from seconds to minutes)
+                if 'durations' in data:
+                    duration_matrix_s = np.array(data['durations'])
+                    self.time_matrix = duration_matrix_s / 60.0  # Convert to minutes
+                    
+                    # Apply truck speed adjustments to travel times
+                    if self.use_truck_speeds and self.truck_speed_ratios:
+                        print(f"  🚛 Applying truck speed adjustments...")
+                        self._apply_truck_speed_adjustments()
+                
+                # Add service times to time matrix
+                for i, loc in enumerate(self.locations):
+                    service_time = loc.get('service_time', 0)
+                    if service_time > 0:
+                        # Add service time to all outgoing routes from this location
+                        self.time_matrix[i, :] += service_time
+                
+                return True
+            else:
+                self.logger.error(f"OSRM table service error: {data.get('message', 'Unknown error')}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error calling OSRM table service: {str(e)}")
+            return False
+    
+    def _get_osm_route(self, loc1: Dict, loc2: Dict) -> Tuple[float, float]:
+        """Get actual route distance and time between two locations using OSRM."""
+        # Create cache key
+        cache_key = f"{loc1['id']}→{loc2['id']}"
+        if cache_key in self.route_cache:
+            return self.route_cache[cache_key]
+        
+        # Get coordinates
+        if 'lat' in loc1 and 'lon' in loc1:
+            from_coords = f"{loc1['lon']},{loc1['lat']}"
+            to_coords = f"{loc2['lon']},{loc2['lat']}"
+        else:
+            # Assume x/y are in lon/lat format
+            from_coords = f"{loc1['x']},{loc1['y']}"
+            to_coords = f"{loc2['x']},{loc2['y']}"
+        
+        # Call OSRM route service
+        url = f"{self.osrm_url}/route/v1/driving/{from_coords};{to_coords}"
+        params = {
+            'overview': 'false',
+            'geometries': 'geojson',
+            'alternatives': 'false'
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        
+        data = response.json()
+        if data['code'] == 'Ok' and 'routes' in data and len(data['routes']) > 0:
+            route = data['routes'][0]
+            
+            # Extract distance (convert from meters to kilometers)
+            distance_km = route['distance'] / 1000.0
+            
+            # Extract duration (convert from seconds to minutes)
+            duration_minutes = route['duration'] / 60.0
+            
+            # Add service time at origin
+            service_time = loc1.get('service_time', 0)
+            total_time_minutes = duration_minutes + service_time
+            
+            # Cache the result
+            self.route_cache[cache_key] = (distance_km, total_time_minutes)
+            
+            return distance_km, total_time_minutes
+        else:
+            error_msg = f"OSRM route error: {data.get('message', 'Unknown error')}"
+            raise Exception(error_msg)
+    
+    def _get_route_with_road_composition(self, loc1: Dict, loc2: Dict) -> Tuple[float, float, Dict[str, float]]:
+        """Get route distance, time, and road type composition between two locations using OSRM."""
+        # Create cache key
+        cache_key = f"{loc1['id']}→{loc2['id']}"
+        
+        # Get coordinates
+        if 'lat' in loc1 and 'lon' in loc1:
+            from_coords = f"{loc1['lon']},{loc1['lat']}"
+            to_coords = f"{loc2['lon']},{loc2['lat']}"
+        else:
+            # Assume x/y are in lon/lat format
+            from_coords = f"{loc1['x']},{loc1['y']}"
+            to_coords = f"{loc2['x']},{loc2['y']}"
+        
+        # Call OSRM route service with detailed annotations
+        url = f"{self.osrm_url}/route/v1/driving/{from_coords};{to_coords}"
+        params = {
+            'overview': 'full',
+            'geometries': 'geojson',
+            'alternatives': 'false',
+            'annotations': 'true',
+            'steps': 'true'  # Get detailed step information
+        }
+        
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        
+        data = response.json()
+        if data['code'] == 'Ok' and 'routes' in data and len(data['routes']) > 0:
+            route = data['routes'][0]
+            
+            # Extract distance (convert from meters to kilometers)
+            distance_km = route['distance'] / 1000.0
+            
+            # Extract duration (convert from seconds to minutes)
+            duration_minutes = route['duration'] / 60.0
+            
+            # Extract road type composition from steps
+            road_composition = self._extract_road_composition(route)
+            
+            # Cache the road composition
+            self.road_composition_cache[cache_key] = road_composition
+            
+            # Add service time at origin
+            service_time = loc1.get('service_time', 0)
+            total_time_minutes = duration_minutes + service_time
+            
+            return distance_km, total_time_minutes, road_composition
+        else:
+            error_msg = f"OSRM route error: {data.get('message', 'Unknown error')}"
+            raise Exception(error_msg)
+    
+    def _extract_road_composition(self, route: Dict) -> Dict[str, float]:
+        """Extract road type composition from OSRM route data."""
+        road_composition = {}
+        
+        # Try to get road type info from route steps
+        if 'legs' in route:
+            for leg in route['legs']:
+                if 'steps' in leg:
+                    for step in leg['steps']:
+                        # Extract distance for this step (in km)
+                        step_distance_km = step.get('distance', 0) / 1000.0
+                        
+                        # Try to determine road type from step information
+                        road_type = self._classify_road_type(step)
+                        
+                        # Add to composition
+                        if road_type in road_composition:
+                            road_composition[road_type] += step_distance_km
+                        else:
+                            road_composition[road_type] = step_distance_km
+        
+        return road_composition
+    
+    def _classify_road_type(self, step: Dict) -> str:
+        """Classify road type from OSRM step data."""
+        # Get step name and instruction information
+        name = step.get('name', '').lower()
+        instruction = step.get('maneuver', {}).get('instruction', '').lower()
+        
+        # Road type classification based on common patterns
+        # This is a simplified classification - real implementation might use OSM tags
+        
+        if any(keyword in name for keyword in ['autostrada', 'highway', 'motorway', 'freeway', 'a1', 'a4', 'a7', 'a8']):
+            return 'motorway'
+        elif any(keyword in name for keyword in ['statale', 'trunk', 'ss', 'sr']):
+            return 'trunk'
+        elif any(keyword in name for keyword in ['provinciale', 'primary', 'sp']):
+            return 'primary'
+        elif any(keyword in name for keyword in ['secondary', 'comunale']):
+            return 'secondary'
+        elif any(keyword in name for keyword in ['via', 'street', 'strada', 'tertiary']):
+            return 'tertiary'
+        elif any(keyword in name for keyword in ['residential', 'vicolo', 'piazza']):
+            return 'residential'
+        elif any(keyword in name for keyword in ['service', 'parking', 'access']):
+            return 'service'
+        else:
+            # Default classification
+            return 'secondary'
+    
+    def get_distance(self, from_location_id: str, to_location_id: str) -> int:
+        """Get distance between two locations for OR-Tools (integer required)."""
+        try:
+            from_idx = self.location_index[from_location_id]
+            to_idx = self.location_index[to_location_id]
+            distance_km = self.distance_matrix[from_idx, to_idx]
+            return int(distance_km * 1000)  # Convert to meters as integer
+        except (KeyError, IndexError):
+            self.logger.warning(f"Distance lookup failed for {from_location_id} → {to_location_id}")
+            return 10000  # Default distance
+    
+    def get_travel_time(self, from_location_id: str, to_location_id: str) -> int:
+        """Get travel time between two locations for OR-Tools (integer required)."""
+        try:
+            from_idx = self.location_index[from_location_id]
+            to_idx = self.location_index[to_location_id]
+            time_minutes = self.time_matrix[from_idx, to_idx]
+            return int(time_minutes)  # Return as integer minutes
+        except (KeyError, IndexError):
+            self.logger.warning(f"Time lookup failed for {from_location_id} → {to_location_id}")
+            return 60  # Default time
+
+    def _apply_truck_speed_adjustments(self):
+        """Apply truck speed adjustments to the time matrix based on actual road type composition."""
+        if not self.use_road_composition:
+            # Fallback to simple default adjustment
+            default_truck_ratio = self.truck_speed_ratios.get('default', 0.80)
+            truck_time_factor = 1.0 / default_truck_ratio
+            print(f"    Applying default truck speed factor: {truck_time_factor:.2f}x (trucks {int((1-default_truck_ratio)*100)}% slower)")
+            
+            for i in range(len(self.locations)):
+                for j in range(len(self.locations)):
+                    if i != j:
+                        self.time_matrix[i, j] *= truck_time_factor
+            return
+        
+        # Apply road composition-based truck speed adjustments
+        print(f"    Applying road composition-based truck speed adjustments...")
+        adjustments_applied = 0
+        total_routes = 0
+        
+        for i in range(len(self.locations)):
+            for j in range(len(self.locations)):
+                if i != j:
+                    total_routes += 1
+                    route_key = f"{self.locations[i]['id']}→{self.locations[j]['id']}"
+                    
+                    if route_key in self.road_composition_cache:
+                        # Calculate weighted truck speed factor based on road composition
+                        road_composition = self.road_composition_cache[route_key]
+                        weighted_truck_ratio = self._calculate_weighted_truck_ratio(road_composition)
+                        truck_time_factor = 1.0 / weighted_truck_ratio
+                        
+                        # Apply the adjustment
+                        self.time_matrix[i, j] *= truck_time_factor
+                        adjustments_applied += 1
+                    else:
+                        # Fallback to default adjustment for routes without composition data
+                        default_truck_ratio = self.truck_speed_ratios.get('default', 0.80)
+                        truck_time_factor = 1.0 / default_truck_ratio
+                        self.time_matrix[i, j] *= truck_time_factor
+        
+        print(f"    Applied composition-based adjustments to {adjustments_applied}/{total_routes} routes")
+        
+    def _calculate_weighted_truck_ratio(self, road_composition: Dict[str, float]) -> float:
+        """Calculate weighted truck speed ratio based on road type composition."""
+        weighted_ratio = 0.0
+        total_weight = 0.0
+        
+        for road_type, distance_km in road_composition.items():
+            if road_type in self.truck_speed_ratios:
+                ratio = self.truck_speed_ratios[road_type]
+                weighted_ratio += ratio * distance_km
+                total_weight += distance_km
+        
+        if total_weight > 0:
+            return weighted_ratio / total_weight
+        else:
+            # Fallback to default if no road types match
+            return self.truck_speed_ratios.get('default', 0.80)
 
 class CleanVRPOptimizer:
     """A clean VRP optimizer built step by step to debug constraint issues."""
@@ -107,6 +489,41 @@ class CleanVRPOptimizer:
 
         location_list = self.locations
         vehicle_list =  self.vehicles
+        
+        # Initialize OSM distance calculator for realistic route distances and times
+        print("🗺️ Initializing OSM distance calculator...")
+        
+        # Determine if any vehicles have truck speed settings
+        use_truck_speeds = False
+        truck_speed_ratios = None
+        
+        for vehicle in vehicle_list:
+            if vehicle.get('use_truck_speeds', False):
+                use_truck_speeds = True
+                # Use speed ratios from the first vehicle that has them
+                if vehicle.get('truck_speed_ratios') and truck_speed_ratios is None:
+                    truck_speed_ratios = vehicle['truck_speed_ratios']
+                break
+        
+        # If no vehicle-specific settings, use default truck speeds for realistic routing
+        if not use_truck_speeds:
+            from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
+            use_truck_speeds = True
+            truck_speed_ratios = DEFAULT_TRUCK_SPEED_RATIOS['standard']
+            print("  Using default standard truck speed profile")
+        else:
+            print(f"  Using vehicle-specific truck speed profile")
+        
+        # Check if road composition should be used (can be set via optimizer attribute)
+        use_road_composition = getattr(self, '_use_road_composition', False)
+        
+        osm_calculator = OSMDistanceCalculator(
+            location_list, 
+            truck_speed_ratios=truck_speed_ratios,
+            use_truck_speeds=use_truck_speeds,
+            use_road_composition=use_road_composition
+        )
+        print("✅ OSM distance calculator ready")
 
         # --- Robust vehicle index mapping ---
         # Map OR-Tools vehicle index to vehicle object (by start location and ID)
@@ -138,30 +555,24 @@ class CleanVRPOptimizer:
         
         routing = pywrapcp.RoutingModel(manager)
         
-        # 3. Distance callback (always needed)
+        # 3. Distance callback (using OSM routing)
         def distance_callback(from_index, to_index):
             from_node = manager.IndexToNode(from_index)
             to_node = manager.IndexToNode(to_index)
          
-            # Fallback to simple Euclidean distance calculation
+            # Use OSM calculator for actual route distances
             from_loc = location_list[from_node]
             to_loc = location_list[to_node]
             
-            from_x = from_loc.get('x', 0)
-            from_y = from_loc.get('y', 0)
-            to_x = to_loc.get('x', 0)
-            to_y = to_loc.get('y', 0)
+            from_id = from_loc['id']
+            to_id = to_loc['id']
             
-            # Calculate Euclidean distance in coordinate units
-            distance = ((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5
+            # Get distance in meters using OSM routing
+            distance_meters = osm_calculator.get_distance(from_id, to_id)
             
-            # Convert coordinate distance to kilometers 
-            # Using a reasonable scaling factor for the coordinate system
-            distance_km = distance * 111  # Consistent with time callback
-            
-            # Return as integer meters for OR-Tools, but use smaller scale to make constraints dominate
+            # Return as integer meters for OR-Tools, scaled to make constraints dominate
             # Reduced scale so constraint penalties (1,000,000) are much larger than distance costs
-            return int(distance_km * 100)  # Reduced from 1000 to 100 to make distance less dominant
+            return int(distance_meters / 10)  # Scale down to make distance less dominant
         
         distance_callback_index = routing.RegisterTransitCallback(distance_callback)
         routing.SetArcCostEvaluatorOfAllVehicles(distance_callback_index)
@@ -183,7 +594,7 @@ class CleanVRPOptimizer:
             
         elif constraint_level == "time_windows":
             # Only add time windows, no capacity or pickup-delivery
-            self._add_time_window_constraints(routing, manager, location_list, vehicle_list)
+            self._add_time_window_constraints(routing, manager, location_list, vehicle_list, osm_calculator)
             applied_constraints.append("time_windows")
             
         elif constraint_level == "full":
@@ -195,7 +606,7 @@ class CleanVRPOptimizer:
             applied_constraints.append("capacity")
 
             
-            self._add_time_window_constraints(routing, manager, location_list, vehicle_list)
+            self._add_time_window_constraints(routing, manager, location_list, vehicle_list, osm_calculator)
             applied_constraints.append("time_windows")
         
         print(f"✅ Constraints applied: {applied_constraints}")
@@ -303,7 +714,7 @@ class CleanVRPOptimizer:
         
         if solution:
             print("✅ Solution found!")
-            result = self._extract_solution(routing, manager, solution, location_list, vehicle_list, constraint_level, vehicle_idx_to_vehicle)
+            result = self._extract_solution(routing, manager, solution, location_list, vehicle_list, constraint_level, vehicle_idx_to_vehicle, osm_calculator)
             return result, "Success", applied_constraints
         else:
             print("❌ No solution found!")
@@ -509,39 +920,23 @@ class CleanVRPOptimizer:
         
         return pickup_delivery_count
         
-    def _add_time_window_constraints(self, routing, manager, location_list, vehicle_list):
+    def _add_time_window_constraints(self, routing, manager, location_list, vehicle_list, osm_calculator):
         """Add time window constraints."""
         print("\n⏰ Adding time window constraints...")
-          # Create time callback
+          # Create time callback (using OSM routing)
         def time_callback(from_index, to_index):
             from_node = manager.IndexToNode(from_index)
             to_node = manager.IndexToNode(to_index)
             from_loc = location_list[from_node]
-            
-            # Fallback to simple calculation
             to_loc = location_list[to_node]
-            from_x = from_loc.get('x', 0)
-            from_y = from_loc.get('y', 0)
-            to_x = to_loc.get('x', 0)
-            to_y = to_loc.get('y', 0)
             
-            # Calculate Euclidean distance
-            distance = ((to_x - from_x) ** 2 + (to_y - from_y) ** 2) ** 0.5
+            from_id = from_loc['id']
+            to_id = to_loc['id']
             
-            # Convert coordinate distance to kilometers 
-            # Using a smaller scaling factor to avoid overly long travel times
-            distance_km = distance * 111  # Reduced from 111 to make travel times more reasonable
+            # Get travel time in minutes using OSM routing (includes service time)
+            travel_time_minutes = osm_calculator.get_travel_time(from_id, to_id)
             
-            # Calculate travel time based on 80 km/h average speed
-            travel_time_hours = distance_km / 70.0
-            travel_time_minutes = travel_time_hours * 60
-            
-            # Add service time at the "from" location
-            service_time = from_loc.get('service_time', 0)
-            
-            total_time = travel_time_minutes + service_time
-            
-            return int(total_time)
+            return int(travel_time_minutes)
         
         time_callback_index = routing.RegisterTransitCallback(time_callback)        # Add time dimension
         max_time = 1440  # 24 hours in minutes for absolute time
@@ -761,7 +1156,7 @@ class CleanVRPOptimizer:
             print(f"\n✅ ALL TIME WINDOW CONSTRAINTS SATISFIED!")
             return True
 
-    def _extract_solution(self, routing, manager, solution, location_list, vehicle_list, constraint_level: str = "none", vehicle_idx_to_vehicle=None) -> Dict:
+    def _extract_solution(self, routing, manager, solution, location_list, vehicle_list, constraint_level: str = "none", vehicle_idx_to_vehicle=None, osm_calculator=None) -> Dict:
         """Extract and format the solution. Uses robust vehicle mapping."""
         print("\n📋 Extracting solution...")
         routes = {}
@@ -824,21 +1219,28 @@ class CleanVRPOptimizer:
                 previous_index = index
                 index = solution.Value(routing.NextVar(index))
                 if not routing.IsEnd(index):
-                    # Calculate actual distance directly from coordinates to avoid scaling issues
+                    # Calculate actual distance using OSM routing
                     from_node = manager.IndexToNode(previous_index)
                     to_node = manager.IndexToNode(index)
                     from_loc = location_list[from_node]
                     to_loc = location_list[to_node]
                     
-                    from_x = from_loc.get('x', 0)
-                    from_y = from_loc.get('y', 0)
-                    to_x = to_loc.get('x', 0)
-                    to_y = to_loc.get('y', 0)
-                    
-                    # Calculate Euclidean distance and convert to km consistently
-                    distance = ((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5
-                    distance_km = distance * 111  # Same scaling as in distance_callback
-                    route_distance += distance_km
+                    # Use OSM calculator for actual route distances
+                    if osm_calculator:
+                        distance_meters = osm_calculator.get_distance(from_loc['id'], to_loc['id'])
+                        distance_km = distance_meters / 1000.0
+                        route_distance += distance_km
+                    else:
+                        # Fallback to Euclidean distance if OSM calculator not available
+                        from_x = from_loc.get('x', 0)
+                        from_y = from_loc.get('y', 0)
+                        to_x = to_loc.get('x', 0)
+                        to_y = to_loc.get('y', 0)
+                        
+                        # Calculate Euclidean distance and convert to km consistently
+                        distance = ((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5
+                        distance_km = distance * 111  # Same scaling as in distance_callback
+                        route_distance += distance_km
                 else:
                     # Handle the final return to depot - calculate distance from last stop to depot
                     if len(route) > 0:  # Only if there were actual stops (not just depot)
@@ -847,15 +1249,22 @@ class CleanVRPOptimizer:
                         from_loc = location_list[from_node]
                         to_loc = location_list[to_node]
                         
-                        from_x = from_loc.get('x', 0)
-                        from_y = from_loc.get('y', 0)
-                        to_x = to_loc.get('x', 0)
-                        to_y = to_loc.get('y', 0)
-                        
-                        # Calculate return distance to depot
-                        distance = ((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5
-                        distance_km = distance * 111  # Same scaling as in distance_callback
-                        route_distance += distance_km
+                        # Use OSM calculator for return to depot distance
+                        if osm_calculator:
+                            distance_meters = osm_calculator.get_distance(from_loc['id'], to_loc['id'])
+                            distance_km = distance_meters / 1000.0
+                            route_distance += distance_km
+                        else:
+                            # Fallback to Euclidean distance
+                            from_x = from_loc.get('x', 0)
+                            from_y = from_loc.get('y', 0)
+                            to_x = to_loc.get('x', 0)
+                            to_y = to_loc.get('y', 0)
+                            
+                            # Calculate return distance to depot
+                            distance = ((from_x - to_x) ** 2 + (from_y - to_y) ** 2) ** 0.5
+                            distance_km = distance * 111  # Same scaling as in distance_callback
+                            route_distance += distance_km
             # Add final location (end depot) - this should always happen for complete routes
             final_node_index = manager.IndexToNode(routing.End(vehicle_idx))
             final_location = location_list[final_node_index]
@@ -1467,69 +1876,3 @@ def test_moda_first_scenario():
     else:
         print(f"❌ FAILED - Status: {status}")
         print(f"   Constraints applied: {applied_constraints}")
-    """Test the clean optimizer with different constraint levels."""
-    import sys
-    import os
-    
-    print("🧪 Testing Clean VRP Optimizer with different constraint levels")
-    print("=" * 60)
-    
-    # Create a simple test scenario
-    # 1. Define the Vehicle List
-    vehicle_list = [
-        {"id": 0, "capacity": 15, "start_location": "A", "end_location": "A"},
-        {"id": 1, "capacity": 15, "start_location": "A", "end_location": "A"},
-    ]
-
-    # 2. Define the Location List
-    location_list = [
-        {"id": "A", "demand": 0, "time_window": (0, 0)},  # Depot
-        {"id": "B", "demand": -1, "time_window": (7, 12), "pickup": "C"},
-        {"id": "C", "demand": 1, "time_window": (7, 12), "delivery": "B"},
-        {"id": "D", "demand": 2, "time_window": (8, 15)},
-        {"id": "E", "demand": 1, "time_window": (9, 14)},
-    ]
-    
-    optimizer = CleanVRPOptimizer(
-        vehicles=vehicle_list,
-        locations=location_list,
-        distance_matrix_provider="google"
-    )
-    
-    # Test each constraint level
-    levels = ["none", "capacity", "pickup_delivery", "time_windows", "full"]
-    
-    for level in levels:
-        print(f"\n{'='*20} TESTING LEVEL: {level.upper()} {'='*20}")
-        
-        try:
-            solution = optimizer.solve(constraint_level=level)
-            
-            if solution:
-                print(f"✅ SUCCESS - {level} constraints work!")
-                print(f"   Objective value: {solution['objective_value']}")
-                print(f"   Total distance: {solution['total_distance']}")
-                
-                # Show first few routes
-                for vehicle_id, route_data in list(solution['routes'].items())[:2]:
-                    route = route_data['route']
-                    print(f"   {vehicle_id}: {len(route)} stops")
-                    for stop in route[:3]:
-                        print(f"     - {stop['location_id']} (load: {stop['load']})")
-                    if len(route) > 3:
-                        print(f"     - ... and {len(route)-3} more stops")
-            else:
-                print(f"❌ FAILED - {level} constraints cause infeasibility!")
-                print("   🛑 STOPPING HERE to debug")
-                break
-                
-        except Exception as e:
-            print(f"💥 ERROR at {level} level: {str(e)}")
-            print("   🛑 STOPPING HERE to debug")
-            break
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    #test_moda_inverted_scenario()
-    test_moda_small_scenario()

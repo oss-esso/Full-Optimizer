@@ -1,0 +1,130 @@
+{
+  "depot\u2192basel": {
+    "distance_km": 170.4578,
+    "car_time_minutes": 310.52333333333337,
+    "truck_time_minutes": 462.2457759294126,
+    "truck_ratio": 0.6717710566613202,
+    "composition": {
+      "default": 82.7424,
+      "motorway": 87.7159
+    },
+    "cached_at": "2025-06-28T08:29:43.821658"
+  },
+  "depot\u2192bern": {
+    "distance_km": 157.5844,
+    "car_time_minutes": 365.84666666666664,
+    "truck_time_minutes": 557.3865366273064,
+    "truck_ratio": 0.6563607884761093,
+    "composition": {
+      "default": 133.8924,
+      "motorway": 23.6922
+    },
+    "cached_at": "2025-06-28T08:29:44.806340"
+  },
+  "depot\u2192lucerne": {
+    "distance_km": 65.93469999999999,
+    "car_time_minutes": 108.50500000000001,
+    "truck_time_minutes": 162.5637948420287,
+    "truck_ratio": 0.6674610426352294,
+    "composition": {
+      "default": 38.7226,
+      "motorway": 27.212400000000002
+    },
+    "cached_at": "2025-06-28T08:29:45.800376"
+  },
+  "basel\u2192depot": {
+    "distance_km": 170.4578,
+    "car_time_minutes": 310.495,
+    "truck_time_minutes": 465.0012756973701,
+    "truck_ratio": 0.6677293509234905,
+    "composition": {
+      "default": 99.02620000000002,
+      "motorway": 71.4316
+    },
+    "cached_at": "2025-06-28T08:29:46.823695"
+  },
+  "basel\u2192bern": {
+    "distance_km": 131.0778,
+    "car_time_minutes": 381.21666666666664,
+    "truck_time_minutes": 586.4871794871794,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 131.07780000000002
+    },
+    "cached_at": "2025-06-28T08:29:47.798797"
+  },
+  "basel\u2192lucerne": {
+    "distance_km": 132.2759,
+    "car_time_minutes": 305.39500000000004,
+    "truck_time_minutes": 464.83072777645606,
+    "truck_ratio": 0.6570026070799454,
+    "composition": {
+      "default": 110.38210000000001,
+      "motorway": 21.8938
+    },
+    "cached_at": "2025-06-28T08:29:48.814761"
+  },
+  "bern\u2192depot": {
+    "distance_km": 157.5936,
+    "car_time_minutes": 365.7866666666667,
+    "truck_time_minutes": 557.1274859517038,
+    "truck_ratio": 0.6565582849351216,
+    "composition": {
+      "default": 133.16429999999997,
+      "motorway": 24.429199999999998
+    },
+    "cached_at": "2025-06-28T08:29:49.812137"
+  },
+  "bern\u2192basel": {
+    "distance_km": 131.0778,
+    "car_time_minutes": 381.0783333333333,
+    "truck_time_minutes": 586.274358974359,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 131.07780000000002
+    },
+    "cached_at": "2025-06-28T08:29:50.807580"
+  },
+  "bern\u2192lucerne": {
+    "distance_km": 111.84060000000001,
+    "car_time_minutes": 323.26666666666665,
+    "truck_time_minutes": 497.3333333333333,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 111.84060000000001
+    },
+    "cached_at": "2025-06-28T08:29:51.805526"
+  },
+  "lucerne\u2192depot": {
+    "distance_km": 65.93469999999999,
+    "car_time_minutes": 108.46166666666666,
+    "truck_time_minutes": 162.49887492857465,
+    "truck_ratio": 0.6674610314338502,
+    "composition": {
+      "default": 38.722500000000004,
+      "motorway": 27.2123
+    },
+    "cached_at": "2025-06-28T08:29:52.796554"
+  },
+  "lucerne\u2192basel": {
+    "distance_km": 132.2759,
+    "car_time_minutes": 305.32,
+    "truck_time_minutes": 464.7111207801972,
+    "truck_ratio": 0.6570103153275144,
+    "composition": {
+      "default": 110.358,
+      "motorway": 21.9179
+    },
+    "cached_at": "2025-06-28T08:29:53.802036"
+  },
+  "lucerne\u2192bern": {
+    "distance_km": 111.84060000000001,
+    "car_time_minutes": 323.3366666666667,
+    "truck_time_minutes": 497.4410256410257,
+    "truck_ratio": 0.65,
+    "composition": {
+      "default": 111.8407
+    },
+    "cached_at": "2025-06-28T08:29:54.793807"
+  }
+}
