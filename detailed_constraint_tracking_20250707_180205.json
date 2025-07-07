@@ -1,0 +1,3140 @@
+{
+  "metadata": {
+    "generated_at": "2025-07-07 18:02:05",
+    "scenario_name": "Furgoni Delivery Scenario",
+    "total_days": 3,
+    "total_vehicles": 10,
+    "total_locations": 71,
+    "total_customers": 0,
+    "total_demand": 30626,
+    "solver_version": "1.0"
+  },
+  "vehicles": {
+    "furgone_1": {
+      "vehicle_info": {
+        "id": "furgone_1",
+        "type": "furgone",
+        "weight_capacity": 3500,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 561.4146647079352,
+          "distance_driven": 467.84555392327934,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "schonaich_de",
+              "location_type": "customer",
+              "arrival_time": 433.3366666666667,
+              "departure_time": 448.3366666666667,
+              "service_time": 15,
+              "weight_change": -750,
+              "volume_change": -0.0,
+              "current_weight_load": -750,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 48.6667,
+                "lon": 9.0
+              },
+              "address": "gentile gusto carl Zeiss Str. 4 71101 Schonaich DE",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 467.84555392327934,
+              "driving_time_from_last": 561.4146647079352,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 14198.745875244407,
+          "distance_driven": 11832.288229370339,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_1_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -750,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_1_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5493.600365408252,
+              "driving_time_from_last": 6592.320438489903,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "malmoe_sweden",
+              "location_type": "customer",
+              "arrival_time": 90,
+              "departure_time": 105,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0.0,
+              "current_weight_load": -750,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 55.605,
+                "lon": 13.0038
+              },
+              "address": "malmoe sweden menarini diag.slr",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 6338.687863962086,
+              "driving_time_from_last": 7606.425436754504,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465,
+            "returned_to_depot": false,
+            "ends_with_overnight": true
+          }
+        },
+        "day_4": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 13637.485844434332,
+          "distance_driven": 11364.571537028609,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_1_day2",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -750,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_1_day2",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 6338.687863962086,
+              "driving_time_from_last": 7606.425436754504,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 30,
+              "departure_time": 45,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -750,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5025.883673066523,
+              "driving_time_from_last": 6031.060407679828,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 465.0,
+            "end_time": 45,
+            "returned_to_depot": true,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 0,
+        "total_volume_carried": 0,
+        "total_time_driven": 28397.646384386673,
+        "total_distance": 463.48728159625097,
+        "days_used": 4,
+        "overnight_stays": 2,
+        "total_distance_driven": 23664.705320322228,
+        "total_stops": 6
+      },
+      "constraint_violations": {
+        "weight_capacity": false,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    },
+    "furgone_2": {
+      "vehicle_info": {
+        "id": "furgone_2",
+        "type": "furgone",
+        "weight_capacity": 3500,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 498.01510229086506,
+          "distance_driven": 415.01258524238756,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "salvazzano_pd",
+              "location_type": "customer",
+              "arrival_time": 186.45499999999998,
+              "departure_time": 201.45499999999998,
+              "service_time": 15,
+              "weight_change": -831,
+              "volume_change": -0.0,
+              "current_weight_load": -831,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.3833,
+                "lon": 11.7833
+              },
+              "address": "Via Pelosa 20 35030 Salvazzano Dentro PD",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 415.01258524238756,
+              "driving_time_from_last": 498.01510229086506,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 11517.585758086941,
+          "distance_driven": 9597.98813173912,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_2_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -831,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_2_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5204.574550174814,
+              "driving_time_from_last": 6245.489460209777,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "quinto_do_anjo",
+              "location_type": "customer",
+              "arrival_time": 90,
+              "departure_time": 105,
+              "service_time": 15,
+              "weight_change": -750,
+              "volume_change": -0.0,
+              "current_weight_load": -1581,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 38.5667,
+                "lon": -8.9
+              },
+              "address": "Quinta De Marquesa 1CCI Portoga 10218 29050-557 Quinto Do Anjo",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 4393.413581564305,
+              "driving_time_from_last": 5272.096297877166,
+              "demand": 0
+            },
+            {
+              "stop_number": 3,
+              "location_id": "quinto_do_anjo_2",
+              "location_type": "customer",
+              "arrival_time": 150.0,
+              "departure_time": 165.0,
+              "service_time": 15,
+              "weight_change": -750,
+              "volume_change": -0.0,
+              "current_weight_load": -2331,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 38.5667,
+                "lon": -8.9
+              },
+              "address": "Quinta De Marquesa 1CCI Portoga 10218 29050-557 Quinto Do Anjo",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": false,
+            "ends_with_overnight": true
+          }
+        },
+        "day_4": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 11303.156705556994,
+          "distance_driven": 9419.297254630828,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_2_day2",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -2331,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_2_day2",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 4393.413581564305,
+              "driving_time_from_last": 5272.096297877166,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 30,
+              "departure_time": 45,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -2331,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5025.883673066523,
+              "driving_time_from_last": 6031.060407679828,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 465.0,
+            "end_time": 45,
+            "returned_to_depot": true,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 0,
+        "total_volume_carried": 0,
+        "total_time_driven": 23318.7575659348,
+        "total_distance": 301.50001177102934,
+        "days_used": 4,
+        "overnight_stays": 2,
+        "total_distance_driven": 19432.297971612334,
+        "total_stops": 7
+      },
+      "constraint_violations": {
+        "weight_capacity": false,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    },
+    "furgone_3": {
+      "vehicle_info": {
+        "id": "furgone_3",
+        "type": "furgone",
+        "weight_capacity": 3500,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 453.99551168918316,
+          "distance_driven": 378.3295930743193,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "badia_polesine_ro",
+              "location_type": "customer",
+              "arrival_time": 183.25833333333333,
+              "departure_time": 198.25833333333333,
+              "service_time": 15,
+              "weight_change": -750,
+              "volume_change": -0.0,
+              "current_weight_load": -750,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.1167,
+                "lon": 11.5
+              },
+              "address": "Via L. Da Vinci 537 45021 Badia Polesine RO",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 378.3295930743193,
+              "driving_time_from_last": 453.99551168918316,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 12716.933168031697,
+          "distance_driven": 10597.444306693082,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_3_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -750,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_3_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5168.080157209609,
+              "driving_time_from_last": 6201.69618865153,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "paris_fr",
+              "location_type": "customer",
+              "arrival_time": 90,
+              "departure_time": 105,
+              "service_time": 15,
+              "weight_change": -1500,
+              "volume_change": -0.0,
+              "current_weight_load": -2250,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 48.8566,
+                "lon": 2.3522
+              },
+              "address": "Rue de L'Abbaye 10 PARIGI FR",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5429.364149483473,
+              "driving_time_from_last": 6515.236979380167,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465,
+            "returned_to_depot": false,
+            "ends_with_overnight": true
+          }
+        },
+        "day_4": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 12546.297387059996,
+          "distance_driven": 10455.247822549996,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_3_day2",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -2250,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_3_day2",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5429.364149483473,
+              "driving_time_from_last": 6515.236979380167,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 30,
+              "departure_time": 45,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -2250,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5025.883673066523,
+              "driving_time_from_last": 6031.060407679828,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 465.0,
+            "end_time": 45,
+            "returned_to_depot": true,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 0,
+        "total_volume_carried": 0,
+        "total_time_driven": 25717.226066780877,
+        "total_distance": 272.53738900175307,
+        "days_used": 4,
+        "overnight_stays": 2,
+        "total_distance_driven": 21431.021722317397,
+        "total_stops": 6
+      },
+      "constraint_violations": {
+        "weight_capacity": false,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    },
+    "camion_16_t": {
+      "vehicle_info": {
+        "id": "camion_16_t",
+        "type": "camion",
+        "weight_capacity": 16000,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 453.99551168918316,
+          "distance_driven": 378.3295930743193,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "badia_polesine_ro_2",
+              "location_type": "customer",
+              "arrival_time": 183.25833333333333,
+              "departure_time": 198.25833333333333,
+              "service_time": 15,
+              "weight_change": -810,
+              "volume_change": -0.0,
+              "current_weight_load": -810,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.1167,
+                "lon": 11.5
+              },
+              "address": "Via L. Da Vinci 537 45021 Badia Polesine RO",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 378.3295930743193,
+              "driving_time_from_last": 453.99551168918316,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 11459.527355846709,
+          "distance_driven": 9549.60612987226,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_camion_16_t_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -810,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_camion_16_t_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5168.080157209609,
+              "driving_time_from_last": 6201.69618865153,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "chiva_spagna",
+              "location_type": "customer",
+              "arrival_time": 105,
+              "departure_time": 120,
+              "service_time": 15,
+              "weight_change": -2700,
+              "volume_change": -0.0,
+              "current_weight_load": -3510,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 39.4667,
+                "lon": -0.7167
+              },
+              "address": "Poligono I La Pamilla 196 46370 Chiva Spagna",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 4381.52597266265,
+              "driving_time_from_last": 5257.83116719518,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465,
+            "returned_to_depot": false,
+            "ends_with_overnight": true
+          }
+        },
+        "day_4": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 11288.891574875008,
+          "distance_driven": 9407.409645729174,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_camion_16_t_day2",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -3510,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_camion_16_t_day2",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 4381.52597266265,
+              "driving_time_from_last": 5257.83116719518,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 30,
+              "departure_time": 45,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -3510,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5025.883673066523,
+              "driving_time_from_last": 6031.060407679828,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 465.0,
+            "end_time": 45,
+            "returned_to_depot": true,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 0,
+        "total_volume_carried": 0,
+        "total_time_driven": 23202.4144424109,
+        "total_distance": 272.53738900175307,
+        "days_used": 4,
+        "overnight_stays": 2,
+        "total_distance_driven": 19335.345368675753,
+        "total_stops": 6
+      },
+      "constraint_violations": {
+        "weight_capacity": false,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    },
+    "furgone_6": {
+      "vehicle_info": {
+        "id": "furgone_6",
+        "type": "furgone",
+        "weight_capacity": 3500,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 494.4271799615955,
+          "distance_driven": 412.0226499679963,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "marostica_vi",
+              "location_type": "customer",
+              "arrival_time": 191.825,
+              "departure_time": 206.825,
+              "service_time": 15,
+              "weight_change": -950,
+              "volume_change": -0.0,
+              "current_weight_load": -950,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.75,
+                "lon": 11.65
+              },
+              "address": "via Milano 1 36063 Marostica VI",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 412.0226499679963,
+              "driving_time_from_last": 494.4271799615955,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 620,
+          "volume_carried": 0,
+          "time_driven": 12749.602274974974,
+          "distance_driven": 10624.668562479144,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_6_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -950,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_6_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5240.311058038444,
+              "driving_time_from_last": 6288.373269646132,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "sicor_caronno",
+              "location_type": "customer",
+              "arrival_time": 75,
+              "departure_time": 90,
+              "service_time": 15,
+              "weight_change": 750,
+              "volume_change": 0.0,
+              "current_weight_load": -200,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.6,
+                "lon": 8.9
+              },
+              "address": "Sicor Caronno",
+              "time_window": {
+                "start": 0,
+                "end": 840
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5157.105871513596,
+              "driving_time_from_last": 6188.527045816315,
+              "demand": 0
+            },
+            {
+              "stop_number": 3,
+              "location_id": "ferno_va",
+              "location_type": "customer",
+              "arrival_time": 130.00333333333333,
+              "departure_time": 145.00333333333333,
+              "service_time": 15,
+              "weight_change": 820,
+              "volume_change": 0.0,
+              "current_weight_load": 620,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.6167,
+                "lon": 8.7167
+              },
+              "address": "superstrada per Malpensa uscita Cargocity Torre D 5 piano 21010 Ferno VA",
+              "time_window": {
+                "start": 0,
+                "end": 510
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 20.430568454646682,
+              "driving_time_from_last": 24.516682145576016,
+              "demand": 0
+            },
+            {
+              "stop_number": 4,
+              "location_id": "imperia_1",
+              "location_type": "customer",
+              "arrival_time": 352.59833333333336,
+              "departure_time": 367.59833333333336,
+              "service_time": 15,
+              "weight_change": -600,
+              "volume_change": -0.0,
+              "current_weight_load": 20,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 43.8833,
+                "lon": 8.0333
+              },
+              "address": "via Filippo Airenti 2 18100 Imperia IM",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 206.82106447245675,
+              "driving_time_from_last": 248.1852773669481,
+              "demand": 0
+            },
+            {
+              "stop_number": 5,
+              "location_id": "imperia_2",
+              "location_type": "customer",
+              "arrival_time": 392.59833333333336,
+              "departure_time": 407.59833333333336,
+              "service_time": 15,
+              "weight_change": -700,
+              "volume_change": -0.0,
+              "current_weight_load": -680,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 43.8833,
+                "lon": 8.0333
+              },
+              "address": "via Nazionale 356/3 18100 Imperia IM",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": false,
+            "ends_with_overnight": true
+          }
+        },
+        "day_4": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 11973.4495451712,
+          "distance_driven": 9977.874620976,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_6_day2",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -680,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_6_day2",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 4951.990947909475,
+              "driving_time_from_last": 5942.38913749137,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 30,
+              "departure_time": 45,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -680,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5025.883673066523,
+              "driving_time_from_last": 6031.060407679828,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 465.0,
+            "end_time": 45,
+            "returned_to_depot": true,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 620,
+        "total_volume_carried": 0,
+        "total_time_driven": 25217.479000107767,
+        "total_distance": 520.8284365007291,
+        "days_used": 4,
+        "overnight_stays": 2,
+        "total_distance_driven": 21014.56583342314,
+        "total_stops": 9
+      },
+      "constraint_violations": {
+        "weight_capacity": false,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    },
+    "camion_75_t": {
+      "vehicle_info": {
+        "id": "camion_75_t",
+        "type": "camion",
+        "weight_capacity": 7500,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 461.09343799869464,
+          "distance_driven": 384.2445316655789,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "st_martin_crau",
+              "location_type": "customer",
+              "arrival_time": 400.95,
+              "departure_time": 415.95,
+              "service_time": 15,
+              "weight_change": -1500,
+              "volume_change": -0.0,
+              "current_weight_load": -1500,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 43.6333,
+                "lon": 4.8
+              },
+              "address": "Rue Gay Lussac 3 St. Martin de Crau 13310",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 384.2445316655789,
+              "driving_time_from_last": 461.09343799869464,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 11963.112708326466,
+          "distance_driven": 9969.260590272055,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_camion_75_t_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -1500,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_camion_75_t_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 4872.514226720501,
+              "driving_time_from_last": 5847.017072064601,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "villar_cuneo",
+              "location_type": "customer",
+              "arrival_time": 80,
+              "departure_time": 95,
+              "service_time": 15,
+              "weight_change": -550,
+              "volume_change": -0.0,
+              "current_weight_load": -2050,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.3833,
+                "lon": 7.5333
+              },
+              "address": "via I Maggio 43 Cuneo 12020 Villar San Costanzo",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 4997.007374236842,
+              "driving_time_from_last": 5996.4088490842105,
+              "demand": 0
+            },
+            {
+              "stop_number": 3,
+              "location_id": "villar_cuneo_2",
+              "location_type": "customer",
+              "arrival_time": 120.0,
+              "departure_time": 135.0,
+              "service_time": 15,
+              "weight_change": -665,
+              "volume_change": -0.0,
+              "current_weight_load": -2715,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.3833,
+                "lon": 7.5333
+              },
+              "address": "via I Maggio 43 Cuneo 12020 Villar San Costanzo",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 4,
+              "location_id": "castellalfero_at",
+              "location_type": "customer",
+              "arrival_time": 250.99833333333333,
+              "departure_time": 265.99833333333333,
+              "service_time": 15,
+              "weight_change": 650,
+              "volume_change": 0.0,
+              "current_weight_load": -2065,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.9667,
+                "lon": 8.2167
+              },
+              "address": "Via Statale 25/A Castell'Alfero 14033 AT",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 99.73898931471113,
+              "driving_time_from_last": 119.68678717765336,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": false,
+            "ends_with_overnight": true
+          }
+        },
+        "day_4": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 12119.798749186797,
+          "distance_driven": 10099.832290988998,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_camion_75_t_day2",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -2065,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_camion_75_t_day2",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5073.948617922474,
+              "driving_time_from_last": 6088.738341506969,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 30,
+              "departure_time": 45,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -2065,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5025.883673066523,
+              "driving_time_from_last": 6031.060407679828,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 465.0,
+            "end_time": 45,
+            "returned_to_depot": true,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 0,
+        "total_volume_carried": 0,
+        "total_time_driven": 24544.004895511956,
+        "total_distance": 369.6507667617555,
+        "days_used": 4,
+        "overnight_stays": 2,
+        "total_distance_driven": 20453.33741292663,
+        "total_stops": 8
+      },
+      "constraint_violations": {
+        "weight_capacity": false,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    },
+    "furgone_8": {
+      "vehicle_info": {
+        "id": "furgone_8",
+        "type": "furgone",
+        "weight_capacity": 3500,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 105.62150672210635,
+          "distance_driven": 88.01792226842196,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "sant_olcese_ge",
+              "location_type": "customer",
+              "arrival_time": 143.135,
+              "departure_time": 158.135,
+              "service_time": 15,
+              "weight_change": -4300,
+              "volume_change": -0.0,
+              "current_weight_load": -4300,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5167,
+                "lon": 8.9333
+              },
+              "address": "Piazza Guglielmo Marconi 40 16010 Sant'Olcese GE",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 88.01792226842196,
+              "driving_time_from_last": 105.62150672210635,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 12685.676468416688,
+          "distance_driven": 10571.397057013908,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_8_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -4300,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_8_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5039.86503893481,
+              "driving_time_from_last": 6047.838046721772,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "osimo_an",
+              "location_type": "customer",
+              "arrival_time": 80,
+              "departure_time": 95,
+              "service_time": 15,
+              "weight_change": -750,
+              "volume_change": -0.0,
+              "current_weight_load": -5050,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 43.4833,
+                "lon": 13.4833
+              },
+              "address": "via Francesco Crispi 2 60027 Osimo AN",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5053.361717966306,
+              "driving_time_from_last": 6064.034061559567,
+              "demand": 0
+            },
+            {
+              "stop_number": 3,
+              "location_id": "castelfidardo",
+              "location_type": "customer",
+              "arrival_time": 125.31,
+              "departure_time": 140.31,
+              "service_time": 15,
+              "weight_change": 550,
+              "volume_change": 0.0,
+              "current_weight_load": -4500,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 43.4667,
+                "lon": 13.55
+              },
+              "address": "via Jesina 27/P 60022 Castelfidardo",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 7.629544445771329,
+              "driving_time_from_last": 9.155453334925594,
+              "demand": 0
+            },
+            {
+              "stop_number": 4,
+              "location_id": "somaglia_lo",
+              "location_type": "customer",
+              "arrival_time": 411.22666666666663,
+              "departure_time": 426.22666666666663,
+              "service_time": 15,
+              "weight_change": -1100,
+              "volume_change": -0.0,
+              "current_weight_load": -5600,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.1667,
+                "lon": 9.6667
+              },
+              "address": "strada Provinciale 223 26867 Localit\u00e0 Cantonale Somaglia LO",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 470.54075566701965,
+              "driving_time_from_last": 564.6489068004236,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": false,
+            "ends_with_overnight": true
+          }
+        },
+        "day_4": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 12183.510412172625,
+          "distance_driven": 10152.925343477189,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_8_day2",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -5600,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_8_day2",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5127.041670410665,
+              "driving_time_from_last": 6152.450004492797,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 30,
+              "departure_time": 45,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -5600,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5025.883673066523,
+              "driving_time_from_last": 6031.060407679828,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 465.0,
+            "end_time": 45,
+            "returned_to_depot": true,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 0,
+        "total_volume_carried": 0,
+        "total_time_driven": 24974.80838731142,
+        "total_distance": 430.7054185708747,
+        "days_used": 4,
+        "overnight_stays": 2,
+        "total_distance_driven": 20812.34032275952,
+        "total_stops": 8
+      },
+      "constraint_violations": {
+        "weight_capacity": false,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    },
+    "furgone_9": {
+      "vehicle_info": {
+        "id": "furgone_9",
+        "type": "furgone",
+        "weight_capacity": 3500,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 179.9125457453102,
+          "distance_driven": 149.9271214544252,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "casarza_ligure_ge",
+              "location_type": "customer",
+              "arrival_time": 195.15333333333334,
+              "departure_time": 210.15333333333334,
+              "service_time": 15,
+              "weight_change": -4300,
+              "volume_change": -0.0,
+              "current_weight_load": -4300,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.2833,
+                "lon": 9.4667
+              },
+              "address": "Via Tangoni 30/32 I-16030 Casarza Ligure GE",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 149.9271214544252,
+              "driving_time_from_last": 179.9125457453102,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 21206,
+          "volume_carried": 0,
+          "time_driven": 12551.319532606334,
+          "distance_driven": 10459.432943838612,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_9_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -4300,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_9_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5026.509797475519,
+              "driving_time_from_last": 6031.811756970623,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "capriate_bg",
+              "location_type": "customer",
+              "arrival_time": 80,
+              "departure_time": 95,
+              "service_time": 15,
+              "weight_change": -900,
+              "volume_change": -0.0,
+              "current_weight_load": -5200,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.6,
+                "lon": 9.5333
+              },
+              "address": "via Bergamo 61/63 24042 Capriate San Gervasio BG",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5171.032195735556,
+              "driving_time_from_last": 6205.238634882668,
+              "demand": 0
+            },
+            {
+              "stop_number": 3,
+              "location_id": "cazzano_bg",
+              "location_type": "customer",
+              "arrival_time": 168.415,
+              "departure_time": 183.415,
+              "service_time": 15,
+              "weight_change": 1200,
+              "volume_change": 0.0,
+              "current_weight_load": -4000,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.75,
+                "lon": 9.8
+              },
+              "address": "via Cavalier Pietro Radici 19 24026 Cazzano Sant'andrea BG",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 33.964710416695674,
+              "driving_time_from_last": 40.75765250003481,
+              "demand": 0
+            },
+            {
+              "stop_number": 4,
+              "location_id": "depot_bay_2",
+              "location_type": "customer",
+              "arrival_time": 271.69666666666666,
+              "departure_time": 286.69666666666666,
+              "service_time": 15,
+              "weight_change": 831,
+              "volume_change": 0.0,
+              "current_weight_load": -3169,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 2",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 227.92624021084112,
+              "driving_time_from_last": 273.5114882530093,
+              "demand": 0
+            },
+            {
+              "stop_number": 5,
+              "location_id": "depot_bay_3",
+              "location_type": "customer",
+              "arrival_time": 281.69666666666666,
+              "departure_time": 296.69666666666666,
+              "service_time": 15,
+              "weight_change": 750,
+              "volume_change": 0.0,
+              "current_weight_load": -2419,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 3",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 6,
+              "location_id": "depot_bay_4",
+              "location_type": "customer",
+              "arrival_time": 291.69666666666666,
+              "departure_time": 306.69666666666666,
+              "service_time": 15,
+              "weight_change": 810,
+              "volume_change": 0.0,
+              "current_weight_load": -1609,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 4",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 7,
+              "location_id": "depot_bay_5",
+              "location_type": "customer",
+              "arrival_time": 301.69666666666666,
+              "departure_time": 316.69666666666666,
+              "service_time": 15,
+              "weight_change": 950,
+              "volume_change": 0.0,
+              "current_weight_load": -659,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 5",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 8,
+              "location_id": "depot_bay_6",
+              "location_type": "customer",
+              "arrival_time": 311.69666666666666,
+              "departure_time": 326.69666666666666,
+              "service_time": 15,
+              "weight_change": 1500,
+              "volume_change": 0.0,
+              "current_weight_load": 841,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 6",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 9,
+              "location_id": "depot_bay_7",
+              "location_type": "customer",
+              "arrival_time": 321.69666666666666,
+              "departure_time": 336.69666666666666,
+              "service_time": 15,
+              "weight_change": 4300,
+              "volume_change": 0.0,
+              "current_weight_load": 5141,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 7",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 10,
+              "location_id": "depot_bay_8",
+              "location_type": "customer",
+              "arrival_time": 331.69666666666666,
+              "departure_time": 346.69666666666666,
+              "service_time": 15,
+              "weight_change": 4300,
+              "volume_change": 0.0,
+              "current_weight_load": 9441,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 8",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 11,
+              "location_id": "depot_bay_9",
+              "location_type": "customer",
+              "arrival_time": 341.69666666666666,
+              "departure_time": 356.69666666666666,
+              "service_time": 15,
+              "weight_change": 1500,
+              "volume_change": 0.0,
+              "current_weight_load": 10941,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 9",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 12,
+              "location_id": "depot_bay_10",
+              "location_type": "customer",
+              "arrival_time": 351.69666666666666,
+              "departure_time": 366.69666666666666,
+              "service_time": 15,
+              "weight_change": 2700,
+              "volume_change": 0.0,
+              "current_weight_load": 13641,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 10",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 13,
+              "location_id": "depot_bay_11",
+              "location_type": "customer",
+              "arrival_time": 361.69666666666666,
+              "departure_time": 376.69666666666666,
+              "service_time": 15,
+              "weight_change": 750,
+              "volume_change": 0.0,
+              "current_weight_load": 14391,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 11",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 14,
+              "location_id": "depot_bay_12",
+              "location_type": "customer",
+              "arrival_time": 371.69666666666666,
+              "departure_time": 386.69666666666666,
+              "service_time": 15,
+              "weight_change": 750,
+              "volume_change": 0.0,
+              "current_weight_load": 15141,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 12",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 15,
+              "location_id": "depot_bay_13",
+              "location_type": "customer",
+              "arrival_time": 381.69666666666666,
+              "departure_time": 396.69666666666666,
+              "service_time": 15,
+              "weight_change": 800,
+              "volume_change": 0.0,
+              "current_weight_load": 15941,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 13",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 16,
+              "location_id": "depot_bay_14",
+              "location_type": "customer",
+              "arrival_time": 391.69666666666666,
+              "departure_time": 406.69666666666666,
+              "service_time": 15,
+              "weight_change": 600,
+              "volume_change": 0.0,
+              "current_weight_load": 16541,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 14",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 17,
+              "location_id": "depot_bay_15",
+              "location_type": "customer",
+              "arrival_time": 401.69666666666666,
+              "departure_time": 416.69666666666666,
+              "service_time": 15,
+              "weight_change": 700,
+              "volume_change": 0.0,
+              "current_weight_load": 17241,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 15",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 18,
+              "location_id": "depot_bay_16",
+              "location_type": "customer",
+              "arrival_time": 411.69666666666666,
+              "departure_time": 426.69666666666666,
+              "service_time": 15,
+              "weight_change": 550,
+              "volume_change": 0.0,
+              "current_weight_load": 17791,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 16",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 19,
+              "location_id": "depot_bay_17",
+              "location_type": "customer",
+              "arrival_time": 421.69666666666666,
+              "departure_time": 436.69666666666666,
+              "service_time": 15,
+              "weight_change": 665,
+              "volume_change": 0.0,
+              "current_weight_load": 18456,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 17",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 20,
+              "location_id": "depot_bay_18",
+              "location_type": "customer",
+              "arrival_time": 431.69666666666666,
+              "departure_time": 446.69666666666666,
+              "service_time": 15,
+              "weight_change": 750,
+              "volume_change": 0.0,
+              "current_weight_load": 19206,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 18",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 21,
+              "location_id": "depot_bay_19",
+              "location_type": "customer",
+              "arrival_time": 441.69666666666666,
+              "departure_time": 456.69666666666666,
+              "service_time": 15,
+              "weight_change": 1100,
+              "volume_change": 0.0,
+              "current_weight_load": 20306,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 19",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 22,
+              "location_id": "depot_bay_20",
+              "location_type": "customer",
+              "arrival_time": 451.69666666666666,
+              "departure_time": 466.69666666666666,
+              "service_time": 15,
+              "weight_change": 900,
+              "volume_change": 0.0,
+              "current_weight_load": 21206,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Loading Bay 20",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 23,
+              "location_id": "pickup_bay_1",
+              "location_type": "customer",
+              "arrival_time": 461.69666666666666,
+              "departure_time": 476.69666666666666,
+              "service_time": 15,
+              "weight_change": -700,
+              "volume_change": -0.0,
+              "current_weight_load": 20506,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Pickup Bay 1",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 24,
+              "location_id": "pickup_bay_2",
+              "location_type": "customer",
+              "arrival_time": 471.69666666666666,
+              "departure_time": 486.69666666666666,
+              "service_time": 15,
+              "weight_change": -750,
+              "volume_change": -0.0,
+              "current_weight_load": 19756,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Pickup Bay 2",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 486.69666666666666,
+            "returned_to_depot": false,
+            "ends_with_overnight": true
+          }
+        },
+        "day_4": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0.0,
+          "distance_driven": 0.0,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "pickup_bay_2",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": -750,
+              "volume_change": -0.0,
+              "current_weight_load": 19006,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Pickup Bay 2",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 5.0,
+              "departure_time": 20.0,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 19006,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 465.0,
+            "end_time": 20.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 21206,
+        "total_volume_carried": 0,
+        "total_time_driven": 12731.232078351644,
+        "total_distance": 322.8760456751408,
+        "days_used": 4,
+        "overnight_stays": 2,
+        "total_distance_driven": 10609.360065293038,
+        "total_stops": 28
+      },
+      "constraint_violations": {
+        "weight_capacity": true,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    },
+    "furgone_10": {
+      "vehicle_info": {
+        "id": "furgone_10",
+        "type": "furgone",
+        "weight_capacity": 3500,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 187.08161208375364,
+          "distance_driven": 155.90134340312804,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "cerro_al_lambro_mi",
+              "location_type": "customer",
+              "arrival_time": 57.156666666666666,
+              "departure_time": 72.15666666666667,
+              "service_time": 15,
+              "weight_change": -800,
+              "volume_change": -0.0,
+              "current_weight_load": -800,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.3333,
+                "lon": 9.3
+              },
+              "address": "Via Autosole 7 20070 Cerro Al Lambro MI",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 155.90134340312804,
+              "driving_time_from_last": 187.08161208375364,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 12195.210574298719,
+          "distance_driven": 10162.675478582267,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_10_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": -800,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_10_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5136.791805515743,
+              "driving_time_from_last": 6164.1501666188915,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "pickup_bay_3",
+              "location_type": "customer",
+              "arrival_time": 65,
+              "departure_time": 80,
+              "service_time": 15,
+              "weight_change": -820,
+              "volume_change": -0.0,
+              "current_weight_load": -1620,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Pickup Bay 3",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5025.883673066523,
+              "driving_time_from_last": 6031.060407679828,
+              "demand": 0
+            },
+            {
+              "stop_number": 3,
+              "location_id": "pickup_bay_4",
+              "location_type": "customer",
+              "arrival_time": 75.0,
+              "departure_time": 90.0,
+              "service_time": 15,
+              "weight_change": -650,
+              "volume_change": -0.0,
+              "current_weight_load": -2270,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Pickup Bay 4",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 4,
+              "location_id": "pickup_bay_5",
+              "location_type": "customer",
+              "arrival_time": 85.0,
+              "departure_time": 100.0,
+              "service_time": 15,
+              "weight_change": -550,
+              "volume_change": -0.0,
+              "current_weight_load": -2820,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Pickup Bay 5",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 5,
+              "location_id": "pickup_bay_6",
+              "location_type": "customer",
+              "arrival_time": 95.0,
+              "departure_time": 110.0,
+              "service_time": 15,
+              "weight_change": -1200,
+              "volume_change": -0.0,
+              "current_weight_load": -4020,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Depot Pickup Bay 6",
+              "time_window": {
+                "start": null,
+                "end": null
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 110.0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 0,
+        "total_volume_carried": 0,
+        "total_time_driven": 12382.292186382472,
+        "total_distance": 126.88435675506635,
+        "days_used": 3,
+        "overnight_stays": 1,
+        "total_distance_driven": 10318.576821985394,
+        "total_stops": 7
+      },
+      "constraint_violations": {
+        "weight_capacity": false,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    },
+    "furgone_11": {
+      "vehicle_info": {
+        "id": "furgone_11",
+        "type": "furgone",
+        "weight_capacity": 3500,
+        "volume_capacity": 0.0,
+        "daily_time_limit": 900,
+        "cost_per_km": 1.0,
+        "depot_id": "depot"
+      },
+      "daily_breakdown": {
+        "day_1": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 0,
+          "distance_driven": 0,
+          "stops": [],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 0,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        },
+        "day_2": {
+          "weight_carried": 700,
+          "volume_carried": 0,
+          "time_driven": 190.17892841363457,
+          "distance_driven": 158.48244034469548,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "depot",
+              "location_type": "depot",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 0,
+              "current_volume_load": 0,
+              "coordinates": {
+                "lat": 44.5404,
+                "lon": 8.1407
+              },
+              "address": "Asti Distribution Center",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "cormano_mi",
+              "location_type": "customer",
+              "arrival_time": 40.61833333333333,
+              "departure_time": 55.61833333333333,
+              "service_time": 15,
+              "weight_change": 700,
+              "volume_change": 0.0,
+              "current_weight_load": 700,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 45.5333,
+                "lon": 9.1667
+              },
+              "address": "via dell'Artigianato 1 20032 Cormano MI",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 158.48244034469548,
+              "driving_time_from_last": 190.17892841363457,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 465.0,
+            "returned_to_depot": true,
+            "ends_with_overnight": true
+          }
+        },
+        "day_3": {
+          "weight_carried": 0,
+          "volume_carried": 0,
+          "time_driven": 6186.720309385597,
+          "distance_driven": 5155.600257821331,
+          "stops": [
+            {
+              "stop_number": 1,
+              "location_id": "road_overnight_furgone_11_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 700,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_11_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 5155.600257821331,
+              "driving_time_from_last": 6186.720309385597,
+              "demand": 0
+            },
+            {
+              "stop_number": 2,
+              "location_id": "road_overnight_furgone_11_day1",
+              "location_type": "customer",
+              "arrival_time": 0,
+              "departure_time": 15,
+              "service_time": 15,
+              "weight_change": 0,
+              "volume_change": 0,
+              "current_weight_load": 700,
+              "current_volume_load": 0.0,
+              "coordinates": {
+                "lat": 0,
+                "lon": 0
+              },
+              "address": "Location road_overnight_furgone_11_day1",
+              "time_window": {
+                "start": 0,
+                "end": 1440
+              },
+              "time_window_violation": false,
+              "is_overnight": false,
+              "distance_from_last": 0.0,
+              "driving_time_from_last": 0.0,
+              "demand": 0
+            }
+          ],
+          "route_summary": {
+            "start_time": 0,
+            "end_time": 15,
+            "returned_to_depot": false,
+            "ends_with_overnight": false
+          }
+        }
+      },
+      "totals": {
+        "total_weight_carried": 700,
+        "total_volume_carried": 0,
+        "total_time_driven": 6376.899237799232,
+        "total_distance": 136.70427571619217,
+        "days_used": 3,
+        "overnight_stays": 1,
+        "total_distance_driven": 5314.082698166027,
+        "total_stops": 4
+      },
+      "constraint_violations": {
+        "weight_capacity": false,
+        "volume_capacity": false,
+        "time_capacity": false,
+        "time_windows": false
+      }
+    }
+  }
+}

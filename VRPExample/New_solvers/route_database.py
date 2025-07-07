@@ -205,48 +205,45 @@ class RouteDatabase:
             self.logger.error(f"Database lookup error: {e}")
             return None
     
-    def _fetch_osrm_route(self, from_lat: float, from_lon: float, 
-                         to_lat: float, to_lon: float,
+    def _fetch_osrm_route(self, from_lat: float, from_lon: float, to_lat: float, to_lon: float,
                          from_id: str = None, to_id: str = None) -> Optional[Dict]:
-        """Fetch route from OSRM API with road composition analysis."""
+        """Fetch route from OSRM API."""
         try:
-            # Build OSRM request URL
-            from_coords = f"{from_lon},{from_lat}"
-            to_coords = f"{to_lon},{to_lat}"
-            url = f"{self.osrm_url}/route/v1/driving/{from_coords};{to_coords}"
+            # Build OSRM request
+            coords = f"{from_lon},{from_lat};{to_lon},{to_lat}"
+            url = f"{self.osrm_url}/route/v1/driving/{coords}"
             
             params = {
                 'overview': 'full',
                 'geometries': 'geojson',
-                'alternatives': 'false',
-                'annotations': 'true',
-                'steps': 'true'  # Get detailed step information for road composition
+                'steps': 'true'
             }
             
             response = requests.get(url, params=params, timeout=self.request_timeout)
             response.raise_for_status()
+            
             data = response.json()
             
             if data['code'] == 'Ok' and 'routes' in data and len(data['routes']) > 0:
                 route = data['routes'][0]
                 
-                # Extract basic route info
-                distance_km = route['distance'] / 1000.0
-                duration_minutes = route['duration'] / 60.0
-                
-                # Extract route geometry coordinates
-                route_geometry = None
-                if 'geometry' in route and 'coordinates' in route['geometry']:
-                    # Convert from [lon, lat] to [lat, lon] for easier use
-                    geometry_coords = route['geometry']['coordinates']
-                    route_geometry = [[coord[1], coord[0]] for coord in geometry_coords]
+                # Extract basic route information
+                distance_km = route['distance'] / 1000.0  # Convert to km
+                duration_minutes = route['duration'] / 60.0  # Convert to minutes
                 
                 # Extract road composition
                 road_composition = self._extract_road_composition(route)
                 
-                # Calculate travel times for different truck types to show speed ratio impact
-                # Create road composition summary
-                road_summary = ", ".join([f"{road_type}:{dist:.1f}km" for road_type, dist in road_composition.items()]) if road_composition else "no_data"
+                # Extract route geometry
+                route_geometry = None
+                if 'geometry' in route:
+                    route_geometry = route['geometry']
+                
+                # Print concise route summary (only for new routes)
+                if road_composition:
+                    road_summary = ", ".join([f"{k}: {v:.1f}km" for k, v in road_composition.items() if v > 0.1])
+                else:
+                    road_summary = "unknown"
                 
                 try:
                     from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
@@ -349,204 +346,129 @@ class RouteDatabase:
             return 'trunk'
         elif any(keyword in name for keyword in ['provinciale', 'primary', 'sp']):
             return 'primary'
-        elif any(keyword in name for keyword in ['secondary', 'comunale']):
+        elif any(keyword in name for keyword in ['comunale', 'secondary', 'sc']):
             return 'secondary'
-        elif any(keyword in name for keyword in ['via', 'street', 'strada', 'tertiary']):
-            return 'tertiary'
-        elif any(keyword in name for keyword in ['residential', 'vicolo', 'piazza']):
+        elif any(keyword in name for keyword in ['residential', 'locale']):
             return 'residential'
-        elif any(keyword in name for keyword in ['service', 'parking', 'access']):
-            return 'service'
         else:
-            # Default classification
-            return 'secondary'
+            return 'tertiary'  # Default for unnamed/other roads
     
     def _store_route(self, from_lat: float, from_lon: float, to_lat: float, to_lon: float,
                     from_id: str, to_id: str, route_data: Dict):
         """Store route in database."""
         try:
             with self._get_connection() as conn:
-                # Convert route geometry to JSON string if it exists
-                geometry_json = json.dumps(route_data.get('route_geometry')) if route_data.get('route_geometry') else None
+                # Serialize complex data as JSON
+                road_composition_json = json.dumps(route_data.get('road_composition', {}))
+                route_geometry_json = json.dumps(route_data.get('route_geometry')) if route_data.get('route_geometry') else None
                 
                 conn.execute("""
                     INSERT OR REPLACE INTO routes 
-                    (from_lat, from_lon, from_id, to_lat, to_lon, to_id,
+                    (from_lat, from_lon, from_id, to_lat, to_lon, to_id, 
                      distance_km, duration_minutes, road_composition, route_geometry, osrm_success)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    from_lat, from_lon, from_id, to_lat, to_lon, to_id,
-                    route_data['distance_km'], route_data['duration_minutes'],
-                    json.dumps(route_data['road_composition']), geometry_json, True
-                ))
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                """, (from_lat, from_lon, from_id, to_lat, to_lon, to_id,
+                      route_data['distance_km'], route_data['duration_minutes'], 
+                      road_composition_json, route_geometry_json))
+                
                 conn.commit()
         except Exception as e:
-            self.logger.error(f"Error storing route in database: {e}")
+            self.logger.error(f"Database storage error: {e}")
     
     def get_cache_stats(self) -> Dict:
         """Get cache statistics."""
         try:
             with self._get_connection() as conn:
-                cursor = conn.execute("SELECT COUNT(*) as total FROM routes WHERE osrm_success = 1")
-                total_routes = cursor.fetchone()['total']
+                cursor = conn.execute("SELECT COUNT(*) as total_routes FROM routes WHERE osrm_success = 1")
+                total_routes = cursor.fetchone()['total_routes']
                 
-                cursor = conn.execute("SELECT COUNT(*) as recent FROM routes WHERE osrm_success = 1 AND created_at > datetime('now', '-7 days')")
-                recent_routes = cursor.fetchone()['recent']
-                
-                cursor = conn.execute("SELECT MIN(created_at) as oldest, MAX(created_at) as newest FROM routes WHERE osrm_success = 1")
-                dates = cursor.fetchone()
+                # Get database file size
+                db_size_bytes = os.path.getsize(self.db_path) if os.path.exists(self.db_path) else 0
+                db_size_mb = db_size_bytes / (1024 * 1024)
                 
                 return {
                     'total_routes': total_routes,
-                    'recent_routes': recent_routes,
-                    'oldest_route': dates['oldest'],
-                    'newest_route': dates['newest'],
-                    'database_size_mb': os.path.getsize(self.db_path) / (1024 * 1024) if os.path.exists(self.db_path) else 0
+                    'database_size_mb': db_size_mb,
+                    'database_path': self.db_path
                 }
         except Exception as e:
-            self.logger.error(f"Error getting cache stats: {e}")
-            return {'total_routes': 0, 'recent_routes': 0, 'database_size_mb': 0}
+            self.logger.error(f"Stats retrieval error: {e}")
+            return {'total_routes': 0, 'database_size_mb': 0, 'database_path': self.db_path}
     
     def _print_cache_stats(self):
-        """Print cache statistics."""
+        """Print current cache statistics."""
         stats = self.get_cache_stats()
-        print(f"📊 Route Cache Stats:")
-        print(f"  - Total cached routes: {stats['total_routes']}")
-        print(f"  - Recent routes (7 days): {stats['recent_routes']}")
-        print(f"  - Database size: {stats['database_size_mb']:.2f} MB")
-        if stats['oldest_route']:
-            print(f"  - Cache period: {stats['oldest_route']} to {stats['newest_route']}")
+        print(f"  📊 {stats['total_routes']} routes cached ({stats['database_size_mb']:.2f} MB)")
     
-    def clear_old_routes(self, days_old: int = 30):
-        """Clear routes older than specified days."""
-        try:
-            with self._get_connection() as conn:
-                cursor = conn.execute("""
-                    DELETE FROM routes 
-                    WHERE created_at < datetime('now', '-{} days')
-                """.format(days_old))
-                deleted = cursor.rowcount
-                conn.commit()
-                
-                print(f"🗑️ Deleted {deleted} routes older than {days_old} days")
-                return deleted
-        except Exception as e:
-            self.logger.error(f"Error clearing old routes: {e}")
-            return 0
-    
-    def get_cached_route_geometry(self, from_lat: float, from_lon: float, 
-                                 to_lat: float, to_lon: float) -> Optional[List]:
-        """
-        Get cached route geometry coordinates for visualization.
+    def consolidate_databases(self, db_paths: List[str]):
+        """Consolidate multiple route databases into this one."""
+        print(f"🔄 Consolidating {len(db_paths)} databases into {self.db_path}")
         
-        Args:
-            from_lat, from_lon: Source coordinates
-            to_lat, to_lon: Destination coordinates
-            
-        Returns:
-            List of [lat, lon] coordinates if cached, None otherwise
-        """
-        # Round coordinates for consistent lookup
-        from_lat_r, from_lon_r = self._round_coordinates(from_lat, from_lon)
-        to_lat_r, to_lon_r = self._round_coordinates(to_lat, to_lon)
+        routes_added = 0
+        routes_skipped = 0
         
-        with self._lock:
-            cached_route = self._lookup_cached_route(from_lat_r, from_lon_r, to_lat_r, to_lon_r)
-            
-        if cached_route and cached_route['route_geometry']:
-            try:
-                return json.loads(cached_route['route_geometry'])
-            except json.JSONDecodeError:
-                pass
-        
-        return None
-
-    def consolidate_databases(self, source_db_paths: List[str]):
-        """
-        Consolidate routes from multiple database files into this database.
-        
-        Args:
-            source_db_paths: List of paths to source database files to merge
-        """
-        print(f"🔄 Consolidating databases into {self.db_path}...")
-        
-        consolidated_count = 0
-        for source_path in source_db_paths:
-            if not os.path.exists(source_path):
-                continue
-                
-            if source_path == self.db_path:
+        for source_db in db_paths:
+            if source_db == self.db_path:
                 continue  # Skip self
                 
             try:
-                # Connect to source database
-                source_conn = sqlite3.connect(source_path, timeout=30.0)
+                source_conn = sqlite3.connect(source_db, timeout=30.0)
                 source_conn.row_factory = sqlite3.Row
                 
-                # Get all routes from source
-                cursor = source_conn.execute("""
-                    SELECT from_lat, from_lon, from_id, to_lat, to_lon, to_id,
-                           distance_km, duration_minutes, road_composition, 
-                           CASE WHEN EXISTS(SELECT 1 FROM pragma_table_info('routes') WHERE name='route_geometry') 
-                                THEN route_geometry 
-                                ELSE NULL END as route_geometry,
-                           osrm_success
-                    FROM routes 
-                    WHERE osrm_success = 1
-                """)
-                
-                routes = cursor.fetchall()
-                source_conn.close()
-                
-                if not routes:
+                # Check if source database has the expected schema
+                cursor = source_conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='routes'")
+                if not cursor.fetchone():
+                    print(f"  ⚠️ Skipping {source_db}: No routes table found")
+                    source_conn.close()
                     continue
                 
-                # Insert routes into main database
-                with self._get_connection() as conn:
-                    for route in routes:
+                # Get all routes from source database
+                cursor = source_conn.execute("SELECT * FROM routes WHERE osrm_success = 1")
+                
+                with self._get_connection() as target_conn:
+                    for row in cursor:
                         try:
-                            conn.execute("""
+                            target_conn.execute("""
                                 INSERT OR IGNORE INTO routes 
-                                (from_lat, from_lon, from_id, to_lat, to_lon, to_id,
+                                (from_lat, from_lon, from_id, to_lat, to_lon, to_id, 
                                  distance_km, duration_minutes, road_composition, route_geometry, osrm_success)
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """, (
-                                route['from_lat'], route['from_lon'], route['from_id'],
-                                route['to_lat'], route['to_lon'], route['to_id'],
-                                route['distance_km'], route['duration_minutes'],
-                                route['road_composition'], route['route_geometry'], route['osrm_success']
-                            ))
-                            consolidated_count += 1
-                        except Exception as e:
-                            self.logger.warning(f"Error consolidating route: {e}")
+                            """, (row['from_lat'], row['from_lon'], row.get('from_id'), 
+                                  row['to_lat'], row['to_lon'], row.get('to_id'),
+                                  row['distance_km'], row['duration_minutes'], 
+                                  row.get('road_composition'), row.get('route_geometry'), 1))
+                            routes_added += 1
+                        except sqlite3.IntegrityError:
+                            routes_skipped += 1
                     
-                    conn.commit()
+                    target_conn.commit()
                 
-                print(f"  ✅ Consolidated {len(routes)} routes from {source_path}")
+                source_conn.close()
+                print(f"  ✅ Consolidated {source_db}: {routes_added} routes added, {routes_skipped} duplicates skipped")
                 
             except Exception as e:
-                self.logger.error(f"Error consolidating {source_path}: {e}")
+                print(f"  ❌ Error consolidating {source_db}: {e}")
         
-        print(f"🎯 Total routes consolidated: {consolidated_count}")
-        return consolidated_count
-
+        print(f"✅ Consolidation complete: {routes_added} total routes added")
+        self._print_cache_stats()
+    
     def _auto_consolidate_databases(self):
-        """Automatically consolidate existing database files."""
-        # Find all existing .db files
+        """Automatically consolidate existing databases in current and parent directories."""
+        current_dir = os.getcwd()
+        parent_dir = os.path.dirname(current_dir)
+        
+        # Find databases in current directory
         current_dir_dbs = []
+        for file in os.listdir(current_dir):
+            if file.endswith('.db') and file != self.db_path and 'routes' in file.lower():
+                current_dir_dbs.append(os.path.join(current_dir, file))
+        
+        # Find databases in parent directory
         parent_dir_dbs = []
-        
-        # Check current directory
-        for file in os.listdir('.'):
-            if file.endswith('.db') and file != self.db_path:
-                current_dir_dbs.append(file)
-        
-        # Check parent directory
-        parent_path = os.path.dirname(os.path.abspath('.'))
-        if os.path.exists(parent_path):
-            for file in os.listdir(parent_path):
-                if file.endswith('.db'):
-                    parent_dir_dbs.append(os.path.join(parent_path, file))
+        if os.path.exists(parent_dir):
+            for file in os.listdir(parent_dir):
+                if file.endswith('.db') and 'routes' in file.lower():
+                    parent_dir_dbs.append(os.path.join(parent_dir, file))
         
         all_dbs = current_dir_dbs + parent_dir_dbs
         
@@ -748,53 +670,51 @@ class CachedOSRMDistanceCalculator:
         
         dlat = math.radians(lat2 - lat1)
         dlon = math.radians(lon2 - lon1)
+        lat1_rad = math.radians(lat1)
+        lat2_rad = math.radians(lat2)
         
-        a = (math.sin(dlat/2)**2 + 
-             math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * 
-             math.sin(dlon/2)**2)
+        a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
         
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-        distance = R * c
-        
-        return distance
+        return R * c
     
-    def get_distance(self, from_idx: int, to_idx: int) -> float:
-        """Get distance between location indices."""
-        return self.distance_matrix[from_idx][to_idx]
+    def get_distance(self, from_location_id: str, to_location_id: str) -> int:
+        """Get distance between two locations for OR-Tools (integer required)."""
+        try:
+            from_idx = self._get_location_index(from_location_id)
+            to_idx = self._get_location_index(to_location_id)
+            
+            if from_idx is not None and to_idx is not None:
+                # Return distance in meters (integer) for OR-Tools
+                distance_km = self.distance_matrix[from_idx][to_idx]
+                return int(distance_km * 1000)
+            else:
+                self.logger.warning(f"Location not found: {from_location_id} or {to_location_id}")
+                return 0
+        except Exception as e:
+            self.logger.error(f"Distance calculation error: {e}")
+            return 0
     
-    def get_travel_time(self, from_idx: int, to_idx: int) -> float:
-        """Get travel time between location indices."""
-        return self.time_matrix[from_idx][to_idx]
+    def get_time(self, from_location_id: str, to_location_id: str) -> int:
+        """Get travel time between two locations for OR-Tools (integer required)."""
+        try:
+            from_idx = self._get_location_index(from_location_id)
+            to_idx = self._get_location_index(to_location_id)
+            
+            if from_idx is not None and to_idx is not None:
+                # Return time in seconds (integer) for OR-Tools
+                time_minutes = self.time_matrix[from_idx][to_idx]
+                return int(time_minutes * 60)
+            else:
+                self.logger.warning(f"Location not found: {from_location_id} or {to_location_id}")
+                return 0
+        except Exception as e:
+            self.logger.error(f"Time calculation error: {e}")
+            return 0
     
-    def get_cache_stats(self) -> Dict:
-        """Get route database cache statistics."""
-        return self.route_db.get_cache_stats()
-
-    def get_cached_route_geometry(self, from_lat: float, from_lon: float, 
-                                 to_lat: float, to_lon: float) -> Optional[List]:
-        """Get cached route geometry coordinates for visualization."""
-        return self.route_db.get_cached_route_geometry(from_lat, from_lon, to_lat, to_lon)
-
-
-if __name__ == "__main__":
-    # Test the route database
-    print("🧪 Testing Route Database")
-    
-    # Test locations (Italian cities)
-    test_locations = [
-        {'id': 'milan', 'x': 9.1900, 'y': 45.4642},
-        {'id': 'rome', 'x': 12.4964, 'y': 41.9028},
-        {'id': 'venice', 'x': 12.3155, 'y': 45.4408},
-        {'id': 'florence', 'x': 11.2558, 'y': 43.7696}
-    ]
-    
-    # Test calculator
-    calculator = CachedOSRMDistanceCalculator(test_locations, use_truck_speeds=False)
-    
-    print(f"\n📊 Test Results:")
-    for i, loc1 in enumerate(test_locations):
-        for j, loc2 in enumerate(test_locations):
-            if i != j:
-                distance = calculator.get_distance(i, j)
-                time = calculator.get_travel_time(i, j)
-                print(f"  {loc1['id']} → {loc2['id']}: {distance:.1f}km, {time:.1f}min")
+    def _get_location_index(self, location_id: str) -> Optional[int]:
+        """Get the index of a location by its ID."""
+        for i, location in enumerate(self.locations):
+            if location['id'] == location_id:
+                return i
+        return None

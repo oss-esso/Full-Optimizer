@@ -16,6 +16,7 @@ import time
 import logging
 from typing import Dict, Optional, Tuple
 import os
+import importlib.util
 from datetime import datetime
 
 # Set up logging
@@ -52,48 +53,89 @@ def create_interactive_vrp_map(scenario, solution, sequential_vrp):
             if hasattr(sequential_vrp, 'distance_calculator') and hasattr(sequential_vrp.distance_calculator, 'route_db'):
                 route_db = sequential_vrp.distance_calculator.route_db
                 
-                # Try to get from cache first
-                geometry = route_db.get_cached_route_geometry(start_coords[0], start_coords[1], 
-                                                            end_coords[0], end_coords[1])
-                if geometry:
-                    logger.debug(f"  ✅ Using cached route geometry ({len(geometry)} points) for {start_coords} → {end_coords}")
-                    return geometry
-                else:
-                    logger.info(f"  🔄 No cached geometry found for {start_coords} → {end_coords}, fetching from OSRM API")
-                    
-                    # Call OSRM API directly to get the route
-                    try:
-                        # Get route data using the route_db._fetch_osrm_route method
-                        route_data = route_db._fetch_osrm_route(
-                            from_lat=start_coords[0], from_lon=start_coords[1],
-                            to_lat=end_coords[0], to_lon=end_coords[1],
-                            from_id="map_loc", to_id="map_loc"
-                        )
+                # Check if the route_db has the get_cached_route_geometry method
+                if hasattr(route_db, 'get_cached_route_geometry'):
+                    # Try to get from cache first
+                    geometry = route_db.get_cached_route_geometry(start_coords[0], start_coords[1], 
+                                                                end_coords[0], end_coords[1])
+                    if geometry:
+                        logger.debug(f"  ✅ Using cached route geometry ({len(geometry)} points) for {start_coords} → {end_coords}")
+                        return geometry
+                    else:
+                        logger.info(f"  🔄 No cached geometry found for {start_coords} → {end_coords}, fetching from OSRM API")
                         
-                        if route_data and route_data.get('route_geometry'):
-                            # Store route in database for future use
-                            from_lat_r = round(start_coords[0], route_db.coordinate_precision)
-                            from_lon_r = round(start_coords[1], route_db.coordinate_precision)
-                            to_lat_r = round(end_coords[0], route_db.coordinate_precision)
-                            to_lon_r = round(end_coords[1], route_db.coordinate_precision)
-                            
-                            route_db._store_route(
-                                from_lat=from_lat_r, from_lon=from_lon_r,
-                                to_lat=to_lat_r, to_lon=to_lon_r,
-                                from_id="map_loc", to_id="map_loc",
-                                route_data=route_data
+                        # Call OSRM API directly to get the route
+                        try:
+                            # Get route data using the route_db._fetch_osrm_route method
+                            route_data = route_db._fetch_osrm_route(
+                                from_lat=start_coords[0], from_lon=start_coords[1],
+                                to_lat=end_coords[0], to_lon=end_coords[1],
+                                from_id="map_loc", to_id="map_loc"
                             )
                             
-                            logger.debug(f"  ✅ Fetched and stored new route geometry ({len(route_data['route_geometry'])} points)")
-                            return route_data['route_geometry']
-                        else:
-                            logger.warning(f"  ⚠️ OSRM API call failed, using straight line")
+                            if route_data and route_data.get('route_geometry'):
+                                # Store route in database for future use
+                                from_lat_r = round(start_coords[0], route_db.coordinate_precision)
+                                from_lon_r = round(start_coords[1], route_db.coordinate_precision)
+                                to_lat_r = round(end_coords[0], route_db.coordinate_precision)
+                                to_lon_r = round(end_coords[1], route_db.coordinate_precision)
+                                
+                                route_db._store_route(
+                                    from_lat=from_lat_r, from_lon=from_lon_r,
+                                    to_lat=to_lat_r, to_lon=to_lon_r,
+                                    from_id="map_loc", to_id="map_loc",
+                                    route_data=route_data
+                                )
+                                
+                                logger.debug(f"  ✅ Fetched and stored new route geometry ({len(route_data['route_geometry'])} points)")
+                                return route_data['route_geometry']
+                            else:
+                                logger.warning(f"  ⚠️ OSRM API call failed, using straight line")
+                                return [start_coords, end_coords]
+                        except Exception as api_e:
+                            logger.warning(f"  ⚠️ OSRM API error: {api_e}, using straight line")
                             return [start_coords, end_coords]
-                    except Exception as api_e:
-                        logger.warning(f"  ⚠️ OSRM API error: {api_e}, using straight line")
-                        return [start_coords, end_coords]
+                else:
+                    logger.debug(f"  ⚠️ get_cached_route_geometry method not available on route_db (likely OSMDistanceCalculator), using straight line")
+                    return [start_coords, end_coords]
+            
+            # Check if we have an OSMDistanceCalculator and try to make a direct OSRM call
+            elif (hasattr(sequential_vrp, 'distance_calculator') and 
+                  hasattr(sequential_vrp.distance_calculator, 'osrm_url')):
+                # This is likely an OSMDistanceCalculator - try to fetch geometry directly from OSRM
+                distance_calc = sequential_vrp.distance_calculator
+                
+                try:
+                    import requests
+                    
+                    # Make OSRM request for geometry
+                    from_coords = f"{start_coords[1]},{start_coords[0]}"  # lon,lat format for OSRM
+                    to_coords = f"{end_coords[1]},{end_coords[0]}"
+                    url = f"{distance_calc.osrm_url}/route/v1/driving/{from_coords};{to_coords}"
+                    params = {
+                        'overview': 'full',
+                        'geometries': 'geojson',
+                        'alternatives': 'false'
+                    }
+                    
+                    response = requests.get(url, params=params, timeout=5)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data['code'] == 'Ok' and 'routes' in data and len(data['routes']) > 0:
+                            route = data['routes'][0]
+                            if 'geometry' in route and 'coordinates' in route['geometry']:
+                                # Convert from [lon, lat] to [lat, lon] format
+                                geometry = [[coord[1], coord[0]] for coord in route['geometry']['coordinates']]
+                                logger.debug(f"  ✅ Fetched OSRM route geometry ({len(geometry)} points) for {start_coords} → {end_coords}")
+                                return geometry
+                except Exception as api_e:
+                    logger.debug(f"  ⚠️ OSRM geometry fetch failed: {api_e}")
+                
+                # Fall back to straight line
+                logger.debug(f"  🔄 OSMDistanceCalculator detected, using straight line for mapping")
+                return [start_coords, end_coords]
             else:
-                logger.warning(f"  ⚠️ Route database not available, using straight line")
+                logger.debug(f"  ⚠️ Route database not available, using straight line")
                 return [start_coords, end_coords]
         except Exception as e:
             logger.warning(f"  ⚠️ Error accessing cached routes: {e}, using straight line")
@@ -270,6 +312,13 @@ def create_interactive_vrp_map(scenario, solution, sequential_vrp):
                         # Handle regular stops
                         stop_id = stop.get('location_id', f'stop_{i}')
                         
+                        # Skip day markers and special indicators
+                        if (isinstance(stop_id, str) and 
+                            ('===' in stop_id or 'DAY' in stop_id.upper() or 
+                             'return_overnight' in stop_id)):
+                            print(f"    ❌ Location not found for stop: {stop_id}")
+                            continue
+                        
                         # Find location in scenario
                         location = None
                         for loc_id, loc in scenario.locations.items():
@@ -348,6 +397,12 @@ def create_interactive_vrp_map(scenario, solution, sequential_vrp):
                         
                         stop_id = stop.get('location_id', 'unknown')
                         
+                        # Skip day markers and special indicators
+                        if (isinstance(stop_id, str) and 
+                            ('===' in stop_id or 'DAY' in stop_id.upper() or 
+                             'return_overnight' in stop_id)):
+                            continue
+                        
                         # Find location in scenario
                         location = None
                         for loc_id, loc in scenario.locations.items():
@@ -425,6 +480,11 @@ def create_interactive_vrp_map(scenario, solution, sequential_vrp):
                 # Handle different stop formats
                 stop_id = stop.get('location_id', stop.get('id', stop.get('location', f'stop_{i}')))
                 
+                # Skip day markers and special indicators
+                if (isinstance(stop_id, str) and 
+                    ('===' in stop_id or 'DAY' in stop_id.upper() or 
+                     'return_overnight' in stop_id)):
+                    continue
                 # Find location in scenario
                 location = None
                 for loc_id, loc in scenario.locations.items():
@@ -542,6 +602,13 @@ def create_interactive_vrp_map(scenario, solution, sequential_vrp):
                         continue
                     
                     stop_id = stop.get('location_id', stop.get('id', stop.get('location')))
+                    
+                    # Skip day markers and special indicators
+                    if (isinstance(stop_id, str) and 
+                        ('===' in stop_id or 'DAY' in stop_id.upper() or 
+                         'return_overnight' in stop_id)):
+                        continue
+                    
                     location = None
                     for loc_id, loc in scenario.locations.items():
                         if str(loc_id) == str(stop_id):
@@ -919,7 +986,7 @@ def test_overnight_node_creation():
     
     This tests the sequential multi-day VRP solver on a complex, realistic scenario with:
     - Multiple vehicles with different capacities
-    - Real pickup and delivery requests
+    - Real pickup and delivery requests  
     - Realistic time constraints and routing
     - Multi-day planning when daily limits are exceeded
     
@@ -933,7 +1000,10 @@ def test_overnight_node_creation():
         import sys
         import os
         import importlib.util
-        from vrp_scenarios import create_furgoni_scenario
+        # Import from parent directory (VRPExample)
+        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        sys.path.insert(0, parent_dir)
+        from vrp_scenarios import create_furgoni_scenario, DEFAULT_TRUCK_SPEED_RATIOS
         
         print("📦 Using MODA furgoni scenario for multiday test")
     except ImportError as e:
@@ -951,6 +1021,154 @@ def test_overnight_node_creation():
     print(f"  - Total requests: {len(scenario.ride_requests)}")
     
     # Show some key locations
+    depot_count = 0
+    pickup_count = 0
+    delivery_count = 0
+    
+    for loc_id, loc in scenario.locations.items():
+        if 'depot' in str(loc_id).lower():
+            depot_count += 1
+            if depot_count <= 5:  # Show first few depots
+                lat = getattr(loc, 'lat', None) or getattr(loc, 'latitude', None)
+                lon = getattr(loc, 'lon', None) or getattr(loc, 'longitude', None)
+                if lat is not None and lon is not None:
+                    print(f"  ✅ Depot found: {loc_id} at ({lat:.4f}, {lon:.4f})")
+                    print(f"      Address: {getattr(loc, 'address', 'N/A')}")
+        elif 'pickup' in str(loc_id).lower():
+            pickup_count += 1
+        else:
+            delivery_count += 1
+    
+    print(f"  - Pickup locations: {pickup_count}")
+    print(f"  - Delivery locations: {delivery_count}")
+    
+    # Convert scenario data to format expected by SequentialMultiDayVRP
+    
+    # Get locations in format needed for SequentialMultiDayVRP
+    locations = []
+    for loc_id, loc in scenario.locations.items():
+        # Use x,y as coordinates (should be lon,lat)
+        x = getattr(loc, 'x', None) or getattr(loc, 'lon', None) or 0
+        y = getattr(loc, 'y', None) or getattr(loc, 'lat', None) or 0
+        
+        # Also include lat/lon for GPS if available
+        lat = getattr(loc, 'lat', None) or getattr(loc, 'latitude', None) or y
+        lon = getattr(loc, 'lon', None) or getattr(loc, 'longitude', None) or x
+        
+        locations.append({
+            'id': str(loc_id),
+            'x': x, 'y': y,
+            'lat': lat, 'lon': lon,
+            'address': getattr(loc, 'address', f'Location {loc_id}'),
+            'service_time': getattr(loc, 'service_time', 15)  # Default 15 minutes
+        })
+    
+    # Convert vehicles to format needed for SequentialMultiDayVRP
+    vehicles = []
+    for vehicle_id, vehicle in scenario.vehicles.items():
+        # Get truck speed ratios based on vehicle type
+        vehicle_type = getattr(vehicle, 'type', 'furgone').lower()
+        if 'camion' in vehicle_type or 'truck' in vehicle_type or vehicle.capacity > 5000:
+            truck_ratios = DEFAULT_TRUCK_SPEED_RATIOS.get('heavy', DEFAULT_TRUCK_SPEED_RATIOS['standard'])
+            print(f"  - {vehicle_id} ({vehicle_type}): {vehicle.capacity}kg capacity")
+            print(f"    Using heavy truck speed ratios: {truck_ratios}")
+        else:
+            truck_ratios = DEFAULT_TRUCK_SPEED_RATIOS.get('standard', DEFAULT_TRUCK_SPEED_RATIOS['standard'])
+            print(f"  - {vehicle_id} ({vehicle_type}): {vehicle.capacity}kg capacity")
+            print(f"    Using standard truck speed ratios: {truck_ratios}")
+        
+        vehicles.append({
+            'id': str(vehicle_id),
+            'capacity': vehicle.capacity,
+            'depot_id': str(vehicle.depot_id),
+            'truck_speed_ratios': truck_ratios,
+            'max_time': 8 * 60  # 8 hours per day in minutes
+        })
+    
+    print(f"\n📊 Converted Data for Sequential Multi-Day VRP:")
+    print(f"  - Locations: {len(locations)}")
+    print(f"  - Vehicles: {len(vehicles)}")
+    
+    print(f"\n🚛 Vehicle Fleet Composition:")
+    furgoni_count = sum(1 for v in vehicles if 'furgon' in v['id'].lower())
+    camion_count = len(vehicles) - furgoni_count
+    print(f"  - Furgoni (light trucks): {furgoni_count}")
+    print(f"  - Camion (heavy trucks): {camion_count}")
+    
+    # Show speed ratio comparison 
+    print(f"\n🚗 Speed Ratio Comparison:")
+    print(f"  Standard (furgoni): {DEFAULT_TRUCK_SPEED_RATIOS['standard']}")
+    print(f"  Heavy (camion): {DEFAULT_TRUCK_SPEED_RATIOS['heavy']}")
+    
+    # Import and run the sequential multi-day VRP solver from parent directory
+    try:
+        # Import vrp_multiday_sequential from parent VRPExample directory  
+        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        spec = importlib.util.spec_from_file_location("vrp_multiday", 
+                                                    os.path.join(parent_dir, 
+                                                                "vrp_multiday_sequential.py"))
+        vrp_multiday = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(vrp_multiday)
+        
+        print("\n📋 Testing Sequential Multi-Day VRP with overnight nodes...")
+        
+        # Create sequential VRP solver with mixed fleet support and database caching
+        db_path = "moda_routes.db"
+        print(f"  - Using route database: {db_path}")
+        sequential_vrp = vrp_multiday.SequentialMultiDayVRP(vehicles, locations, use_truck_speeds=True, db_path=db_path)
+        
+        # Show database stats after initialization
+        if hasattr(sequential_vrp, 'distance_calculator') and hasattr(sequential_vrp.distance_calculator, 'get_cache_stats'):
+            cache_stats = sequential_vrp.distance_calculator.get_cache_stats()
+            print(f"  - Route database initialized with {cache_stats['total_routes']} cached routes")
+            print(f"  - Database size: {cache_stats['database_size_mb']:.2f} MB")
+        
+        # Solve the multi-day VRP problem
+        solution = sequential_vrp.solve_sequential_multiday(max_days=7)
+        
+        # Display results
+        if solution:
+            print(f"\n✅ Sequential Multi-Day VRP Solution Found!")
+            
+            # Show solution summary
+            total_vehicles_used = len(solution.get('vehicle_routes', {}))
+            total_distance = sum(route.get('total_distance', 0) for route in solution.get('vehicle_routes', {}).values())
+            total_overnight_stays = sum(route.get('total_overnight_stays', 0) for route in solution.get('vehicle_routes', {}).values())
+            
+            print(f"📊 Solution Summary:")
+            print(f"  - Vehicles used: {total_vehicles_used}")
+            print(f"  - Total distance: {total_distance:.1f} km")
+            print(f"  - Total overnight stays: {total_overnight_stays}")
+            print(f"  - Days span: {solution.get('days_used', 'N/A')}")
+            
+            # Try to create interactive map
+            try:
+                print(f"\n🗺️ Creating interactive map...")
+                map_path = create_interactive_vrp_map(scenario, solution, sequential_vrp)
+                if map_path:
+                    print(f"📊 Interactive map saved as: {os.path.abspath(map_path)}")
+                else:
+                    print("❌ Failed to create interactive map (missing GPS coordinates or folium)")
+            except Exception as map_e:
+                print(f"⚠️ Map creation failed: {map_e}")
+            
+            # Show final cache statistics
+            if hasattr(sequential_vrp, 'distance_calculator') and hasattr(sequential_vrp.distance_calculator, 'get_cache_stats'):
+                final_stats = sequential_vrp.distance_calculator.get_cache_stats()
+                print(f"\n📊 Final Route Database Stats:")
+                print(f"  - Total cached routes: {final_stats['total_routes']}")
+                print(f"  - Database size: {final_stats['database_size_mb']:.2f} MB")
+                print(f"  - Cache hit rate: {final_stats.get('cache_hit_rate', 'N/A')}")
+        else:
+            print("❌ No solution found by Sequential Multi-Day VRP")
+            
+    except ImportError as import_e:
+        print(f"❌ Failed to import vrp_multiday_sequential: {import_e}")
+        print("Make sure vrp_multiday_sequential.py exists in the parent VRPExample directory")
+    except Exception as e:
+        print(f"❌ Error running Sequential Multi-Day VRP: {e}")
+        import traceback
+        traceback.print_exc()
     depot_found = False
     pickup_locations = []
     delivery_locations = []

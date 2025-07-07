@@ -1,0 +1,21 @@
+# Ignore all database files
+*.db
+
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore results and logs
+*.log
+*.json
+
+
+# Ignore environment files
+.env
+.venv/
+
+# Ignore VSCode settings
+.vscode/
