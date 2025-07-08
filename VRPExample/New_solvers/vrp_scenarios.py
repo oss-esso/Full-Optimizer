@@ -940,12 +940,12 @@ def create_furgoni_scenario() -> VRPInstance:
     instance = VRPInstance("Furgoni Delivery Scenario")
     instance.is_realistic = True  # Added missing attribute
     
-    # Create depot location (Milan coordinates) - matching MODA format
+    # Create depot location (Milan coordinates)
     depot = Location("depot", 9.1896, 45.4642, demand=0, 
                     time_window_start=0, time_window_end=1440, service_time=5)
-    depot.address = "Asti Distribution Center"
-    depot.lat = 44.5404  # Added missing lat/lon attributes
-    depot.lon = 8.1407
+    depot.address = "Milan Distribution Center (labeled as Asti)"
+    depot.lat = 45.4642  # Milan latitude
+    depot.lon = 9.1896   # Milan longitude
     instance.add_location(depot)
     
 

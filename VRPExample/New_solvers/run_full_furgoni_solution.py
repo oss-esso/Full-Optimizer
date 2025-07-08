@@ -645,6 +645,50 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
         import folium
         import folium.plugins
     
+    # Import the route database to get actual OSRM routes
+    try:
+        from route_database import RouteDatabase
+        import json
+        print("  🗺️ Route database available for actual OSRM routes")
+        has_route_db = True
+        # Initialize route database connection
+        db_path = "moda_routes_fixed.db"  # Use the same database as the solver
+        route_db = RouteDatabase(db_path)
+    except ImportError:
+        print("  ⚠️ Route database not available - using straight lines")
+        has_route_db = False
+        route_db = None
+    
+    def get_route_geometry(from_lat, from_lon, to_lat, to_lon, from_id="", to_id=""):
+        """Get the actual route geometry from the database, fetching from API if needed."""
+        if not has_route_db or not route_db:
+            return None
+            
+        try:
+            # Get full route data (will fetch from API if not cached)
+            route_data = route_db.get_route(from_lat, from_lon, to_lat, to_lon, from_id, to_id)
+            
+            if route_data and 'route_geometry' in route_data:
+                geometry = route_data['route_geometry']
+                
+                # Handle different geometry formats
+                if isinstance(geometry, dict) and geometry.get('type') == 'LineString':
+                    coords = geometry.get('coordinates', [])
+                    if coords:
+                        # Convert from [lon, lat] to [lat, lon] for folium
+                        return [[coord[1], coord[0]] for coord in coords]
+                        
+                elif isinstance(geometry, list) and len(geometry) > 0:
+                    # Check if it's already a list of coordinates
+                    if isinstance(geometry[0], (list, tuple)) and len(geometry[0]) == 2:
+                        # Already in [lat, lon] format for folium
+                        return geometry
+                    
+        except Exception as e:
+            print(f"    ⚠️ Error getting route geometry {from_id}→{to_id}: {e}")
+            
+        return None
+    
     # Get GPS coordinates from locations
     lats = []
     lons = []
@@ -666,6 +710,16 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
         center_lon = sum(lons) / len(lons)
     
     print(f"  📍 Map center: ({center_lat:.4f}, {center_lon:.4f})")
+    
+    # Display initial database stats
+    if has_route_db and route_db:
+        initial_stats = route_db.get_cache_stats()
+        initial_route_count = initial_stats.get('total_routes', 0)
+        print(f"📊 Initial Route Cache Stats:")
+        print(f"  - Cached routes: {initial_route_count}")
+        print(f"  - Database size: {initial_stats.get('database_size_mb', 0):.2f} MB")
+    else:
+        initial_route_count = 0
     
     # Create the map
     m = folium.Map(
@@ -719,11 +773,13 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
         vehicle_overnight_stays = route_data.get('total_overnight_stays', 0)
         
         route_coordinates = []
+        route_segments = []  # Store actual OSRM route segments
         current_day = 1
         
-        # Process the full route sequence instead of daily_routes
+        # Process the full route sequence to extract stop coordinates
         stops = []
-        for route_item in full_route:
+        
+        for j, route_item in enumerate(full_route):
             # Check if this is a day marker
             if isinstance(route_item, dict) and route_item.get('is_day_marker', False):
                 current_day += 1
@@ -733,122 +789,324 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
                 continue
                 
             # Add this stop to the current set of stops
-            stops.append({
+            stop_data = {
                 "location_id": route_item if isinstance(route_item, str) else route_item.get('location_id'),
                 "is_overnight": (isinstance(route_item, dict) and route_item.get('is_overnight', False)) or
                                (isinstance(route_item, str) and 'overnight' in route_item.lower()),
                 "day": current_day,
                 "coordinates": route_item.get('coordinates', None) if isinstance(route_item, dict) else None,
-                "demand": route_item.get('demand', 0) if isinstance(route_item, dict) else 0,
-                # Add other fields as needed
-            })
-            
-            # Process all the stops for this vehicle
-            for stop in stops:
-                # Try multiple ways to get coordinates
-                lat, lon = None, None
-                stop_location_id = stop.get('location_id')
-                
-                if stop_location_id is None:
-                    continue
-                    
-                # Method 1: Direct coordinates in stop
-                if stop.get('coordinates'):
-                    coords = stop['coordinates']
-                    if isinstance(coords, list) and len(coords) == 2:
-                        lat, lon = coords[1], coords[0]  # folium expects [lat, lon]
-                
-                # Method 2: Location ID lookup in scenario
-                if (lat is None or lon is None) and stop_location_id:
-                    # Find in scenario locations
-                    for loc_id, loc in scenario.locations.items():
-                        if str(loc_id) == str(stop_location_id):
-                            lat = getattr(loc, 'lat', None) or getattr(loc, 'latitude', None)
-                            lon = getattr(loc, 'lon', None) or getattr(loc, 'longitude', None)
-                            break
-                
-                # Method 3: Use x, y coordinates from stop
-                if (lat is None or lon is None) and hasattr(stop, 'x') and hasattr(stop, 'y'):
-                    lat, lon = stop.y, stop.x
-                
-                if lat is not None and lon is not None:
-                    route_coordinates.append([lat, lon])
-                    
-                    # Add marker for this stop
-                    is_overnight = stop.get('is_overnight', False)
-                    location_id = stop.get('location_id', 'Unknown')
-                    demand = stop.get('demand', 0)
-                    
-                    if is_overnight:
-                        icon_color = 'darkblue'
-                        icon_name = 'bed'
-                        stop_type = 'Overnight'
-                    elif demand > 0:
-                        icon_color = color
-                        icon_name = 'box'
-                        stop_type = 'Delivery'
-                    elif 'depot' in location_id.lower():
-                        continue  # Skip depot (already added)
-                    else:
-                        icon_color = 'orange'
-                        icon_name = 'warehouse'
-                        stop_type = 'Pickup'
-                    
-                    folium.Marker(
-                        location=[lat, lon],
-                        popup=f"<b>{stop_type}</b><br>Vehicle: {vehicle_id}<br>Day: {stop.get('day', 1)}<br>Location: {location_id}<br>Demand: {demand}",
-                        tooltip=f"{vehicle_id} - {stop_type}",
-                        icon=folium.Icon(color=icon_color, icon=icon_name, prefix='fa')
-                    ).add_to(m)
-                    markers_added += 1
+            }
+            stops.append(stop_data)
         
-        # Add route line for this vehicle
-        if len(route_coordinates) > 1:
-            folium.PolyLine(
-                locations=route_coordinates,
-                color=color,
-                weight=3,
-                opacity=0.8,
-                popup=f"Vehicle {vehicle_id}: {vehicle_total_distance:.1f}km"
-            ).add_to(m)
+        # Build route with actual OSRM geometry - start from depot
+        depot_coords = None
+        for loc_id, loc in scenario.locations.items():
+            if 'depot' in str(loc_id).lower() and str(loc_id).lower() == 'depot':
+                depot_lat = getattr(loc, 'lat', None) or getattr(loc, 'latitude', None)
+                depot_lon = getattr(loc, 'lon', None) or getattr(loc, 'longitude', None)
+                if depot_lat and depot_lon:
+                    depot_coords = [depot_lat, depot_lon]
+                    break
+        
+        prev_coords = depot_coords  # Start from depot coordinates
+        prev_location_id = 'depot'
+        
+        for i, stop in enumerate(stops):
+            # Get coordinates for this stop
+            lat, lon = None, None
+            stop_location_id = stop.get('location_id')
+            
+            if stop_location_id is None:
+                continue
+                
+            # Method 1: Direct coordinates in stop
+            if stop.get('coordinates'):
+                coords = stop['coordinates']
+                if isinstance(coords, tuple) and len(coords) == 2:
+                    lat, lon = coords[1], coords[0]  # folium expects [lat, lon]
+                elif isinstance(coords, list) and len(coords) == 2:
+                    lat, lon = coords[1], coords[0]
+            
+            # Method 2: Location ID lookup in scenario
+            if (lat is None or lon is None) and stop_location_id:
+                for loc_id, loc in scenario.locations.items():
+                    if str(loc_id) == str(stop_location_id):
+                        lat = getattr(loc, 'lat', None) or getattr(loc, 'latitude', None)
+                        lon = getattr(loc, 'lon', None) or getattr(loc, 'longitude', None)
+                        break
+            
+            if lat is not None and lon is not None:
+                current_coords = [lat, lon]
+                route_coordinates.append(current_coords)
+                
+                # Get route geometry between stops
+                if prev_coords is not None:
+                    # ALWAYS add a fallback straight line for comparison (vehicle color, thick, visible)
+                    comparison_segment = {
+                        'geometry': [prev_coords, current_coords],
+                        'from': prev_location_id,
+                        'to': stop_location_id,
+                        'color': color,  # Use vehicle color instead of red
+                        'is_fallback': True,
+                        'type': 'comparison',
+                        'weight': 2,
+                        'opacity': 0.7
+                    }
+                    route_segments.append(comparison_segment)
+                    
+                    if has_route_db:
+                        # Try to get OSRM route geometry
+                        route_geometry = get_route_geometry(
+                            prev_coords[0], prev_coords[1], 
+                            current_coords[0], current_coords[1],
+                            prev_location_id or "", stop_location_id or ""
+                        )
+                        
+                        if route_geometry:
+                            # Add this route segment (successful OSRM route)
+                            route_segments.append({
+                                'geometry': route_geometry,
+                                'from': prev_location_id,
+                                'to': stop_location_id,
+                                'color': color,
+                                'type': 'osrm'
+                            })
+                            print(f"    �️ Added OSRM segment: {prev_location_id} → {stop_location_id}")
+                        else:
+                            # No OSRM route available - note this but fallback already added above
+                            print(f"    ⚠️ No OSRM route available for {prev_location_id}→{stop_location_id}, using fallback only")
+                    else:
+                        # No OSRM database - fallback already added above
+                        print(f"    📍 Using fallback segment: {prev_location_id} → {stop_location_id} (no OSRM DB)")
+                
+                # Add marker for this stop
+                is_overnight = stop.get('is_overnight', False)
+                location_id = stop.get('location_id', 'Unknown')
+                demand = stop.get('demand', 0)
+                
+                if is_overnight:
+                    icon_color = 'darkblue'
+                    icon_name = 'bed'
+                    stop_type = 'Overnight'
+                elif 'pickup' in location_id.lower():
+                    icon_color = 'orange'
+                    icon_name = 'warehouse'
+                    stop_type = 'Pickup'
+                elif demand > 0:
+                    icon_color = color
+                    icon_name = 'box'
+                    stop_type = 'Delivery'
+                elif location_id == 'depot':
+                    continue  # Skip main depot (already added)
+                else:
+                    icon_color = color
+                    icon_name = 'box'
+                    stop_type = 'Customer'
+                
+                folium.Marker(
+                    location=[lat, lon],
+                    popup=f"<b>{stop_type}</b><br>Vehicle: {vehicle_id}<br>Day: {stop.get('day', 1)}<br>Location: {location_id}<br>Demand: {demand}",
+                    tooltip=f"{vehicle_id} - {stop_type}",
+                    icon=folium.Icon(color=icon_color, icon=icon_name, prefix='fa')
+                ).add_to(m)
+                markers_added += 1
+                
+                # Update for next iteration
+                prev_coords = current_coords
+                prev_location_id = stop_location_id
+        
+        # Add return route to depot (final segment)
+        if prev_coords is not None:
+            # Find depot coordinates
+            depot_coords = None
+            for loc_id, loc in scenario.locations.items():
+                if 'depot' in str(loc_id).lower() and str(loc_id).lower() == 'depot':
+                    depot_lat = getattr(loc, 'lat', None) or getattr(loc, 'latitude', None)
+                    depot_lon = getattr(loc, 'lon', None) or getattr(loc, 'longitude', None)
+                    if depot_lat and depot_lon:
+                        depot_coords = [depot_lat, depot_lon]
+                        break
+            
+            print(f"    🔍 DEBUG {vehicle_id}: prev_coords={prev_coords}, depot_coords={depot_coords}")
+            print(f"    🔍 DEBUG {vehicle_id}: prev_location_id={prev_location_id}")
+            
+            # Add return route to depot if needed
+            # Always add return route unless we're already at the main depot location
+            if depot_coords and (prev_location_id != 'depot'):
+                # ALWAYS add fallback straight line for comparison (vehicle color, thick, visible)
+                comparison_segment = {
+                    'geometry': [prev_coords, depot_coords],
+                    'from': prev_location_id,
+                    'to': 'depot',
+                    'color': color,  # Use vehicle color instead of red
+                    'is_fallback': True,
+                    'type': 'comparison',
+                    'weight': 2,
+                    'opacity': 0.7
+                }
+                route_segments.append(comparison_segment)
+                
+                if has_route_db:
+                    # Try to get OSRM route geometry back to depot
+                    route_geometry = get_route_geometry(
+                        prev_coords[0], prev_coords[1], 
+                        depot_coords[0], depot_coords[1],
+                        prev_location_id or "", "depot"
+                    )
+                    
+                    if route_geometry:
+                        route_segments.append({
+                            'geometry': route_geometry,
+                            'from': prev_location_id,
+                            'to': 'depot',
+                            'color': color,
+                            'type': 'osrm'
+                        })
+                        print(f"    🏠 Added OSRM return segment: {prev_location_id} → depot")
+                    else:
+                        print(f"    ⚠️ No OSRM route available for return {prev_location_id}→depot, using fallback only")
+                else:
+                    print(f"    🏠 Using fallback return segment: {prev_location_id} → depot (no OSRM DB)")
+            else:
+                print(f"    ⚠️ DEBUG {vehicle_id}: Skipping return route - already at main depot")
+        
+        # Add route segments to map
+        osrm_segments = 0
+        fallback_segments = 0
+        comparison_segments = 0
+        
+        print(f"    🗺️ Processing {len(route_segments)} route segments for {vehicle_id}")
+        
+        for segment in route_segments:
+            geometry = segment['geometry']
+            segment_type = segment.get('type', 'unknown')
+            is_fallback = segment.get('is_fallback', False)
+            
+            # Ensure geometry is in correct [lat, lon] format for folium
+            if isinstance(geometry, list) and len(geometry) > 0:
+                # Check if it's a list of coordinate pairs
+                if isinstance(geometry[0], (list, tuple)) and len(geometry[0]) >= 2:
+                    # Already a list of [lat, lon] pairs - use as is
+                    folium_geometry = geometry
+                elif len(geometry) == 2 and isinstance(geometry[0], (int, float)):
+                    # Single [lat, lon] pair - wrap in list
+                    folium_geometry = [geometry]
+                else:
+                    # Try to convert - assume [lon, lat] and flip to [lat, lon]
+                    try:
+                        if isinstance(geometry[0], (list, tuple)):
+                            folium_geometry = [[coord[1], coord[0]] for coord in geometry if len(coord) >= 2]
+                        else:
+                            folium_geometry = [[geometry[1], geometry[0]]] if len(geometry) >= 2 else []
+                    except (IndexError, TypeError):
+                        print(f"    ⚠️ Skipping invalid geometry for {segment.get('from', 'unknown')} → {segment.get('to', 'unknown')}")
+                        continue
+            else:
+                print(f"    ⚠️ Skipping empty geometry for {segment.get('from', 'unknown')} → {segment.get('to', 'unknown')}")
+                continue
+            
+            # Count different segment types
+            if segment_type == 'osrm':
+                osrm_segments += 1
+                line_style = {}
+                opacity = 0.8
+                weight = 3
+            elif segment_type == 'comparison':
+                comparison_segments += 1
+                line_style = {'dash_array': '8,4'}  # More visible dashed line for comparison
+                opacity = segment.get('opacity', 0.7)  # Less transparent
+                weight = segment.get('weight', 2)      # Thicker line
+            elif is_fallback or segment_type == 'fallback':
+                fallback_segments += 1
+                line_style = {'dash_array': '10,5'}  # Dashed line for fallbacks
+                opacity = 0.6
+                weight = 3
+            else:
+                # Default handling for old-style segments
+                if is_fallback:
+                    fallback_segments += 1
+                    line_style = {'dash_array': '10,5'}
+                    opacity = 0.6
+                else:
+                    osrm_segments += 1
+                    line_style = {}
+                    opacity = 0.8
+                weight = 3
+            
+            try:
+                folium.PolyLine(
+                    locations=folium_geometry,
+                    color=segment['color'],
+                    weight=weight,
+                    opacity=opacity,
+                    popup=f"Vehicle {vehicle_id}: {segment['from']} → {segment['to']} ({segment_type})",
+                    **line_style
+                ).add_to(m)
+                print(f"    ✅ Added {segment_type} line: {segment.get('from', 'unknown')} → {segment.get('to', 'unknown')}")
+            except Exception as e:
+                print(f"    ❌ Failed to add line {segment.get('from', 'unknown')} → {segment.get('to', 'unknown')}: {e}")
+                print(f"        Geometry: {folium_geometry}")
+                continue
+        
+        print(f"    🚛 {vehicle_id}: {osrm_segments} OSRM routes, {fallback_segments} fallback lines, {comparison_segments} comparison lines")
         
         route_info[vehicle_id] = {
             'distance': vehicle_total_distance,
             'overnight_stays': vehicle_overnight_stays,
             'stops': len(route_coordinates),
-            'color': color
+            'color': color,
+            'osrm_segments': osrm_segments,
+            'fallback_segments': fallback_segments,
+            'comparison_segments': comparison_segments
         }
     
     # Create legend
+    total_osrm = sum(info.get('osrm_segments', 0) for info in route_info.values())
+    total_fallback = sum(info.get('fallback_segments', 0) for info in route_info.values())
+    total_comparison = sum(info.get('comparison_segments', 0) for info in route_info.values())
+    
     legend_html = f'''
     <div style="position: fixed; 
-                bottom: 50px; left: 50px; width: 400px; height: auto; max-height: 500px;
+                bottom: 50px; left: 50px; width: 450px; height: auto; max-height: 500px;
                 background-color: white; border:2px solid grey; z-index:9999; 
                 font-size:12px; padding: 15px;
                 box-shadow: 0 0 15px rgba(0,0,0,0.2);
                 border-radius: 5px;
                 overflow-y: auto;">
     <h4 style="margin-top:0; margin-bottom:10px;">Complete MODA Furgoni Solution</h4>
-    <div style="max-height: 350px; overflow-y: auto;">
+    <div style="max-height: 320px; overflow-y: auto;">
     <table style="width:100%; font-size:11px;">
-    <tr><th>Vehicle</th><th>Distance</th><th>Overnight</th><th>Stops</th></tr>
+    <tr><th>Vehicle</th><th>Distance</th><th>Overnight</th><th>OSRM</th><th>Fallback</th><th>Compare</th></tr>
     '''
     
     for vehicle_id, info in route_info.items():
+        osrm_count = info.get('osrm_segments', 0)
+        fallback_count = info.get('fallback_segments', 0)
+        comparison_count = info.get('comparison_segments', 0)
         legend_html += f'''
         <tr>
             <td><span style="color:{info['color']};">●</span> {vehicle_id}</td>
             <td>{info['distance']:.1f}km</td>
             <td>{info['overnight_stays']}</td>
-            <td>{info['stops']}</td>
+            <td>{osrm_count}</td>
+            <td>{fallback_count}</td>
+            <td>{comparison_count}</td>
         </tr>
         '''
     
-    legend_html += '''
+    legend_html += f'''
     </table>
     </div>
     <hr style="margin: 10px 0;">
     <div style="font-size: 11px;">
+        <b>Route Quality Analysis:</b><br>
+        🗺️ OSRM Routes: {total_osrm} segments (real roads)<br>
+        ⚠️ Fallback Lines: {total_fallback} segments (straight lines)<br>
+        🔍 Comparison Lines: {total_comparison} segments (red reference)<br>
+        <br>
+        <b>Total Route Segments:</b> {total_osrm + total_fallback + total_comparison}<br>
+        <b>OSRM Coverage:</b> {(total_osrm/(total_osrm + total_fallback)*100) if (total_osrm + total_fallback) > 0 else 0:.1f}%<br>
+        <br>
         <b>Legend:</b><br>
         🏠 Red: Main Depot<br>
         📦 Colored: Vehicle Deliveries<br>
@@ -856,9 +1114,11 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
         📤 Orange: Pickup Points<br>
         <br>
         <b>Route Lines:</b><br>
-        Colored lines show vehicle routes<br>
-        with OSRM-based routing and<br>
-        realistic overnight placement<br>
+        Solid thick lines: Real OSRM road routes<br>
+        Dashed thick lines: Fallback straight lines<br>
+        Thin red dashed lines: Comparison straight lines<br>
+        (Red lines should match OSRM if API is working correctly)<br>
+        Routes cached in database for speed<br>
     </div>
     </div>
     '''
@@ -880,6 +1140,18 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
     m.save(html_filename)
     
     print(f"  📊 Map created with {markers_added} markers and {len(route_info)} vehicle routes")
+    print(f"  🗺️ Route geometry: {total_osrm} OSRM segments, {total_fallback} fallback lines, {total_comparison} comparison lines")
+    
+    # Show database growth
+    if has_route_db and route_db:
+        final_stats = route_db.get_cache_stats()
+        final_route_count = final_stats.get('total_routes', 0)
+        new_routes_added = final_route_count - initial_route_count
+        if new_routes_added > 0:
+            print(f"  📈 Database updated: +{new_routes_added} new routes cached")
+            print(f"  💾 Final database size: {final_stats.get('database_size_mb', 0):.2f} MB")
+        else:
+            print(f"  ✅ All routes were already cached (no API calls needed)")
     
     return html_filename
 

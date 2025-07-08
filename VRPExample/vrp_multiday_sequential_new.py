@@ -756,11 +756,21 @@ class SequentialMultiDayVRP:
         # Save plot with clean filename
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"vrp_solution_new_{timestamp}.png"
+        filename = f"vrp_solution_{timestamp}.png"
         plt.savefig(filename, dpi=300, bbox_inches='tight')
         print(f"  📊 Plot saved as: {filename}")
         
         plt.axis('equal')  # Ensure map has correct proportions
+        
+        # Enable interactive zoom and pan
+        try:
+            import matplotlib
+            matplotlib.use('TkAgg')  # Use interactive backend
+            plt.ion()  # Enable interactive mode
+            print("  🔍 Interactive plot enabled - use mouse to zoom and pan")
+        except Exception as e:
+            print(f"  ⚠️ Interactive mode not available: {e}")
+        
         plt.show()
         return filename
     
