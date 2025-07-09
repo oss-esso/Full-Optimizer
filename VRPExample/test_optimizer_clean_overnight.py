@@ -1048,8 +1048,8 @@ def test_overnight_node_creation():
     # Import and run the sequential multi-day VRP solver
     try:
         spec = importlib.util.spec_from_file_location("vrp_multiday", 
-                                                    os.path.join(os.path.dirname(__file__), 
-                                                                "vrp_multiday_sequential.py"))
+                                                    #os.path.join(os.path.dirname(__file__), 
+                                                                "VRPExample\\vrp_multiday_sequential_old.py")
         vrp_multiday = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(vrp_multiday)
         
