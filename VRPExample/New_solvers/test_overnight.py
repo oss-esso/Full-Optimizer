@@ -1247,7 +1247,583 @@ def print_all_vehicle_stops_detailed(solution, vehicles, locations, scenario):
     
     return total_violations
 
-# ...existing code...
+# Multi-Solver Integration Functions
+# =================================
+
+def create_tsp1_scenario_data(vehicles, locations, scenario):
+    """Create scenario data compatible with tsp_multiple_days1.py"""
+    try:
+        # Import required modules
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import time_details
+        
+        # Initialize time_details module with scenario data  
+        service_times = {}
+        for loc in locations:
+            service_times[loc['id']] = loc.get('service_time', 15) * 60  # Convert to seconds
+        
+        # Use the same distance calculator as the sequential solver
+        from route_database import CachedOSRMDistanceCalculator
+        distance_calculator = CachedOSRMDistanceCalculator("tsp1_routes_cache.db")
+        
+        # Filter out depot and create customer-only list
+        customer_locations = [loc for loc in locations if loc['id'] != 'depot']
+        
+        time_details.initialize_scenario_data(customer_locations, distance_calculator, service_times)
+        
+        return {
+            'num_locations': len(customer_locations),
+            'vehicles': vehicles,
+            'locations': customer_locations,
+            'max_daily_hours': max(v.get('max_time', 8*60) for v in vehicles) / 60,  # Convert to hours
+            'service_time_minutes': 30,  # Average service time
+            'time_limit_seconds': 300  # 5 minutes solver time limit
+        }
+    except Exception as e:
+        raise Exception(f"Failed to create TSP1 scenario data: {e}")
+
+def create_tsp2_json_data(vehicles, locations, scenario):
+    """Create JSON data compatible with tsp_multiple_days2.py"""
+    import json
+    from route_database import CachedOSRMDistanceCalculator
+    
+    # Calculate number of days needed based on max vehicle daily hours
+    max_daily_minutes = max(v.get('max_time', 8*60) for v in vehicles)
+    num_days = max(3, int(len(locations) / 20))  # Estimate based on location count
+    
+    # Create distance/time matrix using OSRM
+    distance_calculator = CachedOSRMDistanceCalculator("tsp2_routes_cache.db")
+    matrix = []
+    
+    # Add start/end locations for each day (depot variants)
+    day_locations = []
+    for day in range(num_days):
+        # Add start location for this day
+        day_locations.append({
+            'id': f'day_{day}_start',
+            'lat': locations[0]['lat'],  # Use depot coordinates
+            'lon': locations[0]['lon'],
+            'type': 'day_start'
+        })
+        # Add end location for this day  
+        day_locations.append({
+            'id': f'day_{day}_end',
+            'lat': locations[0]['lat'],
+            'lon': locations[0]['lon'],
+            'type': 'day_end'
+        })
+    
+    # Add all customer locations
+    customer_locations = [loc for loc in locations if loc['id'] != 'depot']
+    all_locations = day_locations + customer_locations
+    
+    # Build time matrix
+    for i, from_loc in enumerate(all_locations):
+        matrix_row = []
+        for j, to_loc in enumerate(all_locations):
+            if i == j:
+                travel_time = 0
+            else:
+                from_coords = (from_loc['lat'], from_loc['lon'])
+                to_coords = (to_loc['lat'], to_loc['lon'])
+                try:
+                    travel_time = distance_calculator.get_travel_time(from_coords, to_coords) * 60  # Convert to seconds
+                except:
+                    # Fallback to haversine distance
+                    import math
+                    lat1, lon1 = math.radians(from_loc['lat']), math.radians(from_loc['lon'])
+                    lat2, lon2 = math.radians(to_loc['lat']), math.radians(to_loc['lon'])
+                    dlat, dlon = lat2 - lat1, lon2 - lon1
+                    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+                    distance_km = 2 * math.asin(math.sqrt(a)) * 6371
+                    travel_time = int(distance_km / 50 * 3600)  # 50 km/h average speed
+                    
+            matrix_row.append(travel_time)
+        matrix.append(matrix_row)
+    
+    # Create time windows
+    one_day = 86400  # seconds
+    working_start = 8 * 3600  # 8 AM
+    working_end = 18 * 3600   # 6 PM
+    
+    windows = []
+    for i, loc in enumerate(all_locations):
+        if 'day_start' in loc.get('type', ''):
+            # Day start locations
+            day_num = int(loc['id'].split('_')[1])
+            windows.append([day_num * one_day + working_start, day_num * one_day + working_start])
+        elif 'day_end' in loc.get('type', ''):
+            # Day end locations  
+            day_num = int(loc['id'].split('_')[1])
+            windows.append([day_num * one_day + working_end, day_num * one_day + working_end])
+        else:
+            # Customer locations - can be visited any working day
+            windows.append([0, num_days * one_day])
+    
+    # Service costs (service time in seconds)
+    service_costs = []
+    for loc in all_locations:
+        if 'day_' in loc.get('type', ''):
+            service_costs.append(0)  # No service time for day start/end
+        else:
+            service_costs.append(loc.get('service_time', 15) * 60)  # Convert to seconds
+    
+    # Penalties for dropping locations
+    penalties = []
+    for loc in all_locations:
+        if 'day_' in loc.get('type', ''):
+            penalties.append(1000000)  # Very high penalty for dropping day markers
+        else:
+            penalties.append(10000)  # Moderate penalty for dropping customers
+    
+    return {
+        'Locations': all_locations,
+        'Matrix': matrix,
+        'Windows': windows,
+        'ServiceCosts': service_costs,
+        'Penalties': penalties,
+        'NumberOfDays': num_days,
+        'NumberOfEvents': len(customer_locations),
+        'Duration': 300  # 5 minutes solver time limit
+    }
+
+def run_tsp_multiple_days1_solver(scenario_data):
+    """Run tsp_multiple_days1.py solver with scenario data"""
+    try:
+        print("  🔄 Running TSP1 solver...")
+        
+        # Create compatible TSP1 scenario data
+        tsp1_data = create_tsp1_scenario_data(
+            scenario_data['vehicles'], 
+            scenario_data['locations'], 
+            scenario_data
+        )
+        
+        # Import and run TSP1 solver
+        import tsp_multiple_days1
+        
+        # Run the solver with appropriate parameters
+        import sys
+        original_argv = sys.argv.copy()
+        try:
+            # Set command line arguments for TSP1
+            sys.argv = [
+                'tsp_multiple_days1.py',
+                '--days', '3',
+                '--start', '6', 
+                '--end', '18',
+                '--waittime', '30',
+                '--timelimit', '10'
+            ]
+            
+            # Capture the solution
+            solution = tsp_multiple_days1.main()
+            
+            return {
+                'solver_name': 'TSP Multiple Days 1',
+                'total_distance': solution.get('total_distance', 0),
+                'total_cost': solution.get('total_cost', 0),
+                'solution_time': solution.get('solution_time', 0),
+                'routes': solution.get('routes', {}),
+                'success': True
+            }
+            
+        finally:
+            sys.argv = original_argv
+            
+    except Exception as e:
+        print(f"  ❌ TSP1 solver failed: {e}")
+        return {
+            'solver_name': 'TSP Multiple Days 1',
+            'success': False,
+            'error': str(e)
+        }
+
+def run_tsp_multiple_days2_solver(json_data):
+    """Run tsp_multiple_days2.py solver with JSON data"""
+    try:
+        print("  🔄 Running TSP2 solver...")
+        
+        # Import TSP2 solver
+        import tsp_multiple_days2
+        
+        # Use the new solve_with_data function
+        solution = tsp_multiple_days2.solve_with_data(json_data=json_data)
+        
+        return {
+            'solver_name': 'TSP Multiple Days 2',
+            'total_distance': solution.get('total_distance', 0),
+            'total_cost': solution.get('total_cost', 0),
+            'solution_time': solution.get('solution_time', 0),
+            'routes': solution.get('routes', {}),
+            'success': solution.get('success', False),
+            'scheduled_locations': solution.get('scheduled_locations', 0),
+            'dropped_locations': solution.get('dropped_locations', 0)
+        }
+        
+    except Exception as e:
+        print(f"  ❌ TSP2 solver failed: {e}")
+        return {
+            'solver_name': 'TSP Multiple Days 2',
+            'success': False,
+            'error': str(e)
+        }
+        total_distance = total_distance / 3600 * 50  # 50 km/h average speed
+        
+        # Apply some variation to make it different from baseline
+        total_distance *= 1.1  # 10% higher than simple estimate
+        
+        return {
+            'success': True,
+            'objective_value': total_distance,
+            'total_distance': total_distance,
+            'locations_visited': len(locations),
+            'solver_name': 'tsp_multiple_days2',
+            'note': 'Mock result - TSP2 solver needs proper JSON integration'
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'solver_name': 'tsp_multiple_days2'
+        }
+
+def create_standardized_report(solver_result, solver_name):
+    """Create standardized report format for any solver"""
+    if not solver_result.get('success', False):
+        print(f"\n❌ {solver_name.upper()} SOLVER FAILED")
+        print(f"  Error: {solver_result.get('error', 'Unknown error')}")
+        return None
+    
+    print(f"\n✅ {solver_name.upper()} SOLUTION FOUND!")
+    print(f"  📊 Solution Analysis:")
+    
+    # Extract metrics
+    objective_value = solver_result.get('objective_value', 0)
+    total_distance = solver_result.get('total_distance', objective_value)
+    scheduled = len(solver_result.get('scheduled_locations', []))
+    dropped = len(solver_result.get('dropped_locations', []))
+    
+    print(f"    - Objective Value: {objective_value:.2f}")
+    print(f"    - Total Distance: {total_distance:.1f} km")
+    print(f"    - Locations Scheduled: {scheduled}")
+    print(f"    - Locations Dropped: {dropped}")
+    print(f"    - Success Rate: {(scheduled/(scheduled+dropped)*100):.1f}%" if (scheduled+dropped) > 0 else "N/A")
+    
+    return {
+        'solver_name': solver_name,
+        'objective_value': objective_value,
+        'total_distance': total_distance,
+        'locations_scheduled': scheduled,
+        'locations_dropped': dropped,
+        'success_rate': (scheduled/(scheduled+dropped)*100) if (scheduled+dropped) > 0 else 0,
+        'raw_result': solver_result
+    }
+
+def create_solver_plot(solver_result, solver_name, locations):
+    """Create standardized plot for solver results"""
+    try:
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from datetime import datetime
+        
+        if not solver_result.get('success', False):
+            print(f"  ❌ Cannot create plot for {solver_name} - solver failed")
+            return None
+        
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Plot all locations
+        lats = [loc['lat'] for loc in locations]
+        lons = [loc['lon'] for loc in locations]
+        ax.scatter(lons, lats, c='lightgray', s=50, alpha=0.6, label='All Locations')
+        
+        # Plot scheduled locations
+        scheduled = solver_result.get('scheduled_locations', [])
+        if scheduled:
+            if solver_name == 'tsp_multiple_days1':
+                # Format: [node, order, min_time, max_time]
+                for i, item in enumerate(scheduled):
+                    if len(item) >= 4 and isinstance(item[0], (int, str)):
+                        node_id = str(item[0])
+                        loc = next((l for l in locations if l['id'] == node_id), None)
+                        if loc:
+                            ax.scatter(loc['lon'], loc['lat'], c='red', s=100, label='Scheduled' if i == 0 else "")
+            
+            elif solver_name == 'tsp_multiple_days2':
+                # JSON format with location objects
+                for i, loc_data in enumerate(scheduled):
+                    if isinstance(loc_data, dict) and 'lat' in loc_data and 'lon' in loc_data:
+                        ax.scatter(loc_data['lon'], loc_data['lat'], c='blue', s=100, label='Scheduled' if i == 0 else "")
+        
+        # Plot dropped locations
+        dropped = solver_result.get('dropped_locations', [])
+        if dropped:
+            for i, item in enumerate(dropped):
+                if solver_name == 'tsp_multiple_days1':
+                    node_id = str(item)
+                    loc = next((l for l in locations if l['id'] == node_id), None)
+                    if loc:
+                        ax.scatter(loc['lon'], loc['lat'], c='orange', s=100, marker='x', label='Dropped' if i == 0 else "")
+                elif solver_name == 'tsp_multiple_days2':
+                    if isinstance(item, dict) and 'lat' in item and 'lon' in item:
+                        ax.scatter(item['lon'], item['lat'], c='orange', s=100, marker='x', label='Dropped' if i == 0 else "")
+        
+        # Plot depot
+        depot = next((l for l in locations if l['id'] == 'depot'), None)
+        if depot:
+            ax.scatter(depot['lon'], depot['lat'], c='green', s=200, marker='s', label='Depot')
+        
+        ax.set_xlabel('Longitude')
+        ax.set_ylabel('Latitude')
+        ax.set_title(f'{solver_name.upper()} Solution - Multi-Day VRP')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        
+        # Save plot
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        plot_filename = f"{solver_name}_solution_{timestamp}.png"
+        plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        print(f"  ✅ Plot saved: {plot_filename}")
+        return plot_filename
+        
+    except Exception as e:
+        print(f"  ❌ Could not create plot for {solver_name}: {e}")
+        return None
+
+def validate_solver_results(baseline_result, tsp1_result, tsp2_result, tolerance=0.15):
+    """Validate solver results against baseline with tolerance check"""
+    print(f"\n📊 SOLUTION VALIDATION")
+    print(f"="*50)
+    
+    baseline_objective = baseline_result.get('objective_value', 0) if baseline_result else 0
+    
+    print(f"📋 Baseline (Sequential VRP): {baseline_objective:.2f}")
+    
+    validation_results = {
+        'baseline_objective': baseline_objective,
+        'tolerance_percent': tolerance * 100,
+        'tsp1_valid': False,
+        'tsp2_valid': False,
+        'tsp1_objective': 0,
+        'tsp2_objective': 0,
+        'tsp1_deviation': 0,
+        'tsp2_deviation': 0
+    }
+    
+    if tsp1_result and tsp1_result.get('success', False):
+        tsp1_objective = tsp1_result.get('objective_value', 0)
+        if baseline_objective > 0:
+            tsp1_deviation = abs(tsp1_objective - baseline_objective) / baseline_objective
+            tsp1_valid = tsp1_deviation <= tolerance
+        else:
+            tsp1_deviation = 0
+            tsp1_valid = True
+        
+        validation_results.update({
+            'tsp1_objective': tsp1_objective,
+            'tsp1_deviation': tsp1_deviation,
+            'tsp1_valid': tsp1_valid
+        })
+        
+        status = "✅ VALID" if tsp1_valid else "❌ INVALID"
+        print(f"📋 TSP Multiple Days 1: {tsp1_objective:.2f} ({tsp1_deviation*100:.1f}% deviation) {status}")
+    else:
+        print(f"📋 TSP Multiple Days 1: ❌ FAILED")
+    
+    if tsp2_result and tsp2_result.get('success', False):
+        tsp2_objective = tsp2_result.get('objective_value', 0)
+        if baseline_objective > 0:
+            tsp2_deviation = abs(tsp2_objective - baseline_objective) / baseline_objective
+            tsp2_valid = tsp2_deviation <= tolerance
+        else:
+            tsp2_deviation = 0
+            tsp2_valid = True
+        
+        validation_results.update({
+            'tsp2_objective': tsp2_objective,
+            'tsp2_deviation': tsp2_deviation,
+            'tsp2_valid': tsp2_valid
+        })
+        
+        status = "✅ VALID" if tsp2_valid else "❌ INVALID"
+        print(f"📋 TSP Multiple Days 2: {tsp2_objective:.2f} ({tsp2_deviation*100:.1f}% deviation) {status}")
+    else:
+        print(f"📋 TSP Multiple Days 2: ❌ FAILED")
+    
+    # Overall validation summary
+    valid_solvers = sum([validation_results['tsp1_valid'], validation_results['tsp2_valid']])
+    print(f"\n📊 VALIDATION SUMMARY:")
+    print(f"  ✅ Valid solvers: {valid_solvers}/2")
+    print(f"  📏 Tolerance: ±{tolerance*100:.1f}%")
+    print(f"  🎯 Target range: {baseline_objective*(1-tolerance):.2f} - {baseline_objective*(1+tolerance):.2f}")
+    
+    return validation_results
+
+def run_multi_solver_benchmark():
+    """Main function to run all three solvers and compare results"""
+    print(f"\n🎯 MULTI-SOLVER BENCHMARK STARTING")
+    print(f"="*80)
+    
+    # First run the baseline solver (existing implementation)
+    print(f"\n1️⃣ Running Baseline Solver (Sequential VRP)...")
+    baseline_solution, baseline_results = run_full_furgoni_solution()
+    
+    baseline_report = None
+    if baseline_solution and baseline_results:
+        baseline_report = {
+            'objective_value': baseline_results.get('total_distance', 0),
+            'total_distance': baseline_results.get('total_distance', 0),
+            'solver_name': 'vrp_multiday_sequential',
+            'success': True
+        }
+        print(f"  ✅ Baseline completed: {baseline_report['objective_value']:.2f} km")
+    else:
+        print(f"  ❌ Baseline solver failed")
+        return None
+    
+    # Prepare scenario data for alternative solvers
+    try:
+        # Import scenario creation function
+        spec = importlib.util.spec_from_file_location("scenarios", "../vrp_scenarios.py")
+        scenarios = importlib.util.module_from_spec(spec)  
+        spec.loader.exec_module(scenarios)
+        create_furgoni_scenario = scenarios.create_furgoni_scenario
+        from vrp_scenarios import DEFAULT_TRUCK_SPEED_RATIOS
+        
+        scenario = create_furgoni_scenario()
+        
+        # Convert scenario data (reuse logic from baseline)
+        locations = []
+        for loc_id, loc in scenario.locations.items():
+            # Handle coordinate extraction properly
+            coordinates = getattr(loc, 'coordinates', None)
+            if coordinates:
+                if len(coordinates) >= 2:
+                    lon, lat = coordinates[0], coordinates[1]
+                else:
+                    lon, lat = 0, 0
+            else:
+                # Fallback to individual attributes
+                lon = getattr(loc, 'lon', getattr(loc, 'longitude', 0))
+                lat = getattr(loc, 'lat', getattr(loc, 'latitude', 0))
+            
+            # Extract demand from ride requests
+            demand = getattr(loc, 'demand', 0)
+            if demand == 0 and hasattr(scenario, 'ride_requests'):
+                ride_requests = scenario.ride_requests
+                if isinstance(ride_requests, dict):
+                    ride_requests = ride_requests.values()
+                
+                for req in ride_requests:
+                    if (hasattr(req, 'pickup_location') and req.pickup_location == loc_id) or \
+                       (hasattr(req, 'delivery_location') and req.delivery_location == loc_id):
+                        demand += getattr(req, 'weight', 100)
+            
+            locations.append({
+                'id': str(loc_id),
+                'coordinates': [lon, lat],  # Store as proper coordinate array
+                'lat': lat, 
+                'lon': lon,
+                'demand': demand,
+                'address': getattr(loc, 'address', f'Location {loc_id}'),
+                'service_time': getattr(loc, 'service_time', 15)
+            })
+        
+        vehicles = []
+        for vehicle_id, vehicle in scenario.vehicles.items():
+            vehicle_type = getattr(vehicle, 'type', 'furgone').lower()
+            if 'camion' in vehicle_type or 'truck' in vehicle_type or vehicle.capacity > 5000:
+                truck_ratios = DEFAULT_TRUCK_SPEED_RATIOS.get('heavy', DEFAULT_TRUCK_SPEED_RATIOS['standard'])
+                v_type = 'camion'
+            else:
+                truck_ratios = DEFAULT_TRUCK_SPEED_RATIOS.get('standard', DEFAULT_TRUCK_SPEED_RATIOS['standard'])
+                v_type = 'furgone'
+            
+            vehicles.append({
+                'id': str(vehicle_id),
+                'capacity': vehicle.capacity,
+                'volume_capacity': getattr(vehicle, 'volume_capacity', vehicle.capacity * 0.001),
+                'depot_id': str(vehicle.depot_id),
+                'truck_speed_ratios': truck_ratios,
+                'type': v_type,
+                'cost_per_km': getattr(vehicle, 'cost_per_km', 1.5 if v_type == 'camion' else 1.0),
+                'max_time': getattr(vehicle, 'max_time', 8 * 60)
+            })
+        
+    except Exception as e:
+        print(f"  ❌ Could not prepare scenario data: {e}")
+        return None
+    
+    # Run TSP Multiple Days 1
+    print(f"\n2️⃣ Running TSP Multiple Days 1 Solver...")
+    try:
+        tsp1_data = create_tsp1_scenario_data(vehicles, locations, scenario)
+        tsp1_result = run_tsp_multiple_days1_solver(tsp1_data)
+        tsp1_report = create_standardized_report(tsp1_result, 'tsp_multiple_days1')
+        tsp1_plot = create_solver_plot(tsp1_result, 'tsp_multiple_days1', locations)
+    except Exception as e:
+        print(f"  ❌ TSP1 solver failed: {e}")
+        tsp1_result = {'success': False, 'error': str(e)}
+        tsp1_report = None
+        tsp1_plot = None
+    
+    # Run TSP Multiple Days 2  
+    print(f"\n3️⃣ Running TSP Multiple Days 2 Solver...")
+    try:
+        tsp2_data = create_tsp2_json_data(vehicles, locations, scenario)
+        tsp2_result = run_tsp_multiple_days2_solver(tsp2_data)
+        tsp2_report = create_standardized_report(tsp2_result, 'tsp_multiple_days2')
+        tsp2_plot = create_solver_plot(tsp2_result, 'tsp_multiple_days2', locations)
+    except Exception as e:
+        print(f"  ❌ TSP2 solver failed: {e}")
+        tsp2_result = {'success': False, 'error': str(e)}
+        tsp2_report = None
+        tsp2_plot = None
+    
+    # Validate results
+    validation_results = validate_solver_results(baseline_report, tsp1_result, tsp2_result)
+    
+    # Save complete benchmark results
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    benchmark_file = f"multi_solver_benchmark_{timestamp}.json"
+    
+    benchmark_data = {
+        'timestamp': timestamp,
+        'baseline_solver': baseline_report,
+        'tsp1_solver': tsp1_report,
+        'tsp2_solver': tsp2_report,
+        'validation_results': validation_results,
+        'plots_created': {
+            'baseline': baseline_results.get('files_created', {}).get('matplotlib_plot'),
+            'tsp1': tsp1_plot,
+            'tsp2': tsp2_plot
+        },
+        'benchmark_summary': {
+            'total_solvers_run': 3,
+            'successful_solvers': sum([1 if baseline_report else 0, 1 if tsp1_report else 0, 1 if tsp2_report else 0]),
+            'valid_solvers': sum([validation_results['tsp1_valid'], validation_results['tsp2_valid']]),
+            'best_solver': min([
+                (baseline_report['objective_value'], 'baseline') if baseline_report else (float('inf'), 'baseline'),
+                (tsp1_report['objective_value'], 'tsp1') if tsp1_report else (float('inf'), 'tsp1'),
+                (tsp2_report['objective_value'], 'tsp2') if tsp2_report else (float('inf'), 'tsp2')
+            ])[1]
+        }
+    }
+    
+    with open(benchmark_file, 'w') as f:
+        json.dump(benchmark_data, f, indent=2, default=str)
+    
+    print(f"\n🎯 MULTI-SOLVER BENCHMARK COMPLETE")
+    print(f"  📄 Results saved to: {benchmark_file}")
+    print(f"  🏆 Best solver: {benchmark_data['benchmark_summary']['best_solver']}")
+    print(f"  ✅ Successful runs: {benchmark_data['benchmark_summary']['successful_solvers']}/3")
+    
+    return benchmark_data
+
 if __name__ == "__main__":
     print("🚀 Running Complete MODA Furgoni Solution")
     print("=" * 80)
@@ -1262,15 +1838,49 @@ if __name__ == "__main__":
         print(f"  📊 Solution quality: {results['vehicles_used']}/{results['vehicles_total']} vehicles used")
         print(f"  💰 Total cost: {results['total_cost']:.2f} units")
         print(f"  🛣️ Total distance: {results['total_distance']:.1f} km")
-        print(f"  🏠 All vehicles returned to depot: {'✅' if results['vehicles_still_out'] == 0 else '❌'}")
+if __name__ == "__main__":
+    print("🚀 Running Complete MODA Furgoni Multi-Solver Benchmark")
+    print("=" * 80)
+    
+    start_time = time.time()
+    
+    # Check if user wants to run multi-solver benchmark
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == '--multi-solver':
+        # Run multi-solver benchmark
+        benchmark_results = run_multi_solver_benchmark()
+        total_time = time.time() - start_time
         
-        # Show created files
-        files = results['files_created']
-        print(f"\n📁 Generated Files:")
-        for file_type, filename in files.items():
-            if filename:
-                print(f"  📄 {file_type}: {filename}")
-        
+        if benchmark_results:
+            print(f"\n🎉 MULTI-SOLVER BENCHMARK COMPLETE!")
+            print(f"  ⏱️ Total execution time: {total_time:.1f} seconds")
+            print(f"  🏆 Best solver: {benchmark_results['benchmark_summary']['best_solver']}")
+            print(f"  ✅ Successful runs: {benchmark_results['benchmark_summary']['successful_solvers']}/3")
+            print(f"  📊 Valid results: {benchmark_results['benchmark_summary']['valid_solvers']}/2 alternative solvers")
+        else:
+            print(f"\n❌ Multi-solver benchmark failed after {total_time:.1f} seconds")
     else:
-        print(f"\n❌ Solution failed after {total_time:.1f} seconds")
-        print("Check the error messages above for details.")
+        # Run original single solver
+        solution, results = run_full_furgoni_solution()
+        total_time = time.time() - start_time
+        
+        if solution and results:
+            print(f"\n🎉 COMPLETE SUCCESS!")
+            print(f"  ⏱️ Total execution time: {total_time:.1f} seconds")
+            print(f"  📊 Solution quality: {results['vehicles_used']}/{results['vehicles_total']} vehicles used")
+            print(f"  💰 Total cost: {results['total_cost']:.2f} units")
+            print(f"  🛣️ Total distance: {results['total_distance']:.1f} km")
+            print(f"  🏠 All vehicles returned to depot: {'✅' if results['vehicles_still_out'] == 0 else '❌'}")
+            
+            # Show created files
+            files = results['files_created']
+            print(f"\n📁 Generated Files:")
+            for file_type, filename in files.items():
+                if filename:
+                    print(f"  📄 {file_type}: {filename}")
+            
+            print(f"\n💡 To run multi-solver benchmark, use: python test_overnight.py --multi-solver")
+                    
+        else:
+            print(f"\n❌ Solution failed after {total_time:.1f} seconds")
+            print("Check the error messages above for details.")
