@@ -35,10 +35,9 @@ except ImportError:
     NUMBA_AVAILABLE = False
 
 if TYPE_CHECKING:
-    from route import Route
-    from order import Order
-    from solution import Solution
-    from vehicle import Vehicle
+    from .epdt_data_structures import Route, Order, Vehicle, Solution
+else:
+    from .epdt_data_structures import Route, Order, Vehicle, Solution
 
 from second_level import l2_heuristic
 from .granular_tabu_search import granular_multiple_order_relocation_neighborhood, NETWORKX_AVAILABLE
@@ -253,7 +252,7 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
     Returns:
         Initial solution with all orders assigned to vehicles
     """
-    from solution import Solution  # Import here to avoid circular imports
+    from .epdt_data_structures import Solution  # Import here to avoid circular imports
     
     # Initialize empty solution
     solution = Solution()
@@ -321,7 +320,7 @@ def round_robin_insertion_with_priority_initializer(orders: List['Order'], vehic
     Returns:
         Initial solution with orders assigned using round-robin approach
     """
-    from solution import Solution  # Import here to avoid circular imports
+    from .epdt_data_structures import Solution  # Import here to avoid circular imports
     
     # Initialize empty solution
     solution = Solution()

@@ -34,8 +34,9 @@ except ImportError:
     NUMBA_AVAILABLE = False
 
 if TYPE_CHECKING:
-    from route import Route
-    from order import Order
+    from .epdt_data_structures import Route, Order
+else:
+    from .epdt_data_structures import Route, Order
 
 def l2_heuristic(route: 'Route', order: 'Order') -> Optional['Route']:
     """

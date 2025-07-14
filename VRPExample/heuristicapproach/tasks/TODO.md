@@ -265,11 +265,77 @@ def l1_heuristic(orders: list, vehicles: list, params: dict) -> Solution:
 
 - **Clarify Local Search Strategy:** The `local_search_l2` implementation uses a "first improvement" strategy (it takes the first better neighbor it finds and restarts the search). The academic papers often describe a "best improvement" (or "steepest descent") strategy, which would require evaluating all neighbors in the current neighborhood and then choosing the best one. The current implementation is faster but might not find as good a solution. The strategy should be chosen deliberately and the code commented to reflect the choice.
 
-## 4. First-Level Improvements
-- [x] **Refine `get_move_attributes` for Tabu List:** The current implementation is a placeholder. It needs to be updated to accurately represent the move's attributes (e.g., `(order_id, source_vehicle_id, destination_vehicle_id)` for a relocation) to ensure the tabu list works correctly.
-- [x] **Correct Tabu Update for Non-Improving Moves:** Ensure the tabu list is updated with the attributes of the move from the *previous* center solution to the *new* center solution when a non-improving move is made.
-- [x] **Parameterize Penalties in `calculate_z1_score`:** The penalty values in the `calculate_z1_score` function are hardcoded. Move these to the `params` dictionary to allow for easier tuning and experimentation.
-- [x] **Consider More Advanced Neighborhoods:** For future improvements, implement the `mR` (multiple order relocation) and `2C` (2-opt for routes) neighborhoods as described in the EPDT paper.
-- [x] **Review Initializer Fallback Logic:** In `round_robin_insertion_with_priority_initializer`, the fallback to `best_insertion_initializer` for unassigned orders is a good safety net, but the merging logic (`_merge_routes`) is very simplistic. This could be improved by using a more sophisticated merging strategy or by re-running the `l2_heuristic` on the merged route.
+## 5. Testing the Heuristic Algorithm
+
+This section outlines the methodology for testing the EPDT heuristic algorithm using the scenarios defined in `src/moda_scenarios.py`.
+
+### 5.1 Data Model Transformation
+
+The algorithm is designed to work with a specific set of data structures (`Order`, `Vehicle`, `Route`, `Task`) as defined in the EPDT paper. The test scenarios, however, produce a `VRPInstance` object with a different structure (`Location`, `Vehicle`, `RideRequest`). A data transformation layer is required to bridge this gap.
+
+**Action:** Create a data adapter module (e.g., `data_adapter.py`) with a primary function `convert_instance_to_epdt_input(instance: VRPInstance) -> (List[Order], List[Vehicle])`.
+
+**Transformation Logic:**
+1.  **`VRPInstance.ride_requests` to `List[Order]`:**
+    *   Iterate through each `RideRequest` in the instance.
+    *   For each `RideRequest`, create a corresponding `Order` object.
+    *   The `RideRequest.id` becomes the `Order.id`.
+    *   Create two `Task` objects for the order:
+        *   A **pickup task** using the `pickup_loc_id` from the `RideRequest`. The location details (coordinates, time windows, service time) are retrieved from `VRPInstance.locations`.
+        *   A **delivery task** using the `dropoff_loc_id`.
+    *   The `RideRequest.passengers` and `RideRequest.volume` map to the `Order`'s demand attributes.
+
+2.  **`VRPInstance.vehicles` to `List[Vehicle]`:**
+    *   This is a more direct mapping. Iterate through `VRPInstance.vehicles` and create a corresponding `Vehicle` object for each, copying attributes like `id`, `capacity`, `volume_capacity`, and `depot_id`.
+
+### 5.2 Algorithm Configuration
+
+The heuristic's behavior is controlled by a `params` dictionary. A test script must be created to configure these parameters for different test runs.
+
+**Key Parameters to Configure:**
+-   **Tabu Search:**
+    -   `tabu_tenure`: Size of the tabu list (e.g., 10).
+    -   `M1`: Maximum number of non-improving iterations (e.g., 50).
+    -   `M2`: Maximum total iterations (e.g., 500).
+-   **Exploration Strategy:**
+    -   `exploration_strategy`: Can be `'deterministic'` or `'random'`.
+-   **Enhancements (Flags):**
+    -   `enable_advanced_neighborhoods`: `True` or `False`.
+    -   `enable_granular_search`: `True` or `False`.
+    -   `enable_parallelization`: `True` or `False`.
+    -   `parallel_strategy`: `'PE'` (Parallel Evaluation) or `'PN'` (Parallel Neighborhood).
+-   **Scoring Penalties:**
+    -   `vehicle_penalty_per_vehicle`: (e.g., 100)
+    -   `unassigned_order_base_penalty`: (e.g., 1000)
+    -   And other penalties defined in `calculate_z1_score`.
+
+### 5.3 Test Execution Flow
+
+A main test runner script (e.g., `run_scenario_test.py`) should orchestrate the test.
+
+**Execution Steps:**
+1.  **Import necessary modules:** `create_furgoni_scenario`, `l1_heuristic`, `convert_instance_to_epdt_input`, etc.
+2.  **Load Scenario:** `instance = create_furgoni_scenario()`.
+3.  **Transform Data:** `orders, vehicles = convert_instance_to_epdt_input(instance)`.
+4.  **Configure Parameters:** Define the `params` dictionary for the specific test case.
+5.  **Run Heuristic:** `solution = l1_heuristic(orders, vehicles, params)`.
+6.  **Analyze and Print Results:** Call a helper function `print_solution_summary(solution)` to display the output in a readable format.
+
+### 5.4 Results Analysis
+
+The output of the test should be analyzed to verify both the correctness and the quality of the solution.
+
+**`print_solution_summary` Function:**
+This function should take the final `Solution` object and print:
+-   **Overall Score:** The final `Z1` score.
+-   **Vehicle Usage:** The total number of vehicles used.
+-   **Route Details (for each vehicle):**
+    -   Vehicle ID.
+    -   Sequence of tasks/orders.
+    -   Total route cost (`Z2` score).
+    -   Total route distance and duration.
+-   **Unassigned Orders:** A list of any orders that were not assigned to a vehicle.
+
+This structured output will allow for easy verification of solution feasibility (e.g., checking if all mandatory orders are assigned) and a clear assessment of the solution's quality based on its score and other metrics.
 
 
