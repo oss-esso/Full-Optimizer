@@ -98,14 +98,14 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
             best_neighbor_score = float('-inf')
             
             for neighbor in neighborhood_func(center_solution):
-                neighbor_score = calculate_z1_score(neighbor, params)
+                neighbor_score = calculate_z1_score(neighbor, params, orders)
                 
                 # Check if move is tabu
                 move_attrs = get_move_attributes(center_solution, neighbor)
                 is_tabu = move_attrs in tabu_list
                 
                 # Apply aspiration criteria - allow tabu moves if they lead to best solution so far
-                aspiration = neighbor_score > calculate_z1_score(best_solution, params)
+                aspiration = neighbor_score > calculate_z1_score(best_solution, params, orders)
                 
                 if (not is_tabu or aspiration) and (best_neighbor_in_N is None or neighbor_score > best_neighbor_score):
                     best_neighbor_in_N = neighbor
@@ -115,7 +115,7 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                     best_neighbors_pool.append((neighbor, neighbor_score))
             
             # Check for improvement
-            if best_neighbor_in_N and best_neighbor_score > calculate_z1_score(center_solution, params):
+            if best_neighbor_in_N and best_neighbor_score > calculate_z1_score(center_solution, params, orders):
                 # Update tabu list with move attributes
                 move_attrs = get_move_attributes(center_solution, best_neighbor_in_N)
                 tabu_list.append(move_attrs)
@@ -125,7 +125,7 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 improvement_found = True
                 
                 # Update global best if needed
-                if best_neighbor_score > calculate_z1_score(best_solution, params):
+                if best_neighbor_score > calculate_z1_score(best_solution, params, orders):
                     best_solution = copy.deepcopy(center_solution)
                 
                 break # Go back to the first neighborhood (VND restart)
@@ -239,30 +239,76 @@ def _get_order_vehicle_assignments(solution: 'Solution') -> dict:
 
 def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'], params: dict = None) -> 'Solution':
     """
-    Initial solution using best insertion heuristic.
+    Initial solution using best insertion heuristic with support for open routes.
     
     This method implements a greedy best insertion approach where for each unassigned 
     order, we try inserting it into each vehicle's route using the L2 heuristic and 
     select the move that results in the highest Z1 score improvement.
     
+    Enhanced to handle vehicle initial states and yesterday's tasks.
+    
     Args:
         orders: List of orders to be assigned
         vehicles: List of available vehicles
+        params: Algorithm parameters
         
     Returns:
         Initial solution with all orders assigned to vehicles
     """
-    from .epdt_data_structures import Solution  # Import here to avoid circular imports
+    from .epdt_data_structures import Solution, Route  # Import here to avoid circular imports
     
     # Initialize empty solution
     solution = Solution()
+    
+    # Initialize routes with vehicle initial states and yesterday's tasks
     for vehicle in vehicles:
-        solution.add_empty_route(vehicle)
+        # Create initial route for this vehicle
+        initial_route = Route(vehicle=vehicle)
+        
+        # Handle vehicle initial state and open routes
+        if hasattr(vehicle, 'initial_state') and vehicle.initial_state:
+            initial_state = vehicle.initial_state
+            
+            # Extract pending tasks from previous day
+            pending_tasks = initial_state.get('pending_tasks', [])
+            yesterday_tasks = initial_state.get('yesterday_tasks', [])
+            
+            # Add yesterday's tasks first (these are fixed)
+            for task in yesterday_tasks:
+                # Mark task as from yesterday
+                task.day = -1
+                task.is_fixed = True
+                initial_route.add_task(task)
+            
+            # Add any pending tasks
+            for task in pending_tasks:
+                # These might be today's tasks that were already planned
+                if not hasattr(task, 'day'):
+                    task.day = 0
+                task.is_fixed = True
+                initial_route.add_task(task)
+        
+        solution.add_route(vehicle.id, initial_route)
     
-    # Keep track of unassigned orders
-    unassigned_orders = orders.copy()
+    # Filter orders to only include new orders (not already in routes)
+    new_orders = []
+    existing_order_ids = set()
     
-    # Greedy insertion loop
+    # Collect order IDs that are already in routes (from initial states)
+    for route in solution.routes.values():
+        for task in route.tasks:
+            if hasattr(task, 'order_id'):
+                existing_order_ids.add(task.order_id)
+    
+    # Only process orders that aren't already assigned
+    for order in orders:
+        if order.id not in existing_order_ids:
+            new_orders.append(order)
+    
+    # Keep track of unassigned new orders
+    unassigned_orders = new_orders.copy()
+    
+    # Greedy insertion loop for new orders only
     while unassigned_orders:
         best_move = None
         best_score_improvement = float('-inf')
@@ -273,7 +319,7 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
         # Try inserting each unassigned order into each vehicle
         for order in unassigned_orders:
             for vehicle_idx, vehicle in enumerate(vehicles):
-                current_route = solution.get_route(vehicle_idx)
+                current_route = solution.get_route(vehicle.id)
                 
                 # Use L2 heuristic to find best way to insert order into route
                 new_route = l2_heuristic(current_route, order)
@@ -281,25 +327,28 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
                 if new_route is not None:  # Feasible insertion
                     # Calculate Z1 score improvement
                     temp_solution = solution.copy()
-                    temp_solution.set_route(vehicle_idx, new_route)
+                    temp_solution.set_route(vehicle.id, new_route)
                     
-                    score_improvement = calculate_z1_score(temp_solution, params) - calculate_z1_score(solution, params)
+                    score_improvement = calculate_z1_score(temp_solution, params, orders) - calculate_z1_score(solution, params, orders)
                     
                     if score_improvement > best_score_improvement:
                         best_score_improvement = score_improvement
-                        best_move = (order, vehicle_idx)
+                        best_move = (order, vehicle.id)
                         best_new_route = new_route
                         best_order = order
-                        best_vehicle_idx = vehicle_idx
+                        best_vehicle_idx = vehicle.id
         
         # Perform the best move found
         if best_move is not None:
             solution.set_route(best_vehicle_idx, best_new_route)
             unassigned_orders.remove(best_order)
         else:
-            # No feasible insertion found - this shouldn't happen in a well-designed system
-            # but we handle it gracefully
-            print(f"Warning: Could not assign order {unassigned_orders[0]} to any vehicle")
+            # No feasible insertion found - add to unassigned orders
+            if hasattr(solution, 'unassigned_orders'):
+                solution.unassigned_orders.add(unassigned_orders[0].id)
+            else:
+                solution.unassigned_orders = {unassigned_orders[0].id}
+            print(f"Warning: Could not assign order {unassigned_orders[0].id} to any vehicle")
             unassigned_orders.pop(0)  # Remove the problematic order
     
     return solution
@@ -307,25 +356,71 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
 
 def round_robin_insertion_with_priority_initializer(orders: List['Order'], vehicles: List['Vehicle'], params: dict = None) -> 'Solution':
     """
-    Initial solution using round-robin insertion with vehicle priority classes.
+    Initial solution using round-robin insertion with vehicle priority classes and open route support.
     
     This method groups vehicles into three priority classes as defined in the paper,
     sorts orders based on proximity criterion, and assigns orders in round-robin
     fashion within each vehicle class.
     
+    Enhanced to handle vehicle initial states and yesterday's tasks.
+    
     Args:
         orders: List of orders to be assigned  
         vehicles: List of available vehicles
+        params: Algorithm parameters
         
     Returns:
         Initial solution with orders assigned using round-robin approach
     """
-    from .epdt_data_structures import Solution  # Import here to avoid circular imports
+    from .epdt_data_structures import Solution, Route  # Import here to avoid circular imports
     
-    # Initialize empty solution
+    # Initialize solution with vehicle initial states
     solution = Solution()
+    
+    # Initialize routes with vehicle initial states and yesterday's tasks
     for vehicle in vehicles:
-        solution.add_empty_route(vehicle)
+        # Create initial route for this vehicle
+        initial_route = Route(vehicle=vehicle)
+        
+        # Handle vehicle initial state and open routes
+        if hasattr(vehicle, 'initial_state') and vehicle.initial_state:
+            initial_state = vehicle.initial_state
+            
+            # Extract pending tasks from previous day
+            pending_tasks = initial_state.get('pending_tasks', [])
+            yesterday_tasks = initial_state.get('yesterday_tasks', [])
+            
+            # Add yesterday's tasks first (these are fixed)
+            for task in yesterday_tasks:
+                # Mark task as from yesterday
+                task.day = -1
+                task.is_fixed = True
+                initial_route.add_task(task)
+            
+            # Add any pending tasks
+            for task in pending_tasks:
+                # These might be today's tasks that were already planned
+                if not hasattr(task, 'day'):
+                    task.day = 0
+                task.is_fixed = True
+                initial_route.add_task(task)
+        
+        solution.add_route(vehicle.id, initial_route)
+    
+    # Filter orders to only include new orders (not already in routes)
+    new_orders = []
+    existing_order_ids = set()
+    
+    # Collect order IDs that are already in routes (from initial states)
+    for route in solution.routes.values():
+        for task in route.tasks:
+            if hasattr(task, 'order_id'):
+                existing_order_ids.add(task.order_id)
+    
+    # Only process orders that aren't already assigned
+    for order in orders:
+        if order.id not in existing_order_ids:
+            new_orders.append(order)
     
     # Group vehicles into classes (assuming vehicles have a 'priority_class' attribute)
     # Class 1: High priority vehicles (e.g., dedicated/specialized vehicles)
@@ -335,13 +430,12 @@ def round_robin_insertion_with_priority_initializer(orders: List['Order'], vehic
     
     for idx, vehicle in enumerate(vehicles):
         vehicle_class = getattr(vehicle, 'priority_class', 2)  # Default to class 2
-        vehicle_classes[vehicle_class].append((idx, vehicle))
+        vehicle_classes[vehicle_class].append((vehicle.id, vehicle))
     
-    # Sort orders based on proximity criterion
-    # This typically involves sorting by distance to depot or by time windows
-    sorted_orders = _sort_orders_by_proximity(orders)
+    # Sort new orders based on proximity criterion
+    sorted_orders = _sort_orders_by_proximity(new_orders)
     
-    # Round-robin assignment within each vehicle class
+    # Round-robin assignment within each vehicle class for new orders only
     unassigned_orders = sorted_orders.copy()
     
     # Process vehicle classes in priority order (1, 2, 3)
@@ -358,37 +452,36 @@ def round_robin_insertion_with_priority_initializer(orders: List['Order'], vehic
         
         while unassigned_orders and orders_assigned_to_class < max_orders_per_class:
             order = unassigned_orders[0]
-            current_vehicle_idx, current_vehicle = class_vehicles[vehicle_idx % len(class_vehicles)]
+            current_vehicle_id, current_vehicle = class_vehicles[vehicle_idx % len(class_vehicles)]
             
             # Get current route for this vehicle
-            current_route = solution.get_route(current_vehicle_idx)
+            current_route = solution.get_route(current_vehicle_id)
             
             # Try to insert order using L2 heuristic
             new_route = l2_heuristic(current_route, order)
             
             if new_route is not None:  # Feasible insertion
-                solution.set_route(current_vehicle_idx, new_route)
+                solution.set_route(current_vehicle_id, new_route)
                 unassigned_orders.remove(order)
                 orders_assigned_to_class += 1
             else:
-                # If insertion failed, try next vehicle in round-robin
-                unassigned_orders.remove(order)  # Remove problematic order
+                # If insertion failed, add to unassigned and try next vehicle
+                if hasattr(solution, 'unassigned_orders'):
+                    solution.unassigned_orders.add(order.id)
+                else:
+                    solution.unassigned_orders = {order.id}
+                unassigned_orders.remove(order)
             
             vehicle_idx += 1  # Move to next vehicle in round-robin
     
     # Handle any remaining unassigned orders with best insertion
     if unassigned_orders:
-        print(f"Warning: {len(unassigned_orders)} orders remain unassigned, using best insertion fallback")
-        fallback_solution = best_insertion_initializer(unassigned_orders, vehicles, params)
-        
-        # Merge the fallback solution into our current solution
-        for vehicle_idx in range(len(vehicles)):
-            fallback_route = fallback_solution.get_route(vehicle_idx)
-            if fallback_route.tasks:  # If fallback route has tasks
-                current_route = solution.get_route(vehicle_idx)
-                # Merge routes (simplified - in practice this would be more sophisticated)
-                merged_route = _merge_routes(current_route, fallback_route)
-                solution.set_route(vehicle_idx, merged_route)
+        print(f"Warning: {len(unassigned_orders)} orders remain unassigned after round-robin")
+        for order in unassigned_orders:
+            if hasattr(solution, 'unassigned_orders'):
+                solution.unassigned_orders.add(order.id)
+            else:
+                solution.unassigned_orders = {order.id}
     
     return solution
 
@@ -930,16 +1023,18 @@ def _is_valid_route_order(route: 'Route') -> bool:
 
 
 @jit(nopython=False, forceobj=True)  # Performance optimization
-def calculate_z1_score(solution: 'Solution', params: dict = None) -> float:
+def calculate_z1_score(solution: 'Solution', params: dict = None, orders: List['Order'] = None) -> float:
     """
-    Calculate the Z1 score for a complete solution.
+    Calculate the Z1 score for a complete solution with enhanced priority-based penalties.
     
     This function evaluates a solution by summing the Z2 scores of all routes
-    and applying solution-wide penalties for constraint violations.
+    and applying solution-wide penalties for constraint violations, with special
+    handling for order priorities (mandatory, urgent, normal).
     
     Args:
         solution: Complete solution to evaluate
         params: Algorithm parameters containing penalty values
+        orders: List of all orders for priority lookup
         
     Returns:
         Z1 score (higher is better)
@@ -979,15 +1074,43 @@ def calculate_z1_score(solution: 'Solution', params: dict = None) -> float:
     vehicles_used = sum(1 for route in solution.routes if route and route.tasks)
     vehicle_penalty = vehicles_used * vehicle_penalty_per_vehicle
     
-    # Penalty for unassigned orders (if any)
+    # Penalty for unassigned orders with enhanced priority-based logic
     unassigned_penalty = 0
     if hasattr(solution, 'unassigned_orders'):
-        # Higher penalty for urgent/high-priority unassigned orders
-        for order in solution.unassigned_orders:
-            if hasattr(order, 'priority') and order.priority > 1:
-                # Multiply penalty by priority level
-                unassigned_penalty += unassigned_order_base_penalty * order.priority
+        for order_id in solution.unassigned_orders:
+            # Get the actual order object to check its priority
+            order = None
+            # Find the order object from the order_id
+            if orders:
+                for o in orders:
+                    if getattr(o, 'id', None) == order_id:
+                        order = o
+                        break
+            
+            if order is not None:
+                # Enhanced priority-based penalty logic
+                priority = getattr(order, 'priority', 1)
+                is_urgent = getattr(order, 'is_urgent', False)
+                is_mandatory = getattr(order, 'is_mandatory', True)
+                
+                if is_mandatory or priority == 'mandatory':
+                    # Very high penalty for unassigned mandatory orders
+                    unassigned_penalty += unassigned_order_base_penalty * 10.0
+                elif is_urgent or priority == 'urgent':
+                    # Apply Lo penalty for unassigned urgent orders
+                    lo_penalty = params.get('Lo', unassigned_order_base_penalty * 2.0)
+                    unassigned_penalty += lo_penalty
+                elif priority == 'normal' or priority == 1:
+                    # Apply no penalty for unassigned normal orders
+                    pass
+                else:
+                    # Fallback for numeric priority levels
+                    if isinstance(priority, (int, float)) and priority > 1:
+                        unassigned_penalty += unassigned_order_base_penalty * priority
+                    else:
+                        unassigned_penalty += unassigned_order_base_penalty
             else:
+                # Fallback if order object not found
                 unassigned_penalty += unassigned_order_base_penalty
     
     # Penalty for depot capacity violations (if applicable)

@@ -47,6 +47,7 @@ class Task:
     # Time window constraints
     earliest_time: Optional[float] = None  # Earliest allowed start time (minutes from start)
     latest_time: Optional[float] = None    # Latest allowed start time (minutes from start)
+    soft_time_window: bool = False          # Whether time window is soft (allows violations with penalty)
     
     # Cargo information
     demand: float = 0.0      # Cargo weight (kg) - positive for pickup, negative for delivery
@@ -55,6 +56,9 @@ class Task:
     # Task properties
     is_fixed: bool = False   # Whether task position in route can be changed
     priority: int = 1        # Task priority (higher = more important)
+
+    # Day of week constraints
+    day: int = 0  # Day of week (0=Today, 1=Tomorrow, -1= Yesterday, etc.)
     
     def is_pickup(self) -> bool:
         """Returns True if this is a pickup task."""
@@ -149,6 +153,12 @@ class Vehicle:
     
     # Vehicle preferences
     preferred_order_types: Set[str] = field(default_factory=set)  # Preferred order types
+
+    # Loading and unloading constraints
+    lifo_required: bool = False  # Last In First Out loading/unloading for vehicles without side doors
+    
+    # Multi-day planning support
+    initial_state: Optional[Dict[str, Any]] = None  # Vehicle's position and pending tasks from previous day
 
 
 @dataclass

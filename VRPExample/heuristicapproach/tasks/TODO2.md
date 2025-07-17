@@ -1,6 +1,6 @@
 # TODO List for Advanced EPDT Implementation
 
-This document outlines the necessary steps to integrate the advanced, realistic constraints described in Chapter 3 of the thesis into the EPDT algorithm.
+This document outlines the necessary steps to integrate the advanced, realistic constraints described in Chapter 3 of the thesis into the EPDT algorithm, and details the MILP formulation from Chapter 6 and the data-driven approaches from Chapter 7.
 
 ## 1. Data Model Enhancements
 
@@ -12,8 +12,8 @@ This document outlines the necessary steps to integrate the advanced, realistic 
 
 - [ ] **`Vehicle` Data Structure:**
     - **Action:** Add a `lifo_required` boolean attribute to the `Vehicle` class.
-    - **Reason:** To identify vehicles that do not have side doors and must follow a Last-In, First-Out loading policy.
     - **Action:** Add an `initial_state` attribute to the `Vehicle` class. This should store the vehicle's position and any pending tasks from the previous day at the start of the simulation.
+    - **Reason:** To identify vehicles that do not have side doors and must follow a Last-In, First-Out loading policy.
     - **Reason:** To handle open routes that continue from the previous day's state.
 
 - [ ] **`Order` Data Structure:**
@@ -44,6 +44,18 @@ This document outlines the necessary steps to integrate the advanced, realistic 
     - **Action:** Enhance the `calculate_z2_score` function.
     - **Logic:** The `A(r)` (prospective cost) component should be calculated for routes that have "tomorrow" tasks. This can be estimated as the travel time/distance from the location of the last "today" task to the locations of all "tomorrow" tasks, respecting their internal sequence.
 
+- [ ] **Implement Soft Time Window Penalties:**
+    - **Action:** Enhance the `calculate_z2_score` function.
+    - **Logic:** For tasks with soft time windows, calculate the delay beyond the window and apply the corresponding penalty `L_i` to the `W(r)` component of the score.
+
+- [ ] **Implement Detailed Hours of Service (HoS) Rules:**
+    - **Action:** Ensure the `_check_hos` function correctly implements the European Hours of Service Regulations.
+    - **Details:**
+        - After 4.5 hours of driving, a 45-minute break is mandatory (can be split into 15 + 30 mins).
+        - Maximum 9 hours of driving per day (extendable to 10 hours twice a week).
+        - Maximum 13 hours of work per day (extendable to 14 hours twice a week).
+        - Minimum 11 hours of daily rest (can be reduced to 9 hours under certain conditions).
+
 ## 3. First-Level Heuristic (Inter-Route) Modifications (`algo/first_level.py`)
 
 **Objective:** Ensure the main search algorithm correctly uses the enhanced second-level logic.
@@ -63,7 +75,7 @@ This document outlines the necessary steps to integrate the advanced, realistic 
 
 **Objective:** Create a test script to validate the implementation of the advanced features.
 
-- [ ] **Create `run_scenario_test.py`:**
+- [x] **Create `run_scenario_test.py`:**
     - **Action:** Develop a new Python script dedicated to running a full scenario test.
     - **Steps:**
         1.  **Load Data:** Use `create_furgoni_scenario` from `src/moda_scenarios.py` to generate the `VRPInstance`.
@@ -72,65 +84,55 @@ This document outlines the necessary steps to integrate the advanced, realistic 
         4.  **Execute:** Call `l1_heuristic` with the prepared data and parameters.
         5.  **Report:** Create a `print_solution_summary` function to display the results, including the final score, vehicle routes, and a list of unassigned orders.
 
----
-### Findings from Chapters 3 and 4 of "tesi_definitiva_Nicola_Gastaldon.pdf"
+## 5. MILP Formulation for Optimality Bounds (from Chapter 6)
 
-**Problem Description (Chapter 3):**
-The thesis focuses on the Express Pickup and Delivery in freight Trucking problem (EPDT), a Multi-Attribute Vehicle Routing Problem (MAVRP) inspired by Trans-Cel's scenario. This problem combines express courier requirements (urban contexts) with vehicle/route characteristics of medium-to-long haul trips. Key attributes include:
-- **Heterogeneous Fleet:** Vehicles have different capacities (weight, volume) and loading tools.
-- **Multi-Pickup/Multi-Delivery Orders:** Orders can involve multiple pickups and deliveries, with all pickups for an order needing to precede all deliveries by the same vehicle.
-- **Multi-Day Planning:** Tasks can span across "yesterday," "today," and "tomorrow" relative to the planning horizon.
-- **Time Windows:** Both hard and soft time windows are considered for tasks, with penalties for soft time window violations.
-- **Driver Regulations:** European Hours of Service Regulations (max drive/work time, mandatory breaks) are incorporated.
-- **Objective:** Maximize net profit, which is revenue from satisfied orders minus costs (route costs, prospective tomorrow route costs, missed urgent orders, soft time window violations).
-- **Order Priority:** Orders can be mandatory (must be fulfilled), urgent (penalty if not fulfilled), or normal (no penalty if rejected).
-- **Initial State:** Vehicles have an initial state including position and pending tasks from the previous day.
+**Objective:** To assess the performance of the EPDT heuristic, Chapter 6 of the thesis proposes using a Column Generation algorithm to find optimality bounds for the EPDT problem. This involves formulating the problem as a Mixed-Integer Linear Program (MILP).
 
-**Solving Strategy (Chapter 4):**
-A meta-heuristic algorithm is proposed to solve EPDT, designed for fast execution and integration into Chainment's algorithmic engine. The solution method is a two-level heuristic:
-- **First Level:** A Tabu Search algorithm hybridized with Variable Neighborhood Descent is used to explore order-to-vehicle assignments.
-- **Second Level:** A Local Search algorithm determines the sequence of customers within each vehicle's route and evaluates the routes.
-- **Efficiency Enhancements:** The algorithm incorporates granular exploration, fast solution evaluation procedures, and parallel implementations.
-- **Mathematical Formulation:** EPDT can be formulated as a Mixed-Integer Linear Programming (MILP) problem.
-- **Optimality Bounds:** A Column Generation algorithm is used to provide optimality bounds by solving the continuous relaxation of the MILP. The Pricing Problem within this framework is an Elementary Shortest Path Problem with Resource Constraints (ESPPRC), solved using a label correcting algorithm adapted for EPDT's specific multi-pickup/multi-delivery attributes.
-- **Dynamic and Stochastic Settings:** The thesis also explores data-driven approaches (e.g., clustering, accessibility measures) to handle dynamic requests and uncertainty in the problem.
-- **Integration:** The algorithm is integrated into the Chainment platform, a cloud-based decision support system for freight transportation.
+### 5.1. Overview
+- [ ] The approach is based on a **set covering formulation** of the EPDT problem. The continuous relaxation of this model is solved using Column Generation, which decomposes the problem into a Master Problem and a Pricing Problem.
 
----
-### Findings from Chapters 6, 7, and 8 of "tesi_definitiva_Nicola_Gastaldon.pdf"
+### 5.2. Master Problem (MP)
+- [ ] **Formulation:** The Master Problem is a **set covering model**. It is defined on a restricted set of routes initially and is augmented with new routes (columns) generated by the Pricing Problem.
+- [ ] **Objective:** The objective function of the MP is to minimize the total cost, which includes route costs and penalties for soft constraint violations.
+- [ ] **Variables:**
+    - `yr`: A binary variable that is 1 if route `r` is selected, 0 otherwise.
+    - `xo`: A binary variable that is 1 if order `o` is not served, 0 otherwise.
+- [ ] **Constraints:**
+    - **Set Covering:** Ensures that each mandatory task is served by at least one route. For non-mandatory tasks, the constraints allow them to be unassigned (if `xo` = 1).
+    - **Fleet Size:** The total number of selected routes cannot exceed the number of available vehicles.
 
-**Chapter 6: Bounding through a Column Generation Algorithm**
-- **Purpose:** To assess the performance of the proposed EPDT algorithm by providing optimality bounds.
-- **Method:** Uses an Integer Programming model based on set covering formulation.
-- **Components:**
-    - **Master Problem (MP):** A set covering model that accounts for open routes.
-    - **Pricing Problem (PP):** An Elementary Shortest Path Problem with Resource Constraints (ESPPRC).
-- **Solution:** The ESPPRC is solved using a label correcting algorithm, adapted for multi-pickup and multi-delivery attributes.
-- **Contribution:** Development of a specific label correcting algorithm for ESPPRC that handles EPDT attributes.
-- **Outcome:** Provides a bound to optimal solutions of EPDT, used to assess the effectiveness of the Tabu Variable Neighborhood Descent.
+### 5.3. Pricing Problem (PP)
+- [ ] **Formulation:** The Pricing Problem is an **Elementary Shortest Path Problem with Resource Constraints (ESPPRC)**. Its goal is to find a new route (a column) with a negative reduced cost to add to the Master Problem.
+- [ ] **Solution Method:** The ESPPRC is solved using a **label correcting algorithm**. This algorithm is specifically adapted to handle the unique attributes of EPDT, which is a key contribution of the thesis.
+- [ ] **Label Definition:** A label `L` for a partial path represents its state and includes:
+    - The last node visited.
+    - Cumulative working and driving time.
+    - Current vehicle load (volume and weight).
+    - The set of "open" orders (orders for which some, but not all, pickups have been made).
+    - The set of "unreachable" nodes (e.g., delivery tasks for which not all pickups have been completed).
+- [ ] **Dominance Rules:** Custom dominance rules are defined to efficiently prune the search space. These rules are crucial for handling the multi-pickup, multi-delivery precedence constraints, as classic dominance rules are insufficient. For an order to be considered "dominated," not only must the cost and resources be better, but the set of unreachable nodes must also be a subset, ensuring that the dominating path has at least as many feasible completions.
+- [ ] **Implementation Note:** The adaptation of the label-correcting algorithm is the most challenging part of this task. The custom label structure and dominance rules described in Chapter 6 are critical for correctness and performance and must be implemented precisely.
 
-**Chapter 7: Toward new Data-Driven approaches for Dynamic and Stochastic VRPs**
-- **Context:** EPDT problem in dynamic and stochastic settings, where requests are issued during the planning horizon and stochastic components affect the problem.
-- **Goal:** Exploit historical data to improve decision-making in dynamic and stochastic VRPs.
-- **Approaches:**
-    - **Representative Orders:** Introduction of artificial orders (centroids of clusters from historical data) to aggregate space-time information on demand, guiding the optimization algorithm towards more stable solutions.
-        - Clustering techniques (K-Means based) are used to create these representative orders.
-        - Reliability factor (linear combination of sparsity and frequency) is introduced to assess the quality of clusters.
-    - **Accessibility Approach:** Incorporates the concept of accessibility (how easy it is to reach future orders from a given space-time point) into the objective function.
-        - A new component is added to the second-level score function to account for cumulative accessibility.
-- **Simplified Problem Analysis:** Analytical insights into waiting times for a simplified version of the problem (single task, single vehicle, single random order) suggest that the optimal waiting time can be determined by minimizing the average arrival time.
+## 6. Advanced Data-Driven Approaches for Dynamic/Stochastic VRP (from Chapter 7)
 
-**Chapter 8: Integration in a decision support system**
-- **Platform:** Chainment, a cloud-based platform developed by Trans-Cel, integrates various management tools through a data-sharing system.
-- **Purpose:** To aid operations managers in difficult decisional tasks related to vehicle routing and scheduling.
-- **Modules:**
-    - **Orders Portal:** Supports inserting and managing orders, collects data, and provides views for carriers and customers. Includes an interactive negotiation system and a profit estimator tool.
-    - **Driver App:** Handles vehicle tracking, provides daily routes to drivers, and transmits feedback (operations completion, delays, maintenance issues) to the central system.
-    - **Planning Module:** Determines daily operations assignments to vehicles and routes. Allows for user interaction (drag-and-drop interface, overriding suggestions) and re-optimization based on real-time data.
-    - **Demand Forecast Tool:** Analyzes past demand and predicts future orders, using historical data to identify likely future requests.
-    - **Algorithmic Engine:** The core of Chainment, implementing the EPDT routing optimizer (from Chapter 5) and predictive models.
-- **Integration Aspects:**
-    - The routing optimizer adapts to platform requirements (initial partial/complete plans, infeasible plans, user modifications, real-time data).
-    - Predictive models estimate service time (based on load weight/volume) and price ranges for orders (using machine learning on historical data).
-    - Uses third-party APIs like TomTom Telematics and Google Maps for real-time data and mapping.
-    - Implemented using C++ for the core optimization engine and Python for high-level functionalities and prediction tools.
+**Objective:** To improve solution quality in dynamic and stochastic environments by proactively anticipating future demand using historical data.
+
+### 6.1. Approach 1: Representative Orders
+- [ ] **Goal:** Guide the heuristic to position vehicles in strategic space-time locations by introducing artificial "representative" orders into the problem instance.
+- [ ] **Implementation Steps:**
+    - [ ] **Historical Data Clustering:** Implement a module that uses a K-Means-based clustering technique to analyze historical order data (pickup/delivery coordinates, time of request).
+    - [ ] **Generate Representative Orders:** Create new `Order` objects from the centroids of the resulting clusters. These orders are artificial and represent demand hotspots.
+    - [ ] **Augment VRP Instance:** Add a mechanism to inject these representative orders into the problem instance that is fed to the heuristic.
+    - [ ] **Calculate Reliability Factor:** For each cluster (and its representative order), implement the calculation of a `reliability_factor` (`R(C) = a * F(C) - b * S(C)`), which balances the cluster's frequency (`F(C)`) and sparsity (`S(C)`).
+    - [ ] **Implement Anticipatory Strategies:**
+        - **Relocation:** After the main optimization, use the `reliability_factor` to decide whether to keep a representative order in the solution, effectively relocating an idle vehicle to its location.
+        - **Waiting:** Modulate the vehicle waiting time before it departs for a representative order based on the order's `reliability_factor`. Lower reliability should result in a longer waiting time.
+    - [ ] **Action:** Add a configuration step or a separate utility for tuning the `a` and `b` parameters of the reliability factor. Their values will significantly impact the behavior of the anticipatory strategies.
+
+### 6.2. Approach 2: Accessibility-Based Scoring
+- [ ] **Goal:** Enhance the route evaluation function to favor routes that are better positioned to intercept future requests.
+- [ ] **Implementation Steps:**
+    - [ ] **Pre-calculate Accessibility Map:** Implement a module to pre-compute an accessibility measure `Φi(t)` for all locations `i` and discretized time points `t`. This value, based on the logit model from urban logistics, represents how easily a vehicle at `(i, t)` can reach potential future orders based on historical data.
+    - [ ] **Modify Second-Level Score Function:** Enhance `calculate_z2_score` by adding a new term that sums the accessibility values `Φi(t)` for each task in the route. The modified score will be `Ž2(r) = Z2(r) + φ(r)`, where `φ(r)` is the cumulative accessibility. This will make routes that travel through high-accessibility areas more attractive.
+    - [ ] **Implementation Note:** The accessibility map `Φi(t)` should be pre-computed and stored, as its calculation is too computationally intensive to be performed in real-time during the main heuristic run. This should be an offline process that runs on the historical dataset.
+

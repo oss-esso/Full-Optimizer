@@ -25,33 +25,82 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 # Add necessary paths for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'VRPInstance'))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(current_dir, '..', '..', '..')
+vrp_example_root = os.path.join(current_dir, '..', '..')
+heuristic_root = os.path.join(current_dir, '..')
+src_dir = os.path.join(heuristic_root, 'src')
+algo_dir = os.path.join(heuristic_root, 'algo')
+
+sys.path.insert(0, project_root)
+sys.path.insert(0, vrp_example_root) 
+sys.path.insert(0, heuristic_root)
+sys.path.insert(0, src_dir)
+sys.path.insert(0, algo_dir)
+
+# Debug path information
+print(f"🔍 Debug: Current working directory: {os.getcwd()}")
+print(f"🔍 Debug: Script directory: {current_dir}")
+print(f"🔍 Debug: Looking for moda_scenarios in: {src_dir}")
+print(f"🔍 Debug: moda_scenarios.py exists: {os.path.exists(os.path.join(src_dir, 'moda_scenarios.py'))}")
 
 try:
-    from src.moda_scenarios import create_furgoni_scenario
+    # Try different import approaches
+    from moda_scenarios import create_furgoni_scenario
+    print("✅ Successfully imported create_furgoni_scenario from moda_scenarios")
 except ImportError:
     try:
+        import sys
+        sys.path.append(os.path.join(heuristic_root, 'src'))
         from moda_scenarios import create_furgoni_scenario
+        print("✅ Successfully imported create_furgoni_scenario with explicit path")
     except ImportError:
-        print("❌ Error: Could not import create_furgoni_scenario")
-        print("   Make sure moda_scenarios.py is available")
+        try:
+            # Try importing with full path
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("moda_scenarios", os.path.join(src_dir, "moda_scenarios.py"))
+            moda_scenarios = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(moda_scenarios)
+            create_furgoni_scenario = moda_scenarios.create_furgoni_scenario
+            print("✅ Successfully imported create_furgoni_scenario using importlib")
+        except Exception as e:
+            print(f"❌ Error: Could not import create_furgoni_scenario: {e}")
+            print("   Make sure moda_scenarios.py is available")
+            print(f"   Searched in: {src_dir}")
+            sys.exit(1)
+
+# Import algo modules with robust path handling
+try:
+    from data_adapter import (
+        convert_instance_to_epdt_input, 
+        get_default_parameters,
+        create_empty_solution,
+        print_conversion_summary
+    )
+    print("✅ Successfully imported data_adapter functions")
+except ImportError:
+    try:
+        from algo.data_adapter import (
+            convert_instance_to_epdt_input, 
+            get_default_parameters,
+            create_empty_solution,
+            print_conversion_summary
+        )
+        print("✅ Successfully imported data_adapter functions with algo prefix")
+    except ImportError as e:
+        print(f"❌ Error: Could not import data_adapter functions: {e}")
         sys.exit(1)
 
-from algo.data_adapter import (
-    convert_instance_to_epdt_input, 
-    get_default_parameters,
-    create_empty_solution,
-    print_conversion_summary
-)
-
 try:
-    from algo.first_level import l1_heuristic
+    from first_level import l1_heuristic
+    print("✅ Successfully imported l1_heuristic from first_level")
 except ImportError:
-    print("⚠️  Warning: l1_heuristic not yet implemented")
-    l1_heuristic = None
+    try:
+        from algo.first_level import l1_heuristic
+        print("✅ Successfully imported l1_heuristic with algo prefix")
+    except ImportError:
+        print("⚠️  Warning: l1_heuristic not yet implemented")
+        l1_heuristic = None
 
 
 def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
@@ -527,19 +576,274 @@ def _create_mock_solution(orders, vehicles):
     return solution
 
 
+def create_enhanced_multi_day_scenario():
+    """
+    Create a test scenario with multi-day tasks to test enhanced EPDT features.
+    
+    This scenario includes:
+    - Yesterday tasks (continuing routes)
+    - Today tasks (main planning day)
+    - Tomorrow tasks (prospective planning)
+    - LIFO constraints
+    - Soft time windows
+    - Priority-based orders
+    
+    Returns:
+        Tuple of (orders, vehicles, params) for enhanced testing
+    """
+    from algo.epdt_data_structures import Order, Task, Vehicle, TaskType
+    
+    # Create vehicles with different capabilities
+    vehicles = [
+        Vehicle(
+            id="V001",
+            depot_id="DEPOT1",
+            weight_capacity=2000.0,
+            volume_capacity=20.0,
+            lifo_required=True,  # Test LIFO constraint
+            vehicle_type="standard"
+        ),
+        Vehicle(
+            id="V002", 
+            depot_id="DEPOT1",
+            weight_capacity=1500.0,
+            volume_capacity=15.0,
+            lifo_required=False,
+            vehicle_type="standard"
+        )
+    ]
+    
+    # Create orders with multi-day tasks
+    orders = []
+    
+    # Order 1: Yesterday task (continuing route)
+    order1 = Order(
+        id="ORD001",
+        priority="mandatory",
+        is_mandatory=True,
+        revenue=500.0
+    )
+    order1.pickup_tasks = [Task(
+        id="T001P",
+        location_id="LOC001",
+        task_type=TaskType.PICKUP,
+        order_id="ORD001",
+        lat=40.7128,
+        lon=-74.0060,
+        service_time=30.0,
+        demand=100.0,
+        volume=2.0,
+        day=-1,  # Yesterday
+        earliest_time=480.0,  # 8:00 AM
+        latest_time=600.0     # 10:00 AM
+    )]
+    order1.delivery_tasks = [Task(
+        id="T001D",
+        location_id="LOC002", 
+        task_type=TaskType.DELIVERY,
+        order_id="ORD001",
+        lat=40.7589,
+        lon=-73.9851,
+        service_time=20.0,
+        demand=-100.0,
+        volume=-2.0,
+        day=0,  # Today
+        earliest_time=540.0,  # 9:00 AM
+        latest_time=720.0     # 12:00 PM
+    )]
+    orders.append(order1)
+    
+    # Order 2: Today task with soft time window
+    order2 = Order(
+        id="ORD002",
+        priority="urgent",
+        is_urgent=True,
+        revenue=300.0
+    )
+    order2.pickup_tasks = [Task(
+        id="T002P",
+        location_id="LOC003",
+        task_type=TaskType.PICKUP,
+        order_id="ORD002",
+        lat=40.7282,
+        lon=-74.0776,
+        service_time=25.0,
+        demand=150.0,
+        volume=3.0,
+        day=0,  # Today
+        earliest_time=600.0,  # 10:00 AM
+        latest_time=780.0,    # 1:00 PM
+        soft_time_window=True
+    )]
+    
+    # Add late penalty rate as an attribute
+    order2.pickup_tasks[0].late_penalty_rate = 2.5
+    
+    order2.delivery_tasks = [Task(
+        id="T002D",
+        location_id="LOC004",
+        task_type=TaskType.DELIVERY,
+        order_id="ORD002",
+        lat=40.6892,
+        lon=-74.0445,
+        service_time=15.0,
+        demand=-150.0,
+        volume=-3.0,
+        day=0,  # Today
+        earliest_time=660.0,  # 11:00 AM
+        latest_time=840.0,    # 2:00 PM
+        soft_time_window=True
+    )]
+    
+    # Add late penalty rate as an attribute
+    order2.delivery_tasks[0].late_penalty_rate = 2.0
+    orders.append(order2)
+    
+    # Order 3: Tomorrow task (prospective planning)
+    order3 = Order(
+        id="ORD003",
+        priority="normal",
+        revenue=200.0
+    )
+    order3.pickup_tasks = [Task(
+        id="T003P",
+        location_id="LOC005",
+        task_type=TaskType.PICKUP,
+        order_id="ORD003",
+        lat=40.7505,
+        lon=-73.9934,
+        service_time=20.0,
+        demand=80.0,
+        volume=1.5,
+        day=1,  # Tomorrow
+        earliest_time=480.0,  # 8:00 AM tomorrow
+        latest_time=540.0     # 9:00 AM tomorrow
+    )]
+    order3.delivery_tasks = [Task(
+        id="T003D",
+        location_id="LOC006",
+        task_type=TaskType.DELIVERY,
+        order_id="ORD003",
+        lat=40.7831,
+        lon=-73.9712,
+        service_time=15.0,
+        demand=-80.0,
+        volume=-1.5,
+        day=1,  # Tomorrow
+        earliest_time=600.0,  # 10:00 AM tomorrow
+        latest_time=720.0     # 12:00 PM tomorrow
+    )]
+    orders.append(order3)
+    
+    # Enhanced parameters for multi-day testing
+    params = {
+        'tabu_tenure': 5,
+        'M1': 10,  # Reduced for testing
+        'M2': 50,  # Reduced for testing
+        'exploration_strategy': 'vnd',
+        'unassigned_order_base_penalty': 1000.0,
+        'mandatory_order_penalty': 2000.0,
+        'vehicle_penalty_per_vehicle': 100.0,
+        'initial_vehicle_states': {
+            'V001': {
+                'yesterday_tasks': []  # Could include continuing tasks
+            },
+            'V002': {
+                'yesterday_tasks': []
+            }
+        }
+    }
+    
+    return orders, vehicles, params
+
+
+def test_enhanced_features():
+    """
+    Test the enhanced EPDT features including multi-day, LIFO, and soft constraints.
+    """
+    print(f"\n🧪 Testing Enhanced EPDT Features...")
+    print(f"="*60)
+    
+    # Create enhanced scenario
+    orders, vehicles, params = create_enhanced_multi_day_scenario()
+    
+    print(f"📋 Test Scenario Created:")
+    print(f"   🚛 Vehicles: {len(vehicles)}")
+    print(f"   📦 Orders: {len(orders)}")
+    
+    # Analyze orders by day
+    yesterday_orders = [o for o in orders if any(getattr(t, 'day', 0) < 0 for t in o.get_all_tasks())]
+    today_orders = [o for o in orders if any(getattr(t, 'day', 0) == 0 for t in o.get_all_tasks())]
+    tomorrow_orders = [o for o in orders if any(getattr(t, 'day', 0) > 0 for t in o.get_all_tasks())]
+    
+    print(f"   📅 Yesterday orders: {len(yesterday_orders)}")
+    print(f"   📅 Today orders: {len(today_orders)}")
+    print(f"   📅 Tomorrow orders: {len(tomorrow_orders)}")
+    
+    # Test priority handling
+    mandatory_orders = [o for o in orders if getattr(o, 'is_mandatory', False)]
+    urgent_orders = [o for o in orders if getattr(o, 'is_urgent', False)]
+    
+    print(f"   🔴 Mandatory orders: {len(mandatory_orders)}")
+    print(f"   🟡 Urgent orders: {len(urgent_orders)}")
+    
+    # Test soft time windows
+    soft_tw_tasks = []
+    for order in orders:
+        for task in order.get_all_tasks():
+            if hasattr(task, 'soft_time_window') and task.soft_time_window:
+                soft_tw_tasks.append(task)
+    
+    print(f"   ⏰ Soft time window tasks: {len(soft_tw_tasks)}")
+    
+    # Test LIFO constraints
+    lifo_vehicles = [v for v in vehicles if v.lifo_required]
+    print(f"   📦 LIFO-constrained vehicles: {len(lifo_vehicles)}")
+    
+    return orders, vehicles, params
+
+
 def main():
     """Command line interface for the test runner."""
     parser = argparse.ArgumentParser(description="Run EPDT Algorithm Tests")
     parser.add_argument("--scenario", default="furgoni", 
-                       help="Scenario to test (default: furgoni)")
+                       help="Scenario to test (default: furgoni, enhanced)")
     parser.add_argument("--params", 
                        help="Custom parameters JSON file")
     parser.add_argument("--no-save", action="store_true",
                        help="Don't save results to files")
+    parser.add_argument("--test-enhanced", action="store_true",
+                       help="Run enhanced multi-day feature tests")
     
     args = parser.parse_args()
     
-    # Run the test
+    # Run enhanced tests if requested
+    if args.test_enhanced:
+        print(f"🚀 Running Enhanced EPDT Feature Tests")
+        orders, vehicles, params = test_enhanced_features()
+        
+        if l1_heuristic:
+            print(f"\n🔄 Running Enhanced EPDT Algorithm...")
+            import time
+            start_time = time.time()
+            
+            try:
+                solution = l1_heuristic(orders, vehicles, params)
+                runtime = time.time() - start_time
+                
+                print(f"✅ Enhanced algorithm completed successfully!")
+                print_solution_summary(solution, orders, vehicles, params, runtime)
+                
+            except Exception as e:
+                print(f"❌ Enhanced algorithm failed: {str(e)}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"⚠️  l1_heuristic not available - skipping algorithm test")
+        
+        return
+    
+    # Run standard test
     results = run_scenario_test(
         scenario_name=args.scenario,
         custom_params_file=args.params,

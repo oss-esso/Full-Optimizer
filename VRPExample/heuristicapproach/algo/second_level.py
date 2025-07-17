@@ -306,70 +306,177 @@ def _calculate_realistic_driver_costs(route: 'Route') -> tuple[float, float]:
 @jit(nopython=False, forceobj=True)  # Use object mode for complex Route objects
 def calculate_z2_score(route: 'Route') -> float:
     """ 
-    Calculates the Z2 score for a given route.
-    Uses realistic driver break/rest costs based on HOS regulations simulation.
+    Enhanced Z2 score calculation with multi-day support, prospective cost calculation,
+    and soft time window penalties.
+    
+    Components:
+    - C(r): Travel cost
+    - W(r): Time window penalties (both hard and soft)
+    - A(r): Prospective cost for tomorrow tasks
+    - D(r): Driver cost (breaks and rest)
+    - V(r): Vehicle assignment penalty
+    - E(r): End position penalty
     
     This is a performance-critical function optimized with Numba JIT compilation.
     """
     # Check if score is already cached
     if hasattr(route, '_z2_score'):
         return route._z2_score
-        
+    
+    # Sort tasks chronologically for proper simulation
+    sorted_tasks = _sort_tasks_chronologically(route.tasks)
+    
     # Initialize cost components
-    travel_cost = 0
-    time_window_penalty = 0
-    tomorrow_task_cost = 0
-    vehicle_assignment_penalty = 0
-    end_position_penalty = 0
+    travel_cost = 0.0  # C(r)
+    time_window_penalty = 0.0  # W(r) 
+    prospective_cost = 0.0  # A(r)
+    driver_cost = 0.0  # D(r)
+    vehicle_assignment_penalty = 0.0  # V(r)
+    end_position_penalty = 0.0  # E(r)
+    soft_time_window_penalty = 0.0  # Additional component for soft violations
 
-    # Calculate realistic driver break costs
-    driver_break_cost, _ = _calculate_realistic_driver_costs(route)
+    # Enhanced driver break costs calculation
+    driver_cost, _ = _calculate_realistic_driver_costs(route)
 
-    # Calculate travel time and costs (simplified - detailed HOS handled above)
+    # Multi-day cost simulation
     current_time = 0
-    for i in range(len(route.tasks) - 1):
-        current_task = route.tasks[i]
-        next_task = route.tasks[i + 1]
+    current_day = None
+    last_today_task_location = None
+    tomorrow_tasks = []
+    
+    # Group tasks by day for prospective cost calculation
+    tasks_by_day = {}
+    for task in sorted_tasks:
+        day = getattr(task, 'day', 0)
+        if day not in tasks_by_day:
+            tasks_by_day[day] = []
+        tasks_by_day[day].append(task)
         
-        # Add service time for current task
-        current_time += current_task.service_time
-        
-        # Calculate travel time to next task
-        travel_time = route.calculate_travel_time(current_task, next_task)
-        travel_cost += travel_time * route.vehicle.cost_per_hour
-        
-        # Move to next task's time
-        current_time += travel_time
-        
-        # Check for time window violations
-        if hasattr(next_task, 'time_window'):
-            if current_time > next_task.time_window.latest:
-                time_window_penalty += (current_time - next_task.time_window.latest) * 2
-            if current_time < next_task.time_window.earliest:
-                current_time = next_task.time_window.earliest
+        # Track tomorrow tasks for prospective cost
+        if day > 0:  # Tomorrow or later
+            tomorrow_tasks.append(task)
 
-    # Add tomorrow task costs
-    tomorrow_tasks = [t for t in route.tasks if hasattr(t, 'is_tomorrow') and t.is_tomorrow]
-    tomorrow_task_cost = len(tomorrow_tasks) * 50  # Penalty per tomorrow task
+    # Simulate route execution
+    for i in range(len(sorted_tasks)):
+        current_task = sorted_tasks[i]
+        task_day = getattr(current_task, 'day', 0)
+        
+        # Track day transitions
+        if current_day is None:
+            current_day = task_day
+        elif task_day != current_day:
+            # Day boundary crossed - add daily rest time if needed
+            if current_day < task_day:
+                current_time += 11 * 60  # 11 hours mandatory rest
+            current_day = task_day
+        
+        # Track last task location of "today" (day 0) for prospective cost
+        if task_day == 0:
+            last_today_task_location = (getattr(current_task, 'lat', 0), 
+                                      getattr(current_task, 'lon', 0))
+        
+        # Add service time
+        service_time = getattr(current_task, 'service_time', 0)
+        current_time += service_time
+        
+        # Calculate travel cost to next task
+        if i < len(sorted_tasks) - 1:
+            next_task = sorted_tasks[i + 1]
+            travel_time = _calculate_travel_time_between_tasks(current_task, next_task)
+            travel_cost += travel_time * route.vehicle.cost_per_km * 0.8  # Rough conversion
+            current_time += travel_time
+        
+        # Check time window violations
+        earliest_time = getattr(current_task, 'earliest_time', None)
+        latest_time = getattr(current_task, 'latest_time', None)
+        is_soft_tw = getattr(current_task, 'soft_time_window', False)
+        
+        if earliest_time is not None and current_time < earliest_time:
+            # Wait until earliest time
+            wait_time = earliest_time - current_time
+            current_time = earliest_time
+            # Waiting time contributes to driver cost
+            driver_cost += wait_time * route.vehicle.cost_per_hour
+            
+        if latest_time is not None and current_time > latest_time:
+            delay = current_time - latest_time
+            if is_soft_tw:
+                # Soft time window violation - calculate penalty
+                penalty_rate = getattr(current_task, 'late_penalty_rate', 2.0)
+                soft_time_window_penalty += delay * penalty_rate
+            else:
+                # Hard time window violation - high penalty
+                time_window_penalty += delay * 10.0  # High penalty for hard violations
 
-    # Add vehicle assignment penalty if applicable
+    # Calculate prospective cost A(r) for tomorrow tasks
+    if tomorrow_tasks and last_today_task_location:
+        prospective_cost = _calculate_prospective_cost(
+            last_today_task_location, tomorrow_tasks, route.vehicle
+        )
+
+    # Vehicle assignment penalty
     if hasattr(route, 'preferred_vehicle') and route.vehicle != route.preferred_vehicle:
-        vehicle_assignment_penalty = 100
+        vehicle_assignment_penalty = 100.0
 
-    # Add end position penalty
-    if hasattr(route, 'preferred_end_position'):
-        last_task = route.tasks[-1] if route.tasks else None
-        if last_task and last_task.location != route.preferred_end_position:
-            end_position_penalty = 75
+    # End position penalty
+    if hasattr(route, 'preferred_end_position') and sorted_tasks:
+        last_task = sorted_tasks[-1]
+        if (hasattr(last_task, 'lat') and hasattr(last_task, 'lon') and
+            hasattr(route, 'preferred_end_position')):
+            # Calculate distance penalty (simplified)
+            end_position_penalty = 50.0
 
-    # Calculate total cost
-    total_cost = (travel_cost + time_window_penalty + driver_break_cost + 
-                  tomorrow_task_cost + vehicle_assignment_penalty + end_position_penalty)
+    # Calculate total Z2 score
+    total_cost = (travel_cost + time_window_penalty + prospective_cost + 
+                  driver_cost + vehicle_assignment_penalty + end_position_penalty +
+                  soft_time_window_penalty)
 
     # Cache the score
     route._z2_score = total_cost
-
     return total_cost
+
+
+def _calculate_prospective_cost(last_today_location: tuple, tomorrow_tasks: List, vehicle) -> float:
+    """
+    Calculate the A(r) prospective cost component for routes with tomorrow tasks.
+    
+    This estimates the travel time/distance from the location of the last "today" task
+    to the locations of all "tomorrow" tasks, respecting their internal sequence.
+    
+    Args:
+        last_today_location: (lat, lon) of last task executed today
+        tomorrow_tasks: List of tasks scheduled for tomorrow
+        vehicle: Vehicle object for cost calculation
+        
+    Returns:
+        Prospective cost for tomorrow tasks
+    """
+    if not tomorrow_tasks or not last_today_location:
+        return 0.0
+    
+    # Sort tomorrow tasks by their planned sequence
+    tomorrow_tasks_sorted = sorted(tomorrow_tasks, key=lambda t: getattr(t, 'sequence_order', 0))
+    
+    total_prospective_cost = 0.0
+    current_location = last_today_location
+    
+    # Calculate travel cost from last today task to first tomorrow task
+    if tomorrow_tasks_sorted:
+        first_tomorrow = tomorrow_tasks_sorted[0]
+        first_tomorrow_location = (getattr(first_tomorrow, 'lat', 0), 
+                                 getattr(first_tomorrow, 'lon', 0))
+        
+        # Travel cost from end of today to start of tomorrow
+        import math
+        distance = math.sqrt((first_tomorrow_location[0] - current_location[0])**2 + 
+                           (first_tomorrow_location[1] - current_location[1])**2)
+        distance_km = distance * 111.32  # Rough conversion to km
+        
+        # Apply prospective cost factor (higher uncertainty = higher cost)
+        prospective_factor = 1.2  # 20% uncertainty premium
+        total_prospective_cost = distance_km * vehicle.cost_per_km * prospective_factor
+    
+    return total_prospective_cost
 
 
 def local_search_l2(initial_route: 'Route', neighborhoods: List[Callable], 
@@ -444,206 +551,413 @@ def local_search_l2(initial_route: 'Route', neighborhoods: List[Callable],
 def is_feasible(route: 'Route') -> bool:
     """ 
     Check if the route is feasible according to all constraints.
+    Enhanced to support multi-day planning and LIFO loading constraints.
     
     This function is performance-critical and optimized with Numba JIT compilation.
     """
     
-    #H1 Capacity check
-    load_w = 0
-    load_v = 0
+    # H1: Multi-day chronological simulation setup
+    # Sort tasks by day first, then by position within day
+    sorted_tasks = _sort_tasks_chronologically(route.tasks)
+    
+    # Initialize vehicle state from previous day if available
+    initial_state = getattr(route.vehicle, 'initial_state', None)
+    if initial_state:
+        current_position = initial_state.get('position', None)
+        previous_day_load_w = initial_state.get('load_weight', 0.0)
+        previous_day_load_v = initial_state.get('load_volume', 0.0)
+        driver_state = DriverState()
+        # Initialize driver state from previous day
+        previous_driver_state = initial_state.get('driver_state', {})
+        driver_state.drive_today = previous_driver_state.get('drive_today', 0.0)
+        driver_state.work_today = previous_driver_state.get('work_today', 0.0)
+        driver_state.drive_this_week = previous_driver_state.get('drive_this_week', 0.0)
+    else:
+        current_position = None
+        previous_day_load_w = 0.0
+        previous_day_load_v = 0.0
+        driver_state = DriverState()
+    
+    # H2: Capacity check with multi-day simulation
+    load_w = previous_day_load_w
+    load_v = previous_day_load_v
+    max_w = route.vehicle.weight_capacity
+    max_v = route.vehicle.volume_capacity
 
-    max_w = route.vehicle.max_weight
-    max_v = route.vehicle.max_volume
+    # H3: LIFO Loading Constraint check
+    lifo_stack = []
+    if route.vehicle.lifo_required:
+        # Initialize stack with any cargo from previous day
+        if initial_state and 'cargo_stack' in initial_state:
+            lifo_stack = initial_state['cargo_stack'].copy()
 
-    for task in route.tasks:
+    for task in sorted_tasks:
         if task.is_pickup():
-            load_w += task.weight
+            load_w += task.demand
             load_v += task.volume
+            
+            # LIFO constraint: push order_id onto stack
+            if route.vehicle.lifo_required:
+                lifo_stack.append(task.order_id)
+                
         elif task.is_delivery():
-            load_w -= task.weight
-            load_v -= task.volume
+            load_w += task.demand  # demand is negative for deliveries
+            load_v += task.volume  # volume is negative for deliveries
+            
+            # LIFO constraint: check if this delivery matches top of stack
+            if route.vehicle.lifo_required:
+                if not lifo_stack:
+                    return False  # Trying to deliver when no cargo loaded
+                if lifo_stack[-1] != task.order_id:
+                    return False  # LIFO violation - can't access this order
+                lifo_stack.pop()  # Remove delivered order from stack
         
+        # Check capacity constraints
         if load_w > max_w or load_v > max_v:
             return False
 
-    # H2 Precedence constraints check
+    # LIFO final check: all cargo must be delivered
+    if route.vehicle.lifo_required and lifo_stack:
+        return False
+
+    # H4: Precedence constraints check with multi-day consideration
     orders = {}
-    for i, task in enumerate(route.tasks):
-        # Get order identifier (try different possible attribute names)
-        order_id = None
-        for attr in ['order_id', 'order']:
-            if hasattr(task, attr):
-                order_id = getattr(task, attr)
-                break
-        
+    for i, task in enumerate(sorted_tasks):
+        order_id = getattr(task, 'order_id', None)
         if order_id is None:
-            continue  # Skip tasks without order information
+            continue
             
         if order_id not in orders:
             orders[order_id] = {'pickups': [], 'deliveries': []}
         
+        # Store both index and day for proper precedence checking
+        task_info = (i, getattr(task, 'day', 0))
         if task.is_pickup():
-            orders[order_id]['pickups'].append(i)
+            orders[order_id]['pickups'].append(task_info)
         elif task.is_delivery():
-            orders[order_id]['deliveries'].append(i)
+            orders[order_id]['deliveries'].append(task_info)
 
-    # Check precedence constraints
+    # Check precedence constraints across days
     for order_id, tasks in orders.items():
-        if tasks['pickups'] and tasks['deliveries']:  # Only check if order has both pickups and deliveries
-            last_pickup_idx = max(tasks['pickups'])
-            first_delivery_idx = min(tasks['deliveries'])
+        if tasks['pickups'] and tasks['deliveries']:
+            # Find last pickup (considering day and position)
+            last_pickup = max(tasks['pickups'], key=lambda x: (x[1], x[0]))  # Sort by day, then position
+            # Find first delivery
+            first_delivery = min(tasks['deliveries'], key=lambda x: (x[1], x[0]))
             
-            if last_pickup_idx >= first_delivery_idx:
-                return False  # Precedence constraint violated
-    
-    #H3 Hard time windows check
-    for task in route.tasks:
-        if hasattr(task, 'hard_time_window'):
-            if task.hard_time_window.latest < task.arrival_time:
-                return False  # Time window violation
-            
-    #H6 Driver regulations check
-    if not route._check_hos():
+            # Check if last pickup happens before first delivery
+            if (last_pickup[1] > first_delivery[1] or 
+                (last_pickup[1] == first_delivery[1] and last_pickup[0] >= first_delivery[0])):
+                return False
+
+    # H5: Multi-day Hours of Service check
+    if not _check_hos_multiday(route, driver_state, sorted_tasks):
         return False
     
-    #H7 Route ending position check
-    if hasattr(route, 'preferred_end_position'):
-        last_task = route.tasks[-1]
-        if last_task and last_task.location != route.preferred_end_position:
+    # H6: Hard time windows check
+    for task in sorted_tasks:
+        if hasattr(task, 'earliest_time') and hasattr(task, 'latest_time'):
+            if not getattr(task, 'soft_time_window', False):  # Only check hard time windows
+                # This is simplified - proper implementation would track arrival times
+                pass
+            
+    # H7: Driver regulations check (already done in _check_hos_multiday)
+    # H8: Route ending position check
+    if hasattr(route, 'preferred_end_position') and sorted_tasks:
+        last_task = sorted_tasks[-1]
+        if hasattr(last_task, 'location') and last_task.location != route.preferred_end_position:
             return False
         
     return True  # All checks passed, route is feasible
 
+
 @dataclass
 class DriverState:
-    """Class to track driver's hours of service state"""
-    drive_since_break: float = 0.0  # Accumulated driving time since last break (limit: 4.5 hours)
-    work_since_break: float = 0.0   # Accumulated working time since last break (limit: 6 hours)
-    drive_today: float = 0.0        # Total driving time in current 24-hour period (limit: 9 hours)
-    work_today: float = 0.0         # Total duty time in current 24-hour period (limit: 13 hours)
-    drive_this_week: float = 0.0    # Driving time this week
-    drive_last_week: float = 0.0    # Driving time last week
+    """
+    Enhanced class to track driver's hours of service state according to European regulations.
     
-    # Regulation limits in minutes
-    MAX_DRIVE_WITHOUT_BREAK = 4.5 * 60  # 4.5 hours in minutes
-    MAX_WORK_WITHOUT_BREAK = 6 * 60     # 6 hours in minutes
-    MAX_DRIVE_PER_DAY = 9 * 60          # 9 hours in minutes
-    MAX_WORK_PER_DAY = 13 * 60          # 13 hours in minutes
-    MAX_DRIVE_TWO_WEEKS = 90 * 60       # 90 hours in minutes
+    European HoS Regulations:
+    - After 4.5 hours of driving, a 45-minute break is mandatory (can be split into 15 + 30 mins)
+    - Maximum 9 hours of driving per day (extendable to 10 hours twice a week)
+    - Maximum 13 hours of work per day (extendable to 14 hours twice a week)  
+    - Minimum 11 hours of daily rest (can be reduced to 9 hours under certain conditions)
+    - Maximum 56 hours driving in a week (90 hours in any two consecutive weeks)
+    """
+    
+    # Current state counters
+    drive_since_break: float = 0.0      # Accumulated driving time since last break
+    work_since_break: float = 0.0       # Accumulated working time since last break
+    drive_today: float = 0.0             # Total driving time in current 24-hour period
+    work_today: float = 0.0              # Total duty time in current 24-hour period
+    drive_this_week: float = 0.0         # Driving time this week
+    drive_last_week: float = 0.0         # Driving time last week
+    
+    # Extension tracking
+    daily_driving_extensions_used: int = 0      # Extensions to 10 hours used this week
+    daily_work_extensions_used: int = 0         # Extensions to 14 hours used this week
+    reduced_rest_used: int = 0                  # Reduced rest periods used this week
+    
+    # Regulation limits in minutes (European HoS)
+    MAX_DRIVE_WITHOUT_BREAK = 4.5 * 60         # 4.5 hours
+    MAX_WORK_WITHOUT_BREAK = 6 * 60            # 6 hours
+    MAX_DRIVE_PER_DAY = 9 * 60                 # 9 hours (extendable to 10)
+    MAX_WORK_PER_DAY = 13 * 60                 # 13 hours (extendable to 14)
+    MAX_DRIVE_PER_WEEK = 56 * 60               # 56 hours
+    MAX_DRIVE_TWO_WEEKS = 90 * 60              # 90 hours in any two consecutive weeks
+    MIN_DAILY_REST = 11 * 60                   # 11 hours (reducible to 9)
+    MIN_WEEKLY_REST = 45 * 60                  # 45 hours
+    
+    def can_drive(self, duration: float) -> bool:
+        """Check if driver can drive for the specified duration without violating HoS."""
+        # Check break requirements
+        if self.drive_since_break + duration > self.MAX_DRIVE_WITHOUT_BREAK:
+            return False
+            
+        # Check daily limits (considering extensions)
+        max_daily = self.get_current_max_daily_drive()
+        if self.drive_today + duration > max_daily:
+            return False
+            
+        # Check weekly limits
+        if self.drive_this_week + duration > self.MAX_DRIVE_PER_WEEK:
+            return False
+            
+        # Check two-week limits
+        if self.drive_this_week + self.drive_last_week + duration > self.MAX_DRIVE_TWO_WEEKS:
+            return False
+            
+        return True
+    
+    def can_work(self, duration: float) -> bool:
+        """Check if driver can work for the specified duration without violating HoS."""
+        # Check work time since last break
+        if self.work_since_break + duration > self.MAX_WORK_WITHOUT_BREAK:
+            return False
+            
+        # Check daily work limits (considering extensions)
+        max_daily_work = self.get_current_max_daily_work()
+        if self.work_today + duration > max_daily_work:
+            return False
+            
+        return True
+    
+    def get_current_max_daily_drive(self) -> float:
+        """Get current maximum daily driving time considering extensions."""
+        if self.daily_driving_extensions_used < 2:
+            return 10 * 60  # Can extend to 10 hours
+        return self.MAX_DRIVE_PER_DAY  # 9 hours
+        
+    def get_current_max_daily_work(self) -> float:
+        """Get current maximum daily work time considering extensions."""
+        if self.daily_work_extensions_used < 2:
+            return 14 * 60  # Can extend to 14 hours
+        return self.MAX_WORK_PER_DAY  # 13 hours
 
     def take_break(self, break_duration: float):
-        """Reset counters after taking a break"""
-        if break_duration >= 45:  # 45-minute break
+        """Reset counters after taking a break."""
+        if break_duration >= 45:  # 45-minute break resets driving
             self.drive_since_break = 0
-            self.work_since_break = 0
+            if break_duration >= 45:  # Also resets work counter
+                self.work_since_break = 0
+        elif break_duration >= 15:  # Partial break (split break system)
+            # European regulations allow split breaks (15 + 30 minutes)
+            self.drive_since_break = max(0, self.drive_since_break - break_duration * 0.5)
         
-    def take_daily_rest(self):
-        """Reset daily counters after taking a daily rest"""
+    def take_daily_rest(self, rest_duration: float = None):
+        """Reset daily counters after taking a daily rest."""
+        if rest_duration is None:
+            rest_duration = self.MIN_DAILY_REST
+            
+        # Check if this was an extension day
+        if self.drive_today > self.MAX_DRIVE_PER_DAY:
+            self.daily_driving_extensions_used += 1
+        if self.work_today > self.MAX_WORK_PER_DAY:
+            self.daily_work_extensions_used += 1
+            
+        # Track reduced rest usage
+        if rest_duration < self.MIN_DAILY_REST:
+            self.reduced_rest_used += 1
+            
+        # Reset daily counters
         self.drive_since_break = 0
         self.work_since_break = 0
         self.drive_today = 0
         self.work_today = 0
         
     def take_weekly_rest(self):
-        """Reset weekly counters after taking a weekly rest"""
+        """Reset weekly counters after taking a weekly rest."""
         self.drive_last_week = self.drive_this_week
         self.drive_this_week = 0
+        
+        # Reset weekly extension counters
+        self.daily_driving_extensions_used = 0
+        self.daily_work_extensions_used = 0
+        self.reduced_rest_used = 0
+        
         self.take_daily_rest()
 
-@jit(nopython=False, forceobj=True)  # Performance optimization for HOS checking
-def _check_hos(route: 'Route') -> bool:
+
+# Remove the old _check_hos function as it's replaced by _check_hos_multiday
+
+def _sort_tasks_chronologically(tasks: List) -> List:
     """
-    Check if the route respects Hours of Service (HOS) regulations.
-    Returns True if the route is feasible, False otherwise.
+    Sort tasks in strict chronological order: yesterday's tasks, then today's, then tomorrow's.
+    Within each day, maintain the original sequence.
     
-    This function is performance-critical and optimized with Numba JIT compilation.
+    Args:
+        tasks: List of tasks to sort
+        
+    Returns:
+        List of tasks sorted chronologically by day
     """
-    if not route.tasks:
-        return True  # Empty route is always feasible
+    if not tasks:
+        return []
     
-    # Initialize driver state and current time
-    driver = DriverState()
+    # Group tasks by day
+    tasks_by_day = {}
+    for task in tasks:
+        day = getattr(task, 'day', 0)  # Default to today (0) if no day attribute
+        if day not in tasks_by_day:
+            tasks_by_day[day] = []
+        tasks_by_day[day].append(task)
+    
+    # Sort days and concatenate tasks
+    sorted_tasks = []
+    for day in sorted(tasks_by_day.keys()):
+        sorted_tasks.extend(tasks_by_day[day])
+    
+    return sorted_tasks
+
+
+def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_tasks: List) -> bool:
+    """
+    Enhanced Hours of Service check with multi-day support and detailed European regulations.
+    
+    European HoS Regulations:
+    - After 4.5 hours of driving, a 45-minute break is mandatory (can be split into 15 + 30 mins)
+    - Maximum 9 hours of driving per day (extendable to 10 hours twice a week)
+    - Maximum 13 hours of work per day (extendable to 14 hours twice a week)
+    - Minimum 11 hours of daily rest (can be reduced to 9 hours under certain conditions)
+    
+    Args:
+        route: The route being checked
+        driver_state: Current driver state (potentially from previous day)
+        sorted_tasks: Tasks sorted chronologically
+        
+    Returns:
+        True if route respects HoS regulations, False otherwise
+    """
+    if not sorted_tasks:
+        return True
+    
     current_time = 0
+    current_day = getattr(sorted_tasks[0], 'day', 0)
+    extensions_used_this_week = {'driving': 0, 'work': 0}  # Track extensions
     
-    # Process each task in the route
-    for i in range(len(route.tasks) - 1):
-        current_task = route.tasks[i]
-        next_task = route.tasks[i + 1]
+    # Process each task in chronological order
+    for i in range(len(sorted_tasks)):
+        current_task = sorted_tasks[i]
+        task_day = getattr(current_task, 'day', 0)
+        
+        # Check for day transition
+        if task_day != current_day:
+            # New day: check if sufficient daily rest was taken
+            if driver_state.work_today > 0:  # If work was done previous day
+                # Minimum 11 hours daily rest required
+                rest_time = 11 * 60  # 11 hours in minutes
+                # Can be reduced to 9 hours up to 3 times per week (not implemented here for simplicity)
+                current_time += rest_time
+                driver_state.take_daily_rest()
+            current_day = task_day
         
         # Handle service time at current task
-        service_time = current_task.service_time
-        driver.work_since_break += service_time
-        driver.work_today += service_time
+        service_time = getattr(current_task, 'service_time', 0)
+        
+        # Check work time limits before adding service time
+        if driver_state.work_today + service_time > _get_max_work_per_day(extensions_used_this_week):
+            return False  # Would exceed daily work limit
+        
+        driver_state.work_since_break += service_time
+        driver_state.work_today += service_time
         current_time += service_time
         
-        # Calculate travel time to next task
-        travel_time = route.calculate_travel_time(current_task, next_task)
+        # If there's a next task, calculate travel time
+        if i < len(sorted_tasks) - 1:
+            next_task = sorted_tasks[i + 1]
+            travel_time = _calculate_travel_time_between_tasks(current_task, next_task)
+            
+            # Check driving time limits
+            max_drive_per_day = _get_max_drive_per_day(extensions_used_this_week)
+            if driver_state.drive_today + travel_time > max_drive_per_day:
+                return False  # Would exceed daily driving limit
+            
+            # Check if break is needed before travel
+            if driver_state.drive_since_break + travel_time > driver_state.MAX_DRIVE_WITHOUT_BREAK:
+                # Need a break
+                if driver_state.drive_since_break > 0:  # Only if we've been driving
+                    current_time += 45  # 45-minute break
+                    driver_state.take_break(45)
+            
+            # Add travel time
+            driver_state.drive_since_break += travel_time
+            driver_state.work_since_break += travel_time
+            driver_state.drive_today += travel_time
+            driver_state.work_today += travel_time
+            driver_state.drive_this_week += travel_time
+            current_time += travel_time
         
-        # Check if this segment would exceed weekly driving limits
-        if driver.drive_this_week + driver.drive_last_week + travel_time > driver.MAX_DRIVE_TWO_WEEKS:
+        # Check for soft time window compliance (if applicable)
+        if hasattr(current_task, 'soft_time_window') and current_task.soft_time_window:
+            if hasattr(current_task, 'latest_time') and current_time > current_task.latest_time:
+                # Soft time window violation - continue but will be penalized in scoring
+                pass
+        elif hasattr(current_task, 'latest_time') and current_time > current_task.latest_time:
+            # Hard time window violation
             return False
         
-        # Check if we need a break before starting travel
-        remaining_drive_time = min(
-            driver.MAX_DRIVE_WITHOUT_BREAK - driver.drive_since_break,
-            driver.MAX_DRIVE_PER_DAY - driver.drive_today
-        )
-        
-        # If we can't complete the travel segment without a break
-        while travel_time > remaining_drive_time:
-            # Add driving time until break is needed
-            driver.drive_since_break += remaining_drive_time
-            driver.work_since_break += remaining_drive_time
-            driver.drive_today += remaining_drive_time
-            driver.work_today += remaining_drive_time
-            driver.drive_this_week += remaining_drive_time
-            
-            current_time += remaining_drive_time
-            travel_time -= remaining_drive_time
-            
-            # Take a 45-minute break
-            current_time += 45
-            driver.take_break(45)
-            
-            # Check if we need a daily rest
-            if driver.drive_today >= driver.MAX_DRIVE_PER_DAY or driver.work_today >= driver.MAX_WORK_PER_DAY:
-                current_time += 11 * 60  # 11 hours daily rest
-                driver.take_daily_rest()
-                
-                # Check if we need a weekly rest
-                if driver.drive_this_week + driver.drive_last_week >= driver.MAX_DRIVE_TWO_WEEKS:
-                    current_time += 45 * 60  # 45 hours weekly rest
-                    driver.take_weekly_rest()
-            
-            # Recalculate remaining drive time
-            remaining_drive_time = min(
-                driver.MAX_DRIVE_WITHOUT_BREAK - driver.drive_since_break,
-                driver.MAX_DRIVE_PER_DAY - driver.drive_today
-            )
-        
-        # Complete the remaining travel
-        driver.drive_since_break += travel_time
-        driver.work_since_break += travel_time
-        driver.drive_today += travel_time
-        driver.work_today += travel_time
-        driver.drive_this_week += travel_time
-        current_time += travel_time
-        
-        # Check time windows
-        if hasattr(next_task, 'time_window'):
-            if current_time > next_task.time_window.latest:
-                return False
-            if current_time < next_task.time_window.earliest:
-                wait_time = next_task.time_window.earliest - current_time
-                current_time = next_task.time_window.earliest
-                driver.work_today += wait_time
-    
-    # Check final task
-    last_task = route.tasks[-1]
-    service_time = last_task.service_time
-    
-    if (driver.work_since_break + service_time > driver.MAX_WORK_WITHOUT_BREAK or 
-        driver.work_today + service_time > driver.MAX_WORK_PER_DAY):
-        return False
+        # Handle waiting for earliest time
+        if hasattr(current_task, 'earliest_time') and current_time < current_task.earliest_time:
+            wait_time = current_task.earliest_time - current_time
+            current_time = current_task.earliest_time
+            driver_state.work_today += wait_time
+            driver_state.work_since_break += wait_time
     
     return True
+
+
+def _get_max_drive_per_day(extensions_used: dict) -> float:
+    """
+    Get maximum driving time per day considering extensions.
+    Can be extended to 10 hours twice a week.
+    """
+    base_limit = 9 * 60  # 9 hours in minutes
+    if extensions_used['driving'] < 2:
+        return 10 * 60  # Can extend to 10 hours
+    return base_limit
+
+
+def _get_max_work_per_day(extensions_used: dict) -> float:
+    """
+    Get maximum work time per day considering extensions.
+    Can be extended to 14 hours twice a week.
+    """
+    base_limit = 13 * 60  # 13 hours in minutes
+    if extensions_used['work'] < 2:
+        return 14 * 60  # Can extend to 14 hours
+    return base_limit
+
+
+def _calculate_travel_time_between_tasks(task1, task2) -> float:
+    """
+    Calculate travel time between two tasks.
+    This is a simplified implementation - in practice would use distance matrix.
+    """
+    # Simple Euclidean distance calculation
+    lat1, lon1 = getattr(task1, 'lat', 0), getattr(task1, 'lon', 0)
+    lat2, lon2 = getattr(task2, 'lat', 0), getattr(task2, 'lon', 0)
+    
+    import math
+    distance = math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2)
+    # Assume average speed of 50 km/h, convert to minutes
+    travel_time = (distance * 111.32) / 50 * 60  # 111.32 km per degree latitude
+    return max(travel_time, 1.0)  # Minimum 1 minute travel time
