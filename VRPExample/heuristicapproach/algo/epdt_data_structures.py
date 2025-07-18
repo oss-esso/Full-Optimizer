@@ -227,6 +227,92 @@ class Route:
     def get_orders(self) -> Set[str]:
         """Get set of order IDs in this route."""
         return {task.order_id for task in self.tasks}
+    
+    def calculate_travel_time(self, from_task=None, to_task=None) -> float:
+        """
+        Calculate travel time for this route or between two tasks.
+        
+        Args:
+            from_task: Optional starting task (if None, calculates full route time)
+            to_task: Optional ending task (if None, calculates full route time)
+            
+        Returns:
+            Total travel time in minutes
+        """
+        # If specific tasks provided, calculate travel time between them
+        if from_task is not None and to_task is not None:
+            return self._calculate_travel_time_between_points(
+                from_task.lat, from_task.lon,
+                to_task.lat, to_task.lon
+            )
+        
+        # Otherwise calculate full route travel time
+        if self._cached_time is not None:
+            return self._cached_time
+        
+        if not self.tasks:
+            self._cached_time = 0.0
+            return 0.0
+        
+        total_time = 0.0
+        
+        # Start from depot to first task
+        if hasattr(self.vehicle, 'depot_lat') and hasattr(self.vehicle, 'depot_lon'):
+            if self.tasks:
+                first_task = self.tasks[0]
+                total_time += self._calculate_travel_time_between_points(
+                    self.vehicle.depot_lat, self.vehicle.depot_lon,
+                    first_task.lat, first_task.lon
+                )
+        
+        # Travel between consecutive tasks
+        for i in range(len(self.tasks) - 1):
+            current_task = self.tasks[i]
+            next_task = self.tasks[i + 1]
+            
+            # Add service time for current task
+            total_time += current_task.service_time
+            
+            # Add travel time to next task
+            total_time += self._calculate_travel_time_between_points(
+                current_task.lat, current_task.lon,
+                next_task.lat, next_task.lon
+            )
+        
+        # Add service time for last task
+        if self.tasks:
+            total_time += self.tasks[-1].service_time
+        
+        # Return to depot from last task
+        if hasattr(self.vehicle, 'depot_lat') and hasattr(self.vehicle, 'depot_lon'):
+            if self.tasks:
+                last_task = self.tasks[-1]
+                total_time += self._calculate_travel_time_between_points(
+                    last_task.lat, last_task.lon,
+                    self.vehicle.depot_lat, self.vehicle.depot_lon
+                )
+        
+        self._cached_time = total_time
+        return total_time
+    
+    def _calculate_travel_time_between_points(self, lat1: float, lon1: float, 
+                                           lat2: float, lon2: float) -> float:
+        """
+        Calculate travel time between two geographic points.
+        
+        Uses simple Euclidean distance with average speed assumption.
+        """
+        import math
+        
+        # Simple Euclidean distance (could be improved with proper geo calculations)
+        distance_km = math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2) * 111.0  # Rough km per degree
+        
+        # Assume average speed of 50 km/h
+        average_speed_kmh = 50.0
+        travel_time_hours = distance_km / average_speed_kmh
+        travel_time_minutes = travel_time_hours * 60.0
+        
+        return travel_time_minutes
 
 
 @dataclass

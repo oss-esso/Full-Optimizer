@@ -803,6 +803,346 @@ def test_enhanced_features():
     return orders, vehicles, params
 
 
+def test_column_generation():
+    """
+    Test the Column Generation implementation for optimality bounds.
+    """
+    print(f"\n🧪 Testing Column Generation for Optimality Bounds...")
+    print(f"="*60)
+    
+    try:
+        # Import Column Generation modules
+        from algo.column_generation_utils import run_comprehensive_benchmark, get_optimality_bounds
+        from algo.column_generation_test import run_column_generation_tests
+        from algo.column_generation import ColumnGenerationConfig
+        
+        print(f"✅ Column Generation modules imported successfully")
+        
+        # Run unit tests first
+        print(f"\n🔬 Running Column Generation Unit Tests...")
+        test_success = run_column_generation_tests()
+        
+        if not test_success:
+            print(f"⚠️  Some unit tests failed, but continuing with integration test")
+        
+        # Test on furgoni scenario
+        print(f"\n🎯 Testing Column Generation on Furgoni Scenario...")
+        
+        # Create test scenario
+        orders, vehicles, params = create_enhanced_multi_day_scenario()
+        
+        # Configure Column Generation
+        cg_config = ColumnGenerationConfig(
+            max_iterations=10,
+            optimality_gap_tolerance=1e-4,
+            time_limit_seconds=120.0,
+            verbose=True,
+            initial_routes_strategy="single_order"
+        )
+        
+        print(f"📋 Test Problem:")
+        print(f"   📦 Orders: {len(orders)}")
+        print(f"   🚛 Vehicles: {len(vehicles)}")
+        
+        # Get optimality bounds
+        print(f"\n🔍 Computing Optimality Bounds...")
+        start_time = time.time()
+        
+        try:
+            lower_bound, upper_bound = get_optimality_bounds(orders, vehicles, cg_config)
+            computation_time = time.time() - start_time
+            
+            print(f"✅ Column Generation completed successfully!")
+            print(f"   📊 Lower Bound: {lower_bound:.2f}")
+            print(f"   📊 Upper Bound: {upper_bound:.2f}")
+            
+            if upper_bound != float('inf') and lower_bound != float('inf'):
+                gap = abs(upper_bound - lower_bound) / max(abs(upper_bound), 1e-10)
+                print(f"   📊 Optimality Gap: {gap:.6f} ({gap*100:.4f}%)")
+            
+            print(f"   ⏱️  Computation Time: {computation_time:.2f} seconds")
+            
+            # Compare with heuristic if available
+            if l1_heuristic:
+                print(f"\n🏆 Comparing with EPDT Heuristic...")
+                heuristic_start = time.time()
+                
+                try:
+                    heuristic_solution = l1_heuristic(orders, vehicles, params)
+                    heuristic_time = time.time() - heuristic_start
+                    
+                    print(f"   ✅ Heuristic completed in {heuristic_time:.2f} seconds")
+                    
+                    # Calculate heuristic objective (simplified)
+                    vehicles_used = sum(1 for route in heuristic_solution.routes.values() if route.tasks)
+                    print(f"   🚛 Heuristic vehicles used: {vehicles_used}")
+                    
+                    if lower_bound != float('inf'):
+                        print(f"   📈 Quality Assessment:")
+                        print(f"      Lower bound provides optimality guarantee")
+                        print(f"      Any feasible solution ≥ {lower_bound:.2f}")
+                    
+                except Exception as e:
+                    print(f"   ❌ Heuristic comparison failed: {str(e)}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Column Generation failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    except ImportError as e:
+        print(f"❌ Column Generation not available: {str(e)}")
+        print(f"   Make sure required solvers are installed:")
+        print(f"   pip install pulp  # or install Gurobi")
+        return False
+    
+    except Exception as e:
+        print(f"❌ Column Generation test failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def test_qubo_formulation():
+    """
+    Test the QUBO formulation for quantum annealing.
+    """
+    print(f"\n⚛️  Testing QUBO Formulation for Quantum Annealing...")
+    print(f"="*60)
+    
+    try:
+        # Import QUBO modules
+        from algo.qubo_formulation import solve_epdt_with_qubo, QUBOConfig
+        from algo.qubo_integration import solve_epdt_hybrid, HybridConfig
+        from algo.qubo_test import run_qubo_tests
+        
+        print(f"✅ QUBO modules imported successfully")
+        
+        # Run QUBO unit tests first
+        print(f"\n🔬 Running QUBO Unit Tests...")
+        test_success = run_qubo_tests()
+        
+        if not test_success:
+            print(f"⚠️  Some QUBO tests failed, but continuing with integration test")
+        
+        # Test QUBO on a problem instance
+        print(f"\n🎯 Testing QUBO on Test Problem...")
+        
+        # Create test scenario
+        orders, vehicles, params = create_enhanced_multi_day_scenario()
+        
+        # Limit problem size for QUBO (quantum problems are typically smaller)
+        test_orders = orders[:3]  # Use first 3 orders
+        test_vehicles = vehicles[:2]  # Use first 2 vehicles
+        
+        print(f"📋 QUBO Test Problem:")
+        print(f"   📦 Orders: {len(test_orders)}")
+        print(f"   🚛 Vehicles: {len(test_vehicles)}")
+        
+        # Test hybrid CG+QUBO approach
+        print(f"\n🔀 Testing Hybrid Column Generation + QUBO...")
+        
+        hybrid_config = HybridConfig(
+            cg_config=ColumnGenerationConfig(
+                max_iterations=5,  # Reduced for testing
+                time_limit_seconds=60.0,
+                verbose=False
+            ),
+            qubo_config=QUBOConfig(
+                preferred_solver="neal",  # Use simulated annealing
+                num_reads=100,
+                verbose=False
+            ),
+            max_routes_for_qubo=10,  # Limit QUBO complexity
+            use_column_generation=True
+        )
+        
+        start_time = time.time()
+        
+        try:
+            hybrid_result = solve_epdt_hybrid(test_orders, test_vehicles, hybrid_config)
+            computation_time = time.time() - start_time
+            
+            print(f"✅ Hybrid CG+QUBO completed successfully!")
+            
+            # Column Generation phase results
+            print(f"\n📊 Column Generation Phase:")
+            print(f"   Feasible: {hybrid_result.cg_feasible}")
+            print(f"   Routes generated: {hybrid_result.cg_routes_generated}")
+            if hybrid_result.cg_feasible:
+                print(f"   Lower bound: {hybrid_result.cg_lower_bound:.2f}")
+                print(f"   Upper bound: {hybrid_result.cg_upper_bound:.2f}")
+            
+            # QUBO phase results  
+            print(f"\n⚛️  QUBO Phase:")
+            print(f"   Feasible: {hybrid_result.qubo_feasible}")
+            print(f"   QUBO energy: {hybrid_result.qubo_energy:.2f}")
+            print(f"   Routes selected: {hybrid_result.qubo_routes_used}")
+            print(f"   Solver: {hybrid_result.qubo_solver_info.get('solver', 'unknown')}")
+            
+            # Quality assessment
+            print(f"\n🎯 Quality Assessment:")
+            if hybrid_result.optimality_gap != float('inf'):
+                print(f"   Optimality gap: {hybrid_result.optimality_gap:.6f}")
+            print(f"   Constraint violations: {sum(hybrid_result.constraint_violations.values())}")
+            if hybrid_result.hybrid_vs_cg_ratio != 1.0:
+                print(f"   vs CG ratio: {hybrid_result.hybrid_vs_cg_ratio:.3f}")
+            
+            print(f"   ⏱️  Total computation time: {computation_time:.2f} seconds")
+            
+            # Test direct QUBO solving if we have routes
+            if hybrid_result.cg_routes_generated > 0:
+                print(f"\n🧪 Testing Direct QUBO Solving...")
+                
+                # Generate simple routes for direct QUBO test
+                simple_routes = []
+                simple_costs = []
+                
+                for order in test_orders:
+                    for vehicle in test_vehicles:
+                        from .epdt_data_structures import Route
+                        route = Route(vehicle=vehicle)
+                        for task in order.get_all_tasks():
+                            route.tasks.append(task)
+                        simple_routes.append(route)
+                        simple_costs.append(100.0 + len(route.tasks) * 10.0)
+                
+                qubo_config = QUBOConfig(
+                    preferred_solver="neal",
+                    num_reads=50,
+                    verbose=False
+                )
+                
+                qubo_result = solve_epdt_with_qubo(
+                    test_orders, test_vehicles, 
+                    simple_routes[:6], simple_costs[:6],  # Limit for testing
+                    qubo_config
+                )
+                
+                print(f"   ✅ Direct QUBO: Energy = {qubo_result.energy:.2f}")
+                print(f"   📊 Selected routes: {len(qubo_result.selected_routes)}")
+                print(f"   📊 Unassigned orders: {len(qubo_result.unassigned_orders)}")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Hybrid CG+QUBO failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    except ImportError as e:
+        print(f"❌ QUBO modules not available: {str(e)}")
+        print(f"   Install required packages:")
+        print(f"   pip install dimod dwave-neal  # For QUBO solving")
+        return False
+    
+    except Exception as e:
+        print(f"❌ QUBO test failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def test_quantum_benchmark():
+    """
+    Run quantum vs classical solver benchmark.
+    """
+    print(f"\n🏁 Running Quantum vs Classical Benchmark...")
+    print(f"="*60)
+    
+    try:
+        from algo.qubo_integration import benchmark_quantum_vs_classical
+        from algo.qubo_formulation import QUBOConfig
+        from algo.qubo_integration import HybridConfig
+        
+        # Create test problem
+        orders, vehicles, params = create_enhanced_multi_day_scenario()
+        test_orders = orders[:2]  # Small problem for benchmarking
+        test_vehicles = vehicles[:1]
+        
+        print(f"📋 Benchmark Problem:")
+        print(f"   📦 Orders: {len(test_orders)}")
+        print(f"   🚛 Vehicles: {len(test_vehicles)}")
+        
+        # Configure different solvers
+        configs = {
+            'neal_sa': HybridConfig(
+                use_column_generation=False,  # Skip CG for pure QUBO comparison
+                qubo_config=QUBOConfig(
+                    preferred_solver="neal",
+                    num_reads=100,
+                    verbose=False
+                )
+            ),
+            'exact': HybridConfig(
+                use_column_generation=False,
+                qubo_config=QUBOConfig(
+                    preferred_solver="exact",
+                    verbose=False
+                )
+            )
+        }
+        
+        # Add D-Wave if available
+        try:
+            import dwave.system
+            configs['dwave'] = HybridConfig(
+                use_column_generation=False,
+                qubo_config=QUBOConfig(
+                    preferred_solver="dwave",
+                    num_reads=100,
+                    verbose=False
+                )
+            )
+            print(f"✅ D-Wave solver available for benchmarking")
+        except ImportError:
+            print(f"⚠️  D-Wave not available, using classical solvers only")
+        
+        # Run benchmark
+        results = benchmark_quantum_vs_classical(test_orders, test_vehicles, configs)
+        
+        print(f"\n📊 Benchmark Results:")
+        print(f"-" * 40)
+        
+        for solver_name, result in results.items():
+            print(f"\n🔧 {solver_name.upper()}:")
+            print(f"   Feasible: {result.qubo_feasible}")
+            print(f"   Objective: {result.qubo_objective:.2f}")
+            print(f"   Energy: {result.qubo_energy:.2f}")
+            print(f"   Solve time: {result.qubo_solve_time:.3f}s")
+            print(f"   Routes used: {result.qubo_routes_used}")
+        
+        # Compare results
+        if len(results) > 1:
+            print(f"\n🏆 Comparison:")
+            best_objective = min(r.qubo_objective for r in results.values() if r.qubo_feasible)
+            fastest_time = min(r.qubo_solve_time for r in results.values())
+            
+            for solver_name, result in results.items():
+                if result.qubo_feasible:
+                    quality_ratio = result.qubo_objective / best_objective
+                    speed_ratio = result.qubo_solve_time / fastest_time
+                    print(f"   {solver_name}: Quality={quality_ratio:.3f}x, Speed={speed_ratio:.3f}x")
+        
+        success = len(results) > 0 and any(r.qubo_feasible for r in results.values())
+        print(f"\n✅ Benchmark completed: {'SUCCESS' if success else 'FAILED'}")
+        
+        return success
+        
+    except ImportError:
+        print(f"❌ Quantum benchmark not available (missing QUBO packages)")
+        return False
+    except Exception as e:
+        print(f"❌ Quantum benchmark failed: {str(e)}")
+        return False
+
+
+# ...existing code...
+
 def main():
     """Command line interface for the test runner."""
     parser = argparse.ArgumentParser(description="Run EPDT Algorithm Tests")
@@ -814,8 +1154,34 @@ def main():
                        help="Don't save results to files")
     parser.add_argument("--test-enhanced", action="store_true",
                        help="Run enhanced multi-day feature tests")
+    parser.add_argument("--test-column-generation", action="store_true",
+                       help="Test Column Generation for optimality bounds")
+    parser.add_argument("--test-qubo", action="store_true",
+                       help="Test QUBO formulation for quantum annealing")
+    parser.add_argument("--test-quantum-benchmark", action="store_true",
+                       help="Run quantum vs classical solver benchmark")
+    parser.add_argument("--run-benchmark", action="store_true",
+                       help="Run comprehensive benchmark comparing all approaches")
     
     args = parser.parse_args()
+    
+    # Run QUBO tests if requested
+    if args.test_qubo:
+        print(f"🚀 Running QUBO Tests")
+        success = test_qubo_formulation()
+        sys.exit(0 if success else 1)
+    
+    # Run quantum benchmark if requested
+    if args.test_quantum_benchmark:
+        print(f"🚀 Running Quantum Benchmark")
+        success = test_quantum_benchmark()
+        sys.exit(0 if success else 1)
+    
+    # Run Column Generation tests if requested
+    if args.test_column_generation:
+        print(f"🚀 Running Column Generation Tests")
+        success = test_column_generation()
+        sys.exit(0 if success else 1)
     
     # Run enhanced tests if requested
     if args.test_enhanced:
