@@ -201,11 +201,321 @@ This document outlines the necessary steps to integrate the advanced, realistic 
 ### 7.7. Usage Examples ✅
 ```powershell
 # Test QUBO formulation
-python "tests\run_scenario_test.py" --test-qubo
+python "testsun_scenario_test.py" --test-qubo
 
 # Benchmark quantum vs classical
-python "tests\run_scenario_test.py" --test-quantum-benchmark
+python "testsun_scenario_test.py" --test-quantum-benchmark
 
 # Hybrid Column Generation + QUBO
-python "tests\run_scenario_test.py" --test-enhanced
+python "testsun_scenario_test.py" --test-enhanced
 ```
+## 8. OSRM Integration Guide
+
+This guide provides instructions on how to query an OSRM (Open Source Routing Machine) server to obtain route information, from basic distance and duration to advanced details like road composition. These instructions are based on the usage within `New_solvers/vrp_multiday_sequential.py`.
+
+**Prerequisites:**
+- A running OSRM server. For public testing, you can use `http://router.project-osrm.org`.
+- The `requests` library in Python (`pip install requests`).
+
+---
+
+### 8.1. Basic Route Request: Distance & Duration
+
+The simplest OSRM call is to get the total distance and duration for a route between two points. This uses the `route` service.
+
+**OSRM Request:**
+-   **Service:** `route`
+-   **Coordinates:** Provided as `{lon},{lat}` pairs separated by a semicolon.
+-   **URL Format:** `http://<osrm-server>/route/v1/driving/{lon1},{lat1};{lon2},{lat2}`
+-   **Parameters:** `overview=false` to keep the response minimal.
+
+**Python Code Snippet:**
+
+```python
+import requests
+
+def get_basic_route_info(start_coords, end_coords):
+    '''
+    Gets the distance and duration for a route from OSRM.
+
+    :param start_coords: Tuple of (longitude, latitude) for the start point.
+    :param end_coords: Tuple of (longitude, latitude) for the end point.
+    :return: A tuple of (distance_km, duration_minutes), or (None, None) on error.
+    '''
+    osrm_url = "http://router.project-osrm.org"
+    url = f"{osrm_url}/route/v1/driving/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
+    params = {'overview': 'false'}
+
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        if data['code'] == 'Ok' and data['routes']:
+            route = data['routes'][0]
+            distance_meters = route['distance']
+            duration_seconds = route['duration']
+            
+            distance_km = distance_meters / 1000.0
+            duration_minutes = duration_seconds / 60.0
+            
+            print(f"Route found: {distance_km:.2f} km, {duration_minutes:.2f} minutes")
+            return distance_km, duration_minutes
+        else:
+            print(f"OSRM could not find a route. Code: {data.get('code')}")
+            return None, None
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error calling OSRM: {e}")
+        return None, None
+
+# Example usage:
+start = (9.18951, 45.46427) # Milan
+end = (12.49637, 41.90278) # Rome
+get_basic_route_info(start, end)
+```
+
+**Example JSON Response (relevant parts):**
+```json
+{
+    "code": "Ok",
+    "routes": [
+        {
+            "distance": 573343.7,
+            "duration": 20015.1,
+            "legs": [...]
+        }
+    ],
+    "waypoints": [...]
+}
+```
+
+---
+
+### 8.2. Getting Route Geometry
+
+For visualization on a map, you need the full geometry of the route. This is achieved by changing the `overview` and `geometries` parameters.
+
+**OSRM Request:**
+-   **Service:** `route`
+-   **Parameters:**
+    -   `overview=full`: Requests the most detailed geometry.
+    -   `geometries=geojson`: Returns the geometry in GeoJSON format, which is easy to parse.
+
+**Python Code Snippet:**
+
+```python
+import requests
+
+def get_route_geometry(start_coords, end_coords):
+    '''
+    Gets the full route geometry from OSRM.
+
+    :param start_coords: Tuple of (longitude, latitude) for the start point.
+    :param end_coords: Tuple of (longitude, latitude) for the end point.
+    :return: A list of [lon, lat] coordinates, or None on error.
+    '''
+    osrm_url = "http://router.project-osrm.org"
+    url = f"{osrm_url}/route/v1/driving/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
+    params = {
+        'overview': 'full',
+        'geometries': 'geojson'
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+
+        if data['code'] == 'Ok' and data['routes']:
+            geometry = data['routes'][0]['geometry']['coordinates']
+            print(f"Route geometry found with {len(geometry)} points.")
+            return geometry
+        else:
+            print(f"OSRM could not find a route. Code: {data.get('code')}")
+            return None
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error calling OSRM: {e}")
+        return None
+
+# Example usage:
+start = (9.18951, 45.46427) # Milan
+end = (8.22751, 45.07034) # Turin
+geometry = get_route_geometry(start, end)
+if geometry:
+    print(f"First 5 points: {geometry[:5]}")
+```
+
+**Example JSON Response (relevant parts):**
+```json
+{
+    "code": "Ok",
+    "routes": [
+        {
+            "geometry": {
+                "coordinates": [
+                    [9.18951, 45.46427],
+                    [9.18931, 45.46421],
+                    ...
+                ],
+                "type": "LineString"
+            },
+            "legs": [...],
+            "distance": 142520.3,
+            "duration": 5667.9
+        }
+    ],
+    "waypoints": [...]
+}
+```
+
+---
+
+### 8.3. Advanced Route Information: Road Composition
+
+To implement realistic vehicle constraints (e.g., different speeds for trucks on motorways vs. urban roads), you need to know the composition of the route. The `steps=true` parameter provides access to metadata for each segment of the route.
+
+**OSRM Request:**
+-   **Service:** `route`
+-   **Parameters:**
+    -   `steps=true`: This is the key parameter to get step-by-step instructions which include road metadata.
+
+**Python Code Snippet:**
+
+```python
+import requests
+from collections import defaultdict
+
+def get_route_road_composition(start_coords, end_coords):
+    '''
+    Gets detailed route information from OSRM and calculates road composition.
+    This requires steps=true to access road metadata.
+
+    :param start_coords: Tuple of (longitude, latitude) for the start point.
+    :param end_coords: Tuple of (longitude, latitude) for the end point.
+    :return: A dictionary with road types and their percentage of the total distance.
+    '''
+    osrm_url = "http://router.project-osrm.org"
+    url = f"{osrm_url}/route/v1/driving/{start_coords[0]},{start_coords[1]};{end_coords[0]},{end_coords[1]}"
+    params = {
+        'steps': 'true'
+    }
+
+    try:
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        if data['code'] != 'Ok' or not data['routes']:
+            print(f"OSRM could not find a route. Code: {data.get('code')}")
+            return None
+
+        road_distances = defaultdict(float)
+        total_distance = data['routes'][0]['distance']
+
+        if total_distance == 0:
+            return {}
+
+        # Iterate through legs and steps to get road classes
+        for leg in data['routes'][0]['legs']:
+            for step in leg['steps']:
+                distance = step['distance']
+                road_class = 'unknown'
+                
+                # The 'intersections' array often contains road classification
+                if 'intersections' in step and len(step['intersections']) > 0:
+                    # The 'classes' array can contain hints like 'motorway'
+                    if 'classes' in step['intersections'][0]:
+                        road_class = step['intersections'][0]['classes'][0]
+
+                road_distances[road_class] += distance
+
+        # Calculate percentages
+        composition = {
+            road_type: (dist / total_distance) * 100
+            for road_type, dist in road_distances.items()
+        }
+        
+        print("Road Composition:")
+        for road_type, percentage in composition.items():
+            print(f"- {road_type}: {percentage:.2f}%")
+            
+        return composition
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error calling OSRM: {e}")
+        return None
+
+# Example usage:
+start = (9.18951, 45.46427) # Milan
+end = (8.22751, 45.07034) # Turin
+get_route_road_composition(start, end)
+```
+
+## 9. Advanced Travel Time Calculation
+
+**Objective:** Replace the simplistic Euclidean distance-based travel time calculation with a realistic model using OSRM and a local cache to handle vehicle-specific speeds.
+
+### 9.1. OSRM Caching and Integration Module
+
+- [ ] **Create a new module `algo/route_provider.py`:**
+    - **Action:** This module will be responsible for fetching route data, either from a local database cache or from the OSRM API. It will encapsulate all the logic from `tests/road_composition.py`.
+    - **Key Functions:**
+        - `get_route_details(start_node_id, end_node_id)`: The main public function. It will orchestrate the process of getting route information.
+        - `_query_local_db(start_node_id, end_node_id)`: A private function to look up a route in the database.
+        - `_query_osrm_and_cache(start_coords, end_coords, start_node_id, end_node_id)`: A private function to call the OSRM API and store the results in the database.
+
+### 9.2. Database Integration for Route Caching
+
+- [ ] **Set up a local database:**
+    - **Action:** Use the `sqlite3` module (built-in to Python) to create a simple local database file named `moda_routes.db`.
+    - **Schema:** Create a table to store the vehicle-agnostic route data. This keeps the database clean and flexible for changes in vehicle specifications.
+        ```sql
+        CREATE TABLE IF NOT EXISTS routes (
+            start_node_id TEXT,
+            end_node_id TEXT,
+            distance_km REAL,
+            base_duration_minutes REAL, -- OSRM's default duration (for a car)
+            road_composition_json TEXT,
+            route_geometry_json TEXT,   -- Full GPS trace of the route
+            PRIMARY KEY (start_node_id, end_node_id)
+        );
+        ```
+- [ ] **Implement Caching Logic in `route_provider.py`:**
+    - **Action:** When `get_route_details` is called, it should first query the `routes` table in `moda_routes.db`.
+    - **If route exists:** Return the stored data (distance, duration, composition, geometry).
+    - **If route does not exist:**
+        1.  Call the OSRM API with `annotations=true` and `overview=full` to get the most detailed route data.
+        2.  From the response, infer the road composition as shown in `tests/road_composition.py`.
+        3.  Extract the total distance, baseline duration, road composition, and the full route geometry (the GPS trace).
+        4.  Convert the distance to kilometers and the duration to minutes.
+        5.  Store these vehicle-agnostic data points in the `routes` table.
+        6.  Return the newly fetched data.
+
+### 9.3. Solver Integration
+
+- [ ] **Modify `algo/second_level.py`:**
+    - **Action:** Replace the `_calculate_travel_time_between_tasks` function.
+    - **Logic:**
+        1.  The function will now take `(task1, task2, vehicle)` as input.
+        2.  It will call `route_provider.get_route_details(task1.node_id, task2.node_id)` to get the base route info (road composition and base duration in minutes).
+        3.  Using the `vehicle.type` (e.g., 'standard', 'heavy'), it will retrieve the correct speed profiles (e.g., `TRUCK_SPEEDS['heavy']`).
+        4.  It will then calculate the final, vehicle-specific travel time by applying the speed profiles to the road composition data, as demonstrated in `tests/road_composition.py`.
+        5.  The function will return the final calculated travel time in minutes.
+- [ ] **Update `Vehicle` Data Structure:**
+    - **Action:** Add a `type` attribute to the `Vehicle` class in `epdt_data_structures.py`. This will store the vehicle's profile (e.g., 'car', 'standard', 'heavy') to be used for the dynamic time calculation.
+- [ ] **Remove Old Calculation:**
+    - **Action:** Once the new `route_provider` is integrated and tested, the old Euclidean distance calculation in `_calculate_travel_time_between_tasks` can be safely removed.
+
+### 9.5. Handling Multi-Day Travel in HoS
+
+- [ ] **Enhance `_check_hos_multiday` in `algo/second_level.py`:**
+    - **Action:** The current HoS check is too rigid for long-haul routes, as it checks if the entire travel leg can be completed within the remaining daily hours. This needs to be replaced with a more realistic simulation.
+    - **Logic:**
+        1.  Instead of checking the entire `travel_time` at once, simulate the drive in segments.
+        2.  Create a loop that continues as long as `travel_remaining > 0`.
+        3.  Inside the loop, determine the `drivable_time` before a mandatory break or daily rest is required.
+        4.  Subtract this `drivable_time` from `travel_remaining`.
+        5.  If a break or rest is triggered, simulate it by advancing the `current_time` and resetting the relevant driver state counters (e.g., `drive_since_break`, `drive_today`).
+        6.  This ensures that mandatory rests are correctly simulated *during* a long travel leg, allowing the route to be feasible across multiple days.

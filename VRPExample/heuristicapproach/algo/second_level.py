@@ -382,7 +382,7 @@ def calculate_z2_score(route: 'Route') -> float:
         # Calculate travel cost to next task
         if i < len(sorted_tasks) - 1:
             next_task = sorted_tasks[i + 1]
-            travel_time = _calculate_travel_time_between_tasks(current_task, next_task)
+            travel_time = _calculate_travel_time_between_tasks(current_task, next_task, route.vehicle)
             travel_cost += travel_time * route.vehicle.cost_per_km * 0.8  # Rough conversion
             current_time += travel_time
         
@@ -884,7 +884,7 @@ def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_task
         # If there's a next task, calculate travel time
         if i < len(sorted_tasks) - 1:
             next_task = sorted_tasks[i + 1]
-            travel_time = _calculate_travel_time_between_tasks(current_task, next_task)
+            travel_time = _calculate_travel_time_between_tasks(current_task, next_task, route.vehicle)
             
             # Check driving time limits
             max_drive_per_day = _get_max_drive_per_day(extensions_used_this_week)
@@ -908,15 +908,21 @@ def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_task
         
         # Check for soft time window compliance (if applicable)
         if hasattr(current_task, 'soft_time_window') and current_task.soft_time_window:
-            if hasattr(current_task, 'latest_time') and current_time > current_task.latest_time:
+            if (hasattr(current_task, 'latest_time') and 
+                current_task.latest_time is not None and 
+                current_time > current_task.latest_time):
                 # Soft time window violation - continue but will be penalized in scoring
                 pass
-        elif hasattr(current_task, 'latest_time') and current_time > current_task.latest_time:
+        elif (hasattr(current_task, 'latest_time') and 
+              current_task.latest_time is not None and 
+              current_time > current_task.latest_time):
             # Hard time window violation
             return False
         
         # Handle waiting for earliest time
-        if hasattr(current_task, 'earliest_time') and current_time < current_task.earliest_time:
+        if (hasattr(current_task, 'earliest_time') and 
+            current_task.earliest_time is not None and 
+            current_time < current_task.earliest_time):
             wait_time = current_task.earliest_time - current_time
             current_time = current_task.earliest_time
             driver_state.work_today += wait_time
@@ -947,17 +953,38 @@ def _get_max_work_per_day(extensions_used: dict) -> float:
     return base_limit
 
 
-def _calculate_travel_time_between_tasks(task1, task2) -> float:
+def _calculate_travel_time_between_tasks(task1, task2, vehicle=None) -> float:
     """
-    Calculate travel time between two tasks.
-    This is a simplified implementation - in practice would use distance matrix.
-    """
-    # Simple Euclidean distance calculation
-    lat1, lon1 = getattr(task1, 'lat', 0), getattr(task1, 'lon', 0)
-    lat2, lon2 = getattr(task2, 'lat', 0), getattr(task2, 'lon', 0)
+    Calculate travel time between two tasks using OSRM routing with caching.
+    Falls back to Euclidean distance if OSRM data is unavailable.
     
-    import math
-    distance = math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2)
-    # Assume average speed of 50 km/h, convert to minutes
-    travel_time = (distance * 111.32) / 50 * 60  # 111.32 km per degree latitude
-    return max(travel_time, 1.0)  # Minimum 1 minute travel time
+    Args:
+        task1: Starting task with lat, lon, and location_id attributes
+        task2: Ending task with lat, lon, and location_id attributes
+        vehicle: Vehicle object with vehicle_type attribute (optional, defaults to 'standard')
+    
+    Returns:
+        Travel time in minutes
+    """
+    try:
+        from .route_provider import calculate_travel_time_between_tasks
+        
+        # Use default vehicle if none provided
+        if vehicle is None:
+            from .epdt_data_structures import Vehicle
+            vehicle = Vehicle(id="default", depot_id="default", 
+                            weight_capacity=1000, volume_capacity=10, 
+                            vehicle_type="standard")
+        
+        return calculate_travel_time_between_tasks(task1, task2, vehicle)
+        
+    except ImportError:
+        # Fallback to original Euclidean calculation if route_provider unavailable
+        lat1, lon1 = getattr(task1, 'lat', 0), getattr(task1, 'lon', 0)
+        lat2, lon2 = getattr(task2, 'lat', 0), getattr(task2, 'lon', 0)
+        
+        import math
+        distance = math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2)
+        # Assume average speed of 50 km/h, convert to minutes
+        travel_time = (distance * 111.32) / 50 * 60  # 111.32 km per degree latitude
+        return max(travel_time, 1.0)  # Minimum 1 minute travel time

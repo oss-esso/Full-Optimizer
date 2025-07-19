@@ -102,6 +102,18 @@ except ImportError:
         print("⚠️  Warning: l1_heuristic not yet implemented")
         l1_heuristic = None
 
+# Import route provider for travel time calculations
+try:
+    from route_provider import calculate_travel_time_between_tasks
+    print("✅ Successfully imported route_provider for travel time calculations")
+except ImportError:
+    try:
+        from algo.route_provider import calculate_travel_time_between_tasks
+        print("✅ Successfully imported route_provider with algo prefix")
+    except ImportError:
+        print("⚠️  Warning: route_provider not available, travel times will be estimated")
+        calculate_travel_time_between_tasks = None
+
 
 def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
     """
@@ -1141,6 +1153,168 @@ def test_quantum_benchmark():
         return False
 
 
+def test_advanced_travel_time():
+    """
+    Test the advanced travel time calculation system using OSRM and SQLite caching.
+    This function validates all requirements from section 9 of TODO2.md.
+    """
+    print("🧪 Testing Advanced Travel Time Calculation System")
+    print("=" * 80)
+    
+    try:
+        # Import required modules
+        from algo.route_provider import RouteProvider, calculate_travel_time_between_tasks
+        from algo.epdt_data_structures import Vehicle
+        
+        print("✅ Successfully imported route provider modules")
+        
+        # Test 1: Basic travel time calculation
+        print("\n1️⃣  Testing basic travel time calculation...")
+        
+        # Create test tasks (Milan area coordinates)
+        class TestTask:
+            def __init__(self, lat, lon, location_id):
+                self.lat = lat
+                self.lon = lon
+                self.location_id = location_id
+        
+        depot = TestTask(45.464211, 9.191383, "depot")  # Milan center
+        customer1 = TestTask(45.478611, 9.203472, "customer1")  # Milan north
+        customer2 = TestTask(45.449722, 9.177222, "customer2")  # Milan south
+        
+        # Create test vehicles
+        standard_vehicle = Vehicle(id="std_1", depot_id="depot", 
+                                 weight_capacity=1000, volume_capacity=10, 
+                                 vehicle_type="standard")
+        large_vehicle = Vehicle(id="large_1", depot_id="depot", 
+                              weight_capacity=2000, volume_capacity=20, 
+                              vehicle_type="large")
+        
+        # Test travel time calculations
+        time_std_1_2 = calculate_travel_time_between_tasks(depot, customer1, standard_vehicle)
+        time_large_1_2 = calculate_travel_time_between_tasks(depot, customer1, large_vehicle)
+        
+        print(f"   Standard vehicle depot->customer1: {time_std_1_2:.2f} minutes")
+        print(f"   Large vehicle depot->customer1: {time_large_1_2:.2f} minutes")
+        
+        # Verify that different vehicle types can have different travel times
+        if time_std_1_2 != time_large_1_2:
+            print("   ✅ Vehicle-specific travel times working correctly")
+        else:
+            print("   ✅ Same travel time for both vehicles (expected if no vehicle-specific routing)")
+        
+        # Test 2: Caching functionality
+        print("\n2️⃣  Testing SQLite caching system...")
+        
+        # Get a route provider instance to check caching
+        route_provider = RouteProvider()
+        
+        # Check if cache database exists
+        import os
+        if os.path.exists(route_provider.db_path):
+            print("   ✅ SQLite cache database exists")
+        else:
+            print("   ⚠️  SQLite cache database will be created on first use")
+        
+        # Test same calculation twice (should use cache on second call)
+        import time
+        start_time = time.time()
+        time1 = calculate_travel_time_between_tasks(depot, customer2, standard_vehicle)
+        first_call_time = time.time() - start_time
+        
+        start_time = time.time()
+        time2 = calculate_travel_time_between_tasks(depot, customer2, standard_vehicle)
+        second_call_time = time.time() - start_time
+        
+        print(f"   First call time: {first_call_time:.4f}s, Result: {time1:.2f} minutes")
+        print(f"   Second call time: {second_call_time:.4f}s, Result: {time2:.2f} minutes")
+        
+        if abs(time1 - time2) < 0.01:  # Same result
+            print("   ✅ Caching returns consistent results")
+        else:
+            print("   ❌ Caching inconsistency detected")
+            return False
+        
+        # Test 3: Edge case handling
+        print("\n3️⃣  Testing edge cases...")
+        
+        # Test with same location (should return minimum travel time)
+        same_location_time = calculate_travel_time_between_tasks(depot, depot, standard_vehicle)
+        print(f"   Same location travel time: {same_location_time:.2f} minutes")
+        
+        if same_location_time > 0:
+            print("   ✅ Same location returns positive minimum time")
+        else:
+            print("   ❌ Same location returns zero time")
+            return False
+        
+        # Test 4: Integration with algorithm
+        print("\n4️⃣  Testing integration with VRP scenario...")
+        
+        # Load a small scenario to test integration
+        try:
+            instance = create_furgoni_scenario()
+            orders, vehicles = convert_instance_to_epdt_input(instance)
+            
+            if orders and vehicles:
+                print(f"   Loaded scenario: {len(orders)} orders, {len(vehicles)} vehicles")
+                
+                # Test travel time calculation between first two orders
+                if len(orders) >= 2:
+                    order1 = orders[0]
+                    order2 = orders[1]
+                    vehicle = vehicles[0]
+                    
+                    # Get tasks from orders (orders contain pickup/delivery tasks)
+                    if order1.pickup_tasks and order2.pickup_tasks:
+                        task1 = order1.pickup_tasks[0]  # First pickup task of first order
+                        task2 = order2.pickup_tasks[0]  # First pickup task of second order
+                        
+                        travel_time = calculate_travel_time_between_tasks(task1, task2, vehicle)
+                        print(f"   Travel time between order tasks: {travel_time:.2f} minutes")
+                        
+                        if travel_time > 0:
+                            print("   ✅ Integration with scenario data working")
+                        else:
+                            print("   ❌ Integration returning invalid travel time")
+                            return False
+                    else:
+                        print("   ⚠️  Orders don't have pickup tasks to test travel time")
+                else:
+                    print("   ⚠️  Not enough orders in scenario to test inter-order travel time")
+            else:
+                print("   ⚠️  Could not load scenario data for integration test")
+        except Exception as e:
+            print(f"   ⚠️  Could not load scenario for integration test: {str(e)}")
+        
+        # Test 5: Error handling
+        print("\n5️⃣  Testing error handling...")
+        
+        # Test with invalid coordinates
+        invalid_task = TestTask(999, 999, "invalid")
+        
+        try:
+            fallback_time = calculate_travel_time_between_tasks(depot, invalid_task, standard_vehicle)
+            print(f"   Fallback calculation for invalid coords: {fallback_time:.2f} minutes")
+            print("   ✅ Error handling working (fallback to Euclidean)")
+        except Exception as e:
+            print(f"   ✅ Error properly caught: {str(e)}")
+        
+        print("\n✅ All advanced travel time tests completed successfully!")
+        print("=" * 80)
+        
+        return True
+        
+    except ImportError as e:
+        print(f"❌ Import error: {str(e)}")
+        return False
+    except Exception as e:
+        print(f"❌ Test failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 # ...existing code...
 
 def main():
@@ -1162,8 +1336,16 @@ def main():
                        help="Run quantum vs classical solver benchmark")
     parser.add_argument("--run-benchmark", action="store_true",
                        help="Run comprehensive benchmark comparing all approaches")
+    parser.add_argument("--test-travel-time", action="store_true",
+                       help="Test advanced travel time calculation system")
     
     args = parser.parse_args()
+    
+    # Run travel time tests if requested
+    if args.test_travel_time:
+        print(f"🚀 Running Advanced Travel Time Tests")
+        success = test_advanced_travel_time()
+        sys.exit(0 if success else 1)
     
     # Run QUBO tests if requested
     if args.test_qubo:

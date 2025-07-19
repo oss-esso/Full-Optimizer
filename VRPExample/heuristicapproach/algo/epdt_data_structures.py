@@ -142,7 +142,7 @@ class Vehicle:
     fixed_cost: float = 0.0               # Fixed cost for using this vehicle
     
     # Vehicle type and capabilities
-    vehicle_type: str = "standard"         # "standard" or "heavy" for HOS regulations
+    vehicle_type: str = "standard"         # Vehicle type: "car", "standard" (light truck), or "heavy" (heavy truck)
     capabilities: Set[str] = field(default_factory=set)  # Special capabilities
     
     # Driver regulation constraints (Hours of Service)
