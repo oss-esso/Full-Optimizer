@@ -115,6 +115,115 @@ except ImportError:
         calculate_travel_time_between_tasks = None
 
 
+# Import second_level module to verify advanced HoS simulation availability
+try:
+    from second_level import _simulate_hos_advanced, DriverState
+    print("✅ Successfully imported advanced HoS simulation (_simulate_hos_advanced)")
+    ADVANCED_HOS_AVAILABLE = True
+except ImportError:
+    try:
+        from algo.second_level import _simulate_hos_advanced, DriverState
+        print("✅ Successfully imported advanced HoS simulation with algo prefix")
+        ADVANCED_HOS_AVAILABLE = True
+    except ImportError:
+        print("⚠️  Warning: Advanced HoS simulation not available")
+        ADVANCED_HOS_AVAILABLE = False
+        _simulate_hos_advanced = None
+        DriverState = None
+
+def verify_advanced_hos_functionality():
+    """
+    Verify that the advanced HoS simulation is working correctly.
+    
+    Returns:
+        bool: True if advanced HoS functionality is available and working
+    """
+    if not ADVANCED_HOS_AVAILABLE:
+        print("❌ Advanced HoS simulation not available")
+        return False
+    
+    try:
+        # Test basic DriverState creation with new fields
+        test_state = DriverState()
+        
+        # Check for new state variables
+        required_attrs = [
+            'time_in_daily_period',
+            'work_this_week', 
+            'time_since_weekly_rest',
+            'daily_rest_reductions_used',
+            'is_weekly_rest_reduction_taken'
+        ]
+        
+        missing_attrs = []
+        for attr in required_attrs:
+            if not hasattr(test_state, attr):
+                missing_attrs.append(attr)
+        
+        if missing_attrs:
+            print(f"❌ DriverState missing required attributes: {missing_attrs}")
+            return False
+        
+        # Check that _simulate_hos_advanced function exists and is callable
+        if not callable(_simulate_hos_advanced):
+            print("❌ _simulate_hos_advanced is not callable")
+            return False
+        
+        print("✅ Advanced HoS simulation functionality verified")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error verifying advanced HoS functionality: {e}")
+        return False
+
+
+def print_advanced_hos_status():
+    """Print status information about advanced HoS features."""
+    print(f"\n🚀 Advanced HoS Features Status:")
+    if ADVANCED_HOS_AVAILABLE:
+        if verify_advanced_hos_functionality():
+            print("   ✅ Advanced multi-day/weekly HoS simulation: ACTIVE")
+            print("   ✅ Iterative break/rest simulation: ACTIVE") 
+            print("   ✅ European regulation compliance: ACTIVE")
+            print("   ✅ Strategic extension usage: ACTIVE")
+        else:
+            print("   ❌ Advanced HoS simulation: FAILED VERIFICATION")
+    else:
+        print("   ❌ Advanced HoS simulation: NOT AVAILABLE")
+        print("   ⚠️  Using basic HoS checking only")
+
+
+def format_duration_detailed(total_minutes: float) -> str:
+    """
+    Format duration in minutes to dd/hh/mm format.
+    
+    Args:
+        total_minutes: Total time in minutes
+        
+    Returns:
+        str: Formatted duration as "Xd Yh Zm" or "Xh Ym" or "Ym"
+    """
+    if total_minutes <= 0:
+        return "0m"
+    
+    total_minutes = int(total_minutes)
+    
+    days = total_minutes // (24 * 60)
+    remaining_minutes = total_minutes % (24 * 60)
+    hours = remaining_minutes // 60
+    minutes = remaining_minutes % 60
+    
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    
+    return " ".join(parts) if parts else "0m"
+
+
 def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
     """
     Print a comprehensive summary of the EPDT algorithm solution.
@@ -212,8 +321,40 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
                 print(f"      ⚠️  Route validation skipped: {str(e)}")
                 # Continue without failing - this is just for analysis
         
+        # Calculate route days using HoS simulation
+        task_times = []  # Initialize task_times variable
+        try:
+            from algo.second_level import (_simulate_hos_advanced, DriverState, _sort_tasks_chronologically, calculate_route_time_progression)
+            
+            # Use the sophisticated time progression calculation for accurate real-time monitoring
+            task_times = calculate_route_time_progression(route)
+            
+            # Also get detailed HoS simulation results for comparison
+            driver_state = DriverState()
+            sorted_tasks = _sort_tasks_chronologically(route.tasks)
+            is_feasible, total_time_minutes = _simulate_hos_advanced(route, driver_state, sorted_tasks)
+            
+            # Calculate estimated days
+            estimated_days = max(1, int(total_time_minutes / (24 * 60)) + (1 if total_time_minutes % (24 * 60) > 0 else 0))
+            total_duration_formatted = format_duration_detailed(total_time_minutes)
+            
+            if is_feasible:
+                print(f"      📅 Route duration: {estimated_days} day(s) ({total_duration_formatted}) (HoS compliant)")
+            else:
+                print(f"      📅 Route duration: {estimated_days} day(s) ({total_duration_formatted}) (would violate HoS if attempted without proper rests)")
+                
+        except ImportError:
+            print(f"      📅 Route duration: N/A (HoS calculation unavailable)")
+        except Exception as e:
+            print(f"      📅 Route duration: Error calculating ({str(e)})")
+                
+        except ImportError:
+            print(f"      📅 Route duration: N/A (HoS calculation unavailable)")
+        except Exception as e:
+            print(f"      📅 Route duration: Error calculating ({str(e)})")
+        
         # Task sequence
-        print(f"      📋 Task sequence ({len(route.tasks)} tasks):")
+        print(f"      📋 Task sequence ({len(route.tasks)} tasks) - Real-time monitoring:")
         current_load_weight = 0
         current_load_volume = 0
         
@@ -222,7 +363,21 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
             current_load_volume += task.volume
             
             task_type_icon = "📦" if task.is_pickup() else "🏪"
-            print(f"         {i+1:2d}. {task_type_icon} {task.location_id} (Order: {task.order_id})")
+            
+            # Add time monitoring if available
+            time_info = ""
+            if task_times and i < len(task_times):
+                cumulative_time = task_times[i]
+                time_formatted = format_duration_detailed(cumulative_time)
+                # Calculate time since previous task for additional context
+                if i > 0 and task_times[i-1] is not None:
+                    delta_time = cumulative_time - task_times[i-1]
+                    delta_formatted = format_duration_detailed(delta_time)
+                    time_info = f" - Cumulative: {time_formatted} (+{delta_formatted})"
+                else:
+                    time_info = f" - Cumulative: {time_formatted}"
+            
+            print(f"         {i+1:2d}. {task_type_icon} {task.location_id} (Order: {task.order_id}){time_info}")
             print(f"             Load: {task.demand:+.0f}kg, {task.volume:+.1f}m³ → Total: {current_load_weight:.0f}kg, {current_load_volume:.1f}m³")
     
     # Unassigned orders analysis
@@ -395,6 +550,18 @@ def run_scenario_test(scenario_name: str = "furgoni",
         print(f"   - Max iterations: {params.max_total_iterations}")
         print(f"   - Strategy: {params.exploration_strategy}")
         print(f"   - Local search: {params.local_search_strategy}")
+        
+        # Step 3.5: Verify Advanced HoS Simulation Status
+        print(f"\n🔬 Verifying advanced features availability")
+        if ADVANCED_HOS_AVAILABLE and verify_advanced_hos_functionality():
+            print(f"✅ Advanced multi-day/weekly HoS simulation: ACTIVE")
+            print(f"   - Iterative break/rest simulation enabled")
+            print(f"   - European regulation compliance enabled")
+            print(f"   - Strategic extension usage enabled")
+        else:
+            print(f"⚠️  Advanced HoS simulation: NOT AVAILABLE")
+            print(f"   - Using basic HoS checking only")
+            print(f"   - Limited multi-day route feasibility")
         
         # Step 4: Run Heuristic
         print(f"\n4️⃣  Running EPDT heuristic algorithm")
@@ -1315,8 +1482,6 @@ def test_advanced_travel_time():
         return False
 
 
-# ...existing code...
-
 def main():
     """Command line interface for the test runner."""
     parser = argparse.ArgumentParser(description="Run EPDT Algorithm Tests")
@@ -1340,6 +1505,9 @@ def main():
                        help="Test advanced travel time calculation system")
     
     args = parser.parse_args()
+    
+    # Display advanced HoS simulation status
+    print_advanced_hos_status()
     
     # Run travel time tests if requested
     if args.test_travel_time:

@@ -508,14 +508,112 @@ get_route_road_composition(start, end)
 - [ ] **Remove Old Calculation:**
     - **Action:** Once the new `route_provider` is integrated and tested, the old Euclidean distance calculation in `_calculate_travel_time_between_tasks` can be safely removed.
 
-### 9.5. Handling Multi-Day Travel in HoS
+### 9.5. Handling Multi-Day and Weekly Hours of Service (HoS)
 
-- [ ] **Enhance `_check_hos_multiday` in `algo/second_level.py`:**
-    - **Action:** The current HoS check is too rigid for long-haul routes, as it checks if the entire travel leg can be completed within the remaining daily hours. This needs to be replaced with a more realistic simulation.
-    - **Logic:**
-        1.  Instead of checking the entire `travel_time` at once, simulate the drive in segments.
-        2.  Create a loop that continues as long as `travel_remaining > 0`.
-        3.  Inside the loop, determine the `drivable_time` before a mandatory break or daily rest is required.
-        4.  Subtract this `drivable_time` from `travel_remaining`.
-        5.  If a break or rest is triggered, simulate it by advancing the `current_time` and resetting the relevant driver state counters (e.g., `drive_since_break`, `drive_today`).
-        6.  This ensures that mandatory rests are correctly simulated *during* a long travel leg, allowing the route to be feasible across multiple days.
+**Objective:** The current HoS check is too simplistic for multi-day, long-haul routes. It must be replaced with a detailed, iterative simulation that correctly implements the full scope of European driving and working time regulations as detailed in Regulation (EC) 561/2006 and Directive 2002/15/EC (Chapter 4 of the thesis).
+
+- [ ] **Enhance `_check_hos` (or create `_simulate_hos_advanced`) in `algo/second_level.py`:**
+
+    - **Action:** Implement a stateful, iterative simulation for all travel and work activities.
+
+    - **Driver State Representation:** The simulation must track a comprehensive set of state variables for each driver, initialized at the start of the planning horizon:
+        - `drive_since_break`: Accumulated driving since the last 45min break (or split break part).
+        - `work_since_break`: Accumulated working time since the last 30/45min break.
+        - `drive_today`: Accumulated driving in the current daily period.
+        - `work_today`: Accumulated working time in the current daily period.
+        - `time_in_daily_period`: Time elapsed since the end of the last daily rest (must not exceed 24h for the start of the next daily rest).
+        - `drive_this_week`: Accumulated driving from Monday 00:00 to current time.
+        - `drive_last_week`: Total driving time from the previous week.
+        - `work_this_week`: Accumulated working time from Monday 00:00.
+        - `time_since_weekly_rest`: Time elapsed since the last weekly rest ended (must not exceed 144 hours).
+        - `daily_drive_extensions_used`: Count of 10h driving days used this week (max 2).
+        - `daily_rest_reductions_used`: Count of 9h daily rests used between weekly rests (max 3).
+        - `is_weekly_rest_reduction_taken`: Flag indicating if a reduced weekly rest was taken in the last two-week period.
+
+    - **Iterative Simulation Logic:**
+        1.  For any activity (travel or service), do not check it as a single block. Instead, enter a loop that continues as long as the activity has time remaining (e.g., `travel_remaining > 0`).
+        2.  **Inside the loop, calculate `drivable_time`:** This is the maximum time the driver can continue the current activity before a mandatory stop. It is the **minimum** of all applicable limits:
+            - `4.5h - drive_since_break`
+            - `6h - work_since_break` (if the activity is work/driving)
+            - `9h - drive_today` (or `10h` if an extension is available and strategically chosen)
+            - `56h - drive_this_week`
+            - `90h - (drive_last_week + drive_this_week)`
+            - `60h - work_this_week`
+            - Time until a daily rest becomes mandatory (e.g., `24h - time_in_daily_period`).
+            - Time until a weekly rest becomes mandatory (`144h - time_since_weekly_rest`).
+            - The actual time remaining for the current activity (e.g., `travel_remaining`).
+        3.  **Advance Simulation Time:**
+            - Advance the `current_time` by `drivable_time`.
+            - Update all relevant driver state counters based on the elapsed time.
+            - Decrement the activity's remaining time.
+        4.  **Trigger and Simulate Rests/Breaks:**
+            - If the loop terminated because a regulatory limit was hit (not because the activity finished), simulate the required rest/break.
+            - **Driving Break:** If `drive_since_break` reaches 4.5h, simulate a 45-minute break (or a 30-minute if a 15-minute break was already taken). Advance `current_time` and reset `drive_since_break`, `work_since_break`.
+            - **Daily Rest:** If a daily limit is reached, simulate an 11-hour rest (or a reduced 9-hour rest if permissible). Advance `current_time`, reset all daily counters, and increment `time_since_weekly_rest`.
+            - **Weekly Rest:** If a weekly limit is reached (e.g., 144 hours since last one), simulate a 45-hour rest (or reduced 24-hour rest). Advance `current_time` and reset all weekly and bi-weekly counters.
+        5.  **Continue Loop:** Repeat the process until the activity is complete. This ensures mandatory rests are correctly simulated *during* long travel legs, allowing routes to be feasible across multiple days and weeks.
+
+## 10. Advanced HoS Simulation and Route Day Calculation
+
+**Objective:** Implement a detailed, iterative Hours of Service (HoS) simulation that accurately calculates the total time and number of days required for a route, including all mandatory breaks and rests as per European regulations.
+
+### 10.1. Implement Route Day Calculation Function
+
+- [ ] **File:** `algo/second_level.py`
+- [ ] **Action:** Create a new public function `calculate_route_days(route: 'Route') -> int`.
+- [ ] **Logic:**
+    1.  This function will serve as a high-level wrapper for the advanced HoS simulation.
+    2.  If the route has no tasks, it should return `1` (takes one day).
+    3.  Initialize a new `DriverState` object with default values.
+    4.  Sort the route's tasks chronologically using the existing `_sort_tasks_chronologically` helper function.
+    5.  Call the `_simulate_hos_advanced` function with the route, the new driver state, and the sorted tasks.
+    6.  The `_simulate_hos_advanced` function will return `(is_feasible, total_time_minutes)`.
+    7.  If `is_feasible` is `False`, the route is impossible under HoS rules. Return `float('inf')` to represent an infinitely long (infeasible) route.
+    8.  If the route is feasible, calculate the number of days by dividing `total_time_minutes` by the number of minutes in a day (`24 * 60`) and taking the ceiling of the result (e.g., `(total_time // (24 * 60)) + 1`).
+    9.  Return the calculated number of days.
+
+### 10.2. Refactor Advanced HoS Simulation
+
+- [ ] **File:** `algo/second_level.py`
+- [ ] **Action:** Replace the entire body of the `_simulate_hos_advanced` function with a new, cleaner implementation. The new implementation should not handle day transitions internally but should focus purely on simulating the sequence of tasks.
+- [ ] **New `_simulate_hos_advanced` Logic:**
+    1.  **Signature:** `_simulate_hos_advanced(route: 'Route', driver_state: 'DriverState', sorted_tasks: List) -> tuple[bool, float]`
+    2.  **Initialization:**
+        - If `sorted_tasks` is empty, return `(True, 0.0)`.
+        - Create a `deepcopy` of the incoming `driver_state` to ensure the simulation is non-destructive.
+        - Initialize `current_time = 0.0`.
+    3.  **Main Loop:**
+        - Iterate through the `sorted_tasks` list. For each `current_task` at index `i`:
+            a. **Simulate Service Time:**
+               - Get the `service_time` for the `current_task`.
+               - If `service_time > 0`, call a new helper `_simulate_activity(state, service_time, 'service', current_time)`.
+               - This helper will return `(feasible, elapsed_time)`. If not `feasible`, the main function should immediately return `(False, current_time)`.
+               - Add the `elapsed_time` (which includes breaks) to `current_time`.
+            b. **Simulate Travel Time:**
+               - If it's not the last task (`i < len(sorted_tasks) - 1`):
+                 - Get the `next_task`.
+                 - Calculate `travel_time` between `current_task` and `next_task` using `_calculate_travel_time_between_tasks`.
+                 - If `travel_time > 0`, call `_simulate_activity(state, travel_time, 'driving', current_time)`.
+                 - Again, check for feasibility and update `current_time` with the `elapsed_time`.
+            c. **Check Time Windows:**
+               - After each activity, call the existing `_check_time_windows(current_task, current_time)` helper. If it returns `False`, the main function should return `(False, current_time)`.
+    4.  **Return Value:** If the loop completes successfully, return `(True, current_time)`.
+
+### 10.3. Update Tests and Scenarios
+
+- [ ] **File:** `tests/simple_multi_day_hos_test.py`
+- [ ] **Action:** Modify the test to use the new `calculate_route_days` function.
+- [ ] **Logic:**
+    1.  Create a long route that is expected to span multiple days.
+    2.  Call `calculate_route_days` on this route.
+    3.  Assert that the returned number of days is correct (e.g., `self.assertEqual(days, 3)`).
+    4.  Create another route that is intentionally infeasible (e.g., a single travel leg that is longer than the bi-weekly driving limit).
+    5.  Assert that `calculate_route_days` returns `float('inf')` for the infeasible route.
+
+- [ ] **File:** `src/moda_scenarios.py` (or relevant test runner)
+- [ ] **Action:** Integrate the `calculate_route_days` check into the final solution evaluation for the "furgoni" scenario.
+- [ ] **Logic:**
+    1.  After the main heuristic (`l1_heuristic`) has produced a final `Solution`.
+    2.  Iterate through each `route` in `solution.routes.values()`.
+    3.  For each route, call `calculate_route_days(route)`.
+    4.  Print the number of days required for each vehicle's route as part of the final solution summary. This will provide a clear, realistic assessment of the operational plan.
