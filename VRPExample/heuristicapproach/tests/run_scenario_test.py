@@ -324,7 +324,10 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
             current_load_weight += task.demand
             current_load_volume += task.volume
             
-            task_type_icon = "📦" if task.is_pickup() else "🏪"
+            if hasattr(task, 'is_depot_return') and task.is_depot_return():
+                task_type_icon = "🏠"  # Home icon for depot return
+            else:
+                task_type_icon = "📦" if task.is_pickup() else "🏪"
             
             # Add time monitoring if available
             time_info = ""
@@ -701,7 +704,30 @@ def _create_mock_solution(orders, vehicles):
         for delivery_task in all_delivery_tasks:
             route.tasks.append(delivery_task)
         
-        print(f"      ✅ Route created: {len(route.tasks)} tasks ({len(all_pickup_tasks)} pickups → {len(all_delivery_tasks)} deliveries)")
+        # Add depot return task as the final task
+        print(f"      🏠 Adding depot return task")
+        try:
+            from algo.epdt_data_structures import Task, TaskType
+        except ImportError:
+            from epdt_data_structures import Task, TaskType
+        
+        # Get depot information (assume depot coordinates are available on vehicle)
+        depot_lat = getattr(vehicle, 'depot_lat', 45.4642)  # Default Milan coordinates
+        depot_lon = getattr(vehicle, 'depot_lon', 9.1900)
+        depot_id = getattr(vehicle, 'depot_id', 'depot')
+        
+        # Create depot return task
+        depot_return_task = Task.create_depot_return_task(
+            vehicle_id=vehicle.id,
+            depot_location_id=depot_id,
+            depot_lat=depot_lat,
+            depot_lon=depot_lon,
+            service_time=5.0  # 5 minutes to check in at depot
+        )
+        
+        route.tasks.append(depot_return_task)
+        
+        print(f"      ✅ Route created: {len(route.tasks)} tasks ({len(all_pickup_tasks)} pickups → {len(all_delivery_tasks)} deliveries → 1 depot return)")
     
     # Print assignment summary
     print(f"\n📋 Assignment Summary:")
@@ -720,7 +746,7 @@ def _create_mock_solution(orders, vehicles):
             print(f"   🚚 {vehicle.id}: {weight_util:.1f}% weight, {volume_util:.1f}% volume ({orders_count} orders)")
             print(f"      Capacity: {vehicle.weight_capacity:.0f}kg, {vehicle.volume_capacity:.1f}m³")
             print(f"      Load: {load['weight']:.0f}kg, {load['volume']:.1f}m³")
-            print(f"      Pattern: {len(vehicle_orders[vehicle.id])} pickups → {len(vehicle_orders[vehicle.id])} deliveries")
+            print(f"      Pattern: {len(all_pickup_tasks)} pickups → {len(all_delivery_tasks)} deliveries → depot return")
     
     # Show details of failed assignments
     if assignment_failures:

@@ -690,3 +690,14 @@ get_route_road_composition(start, end)
 - [ ] **Integrate Time Window Tests into Test Runner:**
     - **Action:** Enhance `tests/run_scenario_test.py` to include a test case for multi-day time windows.
     - **Details:** The test should load a scenario with calendarized time windows and verify that the final solution is valid and that all time constraints are respected by the feasibility check.
+
+## 12. Return to Depot
+
+**Objective:** Ensure all vehicles return to the depot at the end of their routes.
+
+- [ ] **Modify Route Generation:**
+    - **Action:** After a route is finalized, add a final task that directs the vehicle back to the depot.
+    - **Details:**
+        1.  This should be the last task in the sequence for every vehicle.
+        2.  The travel time and distance for this final leg must be included in the route's total cost and duration.
+        3.  This must be accounted for in the HoS simulation to ensure the return trip doesn't violate any regulations.

@@ -24,6 +24,7 @@ class TaskType(Enum):
     """Types of tasks in the VRP."""
     PICKUP = "pickup"
     DELIVERY = "delivery"
+    DEPOT_RETURN = "depot_return"
 
 
 @dataclass
@@ -67,6 +68,42 @@ class Task:
     def is_delivery(self) -> bool:
         """Returns True if this is a delivery task."""
         return self.task_type == TaskType.DELIVERY
+    
+    def is_depot_return(self) -> bool:
+        """Returns True if this is a depot return task."""
+        return self.task_type == TaskType.DEPOT_RETURN
+    
+    @staticmethod
+    def create_depot_return_task(vehicle_id: str, depot_location_id: str, 
+                                depot_lat: float, depot_lon: float,
+                                service_time: float = 5.0) -> 'Task':
+        """
+        Create a depot return task for a vehicle.
+        
+        Args:
+            vehicle_id: ID of the vehicle returning to depot
+            depot_location_id: ID of the depot location
+            depot_lat: Depot latitude
+            depot_lon: Depot longitude
+            service_time: Time to check in at depot (default 5 minutes)
+            
+        Returns:
+            Task: A depot return task
+        """
+        return Task(
+            id=f"depot_return_{vehicle_id}",
+            location_id=depot_location_id,
+            task_type=TaskType.DEPOT_RETURN,
+            order_id=f"depot_return_order_{vehicle_id}",  # Special order for depot returns
+            lat=depot_lat,
+            lon=depot_lon,
+            service_time=service_time,
+            demand=0.0,  # No cargo change
+            volume=0.0,  # No volume change
+            earliest_time=None,  # No time constraints for depot return
+            latest_time=None,
+            soft_time_window=True  # Flexible timing for depot returns
+        )
 
 
 @dataclass  
