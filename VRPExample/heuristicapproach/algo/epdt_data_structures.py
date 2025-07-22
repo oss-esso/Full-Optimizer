@@ -459,6 +459,8 @@ class Solution:
         return utilization
 
 
+import json
+
 # Algorithm configuration parameters
 @dataclass
 class EPDTParameters:
@@ -483,9 +485,51 @@ class EPDTParameters:
     unassigned_order_base_penalty: float = 1000.0
     time_window_violation_penalty: float = 50.0
     capacity_violation_penalty: float = 100.0
-    
+    Lo: float = 2000.0
+    wk_ID: float = 100.0
+    wk_IE: float = 100.0
+    wk_IF: float = 50.0
+    wk_IH: float = 50.0
+    wk_IJ: float = 20.0
+    M: float = 10000.0
+    P_task: float = 100000.0
+    P_fleet: float = 100000.0
+
     # Local search parameters
     local_search_strategy: str = "first_improvement"  # "first_improvement" or "best_improvement"
     
     # Initialization method
     initialization_method: str = "best_insertion"     # "best_insertion" or "round_robin"
+
+    @classmethod
+    def load_from_json(cls, file_path: str = "config/epdt_params.json"):
+        """Load parameters from a JSON file."""
+        try:
+            with open(file_path, 'r') as f:
+                params_from_json = json.load(f)
+            
+            # Create a new instance with the loaded parameters
+            return cls(**params_from_json)
+        except FileNotFoundError:
+            print(f"Warning: Configuration file not found at {file_path}. Using default parameters.")
+            return cls()
+        except json.JSONDecodeError:
+            print(f"Warning: Could not decode JSON from {file_path}. Using default parameters.")
+            return cls()
+
+    @classmethod
+    def load_from_json(cls, file_path: str = "config/epdt_params.json"):
+        """Load parameters from a JSON file."""
+        import json
+        try:
+            with open(file_path, 'r') as f:
+                params_from_json = json.load(f)
+            
+            # Create a new instance with the loaded parameters
+            return cls(**params_from_json)
+        except FileNotFoundError:
+            print(f"Warning: Configuration file not found at {file_path}. Using default parameters.")
+            return cls()
+        except json.JSONDecodeError:
+            print(f"Warning: Could not decode JSON from {file_path}. Using default parameters.")
+            return cls()
