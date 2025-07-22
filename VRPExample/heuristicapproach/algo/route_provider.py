@@ -136,11 +136,11 @@ class RouteProvider:
         cursor = conn.cursor()
         
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS routes (
+            CREATE TABLE IF NOT EXISTS route_cache (
                 start_node_id TEXT,
                 end_node_id TEXT,
                 distance_km REAL,
-                base_duration_minutes REAL,
+                duration_minutes REAL,
                 road_composition_json TEXT,
                 route_geometry_json TEXT,
                 PRIMARY KEY (start_node_id, end_node_id)
@@ -166,7 +166,7 @@ class RouteProvider:
             Dictionary with route information:
             {
                 'distance_km': float,
-                'base_duration_minutes': float,
+                'duration_minutes': float,
                 'road_composition': dict,
                 'route_geometry': dict
             }
@@ -175,7 +175,7 @@ class RouteProvider:
         if start_node_id == end_node_id:
             return {
                 'distance_km': 0.0,
-                'base_duration_minutes': 0.0,
+                'duration_minutes': 0.0,
                 'road_composition': {},
                 'route_geometry': None
             }
@@ -199,8 +199,8 @@ class RouteProvider:
         cursor = conn.cursor()
         
         cursor.execute("""
-            SELECT distance_km, base_duration_minutes, road_composition_json, route_geometry_json
-            FROM routes
+            SELECT distance_km, duration_minutes, road_composition_json, route_geometry_json
+            FROM route_cache
             WHERE start_node_id = ? AND end_node_id = ?
         """, (start_node_id, end_node_id))
         
@@ -208,10 +208,10 @@ class RouteProvider:
         conn.close()
         
         if result:
-            distance_km, base_duration_minutes, road_comp_json, route_geom_json = result
+            distance_km, duration_minutes, road_comp_json, route_geom_json = result
             return {
                 'distance_km': distance_km,
-                'base_duration_minutes': base_duration_minutes,
+                'duration_minutes': duration_minutes,
                 'road_composition': json.loads(road_comp_json) if road_comp_json else {},
                 'route_geometry': json.loads(route_geom_json) if route_geom_json else None
             }
@@ -267,7 +267,7 @@ class RouteProvider:
             
             return {
                 'distance_km': distance_km,
-                'base_duration_minutes': duration_minutes,
+                'duration_minutes': duration_minutes,
                 'road_composition': road_composition,
                 'route_geometry': route_geometry
             }
@@ -320,8 +320,8 @@ class RouteProvider:
         cursor = conn.cursor()
         
         cursor.execute("""
-            INSERT OR REPLACE INTO routes 
-            (start_node_id, end_node_id, distance_km, base_duration_minutes, 
+            INSERT OR REPLACE INTO route_cache 
+            (start_node_id, end_node_id, distance_km, duration_minutes, 
              road_composition_json, route_geometry_json)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (
@@ -358,7 +358,7 @@ class RouteProvider:
                 return self._calculate_euclidean_time(start_coords, end_coords)
             return 1.0  # Minimum travel time
         
-        base_duration = route_data['base_duration_minutes']
+        base_duration = route_data['duration_minutes']
         road_composition = route_data['road_composition']
         
         # For cars, return base duration

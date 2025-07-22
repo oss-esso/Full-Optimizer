@@ -617,3 +617,72 @@ get_route_road_composition(start, end)
     2.  Iterate through each `route` in `solution.routes.values()`.
     3.  For each route, call `calculate_route_days(route)`.
     4.  Print the number of days required for each vehicle's route as part of the final solution summary. This will provide a clear, realistic assessment of the operational plan.
+
+### 10.4. Critical Implementation Notes for HoS Simulation
+
+**Objective:** Address a critical bug in the current HoS simulation logic that causes incorrect feasibility checks for long multi-day routes.
+
+- [ ] **Identify and Fix the Root Cause of Infeasibility Loop:**
+    - **Problem:** The `_simulate_mandatory_rest` function has a critical bug. It only triggers a weekly rest based on the 144-hour (6-day) rule. It completely ignores violations of the **56-hour weekly driving limit** and the **90-hour bi-weekly driving limit**.
+    - **Symptom:** When a route exceeds the 56-hour or 90-hour driving limit, the simulation enters an infinite loop. `_calculate_max_continuous_time` correctly returns `0` (can't drive), but `_simulate_mandatory_rest` fails to trigger the necessary *weekly rest*. Instead, it simulates a *daily rest*, after which the weekly driving limits are still violated. The loop repeats, causing the feasibility check to fail incorrectly.
+    - **Action:** Modify the logic that determines if a weekly rest is needed.
+    - **File:** `algo/second_level.py`
+    - **Function:** `_simulate_mandatory_rest`
+    - **Logic Change:** The `needs_weekly_rest` condition must be updated to check for all three weekly rest triggers, not just the time-based one.
+
+    - **Current (Buggy) Logic:**
+      ```python
+      needs_weekly_rest = state.time_since_weekly_rest >= 144 * 60
+      ```
+
+    - **Correct (Fixed) Logic:**
+      ```python
+      # Constants should be defined in DriverState for clarity
+      # MAX_TIME_BEFORE_WEEKLY_REST = 144 * 60
+      needs_weekly_rest = (
+          state.time_since_weekly_rest >= state.MAX_TIME_BEFORE_WEEKLY_REST or
+          state.drive_this_week >= state.MAX_DRIVE_PER_WEEK or
+          (state.drive_this_week + state.drive_last_week) >= state.MAX_DRIVE_TWO_WEEKS
+      )
+      ```
+    - **Reason:** This ensures that the simulation correctly identifies and enforces a weekly rest whenever *any* of the relevant HoS limits are reached, preventing the infinite loop and allowing for correct feasibility assessment of long-haul routes.
+
+## 11. Multi-Day Time Window Calendarization
+
+**Objective:** Implement support for multi-day time windows to allow tasks to be scheduled on specific days within the planning horizon, rather than just specific times.
+
+### 11.1. Time Window Representation
+
+- [ ] **Scenario Definition:**
+    - **Action:** Update the scenario creation logic (e.g., in `src/moda_scenarios.py`) to support a new time window format.
+    - **Format:** Time windows will be represented as a single integer value calculated as: `(day_index * 1440) + time_in_minutes`.
+        - `day_index`: 0 for the first day, 1 for the second, and so on.
+        - `time_in_minutes`: The time of day, from 0 (midnight) to 1439.
+    - **Example:** A time window of `(1, 480)` (Day 1, 8:00 AM) would be stored as `(1 * 1440) + 480 = 1920`. A window of `(1, 1020)` (Day 1, 5:00 PM) would be `(1 * 1440) + 1020 = 2460`. The task's time window would be `(1920, 2460)`.
+
+### 11.2. Second-Level Heuristic Modifications (`algo/second_level.py`)
+
+- [ ] **Update `_check_time_windows`:**
+    - **Action:** Modify the time window checking logic to correctly interpret the new multi-day format.
+    - **Logic:**
+        1.  The `current_time` in the simulation represents the total elapsed minutes from the start of the planning horizon.
+        2.  The check `task.tw_start <= current_time <= task.tw_end` will now naturally handle multi-day windows without requiring explicit day-by-day comparisons.
+        3.  If `current_time` is less than `task.tw_start`, the vehicle must wait. The waiting time is simply `task.tw_start - current_time`. This logic remains the same but now works across days.
+
+- [ ] **Update `_sort_tasks_chronologically`:**
+    - **Action:** Ensure the sorting function correctly handles the new time window format.
+    - **Logic:** The function should sort tasks based on their `tw_start` value. Since `tw_start` now encodes the day, this will automatically result in a chronologically correct sequence across multiple days. No major change is needed if it's already sorting by `tw_start`.
+
+### 11.3. Test Implementation
+
+- [ ] **Create a new test file `tests/test_multiday_time_windows.py`:**
+    - **Action:** Develop a dedicated test to validate the calendarization logic.
+    - **Steps:**
+        1.  Create a scenario with tasks that have time windows spanning multiple days.
+            - **Task 1:** Day 0, 8:00-10:00 (tw_start=480, tw_end=600)
+            - **Task 2:** Day 1, 9:00-11:00 (tw_start=1440+540=1980, tw_end=1440+660=2100)
+            - **Task 3:** Day 0, 14:00-16:00 (tw_start=840, tw_end=960)
+        2.  Construct a route that serves these tasks in a non-chronological order (e.g., Task 1 -> Task 2 -> Task 3).
+        3.  Use `_sort_tasks_chronologically` to verify that the tasks are correctly re-ordered to (Task 1 -> Task 3 -> Task 2).
+        4.  Simulate the route execution using the advanced HoS simulation.
+        5.  Verify that the `current_time` at each step correctly reflects the waiting times and travel times, and that the time window checks pass. For example, after Task 3, there should be a significant waiting period (overnight) before the simulation proceeds to Task 2.

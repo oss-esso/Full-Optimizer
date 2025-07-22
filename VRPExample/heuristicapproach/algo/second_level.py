@@ -35,9 +35,15 @@ except ImportError:
     NUMBA_AVAILABLE = False
 
 if TYPE_CHECKING:
-    from .epdt_data_structures import Route, Order
+    try:
+        from .epdt_data_structures import Route, Order
+    except ImportError:
+        from epdt_data_structures import Route, Order
 else:
-    from .epdt_data_structures import Route, Order
+    try:
+        from .epdt_data_structures import Route, Order
+    except ImportError:
+        from epdt_data_structures import Route, Order
 
 def l2_heuristic(route: 'Route', order: 'Order') -> Optional['Route']:
     """
@@ -1146,7 +1152,13 @@ def _simulate_mandatory_rest(state: 'DriverState', current_time: float) -> float
         float: Rest duration in minutes (negative if infeasible)
     """
     # Determine what type of rest is needed
-    needs_weekly_rest = state.time_since_weekly_rest >= 144 * 60
+    # Fix for critical bug identified in TODO2.md section 10.4:
+    # Must check ALL weekly rest triggers, not just time elapsed
+    needs_weekly_rest = (
+        state.time_since_weekly_rest >= 144 * 60 or  # 144 hours since weekly rest
+        state.drive_this_week >= state.MAX_DRIVE_PER_WEEK or  # 56 hours weekly driving limit
+        (state.drive_this_week + state.drive_last_week) >= state.MAX_DRIVE_TWO_WEEKS  # 90 hours bi-weekly limit
+    )
     needs_daily_rest = (state.time_in_daily_period >= 24 * 60 or
                        state.drive_today >= _get_max_drive_today(state) or
                        state.work_today >= _get_max_work_today(state))
@@ -1306,11 +1318,17 @@ def _calculate_travel_time_between_tasks(task1, task2, vehicle=None) -> float:
         Travel time in minutes
     """
     try:
-        from .route_provider import calculate_travel_time_between_tasks
+        try:
+            from .route_provider import calculate_travel_time_between_tasks
+        except ImportError:
+            from route_provider import calculate_travel_time_between_tasks
         
         # Use default vehicle if none provided
         if vehicle is None:
-            from .epdt_data_structures import Vehicle
+            try:
+                from .epdt_data_structures import Vehicle
+            except ImportError:
+                from epdt_data_structures import Vehicle
             vehicle = Vehicle(id="default", depot_id="default", 
                             weight_capacity=1000, volume_capacity=10, 
                             vehicle_type="standard")

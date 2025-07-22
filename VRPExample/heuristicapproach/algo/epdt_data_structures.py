@@ -220,7 +220,7 @@ class Route:
             return self._is_feasible_cached
         
         # Import here to avoid circular imports
-        from .second_level import is_feasible
+        from second_level import is_feasible
         self._is_feasible_cached = is_feasible(self)
         return self._is_feasible_cached
     
@@ -376,7 +376,7 @@ class Solution:
         
         # Import here to avoid circular imports
         try:
-            from .first_level import calculate_z1_score
+            from first_level import calculate_z1_score
             self._cached_z1_score = calculate_z1_score(self)
         except ImportError:
             # Fallback calculation if first_level module not available

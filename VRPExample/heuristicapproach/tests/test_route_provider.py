@@ -60,7 +60,7 @@ def test_route_provider_basic():
     if route_data:
         print(f"✅ Route data retrieved:")
         print(f"   Distance: {route_data['distance_km']:.2f} km")
-        print(f"   Base duration: {route_data['base_duration_minutes']:.2f} minutes")
+        print(f"   Base duration: {route_data['duration_minutes']:.2f} minutes")
         print(f"   Road composition: {len(route_data['road_composition'])} road types")
         
         # Test caching - should be faster second time
@@ -180,20 +180,20 @@ def test_database_caching():
     
     test_route_data = {
         'distance_km': 150.5,
-        'base_duration_minutes': 120.0,
+        'duration_minutes': 120.0,
         'road_composition': {'motorway': 85.0, 'primary': 15.0},
         'route_geometry': {'type': 'LineString', 'coordinates': [[9.0, 45.0], [12.0, 41.0]]}
     }
     
     cursor.execute("""
         INSERT INTO routes 
-        (start_node_id, end_node_id, distance_km, base_duration_minutes, 
+        (start_node_id, end_node_id, distance_km, duration_minutes, 
          road_composition_json, route_geometry_json)
         VALUES (?, ?, ?, ?, ?, ?)
     """, (
         "test_start", "test_end",
         test_route_data['distance_km'],
-        test_route_data['base_duration_minutes'],
+        test_route_data['duration_minutes'],
         json.dumps(test_route_data['road_composition']),
         json.dumps(test_route_data['route_geometry'])
     ))
@@ -207,12 +207,12 @@ def test_database_caching():
     if cached_data:
         print("✅ Successfully retrieved data from cache:")
         print(f"   Distance: {cached_data['distance_km']} km")
-        print(f"   Duration: {cached_data['base_duration_minutes']} minutes")
+        print(f"   Duration: {cached_data['duration_minutes']} minutes")
         print(f"   Road composition: {cached_data['road_composition']}")
         
         # Verify data integrity
         if (cached_data['distance_km'] == test_route_data['distance_km'] and
-            cached_data['base_duration_minutes'] == test_route_data['base_duration_minutes']):
+            cached_data['duration_minutes'] == test_route_data['duration_minutes']):
             print("✅ Cache data integrity verified")
         else:
             print("❌ Cache data mismatch")

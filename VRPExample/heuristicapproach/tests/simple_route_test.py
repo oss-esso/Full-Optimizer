@@ -23,7 +23,7 @@ def simple_test():
         print(f"Result type: {type(result)}")
         if result:
             print(f"Distance: {result.get('distance_km')}")
-            print(f"Duration: {result.get('base_duration_minutes')}")
+            print(f"Duration: {result.get('duration_minutes')}")
             print(f"Composition: {result.get('road_composition')}")
         else:
             print("No result returned")
