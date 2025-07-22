@@ -686,3 +686,7 @@ get_route_road_composition(start, end)
         3.  Use `_sort_tasks_chronologically` to verify that the tasks are correctly re-ordered to (Task 1 -> Task 3 -> Task 2).
         4.  Simulate the route execution using the advanced HoS simulation.
         5.  Verify that the `current_time` at each step correctly reflects the waiting times and travel times, and that the time window checks pass. For example, after Task 3, there should be a significant waiting period (overnight) before the simulation proceeds to Task 2.
+
+- [ ] **Integrate Time Window Tests into Test Runner:**
+    - **Action:** Enhance `tests/run_scenario_test.py` to include a test case for multi-day time windows.
+    - **Details:** The test should load a scenario with calendarized time windows and verify that the final solution is valid and that all time constraints are respected by the feasibility check.

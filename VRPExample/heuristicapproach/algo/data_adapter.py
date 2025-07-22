@@ -207,14 +207,15 @@ def _create_task_from_location(task_id: str, location_id: str, location: Locatio
     time_window_start = getattr(location, 'time_window_start', None)
     time_window_end = getattr(location, 'time_window_end', None)
     
-    # Convert hours to minutes if needed
+    # Multi-day time windows are stored as (day_index * 1440) + time_in_minutes
+    # Keep the values as-is since they're already in the correct multi-day format
     if time_window_start is not None and time_window_start > 0:
-        earliest_time = time_window_start if time_window_start < 1440 else time_window_start / 60
+        earliest_time = time_window_start  # Already in minutes from day 0
     else:
         earliest_time = None
         
     if time_window_end is not None and time_window_end > 0:
-        latest_time = time_window_end if time_window_end < 1440 else time_window_end / 60
+        latest_time = time_window_end  # Already in minutes from day 0
     else:
         latest_time = None
     

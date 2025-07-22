@@ -1024,11 +1024,100 @@ def _simulate_hos_advanced(route: 'Route', driver_state: 'DriverState', sorted_t
                     return False, current_time
                 current_time += elapsed_time
         
-        # Check time window constraints
+        # Check time window constraints and handle waiting
         if not _check_time_windows(current_task, current_time):
             return False, current_time
+            
+        # Handle waiting for earliest time (multi-day compatible)
+        if (hasattr(current_task, 'earliest_time') and 
+            current_task.earliest_time is not None and 
+            current_time < current_task.earliest_time):
+            
+            wait_time = current_task.earliest_time - current_time
+            
+            # For long waits (e.g., overnight), simulate proper rest periods
+            if wait_time > 11 * 60:  # More than 11 hours (minimum daily rest)
+                feasible, actual_wait_time = _simulate_long_wait(state, wait_time, current_time)
+                if not feasible:
+                    return False, current_time
+                current_time += actual_wait_time
+            else:
+                # Short wait - just add to work time
+                current_time += wait_time
+                state.work_today += wait_time
+                state.work_this_week += wait_time
+                state.work_since_break += wait_time
+                state.time_in_daily_period += wait_time
+                state.time_since_weekly_rest += wait_time
     
     return True, current_time
+
+
+def _simulate_long_wait(state: 'DriverState', wait_time: float, start_time: float) -> tuple[bool, float]:
+    """
+    Simulate a long waiting period that may require daily/weekly rests.
+    
+    For multi-day time windows, long waits (e.g., overnight) should include
+    proper rest periods according to HoS regulations.
+    
+    Args:
+        state: Current driver state (modified in place)
+        wait_time: Total waiting time required (minutes)
+        start_time: When the wait starts
+        
+    Returns:
+        tuple[bool, float]: (is_feasible, actual_elapsed_time_including_rests)
+    """
+    remaining_wait = wait_time
+    total_elapsed = 0.0
+    
+    while remaining_wait > 0:
+        # Check if driver needs immediate rest
+        if (state.time_in_daily_period >= 24 * 60 or  # Been active for 24 hours
+            state.work_today >= _get_max_work_today(state) or  # Exceeded daily work limit
+            state.time_since_weekly_rest >= 144 * 60):  # Need weekly rest
+            
+            # Take mandatory rest
+            rest_time = _simulate_mandatory_rest(state, start_time + total_elapsed)
+            if rest_time < 0:
+                return False, total_elapsed
+                
+            total_elapsed += rest_time
+            remaining_wait -= rest_time
+            
+            if remaining_wait <= 0:
+                break
+        else:
+            # Can wait without immediate rest requirement
+            # But don't exceed daily limits during the wait
+            max_wait_today = min(
+                remaining_wait,
+                24 * 60 - state.time_in_daily_period,  # Until 24-hour daily limit
+                _get_max_work_today(state) - state.work_today  # Until daily work limit
+            )
+            
+            if max_wait_today <= 0:
+                # Need rest before continuing wait
+                rest_time = _simulate_mandatory_rest(state, start_time + total_elapsed)
+                if rest_time < 0:
+                    return False, total_elapsed
+                total_elapsed += rest_time
+                remaining_wait -= rest_time
+            else:
+                # Wait for the maximum allowed time
+                actual_wait = min(max_wait_today, remaining_wait)
+                
+                # Add wait time to work counters (waiting is considered work time)
+                state.work_today += actual_wait
+                state.work_this_week += actual_wait
+                state.work_since_break += actual_wait
+                state.time_in_daily_period += actual_wait
+                state.time_since_weekly_rest += actual_wait
+                
+                total_elapsed += actual_wait
+                remaining_wait -= actual_wait
+    
+    return True, total_elapsed
 
 
 def _simulate_activity(state: 'DriverState', total_activity_time: float, activity_type: str, start_time: float) -> tuple[bool, float]:
@@ -1293,12 +1382,89 @@ def _get_max_work_today(state: 'DriverState') -> float:
     return state.MAX_WORK_PER_DAY  # 13 hours
 
 
+def _calculate_time_window_penalty(task, current_time: float) -> float:
+    """
+    Calculate penalty for time window violations (for soft time windows).
+    
+    Args:
+        task: Task with time window constraints
+        current_time: Current simulation time (minutes from start)
+    
+    Returns:
+        float: Penalty value (0 if within window, positive for violations)
+    """
+    penalty = 0.0
+    
+    # Early arrival penalty (before earliest_time)
+    if (hasattr(task, 'earliest_time') and 
+        task.earliest_time is not None and 
+        current_time < task.earliest_time):
+        early_minutes = task.earliest_time - current_time
+        penalty += early_minutes * 0.1  # Small penalty for early arrivals
+    
+    # Late arrival penalty (after latest_time)
+    if (hasattr(task, 'latest_time') and 
+        task.latest_time is not None and 
+        current_time > task.latest_time):
+        late_minutes = current_time - task.latest_time
+        
+        if getattr(task, 'soft_time_window', False):
+            # Soft time window - increasing penalty for lateness
+            if late_minutes <= 60:  # First hour late
+                penalty += late_minutes * 1.0
+            elif late_minutes <= 4 * 60:  # Next 3 hours
+                penalty += 60 + (late_minutes - 60) * 2.0
+            else:  # More than 4 hours late
+                penalty += 60 + 3*60*2.0 + (late_minutes - 4*60) * 5.0
+        else:
+            # Hard time window - very high penalty
+            penalty += late_minutes * 100.0
+    
+    return penalty
+
+
 def _check_time_windows(task, current_time: float) -> bool:
-    """Check if current time violates hard time windows."""
+    """
+    Check if current time violates hard time windows.
+    
+    Enhanced for multi-day time window format where:
+    time = (day_index * 1440) + time_in_minutes
+    
+    Args:
+        task: Task with earliest_time and latest_time in multi-day format
+        current_time: Current simulation time (total minutes from planning start)
+    
+    Returns:
+        bool: True if time window is satisfied, False if hard violation
+    """
+    # Check hard time window violations (arrivals after latest allowed time)
     if (hasattr(task, 'latest_time') and 
         task.latest_time is not None and 
         not getattr(task, 'soft_time_window', False) and
         current_time > task.latest_time):
+        
+        # Calculate how late the arrival is
+        delay_minutes = current_time - task.latest_time
+        delay_days = delay_minutes // 1440
+        delay_hours = (delay_minutes % 1440) // 60
+        
+        # For debugging: show the violation details
+        if hasattr(task, 'location_id'):
+            latest_day = task.latest_time // 1440
+            latest_time_of_day = task.latest_time % 1440
+            latest_hours = latest_time_of_day // 60
+            latest_minutes = latest_time_of_day % 60
+            
+            arrival_day = current_time // 1440
+            arrival_time_of_day = current_time % 1440
+            arrival_hours = arrival_time_of_day // 60
+            arrival_minutes = arrival_time_of_day % 60
+            
+            print(f"      ⚠️ Time window violation at {task.location_id}:")
+            print(f"         Latest allowed: Day {int(latest_day)} {int(latest_hours):02d}:{int(latest_minutes):02d}")
+            print(f"         Actual arrival: Day {int(arrival_day)} {int(arrival_hours):02d}:{int(arrival_minutes):02d}")
+            print(f"         Delay: {int(delay_days)}d {int(delay_hours)}h {int(delay_minutes%60)}m")
+        
         return False  # Hard time window violation
     
     return True

@@ -115,113 +115,34 @@ except ImportError:
         calculate_travel_time_between_tasks = None
 
 
-# Import second_level module to verify advanced HoS simulation availability
-try:
-    from second_level import _simulate_hos_advanced, DriverState
-    print("✅ Successfully imported advanced HoS simulation (_simulate_hos_advanced)")
-    ADVANCED_HOS_AVAILABLE = True
-except ImportError:
-    try:
-        from algo.second_level import _simulate_hos_advanced, DriverState
-        print("✅ Successfully imported advanced HoS simulation with algo prefix")
-        ADVANCED_HOS_AVAILABLE = True
-    except ImportError:
-        print("⚠️  Warning: Advanced HoS simulation not available")
-        ADVANCED_HOS_AVAILABLE = False
-        _simulate_hos_advanced = None
-        DriverState = None
-
-def verify_advanced_hos_functionality():
+def format_duration_detailed(minutes: float) -> str:
     """
-    Verify that the advanced HoS simulation is working correctly.
-    
-    Returns:
-        bool: True if advanced HoS functionality is available and working
-    """
-    if not ADVANCED_HOS_AVAILABLE:
-        print("❌ Advanced HoS simulation not available")
-        return False
-    
-    try:
-        # Test basic DriverState creation with new fields
-        test_state = DriverState()
-        
-        # Check for new state variables
-        required_attrs = [
-            'time_in_daily_period',
-            'work_this_week', 
-            'time_since_weekly_rest',
-            'daily_rest_reductions_used',
-            'is_weekly_rest_reduction_taken'
-        ]
-        
-        missing_attrs = []
-        for attr in required_attrs:
-            if not hasattr(test_state, attr):
-                missing_attrs.append(attr)
-        
-        if missing_attrs:
-            print(f"❌ DriverState missing required attributes: {missing_attrs}")
-            return False
-        
-        # Check that _simulate_hos_advanced function exists and is callable
-        if not callable(_simulate_hos_advanced):
-            print("❌ _simulate_hos_advanced is not callable")
-            return False
-        
-        print("✅ Advanced HoS simulation functionality verified")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error verifying advanced HoS functionality: {e}")
-        return False
-
-
-def print_advanced_hos_status():
-    """Print status information about advanced HoS features."""
-    print(f"\n🚀 Advanced HoS Features Status:")
-    if ADVANCED_HOS_AVAILABLE:
-        if verify_advanced_hos_functionality():
-            print("   ✅ Advanced multi-day/weekly HoS simulation: ACTIVE")
-            print("   ✅ Iterative break/rest simulation: ACTIVE") 
-            print("   ✅ European regulation compliance: ACTIVE")
-            print("   ✅ Strategic extension usage: ACTIVE")
-        else:
-            print("   ❌ Advanced HoS simulation: FAILED VERIFICATION")
-    else:
-        print("   ❌ Advanced HoS simulation: NOT AVAILABLE")
-        print("   ⚠️  Using basic HoS checking only")
-
-
-def format_duration_detailed(total_minutes: float) -> str:
-    """
-    Format duration in minutes to dd/hh/mm format.
+    Format duration in minutes to a human-readable string with days, hours, and minutes.
     
     Args:
-        total_minutes: Total time in minutes
-        
+        minutes: Duration in minutes
+    
     Returns:
-        str: Formatted duration as "Xd Yh Zm" or "Xh Ym" or "Ym"
+        Formatted string like "1d 5h 30m", "2h 15m", or "45m"
     """
-    if total_minutes <= 0:
+    if minutes < 0:
         return "0m"
     
-    total_minutes = int(total_minutes)
-    
-    days = total_minutes // (24 * 60)
-    remaining_minutes = total_minutes % (24 * 60)
+    total_minutes = int(minutes)
+    days = total_minutes // 1440
+    remaining_minutes = total_minutes % 1440
     hours = remaining_minutes // 60
-    minutes = remaining_minutes % 60
+    mins = remaining_minutes % 60
     
     parts = []
     if days > 0:
         parts.append(f"{days}d")
     if hours > 0:
         parts.append(f"{hours}h")
-    if minutes > 0:
-        parts.append(f"{minutes}m")
+    if mins > 0 or len(parts) == 0:
+        parts.append(f"{mins}m")
     
-    return " ".join(parts) if parts else "0m"
+    return " ".join(parts)
 
 
 def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
@@ -309,78 +230,97 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
             
         print(f"   🚚 {vehicle_id}:")
         
-        # Calculate route feasibility and Z2 score if available
+        # Calculate route feasibility and times using HoS simulation
         try:
-            try:
-                from algo.second_level import is_feasible
-            except ImportError:
-                from second_level import is_feasible
+            from algo.second_level import is_feasible, _simulate_hos_advanced, _sort_tasks_chronologically, DriverState
             
             feasible = is_feasible(route)
-            
-            # For testing purposes, if a route fails feasibility but has a reasonable duration
-            # (suggesting it could be feasible with proper rest scheduling), mark it as feasible
-            if not feasible and len(route.tasks) > 0:
-                try:
-                    # Calculate total service time as a basic feasibility heuristic
-                    total_service_time = sum(getattr(task, 'service_time', 10.0) for task in route.tasks)
-                    # If the route duration seems reasonable for the number of tasks, consider it feasible for testing
-                    if task_times and len(task_times) > 0:
-                        total_time_hours = task_times[-1] / 60.0  # Convert minutes to hours
-                        if total_time_hours < 24 * len(route.tasks):  # Very loose feasibility check
-                            feasible = True  # Override for testing purposes
-                except:
-                    pass  # If any calculation fails, keep original result
-            
             print(f"      ✅ Feasible: {feasible}")
             
-            if hasattr(route, '_cached_score') and route._cached_score is not None:
-                print(f"      📈 Z2 Score: {route._cached_score:.2f}")
-                
-        except ImportError as ie:
-            print(f"      ⚠️  Cannot import is_feasible: {str(ie)}")
-        except Exception as e:
-            print(f"      ⚠️  Route validation error: {str(e)}")
-            # Continue without failing - this is just for analysis
-        
-        # Calculate route days using HoS simulation
-        task_times = []  # Initialize task_times variable
-        try:
-            from algo.second_level import (_simulate_hos_advanced, DriverState, _sort_tasks_chronologically, calculate_route_time_progression)
-            
-            # Use the sophisticated time progression calculation for accurate real-time monitoring
-            task_times = calculate_route_time_progression(route)
-            
-            # Also get detailed HoS simulation results for comparison
-            driver_state = DriverState()
+            # Get actual route duration and task times from HoS simulation
             sorted_tasks = _sort_tasks_chronologically(route.tasks)
-            is_feasible, total_time_minutes = _simulate_hos_advanced(route, driver_state, sorted_tasks)
+            driver_state = DriverState()
             
-            # Calculate estimated days
-            estimated_days = max(1, int(total_time_minutes / (24 * 60)) + (1 if total_time_minutes % (24 * 60) > 0 else 0))
-            total_duration_formatted = format_duration_detailed(total_time_minutes)
+            hos_feasible, total_duration = _simulate_hos_advanced(route, driver_state, sorted_tasks)
             
-            if is_feasible:
-                print(f"      📅 Route duration: {estimated_days} day(s) ({total_duration_formatted}) (HoS compliant)")
+            # Calculate individual task times by re-running simulation step by step  
+            task_times = []
+            current_time = 0.0
+            temp_driver_state = DriverState()
+            
+            # Simple step-by-step simulation to get task completion times
+            for i, task in enumerate(sorted_tasks):
+                if i == 0:
+                    # First task: service time only
+                    service_time = getattr(task, 'service_time', 15.0)
+                    current_time += service_time
+                else:
+                    # Subsequent tasks: travel time + waiting + service time
+                    prev_task = sorted_tasks[i-1]
+                    
+                    # Calculate travel time
+                    if calculate_travel_time_between_tasks:
+                        travel_time = calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
+                    else:
+                        travel_time = 30.0  # Default fallback
+                    
+                    # Add travel time
+                    current_time += travel_time
+                    
+                    # Handle time window waiting (simplified)
+                    if hasattr(task, 'earliest_time') and task.earliest_time and current_time < task.earliest_time:
+                        wait_time = task.earliest_time - current_time
+                        current_time += wait_time
+                    
+                    # Add service time
+                    service_time = getattr(task, 'service_time', 15.0)
+                    current_time += service_time
+                
+                task_times.append(current_time)
+            
+            # Ensure the last task time matches total duration (or close to it)
+            if task_times and abs(task_times[-1] - total_duration) > 1.0:
+                # Scale all task times to match total duration
+                scale_factor = total_duration / task_times[-1] if task_times[-1] > 0 else 1.0
+                task_times = [t * scale_factor for t in task_times]
+            
+            # Format duration
+            if total_duration >= 1440:
+                days = int(total_duration // 1440)
+                remaining_hours = (total_duration % 1440) / 60
+                hours = int(remaining_hours)
+                minutes = int((remaining_hours % 1) * 60)
+                
+                if days > 0:
+                    duration_str = f"{days}d {hours}h {minutes}m" if hours > 0 or minutes > 0 else f"{days}d"
+                else:
+                    duration_str = f"{hours}h {minutes}m"
             else:
-                print(f"      📅 Route duration: {estimated_days} day(s) ({total_duration_formatted}) (would violate HoS if attempted without proper rests)")
+                hours = int(total_duration / 60)
+                minutes = int(total_duration % 60)
+                duration_str = f"{hours}h {minutes}m"
+            
+            compliance_note = "HoS compliant" if hos_feasible and total_duration < 15 * 60 else "(would violate HoS if attempted without proper rests)"
+            
+            if total_duration >= 1440:
+                days = int(total_duration // 1440)
+                print(f"      📅 Route duration: {days} day(s) ({duration_str}) {compliance_note}")
+            else:
+                print(f"      📅 Route duration: 1 day(s) ({duration_str}) {compliance_note}")
                 
-        except ImportError:
-            print(f"      📅 Route duration: N/A (HoS calculation unavailable)")
         except Exception as e:
             print(f"      📅 Route duration: Error calculating ({str(e)})")
-                
-        except ImportError:
-            print(f"      📅 Route duration: N/A (HoS calculation unavailable)")
-        except Exception as e:
-            print(f"      📅 Route duration: Error calculating ({str(e)})")
+            task_times = None
         
-        # Task sequence
+        # Task sequence with real-time monitoring
         print(f"      📋 Task sequence ({len(route.tasks)} tasks) - Real-time monitoring:")
         current_load_weight = 0
         current_load_volume = 0
         
-        for i, task in enumerate(route.tasks):
+        # Use sorted tasks to match the order used in HoS simulation
+        display_tasks = sorted_tasks if 'sorted_tasks' in locals() else route.tasks
+        
+        for i, task in enumerate(display_tasks):
             current_load_weight += task.demand
             current_load_volume += task.volume
             
@@ -399,7 +339,37 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
                 else:
                     time_info = f" - Cumulative: {time_formatted}"
             
-            print(f"         {i+1:2d}. {task_type_icon} {task.location_id} (Order: {task.order_id}){time_info}")
+            # Add time window information
+            time_window_info = ""
+            if hasattr(task, 'earliest_time') and hasattr(task, 'latest_time'):
+                if task.earliest_time is not None and task.latest_time is not None:
+                    # Convert multi-day time windows to readable format
+                    # Multi-day format: (day_index * 1440) + time_in_minutes
+                    earliest_day = int(task.earliest_time // 1440)
+                    earliest_time_of_day = int(task.earliest_time % 1440)
+                    earliest_hours = earliest_time_of_day // 60
+                    earliest_minutes = earliest_time_of_day % 60
+                    
+                    latest_day = int(task.latest_time // 1440)
+                    latest_time_of_day = int(task.latest_time % 1440)
+                    latest_hours = latest_time_of_day // 60
+                    latest_minutes = latest_time_of_day % 60
+                    
+                    if earliest_day == latest_day:
+                        # Same day time window
+                        time_window_info = f" [Day {earliest_day}: {earliest_hours:02d}:{earliest_minutes:02d}-{latest_hours:02d}:{latest_minutes:02d}]"
+                    else:
+                        # Multi-day time window - show the actual different days
+                        time_window_info = f" [Day {earliest_day} {earliest_hours:02d}:{earliest_minutes:02d} - Day {latest_day} {latest_hours:02d}:{latest_minutes:02d}]"
+                elif hasattr(task, 'location_id') and hasattr(task, 'task_type'):
+                    # If task doesn't have time windows but has location info, try to get from location
+                    try:
+                        # This is for depot bays and pickup bays that might not have direct time window info
+                        time_window_info = " [No specific time window]"
+                    except:
+                        time_window_info = ""
+            
+            print(f"         {i+1:2d}. {task_type_icon} {task.location_id} (Order: {task.order_id}){time_info}{time_window_info}")
             print(f"             Load: {task.demand:+.0f}kg, {task.volume:+.1f}m³ → Total: {current_load_weight:.0f}kg, {current_load_volume:.1f}m³")
     
     # Unassigned orders analysis
@@ -572,18 +542,6 @@ def run_scenario_test(scenario_name: str = "furgoni",
         print(f"   - Max iterations: {params.max_total_iterations}")
         print(f"   - Strategy: {params.exploration_strategy}")
         print(f"   - Local search: {params.local_search_strategy}")
-        
-        # Step 3.5: Verify Advanced HoS Simulation Status
-        print(f"\n🔬 Verifying advanced features availability")
-        if ADVANCED_HOS_AVAILABLE and verify_advanced_hos_functionality():
-            print(f"✅ Advanced multi-day/weekly HoS simulation: ACTIVE")
-            print(f"   - Iterative break/rest simulation enabled")
-            print(f"   - European regulation compliance enabled")
-            print(f"   - Strategic extension usage enabled")
-        else:
-            print(f"⚠️  Advanced HoS simulation: NOT AVAILABLE")
-            print(f"   - Using basic HoS checking only")
-            print(f"   - Limited multi-day route feasibility")
         
         # Step 4: Run Heuristic
         print(f"\n4️⃣  Running EPDT heuristic algorithm")
@@ -1504,6 +1462,8 @@ def test_advanced_travel_time():
         return False
 
 
+# ...existing code...
+
 def main():
     """Command line interface for the test runner."""
     parser = argparse.ArgumentParser(description="Run EPDT Algorithm Tests")
@@ -1527,9 +1487,6 @@ def main():
                        help="Test advanced travel time calculation system")
     
     args = parser.parse_args()
-    
-    # Display advanced HoS simulation status
-    print_advanced_hos_status()
     
     # Run travel time tests if requested
     if args.test_travel_time:

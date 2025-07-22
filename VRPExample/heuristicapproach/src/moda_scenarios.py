@@ -115,55 +115,77 @@ def create_furgoni_scenario(average_speed_kmh=70) -> VRPInstance:
         vehicle.max_total_work_time = max_total_work_time
         instance.add_vehicle(vehicle)
     
-    # Delivery and pickup addresses with time windows from Excel
+    # Delivery and pickup addresses with multi-day time windows (very relaxed for testing)
     # Format: (location_id, address, lon, lat, tw_start, tw_end, service_time, is_pickup)
+    # Using multi-day format: (day_index * 1440) + time_in_minutes
     locations_data = [
-        # FURGONE 1 (1 delivery - 750kg total)
-        ("schonaich_de", "gentile gusto carl Zeiss Str. 4 71101 Schonaich DE", 9.0000, 48.6667, 0, 1440, 30, False),
-        ("malmoe_sweden", "malmoe sweden menarini diag.slr", 13.0038, 55.6050, 0, 1440, 30, False),
-        # FURGONE 2 (4 deliveries - 831kg each for 3.3T total)
-        ("salvazzano_pd", "Via Pelosa 20 35030 Salvazzano Dentro PD", 11.7833, 45.3833, 0, 1440, 20, False),
-        ("badia_polesine_ro", "Via L. Da Vinci 537 45021 Badia Polesine RO", 11.5000, 45.1167, 0, 1440, 20, False),
-        ("badia_polesine_ro_2", "Via L. Da Vinci 537 45021 Badia Polesine RO", 11.5000, 45.1167, 0, 1440, 20, False),
-        ("marostica_vi", "via Milano 1 36063 Marostica VI", 11.6500, 45.7500, 0, 1440, 20, False),
+        # Day 0-1: Local/nearby deliveries (FURGONE routes)
+        ("schonaich_de", "gentile gusto carl Zeiss Str. 4 71101 Schonaich DE", 9.0000, 48.6667, 
+         0*1440+480, 1*1440+1080, 30, False),  # Day 0 8:00 AM - Day 1 6:00 PM
+        ("malmoe_sweden", "malmoe sweden menarini diag.slr", 13.0038, 55.6050, 
+         0*1440+600, 1*1440+1200, 30, False),  # Day 0 10:00 AM - Day 1 8:00 PM
         
-        # FURGONE 3 (1 delivery - 1500kg total)
-        ("st_martin_crau", "Rue Gay Lussac 3 St. Martin de Crau 13310", 4.8000, 43.6333, 0, 1440, 30, False),
+        # Day 1-2: Regional deliveries  
+        ("salvazzano_pd", "Via Pelosa 20 35030 Salvazzano Dentro PD", 11.7833, 45.3833, 
+         1*1440+480, 2*1440+960, 20, False),   # Day 1 8:00 AM - Day 2 4:00 PM
+        ("badia_polesine_ro", "Via L. Da Vinci 537 45021 Badia Polesine RO", 11.5000, 45.1167, 
+         1*1440+540, 2*1440+1020, 20, False),  # Day 1 9:00 AM - Day 2 5:00 PM
+        ("badia_polesine_ro_2", "Via L. Da Vinci 537 45021 Badia Polesine RO", 11.5000, 45.1167, 
+         1*1440+600, 2*1440+1080, 20, False),  # Day 1 10:00 AM - Day 2 6:00 PM
+        ("marostica_vi", "via Milano 1 36063 Marostica VI", 11.6500, 45.7500, 
+         1*1440+420, 2*1440+900, 20, False),   # Day 1 7:00 AM - Day 2 3:00 PM
         
-        # CAMION 16 T. (2 deliveries)
-        ("sant_olcese_ge", "Piazza Guglielmo Marconi 40 16010 Sant'Olcese GE", 8.9333, 44.5167, 0, 1440, 45, False),
-        ("casarza_ligure_ge", "Via Tangoni 30/32 I-16030 Casarza Ligure GE", 9.4667, 44.2833, 0, 1440, 45, False),
+        # Day 2-3: International/long-distance deliveries
+        ("st_martin_crau", "Rue Gay Lussac 3 St. Martin de Crau 13310", 4.8000, 43.6333, 
+         2*1440+480, 3*1440+1080, 30, False),  # Day 2 8:00 AM - Day 3 6:00 PM
+        ("sant_olcese_ge", "Piazza Guglielmo Marconi 40 16010 Sant'Olcese GE", 8.9333, 44.5167, 
+         2*1440+540, 3*1440+960, 45, False),   # Day 2 9:00 AM - Day 3 4:00 PM
+        ("casarza_ligure_ge", "Via Tangoni 30/32 I-16030 Casarza Ligure GE", 9.4667, 44.2833, 
+         2*1440+600, 3*1440+1020, 45, False),  # Day 2 10:00 AM - Day 3 5:00 PM
         
-        # FURGONE 5 (2 deliveries to same location - 750kg each for 1.5T total)
-        ("quinto_do_anjo", "Quinta De Marquesa 1CCI Portoga 10218 29050-557 Quinto Do Anjo", -8.9000, 38.5667, 0, 1440, 30, False),
-        ("quinto_do_anjo_2", "Quinta De Marquesa 1CCI Portoga 10218 29050-557 Quinto Do Anjo", -8.9000, 38.5667, 0, 1440, 30, False),
-        # FURGONE 6 (1 delivery - 1500kg total)
-        ("paris_fr", "Rue de L'Abbaye 10 PARIGI FR", 2.3522, 48.8566, 0, 1440, 30, False),
+        # Day 3-4: Far international destinations
+        ("quinto_do_anjo", "Quinta De Marquesa 1CCI Portoga 10218 29050-557 Quinto Do Anjo", -8.9000, 38.5667, 
+         3*1440+480, 4*1440+1200, 30, False),  # Day 3 8:00 AM - Day 4 8:00 PM
+        ("quinto_do_anjo_2", "Quinta De Marquesa 1CCI Portoga 10218 29050-557 Quinto Do Anjo", -8.9000, 38.5667, 
+         3*1440+540, 4*1440+1260, 30, False),  # Day 3 9:00 AM - Day 4 9:00 PM
+        ("paris_fr", "Rue de L'Abbaye 10 PARIGI FR", 2.3522, 48.8566, 
+         3*1440+600, 4*1440+1140, 30, False),  # Day 3 10:00 AM - Day 4 7:00 PM
+        ("chiva_spagna", "Poligono I La Pamilla 196 46370 Chiva Spagna", -0.7167, 39.4667, 
+         3*1440+420, 4*1440+1020, 45, False),  # Day 3 7:00 AM - Day 4 5:00 PM
         
-        # CAMION 7.5 T. (1 delivery - 2755kg)
-        ("chiva_spagna", "Poligono I La Pamilla 196 46370 Chiva Spagna", -0.7167, 39.4667, 0, 1440, 45, False),
+        # Day 0-2: Early pickups and local deliveries
+        ("cerro_al_lambro_mi", "Via Autosole 7 20070 Cerro Al Lambro MI", 9.3000, 45.3333, 
+         0*1440+480, 2*1440+960, 20, False),   # Day 0 8:00 AM - Day 2 4:00 PM
+        ("cormano_mi", "via dell'Artigianato 1 20032 Cormano MI", 9.1667, 45.5333, 
+         0*1440+420, 1*1440+900, 20, True),    # Day 0 7:00 AM - Day 1 3:00 PM (pickup)
+        ("sicor_caronno", "Sicor Caronno", 8.9000, 45.6000, 
+         0*1440+360, 1*1440+840, 15, True),    # Day 0 6:00 AM - Day 1 2:00 PM (pickup) 
+        ("ferno_va", "superstrada per Malpensa uscita Cargocity Torre D 5 piano 21010 Ferno VA", 8.7167, 45.6167, 
+         0*1440+300, 1*1440+720, 15, True),    # Day 0 5:00 AM - Day 1 12:00 PM (pickup)
         
-        # FURGONE 8 (1 delivery + 3 pickups with time constraints)
-        ("cerro_al_lambro_mi", "Via Autosole 7 20070 Cerro Al Lambro MI", 9.3000, 45.3333, 0, 1440, 20, False),
-        ("cormano_mi", "via dell'Artigianato 1 20032 Cormano MI", 9.1667, 45.5333, 0, 1440, 20, True),
-        ("sicor_caronno", "Sicor Caronno", 8.9000, 45.6000, 0, 840, 15, True),  # Pickup before 14:00
-        ("ferno_va", "superstrada per Malpensa uscita Cargocity Torre D 5 piano 21010 Ferno VA", 8.7167, 45.6167, 0, 510, 15, True),  # Pickup before 8:30
+        # Day 1-3: Mid-period deliveries
+        ("imperia_1", "via Filippo Airenti 2 18100 Imperia IM", 8.0333, 43.8833, 
+         1*1440+540, 3*1440+960, 20, False),   # Day 1 9:00 AM - Day 3 4:00 PM
+        ("imperia_2", "via Nazionale 356/3 18100 Imperia IM", 8.0333, 43.8833, 
+         1*1440+600, 3*1440+1020, 20, False),  # Day 1 10:00 AM - Day 3 5:00 PM
+        ("villar_cuneo", "via I Maggio 43 Cuneo 12020 Villar San Costanzo", 7.5333, 44.3833, 
+         1*1440+480, 3*1440+900, 20, False),   # Day 1 8:00 AM - Day 3 3:00 PM
+        ("villar_cuneo_2", "via I Maggio 43 Cuneo 12020 Villar San Costanzo", 7.5333, 44.3833, 
+         1*1440+540, 3*1440+960, 20, False),   # Day 1 9:00 AM - Day 3 4:00 PM
+        ("castellalfero_at", "Via Statale 25/A Castell'Alfero 14033 AT", 8.2167, 44.9667, 
+         1*1440+420, 2*1440+1080, 15, True),   # Day 1 7:00 AM - Day 2 6:00 PM (pickup)
         
-        # FURGONE 9 (4 deliveries + 1 pickup)
-        ("imperia_1", "via Filippo Airenti 2 18100 Imperia IM", 8.0333, 43.8833, 0, 1440, 20, False),
-        ("imperia_2", "via Nazionale 356/3 18100 Imperia IM", 8.0333, 43.8833, 0, 1440, 20, False),
-        ("villar_cuneo", "via I Maggio 43 Cuneo 12020 Villar San Costanzo", 7.5333, 44.3833, 0, 1440, 20, False),
-        ("villar_cuneo_2", "via I Maggio 43 Cuneo 12020 Villar San Costanzo", 7.5333, 44.3833, 0, 1440, 20, False),
-        ("castellalfero_at", "Via Statale 25/A Castell'Alfero 14033 AT", 8.2167, 44.9667, 0, 1440, 15, True),
-        
-        # FURGONE 10 (1 delivery + 1 pickup)
-        ("osimo_an", "via Francesco Crispi 2 60027 Osimo AN", 13.4833, 43.4833, 0, 1440, 20, False),
-        ("castelfidardo", "via Jesina 27/P 60022 Castelfidardo", 13.5500, 43.4667, 0, 1440, 15, True),
-        
-        # FURGONE 11 (2 deliveries + 1 pickup)
-        ("somaglia_lo", "strada Provinciale 223 26867 Località Cantonale Somaglia LO", 9.6667, 45.1667, 0, 1440, 20, False),
-        ("capriate_bg", "via Bergamo 61/63 24042 Capriate San Gervasio BG", 9.5333, 45.6000, 0, 1440, 20, False),
-        ("cazzano_bg", "via Cavalier Pietro Radici 19 24026 Cazzano Sant'andrea BG", 9.8000, 45.7500, 0, 1440, 15, True),
+        # Day 2-4: Later period tasks
+        ("osimo_an", "via Francesco Crispi 2 60027 Osimo AN", 13.4833, 43.4833, 
+         2*1440+480, 4*1440+960, 20, False),   # Day 2 8:00 AM - Day 4 4:00 PM
+        ("castelfidardo", "via Jesina 27/P 60022 Castelfidardo", 13.5500, 43.4667, 
+         2*1440+540, 4*1440+1020, 15, True),   # Day 2 9:00 AM - Day 4 5:00 PM (pickup)
+        ("somaglia_lo", "strada Provinciale 223 26867 Località Cantonale Somaglia LO", 9.6667, 45.1667, 
+         2*1440+420, 4*1440+900, 20, False),   # Day 2 7:00 AM - Day 4 3:00 PM
+        ("capriate_bg", "via Bergamo 61/63 24042 Capriate San Gervasio BG", 9.5333, 45.6000, 
+         1*1440+480, 3*1440+1020, 20, False),  # Day 1 8:00 AM - Day 3 5:00 PM
+        ("cazzano_bg", "via Cavalier Pietro Radici 19 24026 Cazzano Sant'andrea BG", 9.8000, 45.7500, 
+         2*1440+600, 4*1440+1080, 15, True),   # Day 2 10:00 AM - Day 4 6:00 PM (pickup)
     ]
     
     # Add all locations with proper attributes (matching MODA format)
