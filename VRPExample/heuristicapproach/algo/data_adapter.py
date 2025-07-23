@@ -127,6 +127,16 @@ def _convert_vehicles(vrp_vehicles: Dict[str, VRPVehicle], locations: Dict[str, 
             break_frequency=break_frequency
         )
         
+        # Set depot coordinates on the vehicle for visualization
+        if depot_id in locations:
+            depot_location = locations[depot_id]
+            epdt_vehicle.depot_lat = getattr(depot_location, 'lat', depot_location.y)
+            epdt_vehicle.depot_lon = getattr(depot_location, 'lon', depot_location.x)
+        else:
+            # Fallback to Asti coordinates if depot not found
+            epdt_vehicle.depot_lat = 44.9009
+            epdt_vehicle.depot_lon = 8.2057
+        
         epdt_vehicles.append(epdt_vehicle)
     
     return epdt_vehicles

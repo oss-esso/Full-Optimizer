@@ -39,21 +39,21 @@ sys.path.insert(0, src_dir)
 sys.path.insert(0, algo_dir)
 
 # Debug path information
-print(f"🔍 Debug: Current working directory: {os.getcwd()}")
-print(f"🔍 Debug: Script directory: {current_dir}")
-print(f"🔍 Debug: Looking for moda_scenarios in: {src_dir}")
-print(f"🔍 Debug: moda_scenarios.py exists: {os.path.exists(os.path.join(src_dir, 'moda_scenarios.py'))}")
+print(f"Debug: Current working directory: {os.getcwd()}")
+print(f"Debug: Script directory: {current_dir}")
+print(f"Debug: Looking for moda_scenarios in: {src_dir}")
+print(f"Debug: moda_scenarios.py exists: {os.path.exists(os.path.join(src_dir, 'moda_scenarios.py'))}")
 
 try:
     # Try different import approaches
     from moda_scenarios import create_furgoni_scenario
-    print("✅ Successfully imported create_furgoni_scenario from moda_scenarios")
+    print("Successfully imported create_furgoni_scenario from moda_scenarios")
 except ImportError:
     try:
         import sys
         sys.path.append(os.path.join(heuristic_root, 'src'))
         from moda_scenarios import create_furgoni_scenario
-        print("✅ Successfully imported create_furgoni_scenario with explicit path")
+        print("Successfully imported create_furgoni_scenario with explicit path")
     except ImportError:
         try:
             # Try importing with full path
@@ -62,9 +62,9 @@ except ImportError:
             moda_scenarios = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(moda_scenarios)
             create_furgoni_scenario = moda_scenarios.create_furgoni_scenario
-            print("✅ Successfully imported create_furgoni_scenario using importlib")
+            print("Successfully imported create_furgoni_scenario using importlib")
         except Exception as e:
-            print(f"❌ Error: Could not import create_furgoni_scenario: {e}")
+            print(f"Error: Could not import create_furgoni_scenario: {e}")
             print("   Make sure moda_scenarios.py is available")
             print(f"   Searched in: {src_dir}")
             sys.exit(1)
@@ -77,7 +77,7 @@ try:
         create_empty_solution,
         print_conversion_summary
     )
-    print("✅ Successfully imported data_adapter functions")
+    print("Successfully imported data_adapter functions")
 except ImportError:
     try:
         from algo.data_adapter import (
@@ -86,18 +86,18 @@ except ImportError:
             create_empty_solution,
             print_conversion_summary
         )
-        print("✅ Successfully imported data_adapter functions with algo prefix")
+        print("Successfully imported data_adapter functions with algo prefix")
     except ImportError as e:
-        print(f"❌ Error: Could not import data_adapter functions: {e}")
+        print(f"Error: Could not import data_adapter functions: {e}")
         sys.exit(1)
 
 try:
     from first_level import l1_heuristic
-    print("✅ Successfully imported l1_heuristic from first_level")
+    print("Successfully imported l1_heuristic from first_level")
 except ImportError:
     try:
         from algo.first_level import l1_heuristic
-        print("✅ Successfully imported l1_heuristic with algo prefix")
+        print("Successfully imported l1_heuristic with algo prefix")
     except ImportError:
         print("⚠️  Warning: l1_heuristic not yet implemented")
         l1_heuristic = None
@@ -105,11 +105,11 @@ except ImportError:
 # Import route provider for travel time calculations
 try:
     from route_provider import calculate_travel_time_between_tasks
-    print("✅ Successfully imported route_provider for travel time calculations")
+    print("Successfully imported route_provider for travel time calculations")
 except ImportError:
     try:
         from algo.route_provider import calculate_travel_time_between_tasks
-        print("✅ Successfully imported route_provider with algo prefix")
+        print("Successfully imported route_provider with algo prefix")
     except ImportError:
         print("⚠️  Warning: route_provider not available, travel times will be estimated")
         calculate_travel_time_between_tasks = None
@@ -278,7 +278,7 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
     unassigned_orders = len(solution.unassigned_orders)
     
     print(f"   📦 Orders assigned: {assigned_orders} / {total_orders} ({assigned_orders/total_orders*100:.1f}%)")
-    print(f"   ❌ Orders unassigned: {unassigned_orders}")
+    print(f"   Orders unassigned: {unassigned_orders}")
     
     # Vehicle utilization analysis
     print(f"\n🚛 Vehicle Usage & Utilization:")
@@ -313,7 +313,7 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
         print(f"      Volume: {avg_volume_util:.1f}%")
     
     # Route details
-    print(f"\n🗺️  Route Details:")
+    print(f"\nRoute Details:")
     for vehicle_id, route in solution.routes.items():
         if not route.tasks:
             print(f"   🚚 {vehicle_id}: Empty route")
@@ -326,7 +326,7 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
             from algo.second_level import is_feasible, _simulate_hos_advanced, _sort_tasks_chronologically, DriverState
             
             feasible = is_feasible(route)
-            print(f"      ✅ Feasible: {feasible}")
+            print(f"      Feasible: {feasible}")
             
             # Get actual route duration and task times from HoS simulation
             sorted_tasks = _sort_tasks_chronologically(route.tasks)
@@ -488,7 +488,7 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
     
     # Unassigned orders analysis
     if solution.unassigned_orders:
-        print(f"\n❌ Unassigned Orders Analysis:")
+        print(f"\nUnassigned Orders Analysis:")
         for order_id in solution.unassigned_orders:
             order = next((o for o in orders if o.id == order_id), None)
             if order:
@@ -522,7 +522,7 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
         print(f"   🚀 Enhancements: None enabled")
     
     print(f"\n" + "="*80)
-    print(f"✅ Solution analysis complete")
+    print(f"Solution analysis complete")
     print(f"="*80)
 
 
@@ -550,7 +550,7 @@ def configure_algorithm_parameters(custom_params_file: Optional[str] = None) -> 
             for key, value in custom_params.items():
                 if hasattr(params, key):
                     setattr(params, key, value)
-                    print(f"   ✅ Set {key} = {value}")
+                    print(f"   Set {key} = {value}")
                 else:
                     print(f"   ⚠️  Unknown parameter: {key}")
         except Exception as e:
@@ -850,8 +850,8 @@ def _create_mock_solution(orders, vehicles):
             from epdt_data_structures import Task, TaskType
         
         # Get depot information (assume depot coordinates are available on vehicle)
-        depot_lat = getattr(vehicle, 'depot_lat', 45.4642)  # Default Milan coordinates
-        depot_lon = getattr(vehicle, 'depot_lon', 9.1900)
+        depot_lat = getattr(vehicle, 'depot_lat', 44.9009)  # Default Asti coordinates
+        depot_lon = getattr(vehicle, 'depot_lon', 8.2057)
         depot_id = getattr(vehicle, 'depot_id', 'depot')
         
         # Create depot return task
@@ -1489,9 +1489,9 @@ def test_advanced_travel_time():
                 self.lon = lon
                 self.location_id = location_id
         
-        depot = TestTask(45.464211, 9.191383, "depot")  # Milan center
-        customer1 = TestTask(45.478611, 9.203472, "customer1")  # Milan north
-        customer2 = TestTask(45.449722, 9.177222, "customer2")  # Milan south
+        depot = TestTask(44.9009, 8.2057, "depot")  # Asti center
+        customer1 = TestTask(44.9109, 8.2157, "customer1")  # Asti north
+        customer2 = TestTask(44.8909, 8.1957, "customer2")  # Asti south
         
         # Create test vehicles
         standard_vehicle = Vehicle(id="std_1", depot_id="depot", 

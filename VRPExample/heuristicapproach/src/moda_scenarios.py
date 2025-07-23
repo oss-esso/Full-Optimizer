@@ -60,12 +60,12 @@ def create_furgoni_scenario(average_speed_kmh=70) -> VRPInstance:
     instance = VRPInstance("Furgoni Delivery Scenario")
     instance.is_realistic = True  # Added missing attribute
     
-    # Create depot location (Milan coordinates)
-    depot = Location("depot", 9.1896, 45.4642, demand=0, 
+    # Create depot location (Asti coordinates)  
+    depot = Location("depot", 8.2057, 44.9009, demand=0, 
                     time_window_start=0, time_window_end=1440, service_time=5)
-    depot.address = "Milan Distribution Center (labeled as Asti)"
-    depot.lat = 45.4642  # Milan latitude
-    depot.lon = 9.1896   # Milan longitude
+    depot.address = "Asti Distribution Center"
+    depot.lat = 44.9009  # Asti latitude
+    depot.lon = 8.2057   # Asti longitude
     instance.add_location(depot)
     
 
@@ -206,6 +206,7 @@ def create_furgoni_scenario(average_speed_kmh=70) -> VRPInstance:
     delivery_cargo = [
         # FURGONE 1
         ("schonaich_de", 750),
+        ("malmoe_sweden", 1500),
         
         # FURGONE 2
         ("salvazzano_pd", 831), 

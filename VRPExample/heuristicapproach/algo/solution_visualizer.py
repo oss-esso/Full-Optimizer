@@ -158,20 +158,12 @@ class EPDTMapVisualizer:
             end_coords_lonlat = (end_coords[1], end_coords[0])
             
             # Try to get route details from cache
-            print(f"🔍 QUERYING cache for {start_node_id}→{end_node_id}")
             route_data = route_provider.get_route_details(
                 start_node_id=start_node_id,
                 end_node_id=end_node_id,
                 start_coords=start_coords_lonlat,
                 end_coords=end_coords_lonlat
             )
-            
-            print(f"🔍 CACHE RESULT: {type(route_data)} - {bool(route_data)}")
-            if route_data:
-                print(f"   Keys: {list(route_data.keys()) if isinstance(route_data, dict) else 'not dict'}")
-                if isinstance(route_data, dict) and 'route_geometry' in route_data:
-                    geom = route_data['route_geometry']
-                    print(f"   Geometry type: {type(geom)} - {bool(geom)}")
             
             if route_data and route_data.get('route_geometry'):
                 geometry = route_data['route_geometry']
@@ -183,13 +175,6 @@ class EPDTMapVisualizer:
                         coordinates = geometry['coordinates']
                         street_route = [[coord[1], coord[0]] for coord in coordinates]
                         
-                        # Debug: Print first 10 points
-                        print(f"✅ CACHED GeoJSON {start_node_id}→{end_node_id} ({len(street_route)} points)")
-                        if len(street_route) >= 10:
-                            print(f"   First 10 points: {street_route[:10]}")
-                        else:
-                            print(f"   All points: {street_route}")
-                        
                         logger.info(f"✅ Using cached GeoJSON route geometry {start_node_id}→{end_node_id} ({len(street_route)} points)")
                         return street_route
                     elif 'encoded' in geometry:
@@ -198,36 +183,19 @@ class EPDTMapVisualizer:
                         street_route = self._decode_polyline(encoded_polyline)
                         
                         if street_route:
-                            print(f"✅ DECODED POLYLINE {start_node_id}→{end_node_id} ({len(street_route)} points)")
-                            if len(street_route) >= 10:
-                                print(f"   First 10 points: {street_route[:10]}")
-                            else:
-                                print(f"   All points: {street_route}")
-                            
                             logger.info(f"✅ Using decoded polyline route geometry {start_node_id}→{end_node_id} ({len(street_route)} points)")
                             return street_route
                         else:
-                            print(f"❌ POLYLINE DECODE FAILED for {start_node_id}→{end_node_id}, falling back to OSRM")
                             logger.warning(f"⚠️  Polyline decode failed for {start_node_id}→{end_node_id}, falling back to OSRM")
                 elif isinstance(geometry, list):
                     # Already in [lat, lon] format
-                    print(f"✅ CACHED LIST {start_node_id}→{end_node_id} ({len(geometry)} points)")
-                    if len(geometry) >= 10:
-                        print(f"   First 10 points: {geometry[:10]}")
-                    else:
-                        print(f"   All points: {geometry}")
-                    
                     logger.info(f"✅ Using cached list route geometry {start_node_id}→{end_node_id} ({len(geometry)} points)")
                     return geometry
-            else:
-                print(f"❌ NO CACHED DATA for {start_node_id}→{end_node_id}")
                     
         except Exception as e:
-            print(f"❌ ERROR getting cached route geometry: {e}")
             logger.warning(f"⚠️  Error getting cached route geometry: {e}")
         
         # Fallback: try OSRM if no cached geometry available
-        print(f"🌐 FALLING BACK TO OSRM for {getattr(start_task, 'location_id', 'unknown')}→{getattr(end_task, 'location_id', 'unknown')}")
         logger.info(f"🌐 No cached geometry found, falling back to OSRM for route {getattr(start_task, 'location_id', 'unknown')}→{getattr(end_task, 'location_id', 'unknown')}")
         if not self.has_routing:
             logger.info(f"📏 OSRM not available, using dotted line fallback")
@@ -459,6 +427,8 @@ class EPDTMapVisualizer:
         
         # Store route information for legend
         route_info = {}
+        vehicle_groups = {}  # Store FeatureGroup for each vehicle
+        vehicle_layer_js_refs = []  # Store JavaScript references to layers
         
         # Process each vehicle route
         for i, (vehicle_id, route) in enumerate(solution.routes.items()):
@@ -466,6 +436,24 @@ class EPDTMapVisualizer:
                 continue
             
             color = self.colors[i % len(self.colors)]
+            
+            # Create a FeatureGroup for this vehicle's elements
+            vehicle_group = folium.FeatureGroup(name=f"Vehicle {vehicle_id}")
+            vehicle_groups[vehicle_id] = vehicle_group
+            
+            # Add JavaScript reference for direct layer access
+            vehicle_layer_js_refs.append(f"'{vehicle_id}': null")  # Will be set after map creation
+        
+        # Process each vehicle route
+        for i, (vehicle_id, route) in enumerate(solution.routes.items()):
+            if not route.tasks:  # Skip empty routes
+                continue
+            
+            color = self.colors[i % len(self.colors)]
+            
+            # Create a FeatureGroup for this vehicle's elements
+            vehicle_group = folium.FeatureGroup(name=f"Vehicle {vehicle_id}")
+            vehicle_groups[vehicle_id] = vehicle_group
             
             # Calculate task arrival times
             task_arrival_times = self._calculate_task_arrival_times(route)
@@ -532,11 +520,10 @@ class EPDTMapVisualizer:
                     popup=popup_text,
                     tooltip=tooltip_text,
                     icon=icon
-                ).add_to(m)
+                ).add_to(vehicle_group)  # Add to vehicle's FeatureGroup instead of map
             
             # Generate route lines
             logger.info(f"Creating route for {vehicle_id} using cached geometries...")
-            print(f"🗺️  Creating route for {vehicle_id} using cached geometries...")
             
             # Start from depot if available
             route_segments = []
@@ -571,7 +558,7 @@ class EPDTMapVisualizer:
                         opacity=0.8,
                         popup=popup_text,
                         className=f'route-{vehicle_id}'
-                    ).add_to(m)
+                    ).add_to(vehicle_group)  # Add to vehicle's FeatureGroup instead of map
                     
                     # Add direction arrow at the end of each segment
                     if self.has_folium_plugins and len(segment) >= 2:
@@ -585,12 +572,15 @@ class EPDTMapVisualizer:
                                 color=color,
                                 fill_color=color,
                                 fill_opacity=0.8
-                            ).add_to(m)
+                            ).add_to(vehicle_group)  # Add to vehicle's FeatureGroup
                         except Exception as e:
                             logger.warning(f"Could not add direction arrow: {e}")
                 
                 except Exception as e:
                     logger.warning(f"Error adding route segment: {e}")
+            
+            # Add the vehicle's FeatureGroup to the map
+            vehicle_group.add_to(m)
         
         # Add layer control
         folium.LayerControl().add_to(m)
@@ -624,10 +614,17 @@ class EPDTMapVisualizer:
         </div>
         '''
         
-        # Add each vehicle's information to the legend
+        # Add "Show All" button
+        legend_html += f'''
+        <div id="vehicle-show-all" style="margin-bottom: 8px; padding: 6px; background-color: #e6f3ff; border: 2px solid #0066cc; border-radius: 4px; cursor: pointer; text-align: center; font-weight: bold; color: #0066cc;" onclick="showAllVehicles()" onmouseover="this.style.backgroundColor='#cce6ff'" onmouseout="this.style.backgroundColor='#e6f3ff'">
+            🚛 Show All Vehicles
+        </div>
+        '''
+        
+        # Add each vehicle's information to the legend as clickable entries
         for vehicle_id, info in route_info.items():
             legend_html += f'''
-            <div style="margin-bottom: 8px; padding: 6px; border-left: 4px solid {info['color']}; background-color: #f9f9f9;">
+            <div id="vehicle-{vehicle_id}" class="vehicle-legend-entry" style="margin-bottom: 8px; padding: 6px; border-left: 4px solid {info['color']}; background-color: #f9f9f9; cursor: pointer; border-radius: 3px; transition: all 0.3s ease;" onclick="toggleVehicle('{vehicle_id}')" onmouseover="if(!this.classList.contains('selected')) this.style.backgroundColor='#e6f7ff'" onmouseout="if(!this.classList.contains('selected')) this.style.backgroundColor='#f9f9f9'">
                 <div style="font-weight: bold; color: {info['color']};">🚚 {vehicle_id}</div>
                 <div style="font-size: 12px; margin-top: 2px;">
                     Type: {info['vehicle_type']}<br>
@@ -639,9 +636,14 @@ class EPDTMapVisualizer:
         
         legend_html += '''
         </div>
+        <hr style="margin: 10px 0; border: none; border-top: 1px solid #ddd;">
         <div style="margin-top: 10px; font-size: 12px; color: #666;">
-            💡 Click markers for details<br>
-            🗺️ Use layer control (top right) to switch map types
+            💡 <strong>Tips:</strong><br>
+            • Click vehicle entries to isolate routes<br>
+            • Double-click map to show all routes<br>
+            • Press Escape key to reset selection<br>
+            🗺️ Click markers for task details<br>
+            🎛️ Use layer control (top right) for map types
         </div>
         </div>
         '''
@@ -649,11 +651,243 @@ class EPDTMapVisualizer:
         # Add the legend to the map
         m.get_root().html.add_child(folium.Element(legend_html))
         
-        # Add JavaScript for enhanced interactivity
-        js_code = '''
+        # Add JavaScript for interactive legend functionality
+        vehicle_ids_js = list(route_info.keys())
+        js_code = f'''
         <script>
-        // Add click handlers for route highlighting (if needed in future)
-        console.log("EPDT Interactive Map Loaded");
+        // Vehicle control functionality - Direct layer reference approach
+        const vehicleIds = {vehicle_ids_js};
+        let selectedVehicle = null;
+        let mapInstance = null;
+        let vehicleLayers = {{}};
+        
+        // Store direct references to vehicle layer elements
+        let vehicleLayerElements = {{}};
+        
+        // Wait for map to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {{
+            setTimeout(function() {{
+                initializeMapAndLayers();
+            }}, 2000); // Increased timeout to ensure all layers are loaded
+        }});
+        
+        function initializeMapAndLayers() {{
+            console.log("=== ENHANCED LAYER DETECTION DEBUG ===");
+            
+            // Get the map instance
+            const mapElements = document.querySelectorAll('[id*="map"]');
+            for (let element of mapElements) {{
+                const mapId = element.id;
+                if (window[mapId] && window[mapId]._container) {{
+                    mapInstance = window[mapId];
+                    console.log("Found map instance:", mapId);
+                    break;
+                }}
+            }}
+            
+            if (!mapInstance) {{
+                console.error("Could not find map instance");
+                return;
+            }}
+            
+            console.log("Map instance found. Available methods:", Object.getOwnPropertyNames(mapInstance).filter(name => typeof mapInstance[name] === 'function').slice(0, 10));
+            
+            // NEW APPROACH: Instead of looking for layers in _layers, let's find them by CSS class
+            console.log("=== TRYING CSS-based approach ===");
+            vehicleIds.forEach(function(vehicleId) {{
+                // Look for elements with route-specific classes
+                const routeElements = document.querySelectorAll('.route-' + vehicleId);
+                console.log("Found route elements for", vehicleId, ":", routeElements.length);
+                
+                if (routeElements.length > 0) {{
+                    vehicleLayerElements[vehicleId] = routeElements;
+                    console.log("✅ Stored CSS elements for vehicle:", vehicleId);
+                }}
+            }});
+            
+            // FALLBACK: Try to find layers through Leaflet's layer control
+            if (mapInstance._controlLayers) {{
+                console.log("Found layer control, examining overlays...");
+                const layerControl = mapInstance._controlLayers;
+                if (layerControl._layers) {{
+                    layerControl._layers.forEach(function(layerInfo, index) {{
+                        if (layerInfo.name) {{
+                            console.log("Layer control entry", index, ":", layerInfo.name);
+                            vehicleIds.forEach(function(vehicleId) {{
+                                if (layerInfo.name === "Vehicle " + vehicleId) {{
+                                    vehicleLayers[vehicleId] = layerInfo.layer;
+                                    console.log("✅ Found layer via control:", vehicleId);
+                                }}
+                            }});
+                        }}
+                    }});
+                }}
+            }}
+            
+            console.log("=== FINAL DETECTION RESULTS ===");
+            console.log("Vehicle layers found:", Object.keys(vehicleLayers));
+            console.log("Vehicle CSS elements found:", Object.keys(vehicleLayerElements));
+            console.log("Expected vehicle IDs:", vehicleIds);
+            
+            // Use whichever method found layers
+            if (Object.keys(vehicleLayers).length > 0) {{
+                console.log("✅ Using Leaflet layer approach");
+            }} else if (Object.keys(vehicleLayerElements).length > 0) {{
+                console.log("✅ Using CSS element approach");
+            }} else {{
+                console.error("❌ No vehicle layers found with any method");
+            }}
+        }}
+        
+        function showAllVehicles() {{
+            console.log("Showing all vehicles...");
+            
+            // Method 1: Show all vehicle layers (if found)
+            vehicleIds.forEach(function(vehicleId) {{
+                const layer = vehicleLayers[vehicleId];
+                if (layer && mapInstance && !mapInstance.hasLayer(layer)) {{
+                    mapInstance.addLayer(layer);
+                    console.log("Added layer for vehicle:", vehicleId);
+                }}
+            }});
+            
+            // Method 2: Show all CSS elements (fallback)
+            vehicleIds.forEach(function(vehicleId) {{
+                const elements = vehicleLayerElements[vehicleId];
+                if (elements) {{
+                    elements.forEach(function(element) {{
+                        element.style.display = '';
+                        element.style.opacity = '0.8';
+                    }});
+                    console.log("Restored CSS elements for vehicle:", vehicleId);
+                }}
+            }});
+            
+            // Reset all legend entries
+            updateLegendStyles(null);
+            
+            // Update show all button
+            const showAllBtn = document.getElementById('vehicle-show-all');
+            if (showAllBtn) {{
+                showAllBtn.style.backgroundColor = '#e6f3ff';
+                showAllBtn.style.border = '2px solid #0066cc';
+                showAllBtn.style.fontWeight = 'bold';
+            }}
+            
+            selectedVehicle = null;
+            console.log("All vehicles restored");
+        }}
+        
+        function toggleVehicle(vehicleId) {{
+            console.log("Toggling vehicle:", vehicleId);
+            
+            if (selectedVehicle === vehicleId) {{
+                // If clicking the same vehicle, show all
+                showAllVehicles();
+                return;
+            }}
+            
+            // Method 1: Hide/show vehicle layers (if available)
+            if (Object.keys(vehicleLayers).length > 0) {{
+                console.log("Using layer-based approach");
+                vehicleIds.forEach(function(id) {{
+                    const layer = vehicleLayers[id];
+                    if (layer && mapInstance) {{
+                        if (id === vehicleId) {{
+                            if (!mapInstance.hasLayer(layer)) {{
+                                mapInstance.addLayer(layer);
+                            }}
+                            console.log("Showed layer for selected vehicle:", id);
+                        }} else {{
+                            if (mapInstance.hasLayer(layer)) {{
+                                mapInstance.removeLayer(layer);
+                            }}
+                            console.log("Hidden layer for vehicle:", id);
+                        }}
+                    }}
+                }});
+            }}
+            
+            // Method 2: Hide/show CSS elements (fallback)
+            if (Object.keys(vehicleLayerElements).length > 0) {{
+                console.log("Using CSS-based approach");
+                vehicleIds.forEach(function(id) {{
+                    const elements = vehicleLayerElements[id];
+                    if (elements) {{
+                        elements.forEach(function(element) {{
+                            if (id === vehicleId) {{
+                                element.style.display = '';
+                                element.style.opacity = '0.8';
+                            }} else {{
+                                element.style.display = 'none';
+                            }}
+                        }});
+                        console.log("Updated CSS for vehicle:", id, id === vehicleId ? "shown" : "hidden");
+                    }}
+                }});
+            }}
+            
+            // Update legend styling
+            updateLegendStyles(vehicleId);
+            
+            // Update show all button
+            const showAllBtn = document.getElementById('vehicle-show-all');
+            if (showAllBtn) {{
+                showAllBtn.style.backgroundColor = '#f8f9fa';
+                showAllBtn.style.border = '2px solid #6c757d';
+                showAllBtn.style.fontWeight = 'normal';
+            }}
+            
+            selectedVehicle = vehicleId;
+            console.log("Vehicle selection complete:", vehicleId);
+        }}
+        
+        function updateLegendStyles(highlightedVehicleId) {{
+            vehicleIds.forEach(function(vehicleId) {{
+                const legendEntry = document.getElementById('vehicle-' + vehicleId);
+                if (legendEntry) {{
+                    if (highlightedVehicleId === vehicleId) {{
+                        // Highlight selected vehicle
+                        legendEntry.classList.add('selected');
+                        legendEntry.style.backgroundColor = '#d4edda';
+                        legendEntry.style.border = '2px solid #28a745';
+                        legendEntry.style.fontWeight = 'bold';
+                        legendEntry.style.opacity = '1.0';
+                    }} else if (highlightedVehicleId !== null) {{
+                        // Dim other vehicles when one is selected
+                        legendEntry.classList.remove('selected');
+                        legendEntry.style.backgroundColor = '#f5f5f5';
+                        legendEntry.style.border = '1px solid #ccc';
+                        legendEntry.style.fontWeight = 'normal';
+                        legendEntry.style.opacity = '0.6';
+                    }} else {{
+                        // Reset to normal when showing all
+                        legendEntry.classList.remove('selected');
+                        legendEntry.style.backgroundColor = '#f9f9f9';
+                        legendEntry.style.border = '';
+                        legendEntry.style.fontWeight = 'normal';
+                        legendEntry.style.opacity = '1.0';
+                    }}
+                }}
+            }});
+        }}
+        
+        // Add double-click to reset functionality
+        document.addEventListener('dblclick', function(e) {{
+            // Only reset if we're not double-clicking on legend items
+            if (!e.target.closest('.vehicle-legend-entry') && selectedVehicle !== null) {{
+                showAllVehicles();
+            }}
+        }});
+        
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {{
+            if (e.key === 'Escape' && selectedVehicle !== null) {{
+                showAllVehicles();
+            }}
+        }});
+        
+        console.log("EPDT Interactive Map with Enhanced Vehicle Controls Loaded");
         </script>
         '''
         m.get_root().html.add_child(folium.Element(js_code))
