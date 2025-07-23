@@ -115,6 +115,87 @@ except ImportError:
         calculate_travel_time_between_tasks = None
 
 
+def calculate_total_time_window_delays(solution):
+    """
+    Calculate the total time window delays across all routes.
+    
+    Args:
+        solution: The solution object containing all routes
+        
+    Returns:
+        tuple: (total_delay_minutes, violations_count, violations_details)
+    """
+    total_delay_minutes = 0.0
+    violations_count = 0
+    violations_details = []
+    
+    try:
+        from algo.second_level import _simulate_hos_advanced, _sort_tasks_chronologically, DriverState
+        
+        for vehicle_id, route in solution.routes.items():
+            if not route.tasks:
+                continue
+                
+            # Get sorted tasks and simulate the route
+            sorted_tasks = _sort_tasks_chronologically(route.tasks)
+            driver_state = DriverState()
+            
+            # Simulate the route to get task arrival times
+            current_time = 0.0
+            
+            for i, task in enumerate(sorted_tasks):
+                if i == 0:
+                    # First task: service time only
+                    service_time = getattr(task, 'service_time', 15.0)
+                    current_time += service_time
+                else:
+                    # Subsequent tasks: travel time + waiting + service time
+                    prev_task = sorted_tasks[i-1]
+                    
+                    # Estimate travel time (using same logic as in print_solution_summary)
+                    try:
+                        from route_provider import calculate_travel_time_between_tasks
+                        travel_time = calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
+                    except:
+                        travel_time = 30.0  # Default fallback
+                    
+                    # Add travel time
+                    current_time += travel_time
+                    
+                    # Check for time window violation before adding waiting time
+                    if hasattr(task, 'latest_time') and task.latest_time is not None:
+                        if current_time > task.latest_time:
+                            # Time window violation detected
+                            delay_minutes = current_time - task.latest_time
+                            total_delay_minutes += delay_minutes
+                            violations_count += 1
+                            
+                            # Store violation details
+                            violations_details.append({
+                                'vehicle_id': vehicle_id,
+                                'task_id': task.id,
+                                'location_id': getattr(task, 'location_id', 'unknown'),
+                                'delay_minutes': delay_minutes,
+                                'latest_allowed': task.latest_time,
+                                'actual_arrival': current_time
+                            })
+                    
+                    # Handle time window waiting (simplified)
+                    if hasattr(task, 'earliest_time') and task.earliest_time and current_time < task.earliest_time:
+                        wait_time = task.earliest_time - current_time
+                        current_time += wait_time
+                    
+                    # Add service time
+                    service_time = getattr(task, 'service_time', 15.0)
+                    current_time += service_time
+                    
+    except Exception as e:
+        print(f"      ⚠️  Error calculating time window delays: {str(e)}")
+        return 0.0, 0, []
+    
+    return total_delay_minutes, violations_count, violations_details
+
+
 def format_duration_detailed(minutes: float) -> str:
     """
     Format duration in minutes to a human-readable string with days, hours, and minutes.
@@ -180,6 +261,16 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
     
     print(f"   ⏱️  Runtime: {runtime_seconds:.2f} seconds")
     print(f"   🚛 Total vehicles used: {solution.get_total_vehicles_used()} / {len(vehicles)}")
+    total_distance = sum(r.get_total_distance() for r in solution.routes.values())
+    print(f"   🛣️  Total distance: {total_distance:.2f} km")
+    
+    # Calculate and display time window delays
+    total_delay_minutes, violations_count, violations_details = calculate_total_time_window_delays(solution)
+    if violations_count > 0:
+        total_delay_formatted = format_duration_detailed(total_delay_minutes)
+        print(f"   ⏰ Time window violations: {violations_count} tasks with total delay of {total_delay_formatted}")
+    else:
+        print(f"   ⏰ Time window violations: None detected")
     
     # Assignment statistics
     total_orders = len(orders)
@@ -375,6 +466,26 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
             print(f"         {i+1:2d}. {task_type_icon} {task.location_id} (Order: {task.order_id}){time_info}{time_window_info}")
             print(f"             Load: {task.demand:+.0f}kg, {task.volume:+.1f}m³ → Total: {current_load_weight:.0f}kg, {current_load_volume:.1f}m³")
     
+    # Time window violations details
+    if violations_count > 0:
+        print(f"\n⚠️  Time Window Violations Details:")
+        for violation in violations_details:
+            delay_formatted = format_duration_detailed(violation['delay_minutes'])
+            latest_day = int(violation['latest_allowed'] // 1440)
+            latest_time_of_day = int(violation['latest_allowed'] % 1440)
+            latest_hours = latest_time_of_day // 60
+            latest_minutes = latest_time_of_day % 60
+            
+            arrival_day = int(violation['actual_arrival'] // 1440)
+            arrival_time_of_day = int(violation['actual_arrival'] % 1440)
+            arrival_hours = arrival_time_of_day // 60
+            arrival_mins = arrival_time_of_day % 60
+            
+            print(f"   🚚 {violation['vehicle_id']} - {violation['location_id']}:")
+            print(f"      Latest allowed: Day {latest_day} {latest_hours:02d}:{latest_minutes:02d}")
+            print(f"      Actual arrival: Day {arrival_day} {arrival_hours:02d}:{arrival_mins:02d}")
+            print(f"      Delay: {delay_formatted}")
+    
     # Unassigned orders analysis
     if solution.unassigned_orders:
         print(f"\n❌ Unassigned Orders Analysis:")
@@ -568,6 +679,33 @@ def run_scenario_test(scenario_name: str = "furgoni",
         if save_output:
             print(f"\n6️⃣  Saving results")
             save_results(solution, orders, vehicles, params, algorithm_runtime)
+            
+            # Generate interactive map visualization
+            print(f"\n7️⃣  Generating interactive map")
+            try:
+                from algo.solution_visualizer import create_interactive_map
+                
+                # Create map filename with scenario name and timestamp
+                timestamp = int(time.time())
+                map_filename = f"{scenario_name}_solution_map_{timestamp}.html"
+                map_path = os.path.join("results", map_filename)
+                
+                # Generate the map
+                created_map_path = create_interactive_map(solution, map_path)
+                
+                if created_map_path:
+                    print(f"🗺️  Interactive map saved to: {created_map_path}")
+                    # Get absolute path for easier access
+                    abs_map_path = os.path.abspath(created_map_path)
+                    print(f"🌐 Open in browser: file://{abs_map_path}")
+                else:
+                    print(f"⚠️  Could not generate interactive map")
+                    
+            except Exception as e:
+                print(f"⚠️  Error generating interactive map: {e}")
+                # Don't fail the entire test if map generation fails
+                import traceback
+                traceback.print_exc()
         
         # Return summary data
         return {

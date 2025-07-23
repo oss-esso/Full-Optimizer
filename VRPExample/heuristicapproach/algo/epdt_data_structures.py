@@ -262,9 +262,52 @@ class Route:
         return self._is_feasible_cached
     
     def get_orders(self) -> Set[str]:
-        """Get set of order IDs in this route."""
-        return {task.order_id for task in self.tasks}
+        """Get set of order IDs in this route (excludes depot return tasks)."""
+        return {task.order_id for task in self.tasks if not task.is_depot_return()}
     
+    def get_total_distance(self) -> float:
+        """Calculate the total distance of the route in kilometers."""
+        if self._cached_distance is not None:
+            return self._cached_distance
+
+        if not self.tasks:
+            self._cached_distance = 0.0
+            return 0.0
+
+        total_distance = 0.0
+        
+        # Distance from depot to first task
+        if hasattr(self.vehicle, 'depot_lat') and hasattr(self.vehicle, 'depot_lon'):
+            if self.tasks:
+                first_task = self.tasks[0]
+                total_distance += self._calculate_distance_between_points(
+                    self.vehicle.depot_lat, self.vehicle.depot_lon,
+                    first_task.lat, first_task.lon
+                )
+        
+        # Distance between consecutive tasks
+        for i in range(len(self.tasks) - 1):
+            current_task = self.tasks[i]
+            next_task = self.tasks[i + 1]
+            
+            # Add travel distance to next task
+            total_distance += self._calculate_distance_between_points(
+                current_task.lat, current_task.lon,
+                next_task.lat, next_task.lon
+            )
+        
+        # Return to depot from last task
+        if hasattr(self.vehicle, 'depot_lat') and hasattr(self.vehicle, 'depot_lon'):
+            if self.tasks:
+                last_task = self.tasks[-1]
+                total_distance += self._calculate_distance_between_points(
+                    last_task.lat, last_task.lon,
+                    self.vehicle.depot_lat, self.vehicle.depot_lon
+                )
+        
+        self._cached_distance = total_distance
+        return total_distance
+
     def calculate_travel_time(self, from_task=None, to_task=None) -> float:
         """
         Calculate travel time for this route or between two tasks.
@@ -350,6 +393,20 @@ class Route:
         travel_time_minutes = travel_time_hours * 60.0
         
         return travel_time_minutes
+    
+    def _calculate_distance_between_points(self, lat1: float, lon1: float, 
+                                         lat2: float, lon2: float) -> float:
+        """
+        Calculate distance between two geographic points in kilometers.
+        
+        Uses simple Euclidean distance (could be improved with proper geo calculations).
+        """
+        import math
+        
+        # Simple Euclidean distance (could be improved with proper geo calculations)
+        distance_km = math.sqrt((lat2 - lat1)**2 + (lon2 - lon1)**2) * 111.0  # Rough km per degree
+        
+        return distance_km
 
 
 @dataclass

@@ -485,3 +485,37 @@ This guide provides instructions on how to query an OSRM (Open Source Routing Ma
         1.  This should be the last task in the sequence for every vehicle.
         2.  The travel time and distance for this final leg must be included in the route's total cost and duration.
         3.  This must be accounted for in the HoS simulation to ensure the return trip doesn't violate any regulations.
+
+## 13. Interactive Map Visualization
+
+**Objective:** Integrate the interactive map visualization functionality into the main solver and test runner to generate an HTML map of the solution.
+
+### 13.1. Create a new module `algo/solution_visualizer.py`
+
+- [ ] **Action:** Create a new Python script `algo/solution_visualizer.py` that will contain the adapted map visualization logic.
+- [ ] **Details:**
+    1.  This module will import the necessary libraries (`folium`, `matplotlib`, etc.) and the EPDT data structures (`Solution`, `Route`, `Task`, `Vehicle`).
+    2.  It will contain a new class, `EPDTMapVisualizer`, adapted from the `VRPMapVisualizer` in `src/vrp_map_visualization.py`.
+
+### 13.2. Adapt `VRPMapVisualizer` to `EPDTMapVisualizer`
+
+- [ ] **Action:** Modify the `create_interactive_map` function to work with the EPDT `Solution` object.
+- [ ] **Logic:**
+    1.  The function signature will be `create_interactive_map(solution: Solution, save_path: str)`.
+    2.  The function will iterate through the `solution.routes` dictionary to get the routes for each vehicle.
+    3.  The map will be centered based on the coordinates of the tasks in the solution.
+    4.  **Markers:** For each task in each route, a marker will be placed on the map. The marker's popup will display:
+        -   Task ID, Order ID, and Location ID.
+        -   Load (demand and volume).
+        -   Expected arrival time (from the task's time window).
+        -   Actual arrival time (calculated from the HoS simulation).
+    5.  **Routes:** The routes will be color-coded for each vehicle.
+    6.  **Legend:** An interactive legend will be created with clickable items for each vehicle. Clicking on a vehicle in the legend will toggle the visibility of its corresponding route and markers on the map.
+
+### 13.3. Integration with Test Runner (`tests/run_scenario_test.py`)
+
+- [ ] **Action:** Modify the `run_scenario_test.py` script to generate and save the interactive map.
+- [ ] **Logic:**
+    1.  After the `l1_heuristic` returns a solution, call the `create_interactive_map` function from the new `solution_visualizer` module.
+    2.  The map will be saved to the `results` directory with a filename that includes the scenario name and a timestamp (e.g., `furgoni_solution_map_1678886400.html`).
+    3.  The path to the generated map file will be printed to the console at the end of the test run.
