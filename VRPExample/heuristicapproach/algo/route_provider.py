@@ -139,10 +139,6 @@ class RouteProvider:
             CREATE TABLE IF NOT EXISTS route_cache (
                 start_node_id TEXT,
                 end_node_id TEXT,
-                start_lon REAL,
-                start_lat REAL,
-                end_lon REAL,
-                end_lat REAL,
                 distance_km REAL,
                 duration_minutes REAL,
                 road_composition_json TEXT,
@@ -150,24 +146,6 @@ class RouteProvider:
                 PRIMARY KEY (start_node_id, end_node_id)
             )
         """)
-        
-        # Add coordinate columns to existing tables if they don't exist
-        try:
-            cursor.execute("ALTER TABLE route_cache ADD COLUMN start_lon REAL")
-        except sqlite3.OperationalError:
-            pass  # Column already exists
-        try:
-            cursor.execute("ALTER TABLE route_cache ADD COLUMN start_lat REAL")
-        except sqlite3.OperationalError:
-            pass  # Column already exists
-        try:
-            cursor.execute("ALTER TABLE route_cache ADD COLUMN end_lon REAL")
-        except sqlite3.OperationalError:
-            pass  # Column already exists
-        try:
-            cursor.execute("ALTER TABLE route_cache ADD COLUMN end_lat REAL")
-        except sqlite3.OperationalError:
-            pass  # Column already exists
         
         conn.commit()
         conn.close()
@@ -202,8 +180,8 @@ class RouteProvider:
                 'route_geometry': None
             }
         
-        # Try to get from local database first (with coordinate validation)
-        route_data = self._query_local_db(start_node_id, end_node_id, start_coords, end_coords)
+        # Try to get from local database first
+        route_data = self._query_local_db(start_node_id, end_node_id)
         
         if route_data is not None:
             return route_data
@@ -215,16 +193,13 @@ class RouteProvider:
         # If no coordinates provided, return None
         return None
     
-    def _query_local_db(self, start_node_id: str, end_node_id: str, 
-                       start_coords: Tuple[float, float] = None, 
-                       end_coords: Tuple[float, float] = None) -> Optional[Dict[str, Any]]:
-        """Query the local database for route information with coordinate validation."""
+    def _query_local_db(self, start_node_id: str, end_node_id: str) -> Optional[Dict[str, Any]]:
+        """Query the local database for route information."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute("""
-            SELECT distance_km, duration_minutes, road_composition_json, route_geometry_json,
-                   start_lon, start_lat, end_lon, end_lat
+            SELECT distance_km, duration_minutes, road_composition_json, route_geometry_json
             FROM route_cache
             WHERE start_node_id = ? AND end_node_id = ?
         """, (start_node_id, end_node_id))
@@ -233,23 +208,7 @@ class RouteProvider:
         conn.close()
         
         if result:
-            distance_km, duration_minutes, road_comp_json, route_geom_json, cached_start_lon, cached_start_lat, cached_end_lon, cached_end_lat = result
-            
-            # Validate coordinates if provided
-            if start_coords and end_coords:
-                coord_tolerance = 0.001  # About 100m tolerance
-                start_lon_match = cached_start_lon is None or abs(cached_start_lon - start_coords[0]) < coord_tolerance
-                start_lat_match = cached_start_lat is None or abs(cached_start_lat - start_coords[1]) < coord_tolerance
-                end_lon_match = cached_end_lon is None or abs(cached_end_lon - end_coords[0]) < coord_tolerance
-                end_lat_match = cached_end_lat is None or abs(cached_end_lat - end_coords[1]) < coord_tolerance
-                
-                if not (start_lon_match and start_lat_match and end_lon_match and end_lat_match):
-                    print(f"🔄 Coordinate mismatch for route {start_node_id}→{end_node_id}:")
-                    print(f"   Cached: ({cached_start_lon}, {cached_start_lat}) → ({cached_end_lon}, {cached_end_lat})")
-                    print(f"   Current: {start_coords} → {end_coords}")
-                    print(f"   Recalculating route via OSRM...")
-                    return None  # Force recalculation
-            
+            distance_km, duration_minutes, road_comp_json, route_geom_json = result
             return {
                 'distance_km': distance_km,
                 'duration_minutes': duration_minutes,
@@ -304,7 +263,7 @@ class RouteProvider:
             
             # Cache the results
             self._cache_route(start_node_id, end_node_id, distance_km, duration_minutes, 
-                            road_composition, route_geometry, start_coords, end_coords)
+                            road_composition, route_geometry)
             
             return {
                 'distance_km': distance_km,
@@ -355,25 +314,18 @@ class RouteProvider:
     
     def _cache_route(self, start_node_id: str, end_node_id: str, distance_km: float,
                     duration_minutes: float, road_composition: Dict[str, float],
-                    route_geometry: Optional[Dict[str, Any]], 
-                    start_coords: Tuple[float, float] = None, 
-                    end_coords: Tuple[float, float] = None):
-        """Cache route data in the local database with coordinates."""
+                    route_geometry: Optional[Dict[str, Any]]):
+        """Cache route data in the local database."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         cursor.execute("""
             INSERT OR REPLACE INTO route_cache 
-            (start_node_id, end_node_id, start_lon, start_lat, end_lon, end_lat,
-             distance_km, duration_minutes, road_composition_json, route_geometry_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (start_node_id, end_node_id, distance_km, duration_minutes, 
+             road_composition_json, route_geometry_json)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
-            start_node_id, end_node_id, 
-            start_coords[0] if start_coords else None,
-            start_coords[1] if start_coords else None,
-            end_coords[0] if end_coords else None,
-            end_coords[1] if end_coords else None,
-            distance_km, duration_minutes,
+            start_node_id, end_node_id, distance_km, duration_minutes,
             json.dumps(road_composition) if road_composition else None,
             json.dumps(route_geometry) if route_geometry else None
         ))

@@ -1,0 +1,33 @@
+=== CONSEGNE ===
+Columns:
+  0: 'NAME'
+  1: 'ADDRESS'
+  3: 'COUNTRY'
+  4: 'TIME WINDOW DATE (24=0)'
+  5: 'TIME WINDOW HOURS'
+  6: 'SERVICE TIME'
+  7: 'DELIVERY OR PICKUP'
+  8: 'LOAD KG'
+  9: 'LOAD VOLUME M^3'
+  10: 'PALLET'
+  11: 'LOW TEMP'
+  12: 'LOADER'
+
+=== VEICOLI ===
+Columns:
+  0: 'NUMBER PLATE'
+  1: 'TYPE OF VEHICLE'
+  2: 'MAX LOAD KG'
+  3: 'PALLET'
+  4: 'MAX LOAD VOLUME M^3'
+  5: 'LOADER'
+  6: 'LOW TEMP'
+  7: 'LAST IN FIRST OUT'
+  8: 'HANGERS'
+  9: 'REGULATIONS'
+
+=== AUTISTI ===
+Columns:
+  0: 'NUMBER PLATE'
+  1: 'DRIVER'
+  2: 'LICENSE'

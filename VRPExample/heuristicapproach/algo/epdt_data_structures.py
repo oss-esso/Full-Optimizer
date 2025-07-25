@@ -18,6 +18,559 @@ Key Classes:
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Set, Any
 from enum import Enum
+from datetime import datetime, timedelta
+
+
+@dataclass
+class HoSEvent:
+    """
+    Represents a single Hours of Service event for detailed tracking and auditing.
+    
+    This addresses the feedback about enhancing DriverState with detailed tracking
+    of HoS-related events including start/end times of breaks and rests.
+    """
+    event_type: str  # "break", "daily_rest", "weekly_rest", "drive_start", "drive_end", "work_start", "work_end"
+    start_time: float  # Minutes from start of planning period
+    end_time: Optional[float] = None  # Minutes from start of planning period
+    duration: float = 0.0  # Duration in minutes
+    location: Optional[str] = None  # Location where event occurred
+    notes: str = ""  # Additional notes for auditing
+    regulation_compliance: bool = True  # Whether event meets regulatory requirements
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert event to dictionary for logging/export."""
+        return {
+            'event_type': self.event_type,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'duration': self.duration,
+            'location': self.location,
+            'notes': self.notes,
+            'regulation_compliance': self.regulation_compliance
+        }
+
+
+@dataclass
+class DriverState:
+    """
+    Enhanced class to track driver's hours of service state according to European regulations.
+    
+    Enhanced with detailed event tracking for auditing and compliance reporting,
+    addressing the feedback about more comprehensive HoS event tracking.
+    
+    European HoS Regulations:
+    - After 4.5 hours of driving, a 45-minute break is mandatory (can be split into 15 + 30 mins)
+    - Maximum 9 hours of driving per day (extendable to 10 hours twice a week)
+    - Maximum 13 hours of work per day (extendable to 14 hours twice a week)  
+    - Minimum 11 hours of daily rest (can be reduced to 9 hours under certain conditions)
+    - Maximum 56 hours driving in a week (90 hours in any two consecutive weeks)
+    """
+    
+    # Current state counters
+    drive_since_break: float = 0.0      # Accumulated driving time since last break
+    work_since_break: float = 0.0       # Accumulated working time since last break
+    drive_today: float = 0.0             # Total driving time in current 24-hour period
+    work_today: float = 0.0              # Total duty time in current 24-hour period
+    drive_this_week: float = 0.0         # Driving time this week
+    drive_last_week: float = 0.0         # Driving time last week
+    
+    # Additional comprehensive state variables for advanced HoS simulation
+    time_in_daily_period: float = 0.0   # Time elapsed since end of last daily rest (max 24h)
+    work_this_week: float = 0.0          # Accumulated working time from Monday 00:00
+    time_since_weekly_rest: float = 0.0  # Time elapsed since last weekly rest ended (max 144h)
+    
+    # Extension tracking
+    daily_driving_extensions_used: int = 0      # Extensions to 10 hours used this week
+    daily_work_extensions_used: int = 0         # Extensions to 14 hours used this week
+    reduced_rest_used: int = 0                  # Reduced rest periods used this week
+    daily_rest_reductions_used: int = 0         # Count of 9h daily rests between weekly rests (max 3)
+    is_weekly_rest_reduction_taken: bool = False  # Flag if reduced weekly rest taken in last two weeks
+    
+    # Enhanced event tracking (addresses feedback)
+    hos_events: List[HoSEvent] = field(default_factory=list)  # Detailed event log
+    current_activity: Optional[str] = None  # Current activity: "driving", "working", "resting", "break"
+    current_activity_start: Optional[float] = None  # When current activity started
+    last_break_start: Optional[float] = None  # When last break started
+    last_rest_start: Optional[float] = None   # When last rest started
+    
+    # Regulation limits in minutes (European HoS)
+    MAX_DRIVE_WITHOUT_BREAK = 4.5 * 60         # 4.5 hours
+    MAX_WORK_WITHOUT_BREAK = 6 * 60            # 6 hours
+    MAX_DRIVE_PER_DAY = 9 * 60                 # 9 hours (extendable to 10)
+    MAX_WORK_PER_DAY = 13 * 60                 # 13 hours (extendable to 14)
+    MAX_DRIVE_PER_WEEK = 56 * 60               # 56 hours
+    MAX_DRIVE_TWO_WEEKS = 90 * 60              # 90 hours in any two consecutive weeks
+    MIN_DAILY_REST = 11 * 60                   # 11 hours (reducible to 9)
+    MIN_WEEKLY_REST = 45 * 60                  # 45 hours
+    
+    def start_activity(self, activity_type: str, current_time: float, location: str = None):
+        """
+        Start a new activity and record the event.
+        
+        Args:
+            activity_type: Type of activity ("driving", "working", "break", "daily_rest", "weekly_rest")
+            current_time: Current time in minutes from start of planning period
+            location: Optional location information
+        """
+        # End previous activity if any
+        if self.current_activity:
+            self.end_activity(current_time)
+        
+        self.current_activity = activity_type
+        self.current_activity_start = current_time
+        
+        # Record event
+        event = HoSEvent(
+            event_type=f"{activity_type}_start",
+            start_time=current_time,
+            location=location,
+            notes=f"Started {activity_type}"
+        )
+        self.hos_events.append(event)
+        
+        # Update specific tracking
+        if activity_type == "break":
+            self.last_break_start = current_time
+        elif activity_type in ["daily_rest", "weekly_rest"]:
+            self.last_rest_start = current_time
+    
+    def end_activity(self, current_time: float, location: str = None):
+        """
+        End the current activity and record the event.
+        
+        Args:
+            current_time: Current time in minutes from start of planning period
+            location: Optional location information
+        """
+        if not self.current_activity or self.current_activity_start is None:
+            return
+        
+        duration = current_time - self.current_activity_start
+        
+        # Record event
+        event = HoSEvent(
+            event_type=f"{self.current_activity}_end",
+            start_time=self.current_activity_start,
+            end_time=current_time,
+            duration=duration,
+            location=location,
+            notes=f"Completed {self.current_activity} for {duration:.1f} minutes"
+        )
+        self.hos_events.append(event)
+        
+        # Update counters based on activity
+        if self.current_activity == "driving":
+            self.drive_since_break += duration
+            self.drive_today += duration
+            self.drive_this_week += duration
+            self.work_since_break += duration
+            self.work_today += duration
+            self.work_this_week += duration
+        elif self.current_activity == "working":
+            self.work_since_break += duration
+            self.work_today += duration
+            self.work_this_week += duration
+        
+        # Clear current activity
+        self.current_activity = None
+        self.current_activity_start = None
+    
+    def can_drive(self, duration: float) -> bool:
+        """Check if driver can drive for the specified duration without violating HoS."""
+        # Check break requirements
+        if self.drive_since_break + duration > self.MAX_DRIVE_WITHOUT_BREAK:
+            return False
+            
+        # Check daily limits (considering extensions)
+        max_daily = self.get_current_max_daily_drive()
+        if self.drive_today + duration > max_daily:
+            return False
+            
+        # Check weekly limits
+        if self.drive_this_week + duration > self.MAX_DRIVE_PER_WEEK:
+            return False
+            
+        # Check two-week limits
+        if self.drive_this_week + self.drive_last_week + duration > self.MAX_DRIVE_TWO_WEEKS:
+            return False
+            
+        return True
+    
+    def can_work(self, duration: float) -> bool:
+        """Check if driver can work for the specified duration without violating HoS."""
+        # Check work time since last break
+        if self.work_since_break + duration > self.MAX_WORK_WITHOUT_BREAK:
+            return False
+            
+        # Check daily work limits (considering extensions)
+        max_daily_work = self.get_current_max_daily_work()
+        if self.work_today + duration > max_daily_work:
+            return False
+            
+        return True
+    
+    def get_current_max_daily_drive(self) -> float:
+        """Get current maximum daily driving time considering extensions."""
+        if self.daily_driving_extensions_used < 2:
+            return 10 * 60  # Can extend to 10 hours
+        return self.MAX_DRIVE_PER_DAY  # 9 hours
+        
+    def get_current_max_daily_work(self) -> float:
+        """Get current maximum daily work time considering extensions."""
+        if self.daily_work_extensions_used < 2:
+            return 14 * 60  # Can extend to 14 hours
+        return self.MAX_WORK_PER_DAY  # 13 hours
+
+    def take_break(self, break_duration: float, current_time: float = None, location: str = None):
+        """
+        Enhanced break handling with event tracking.
+        
+        Args:
+            break_duration: Duration of break in minutes
+            current_time: Current time for event tracking
+            location: Location where break is taken
+        """
+        # Record break event with compliance check
+        compliance = break_duration >= 45 or (break_duration >= 15 and self._has_recent_partial_break())
+        
+        if current_time is not None:
+            event = HoSEvent(
+                event_type="break",
+                start_time=current_time,
+                end_time=current_time + break_duration,
+                duration=break_duration,
+                location=location,
+                notes=f"Break taken: {break_duration} minutes",
+                regulation_compliance=compliance
+            )
+            self.hos_events.append(event)
+        
+        # Apply break effects
+        if break_duration >= 45:  # 45-minute break resets driving
+            self.drive_since_break = 0
+            if break_duration >= 45:  # Also resets work counter
+                self.work_since_break = 0
+        elif break_duration >= 15:  # Partial break (split break system)
+            # European regulations allow split breaks (15 + 30 minutes)
+            self.drive_since_break = max(0, self.drive_since_break - break_duration * 0.5)
+    
+    def _has_recent_partial_break(self) -> bool:
+        """Check if there was a recent partial break for split break validation."""
+        # Look for breaks in last 2 hours
+        recent_breaks = [e for e in self.hos_events[-10:] if e.event_type == "break" and e.duration >= 15]
+        return len(recent_breaks) > 0
+        
+    def take_daily_rest(self, rest_duration: float = None, current_time: float = None, location: str = None):
+        """
+        Enhanced daily rest handling with event tracking.
+        
+        Args:
+            rest_duration: Duration of rest in minutes (default: minimum required)
+            current_time: Current time for event tracking
+            location: Location where rest is taken
+        """
+        if rest_duration is None:
+            rest_duration = self.MIN_DAILY_REST
+        
+        # Record rest event with compliance check
+        compliance = rest_duration >= 9 * 60  # Minimum reduced rest
+        
+        if current_time is not None:
+            event = HoSEvent(
+                event_type="daily_rest",
+                start_time=current_time,
+                end_time=current_time + rest_duration,
+                duration=rest_duration,
+                location=location,
+                notes=f"Daily rest: {rest_duration/60:.1f} hours",
+                regulation_compliance=compliance
+            )
+            self.hos_events.append(event)
+            
+        # Check if this was an extension day
+        if self.drive_today > self.MAX_DRIVE_PER_DAY:
+            self.daily_driving_extensions_used += 1
+        if self.work_today > self.MAX_WORK_PER_DAY:
+            self.daily_work_extensions_used += 1
+            
+        # Track reduced rest usage
+        if rest_duration < self.MIN_DAILY_REST:
+            self.reduced_rest_used += 1
+            
+        # Reset daily counters
+        self.drive_since_break = 0
+        self.work_since_break = 0
+        self.drive_today = 0
+        self.work_today = 0
+        
+    def take_weekly_rest(self, rest_duration: float = None, current_time: float = None, location: str = None):
+        """
+        Enhanced weekly rest handling with event tracking.
+        
+        Args:
+            rest_duration: Duration of rest in minutes (default: minimum required)
+            current_time: Current time for event tracking
+            location: Location where rest is taken
+        """
+        if rest_duration is None:
+            rest_duration = self.MIN_WEEKLY_REST
+        
+        # Record rest event
+        if current_time is not None:
+            event = HoSEvent(
+                event_type="weekly_rest",
+                start_time=current_time,
+                end_time=current_time + rest_duration,
+                duration=rest_duration,
+                location=location,
+                notes=f"Weekly rest: {rest_duration/60:.1f} hours",
+                regulation_compliance=rest_duration >= self.MIN_WEEKLY_REST
+            )
+            self.hos_events.append(event)
+        
+        # Reset weekly counters
+        self.drive_last_week = self.drive_this_week
+        self.drive_this_week = 0
+        
+        # Reset weekly extension counters
+        self.daily_driving_extensions_used = 0
+        self.daily_work_extensions_used = 0
+        self.reduced_rest_used = 0
+        
+        self.take_daily_rest(rest_duration, current_time, location)
+    
+    def get_event_log(self, event_types: Optional[List[str]] = None) -> List[HoSEvent]:
+        """
+        Get filtered event log for auditing and reporting.
+        
+        Args:
+            event_types: Optional list of event types to filter by
+            
+        Returns:
+            List of HoS events matching the filter criteria
+        """
+        if event_types is None:
+            return self.hos_events.copy()
+        
+        return [event for event in self.hos_events if event.event_type in event_types]
+    
+    def get_compliance_report(self) -> Dict[str, Any]:
+        """
+        Generate a compliance report based on tracked events.
+        
+        Returns:
+            Dictionary containing compliance statistics and violations
+        """
+        violations = []
+        warnings = []
+        
+        # Check for break violations
+        break_events = self.get_event_log(["break"])
+        insufficient_breaks = [e for e in break_events if not e.regulation_compliance]
+        if insufficient_breaks:
+            violations.append(f"Insufficient breaks: {len(insufficient_breaks)} events")
+        
+        # Check for rest violations
+        rest_events = self.get_event_log(["daily_rest", "weekly_rest"])
+        insufficient_rests = [e for e in rest_events if not e.regulation_compliance]
+        if insufficient_rests:
+            violations.append(f"Insufficient rest periods: {len(insufficient_rests)} events")
+        
+        # Check current state against limits
+        if self.drive_today > self.get_current_max_daily_drive():
+            violations.append("Daily driving limit exceeded")
+        if self.work_today > self.get_current_max_daily_work():
+            violations.append("Daily work limit exceeded")
+        if self.drive_this_week > self.MAX_DRIVE_PER_WEEK:
+            violations.append("Weekly driving limit exceeded")
+        
+        # Warnings for approaching limits
+        if self.drive_today > self.MAX_DRIVE_PER_DAY * 0.9:
+            warnings.append("Approaching daily driving limit")
+        if self.drive_since_break > self.MAX_DRIVE_WITHOUT_BREAK * 0.9:
+            warnings.append("Break needed soon")
+        
+        return {
+            'total_events': len(self.hos_events),
+            'violations': violations,
+            'warnings': warnings,
+            'compliance_score': max(0, 100 - len(violations) * 20 - len(warnings) * 5),
+            'extensions_used': {
+                'daily_driving': self.daily_driving_extensions_used,
+                'daily_work': self.daily_work_extensions_used,
+                'reduced_rest': self.reduced_rest_used
+            }
+        }
+    
+    def export_events_to_dict(self) -> List[Dict[str, Any]]:
+        """Export all events to a list of dictionaries for external reporting."""
+        return [event.to_dict() for event in self.hos_events]
+
+
+@dataclass
+class DriverState:
+    """
+    Enhanced class to track driver's hours of service state according to European regulations.
+    
+    European HoS Regulations:
+    - After 4.5 hours of driving, a 45-minute break is mandatory (can be split into 15 + 30 mins)
+    - Maximum 9 hours of driving per day (extendable to 10 hours twice a week)
+    - Maximum 13 hours of work per day (extendable to 14 hours twice a week)  
+    - Minimum 11 hours of daily rest (can be reduced to 9 hours under certain conditions)
+    - Maximum 56 hours driving in a week (90 hours in any two consecutive weeks)
+    """
+    
+    # Current state counters
+    drive_since_break: float = 0.0      # Accumulated driving time since last break
+    work_since_break: float = 0.0       # Accumulated working time since last break
+    drive_today: float = 0.0             # Total driving time in current 24-hour period
+    work_today: float = 0.0              # Total duty time in current 24-hour period
+    drive_this_week: float = 0.0         # Driving time this week
+    drive_last_week: float = 0.0         # Driving time last week
+    
+    # Additional comprehensive state variables for advanced HoS simulation
+    time_in_daily_period: float = 0.0   # Time elapsed since end of last daily rest (max 24h)
+    work_this_week: float = 0.0          # Accumulated working time from Monday 00:00
+    time_since_weekly_rest: float = 0.0  # Time elapsed since last weekly rest ended (max 144h)
+    
+    # Extension tracking
+    daily_driving_extensions_used: int = 0      # Extensions to 10 hours used this week
+    daily_work_extensions_used: int = 0         # Extensions to 14 hours used this week
+    reduced_rest_used: int = 0                  # Reduced rest periods used this week
+    daily_rest_reductions_used: int = 0         # Count of 9h daily rests between weekly rests (max 3)
+    is_weekly_rest_reduction_taken: bool = False  # Flag if reduced weekly rest taken in last two weeks
+    
+    # Regulation limits in minutes (European HoS)
+    MAX_DRIVE_WITHOUT_BREAK = 4.5 * 60         # 4.5 hours
+    MAX_WORK_WITHOUT_BREAK = 6 * 60            # 6 hours
+    MAX_DRIVE_PER_DAY = 9 * 60                 # 9 hours (extendable to 10)
+    MAX_WORK_PER_DAY = 13 * 60                 # 13 hours (extendable to 14)
+    MAX_DRIVE_PER_WEEK = 56 * 60               # 56 hours
+    MAX_DRIVE_TWO_WEEKS = 90 * 60              # 90 hours in any two consecutive weeks
+    MIN_DAILY_REST = 11 * 60                   # 11 hours (reducible to 9)
+    MIN_WEEKLY_REST = 45 * 60                  # 45 hours
+    
+    def can_drive(self, duration: float) -> bool:
+        """Check if driver can drive for the specified duration without violating HoS."""
+        # Check break requirements
+        if self.drive_since_break + duration > self.MAX_DRIVE_WITHOUT_BREAK:
+            return False
+            
+        # Check daily limits (considering extensions)
+        max_daily = self.get_current_max_daily_drive()
+        if self.drive_today + duration > max_daily:
+            return False
+            
+        # Check weekly limits
+        if self.drive_this_week + duration > self.MAX_DRIVE_PER_WEEK:
+            return False
+            
+        # Check two-week limits
+        if self.drive_this_week + self.drive_last_week + duration > self.MAX_DRIVE_TWO_WEEKS:
+            return False
+            
+        return True
+    
+    def can_work(self, duration: float) -> bool:
+        """Check if driver can work for the specified duration without violating HoS."""
+        # Check work time since last break
+        if self.work_since_break + duration > self.MAX_WORK_WITHOUT_BREAK:
+            return False
+            
+        # Check daily work limits (considering extensions)
+        max_daily_work = self.get_current_max_daily_work()
+        if self.work_today + duration > max_daily_work:
+            return False
+            
+        return True
+    
+    def get_current_max_daily_drive(self) -> float:
+        """Get current maximum daily driving time considering extensions."""
+        if self.daily_driving_extensions_used < 2:
+            return 10 * 60  # Can extend to 10 hours
+        return self.MAX_DRIVE_PER_DAY  # 9 hours
+        
+    def get_current_max_daily_work(self) -> float:
+        """Get current maximum daily work time considering extensions."""
+        if self.daily_work_extensions_used < 2:
+            return 14 * 60  # Can extend to 14 hours
+        return self.MAX_WORK_PER_DAY  # 13 hours
+
+    def take_break(self, break_duration: float):
+        """Reset counters after taking a break."""
+        if break_duration >= 45:  # 45-minute break resets driving
+            self.drive_since_break = 0
+            if break_duration >= 45:  # Also resets work counter
+                self.work_since_break = 0
+        elif break_duration >= 15:  # Partial break (split break system)
+            # European regulations allow split breaks (15 + 30 minutes)
+            self.drive_since_break = max(0, self.drive_since_break - break_duration * 0.5)
+        
+    def take_daily_rest(self, rest_duration: float = None):
+        """Reset daily counters after taking a daily rest."""
+        if rest_duration is None:
+            rest_duration = self.MIN_DAILY_REST
+            
+        # Check if this was an extension day
+        if self.drive_today > self.MAX_DRIVE_PER_DAY:
+            self.daily_driving_extensions_used += 1
+        if self.work_today > self.MAX_WORK_PER_DAY:
+            self.daily_work_extensions_used += 1
+            
+        # Track reduced rest usage
+        if rest_duration < self.MIN_DAILY_REST:
+            self.reduced_rest_used += 1
+            
+        # Reset daily counters
+        self.drive_since_break = 0
+        self.work_since_break = 0
+        self.drive_today = 0
+        self.work_today = 0
+        
+    def take_weekly_rest(self):
+        """Reset weekly counters after taking a weekly rest."""
+        self.drive_last_week = self.drive_this_week
+        self.drive_this_week = 0
+        
+        # Reset weekly extension counters
+        self.daily_driving_extensions_used = 0
+        self.daily_work_extensions_used = 0
+        self.reduced_rest_used = 0
+        
+        self.take_daily_rest()
+
+
+@dataclass
+class Driver:
+    """
+    Represents a driver with qualifications, hours of service state, and assignment preferences.
+    
+    This class decouples driver-specific constraints from vehicles, allowing proper modeling
+    of real-world scenarios where drivers can operate multiple vehicles and vice versa.
+    """
+    id: str
+    name: str
+    license: str  # 'B' or 'CE'
+    default_vehicle_id: str
+    cost_per_hour: float = 25.0  # Default hourly cost
+    home_depot_id: str = "main_depot"  # Default depot
+    qualifications: Set[str] = field(default_factory=set)
+    hos_state: DriverState = field(default_factory=DriverState)
+    
+    def can_operate_vehicle(self, vehicle: 'Vehicle') -> bool:
+        """Check if driver can legally operate the given vehicle."""
+        # License check for heavy trucks
+        if vehicle.vehicle_type == 'heavy' and self.license != 'CE':
+            return False
+        elif vehicle.vehicle_type in ['standard', 'car'] and self.license not in ['B', 'CE']:
+            return False
+        
+        # Check qualifications for special vehicle capabilities
+        required_qualifications = vehicle.capabilities
+        if not self.qualifications.issuperset(required_qualifications):
+            return False
+            
+        return True
 
 
 class TaskType(Enum):
@@ -53,10 +606,13 @@ class Task:
     # Cargo information
     demand: float = 0.0      # Cargo weight (kg) - positive for pickup, negative for delivery
     volume: float = 0.0      # Cargo volume (m³) - positive for pickup, negative for delivery
+    pallets: int = 0         # Number of pallets
     
     # Task properties
     is_fixed: bool = False   # Whether task position in route can be changed
     priority: int = 1        # Task priority (higher = more important)
+    requires_low_temp: bool = False # Requires low temperature vehicle
+    requires_loader: bool = False   # Requires a vehicle with a loader
 
     # Day of week constraints
     day: int = 0  # Day of week (0=Today, 1=Tomorrow, -1= Yesterday, etc.)
@@ -168,6 +724,7 @@ class Vehicle:
     # Capacity constraints
     weight_capacity: float      # Maximum weight capacity (kg)
     volume_capacity: float      # Maximum volume capacity (m³)
+    pallet_capacity: Optional[int] = None # Maximum pallet capacity
     
     # Time and distance constraints  
     max_time: Optional[float] = None       # Maximum route time (minutes)
@@ -180,7 +737,7 @@ class Vehicle:
     
     # Vehicle type and capabilities
     vehicle_type: str = "standard"         # Vehicle type: "car", "standard" (light truck), or "heavy" (heavy truck)
-    capabilities: Set[str] = field(default_factory=set)  # Special capabilities
+    capabilities: Set[str] = field(default_factory=set)  # Special capabilities like 'loader', 'low_temp', 'hangers'
     
     # Driver regulation constraints (Hours of Service)
     max_driving_time: float = 540.0        # Max continuous driving (minutes) - 9 hours
@@ -208,6 +765,7 @@ class Route:
     feasibility checking and cost calculation.
     """
     vehicle: Vehicle
+    driver: Optional[Driver] = None  # Initially unassigned
     tasks: List[Task] = field(default_factory=list)
     
     # Route metadata

@@ -18,6 +18,16 @@ Architecture Notes:
 """
 
 from typing import List, Optional, Iterator, Callable, TYPE_CHECKING
+from epdt_data_structures import DriverState
+import copy
+
+# Import modular HoS simulation to resolve circular imports
+from hos_simulation import (
+    simulate_hos_advanced as _simulate_hos_advanced,
+    sort_tasks_chronologically as _sort_tasks_chronologically,
+    calculate_travel_time_between_tasks as _calculate_travel_time_between_tasks,
+    validate_route_hos_feasibility
+)
 from dataclasses import dataclass
 import copy
 import math
@@ -237,7 +247,11 @@ def _calculate_realistic_driver_costs(route: 'Route') -> tuple[float, float]:
     if not route.tasks:
         return 0.0, 0.0
     
-    driver = DriverState()
+    # Use driver's HoS state if available, otherwise create a new one
+    if route.driver and route.driver.hos_state:
+        driver = copy.deepcopy(route.driver.hos_state)
+    else:
+        driver = DriverState()
     current_time = 0
     total_break_time = 0
     total_rest_time = 0
@@ -306,8 +320,11 @@ def _calculate_realistic_driver_costs(route: 'Route') -> tuple[float, float]:
     
     # Calculate costs: break time costs hourly rate, rest time costs reduced rate
     total_downtime = total_break_time + total_rest_time
-    break_cost = (total_break_time * route.vehicle.cost_per_hour + 
-                 total_rest_time * route.vehicle.cost_per_hour * 0.3)  # Rest time at reduced rate
+    
+    # Use driver's cost per hour if available, otherwise fall back to vehicle cost
+    hourly_cost = route.driver.cost_per_hour if route.driver else route.vehicle.cost_per_hour
+    break_cost = (total_break_time * hourly_cost + 
+                 total_rest_time * hourly_cost * 0.3)  # Rest time at reduced rate
     
     return break_cost, total_downtime
 
@@ -342,15 +359,22 @@ def calculate_z2_score(route: 'Route') -> float:
     vehicle_assignment_penalty = 0.0  # V(r)
     end_position_penalty = 0.0  # E(r)
     soft_time_window_penalty = 0.0  # Additional component for soft violations
+    weight_violation_penalty = 0.0  # New component for weight capacity violations
 
     # Enhanced driver break costs calculation
     driver_cost, _ = _calculate_realistic_driver_costs(route)
 
-    # Multi-day cost simulation
+    # Multi-day cost simulation with weight violation tracking
     current_time = 0
     current_day = None
     last_today_task_location = None
     tomorrow_tasks = []
+    
+    # Track weight load for violation penalties
+    load_w = 0.0
+    if hasattr(route.vehicle, 'initial_state') and route.vehicle.initial_state:
+        load_w = route.vehicle.initial_state.get('load_weight', 0.0)
+    max_w = route.vehicle.weight_capacity
     
     # Group tasks by day for prospective cost calculation
     tasks_by_day = {}
@@ -368,6 +392,18 @@ def calculate_z2_score(route: 'Route') -> float:
     for i in range(len(sorted_tasks)):
         current_task = sorted_tasks[i]
         task_day = getattr(current_task, 'day', 0)
+        
+        # Update weight load and check for violations
+        if current_task.is_pickup():
+            load_w += current_task.demand
+        elif current_task.is_delivery():
+            load_w += current_task.demand  # demand is negative for deliveries
+        
+        # Calculate weight capacity violation penalty
+        if load_w > max_w:
+            excess_weight = load_w - max_w
+            # Penalty proportional to excess weight (e.g., $5 per kg over capacity)
+            weight_violation_penalty += excess_weight * 5.0
         
         # Track day transitions
         if current_day is None:
@@ -434,10 +470,10 @@ def calculate_z2_score(route: 'Route') -> float:
             # Calculate distance penalty (simplified)
             end_position_penalty = 50.0
 
-    # Calculate total Z2 score
+    # Calculate total Z2 score including weight violation penalty
     total_cost = (travel_cost + time_window_penalty + prospective_cost + 
                   driver_cost + vehicle_assignment_penalty + end_position_penalty +
-                  soft_time_window_penalty)
+                  soft_time_window_penalty + weight_violation_penalty)
 
     # Cache the score
     route._z2_score = total_cost
@@ -573,23 +609,35 @@ def is_feasible(route: 'Route') -> bool:
         current_position = initial_state.get('position', None)
         previous_day_load_w = initial_state.get('load_weight', 0.0)
         previous_day_load_v = initial_state.get('load_volume', 0.0)
-        driver_state = DriverState()
-        # Initialize driver state from previous day
-        previous_driver_state = initial_state.get('driver_state', {})
-        driver_state.drive_today = previous_driver_state.get('drive_today', 0.0)
-        driver_state.work_today = previous_driver_state.get('work_today', 0.0)
-        driver_state.drive_this_week = previous_driver_state.get('drive_this_week', 0.0)
+        
+        # Use route's assigned driver state if available, otherwise create new state
+        if route.driver and route.driver.hos_state:
+            driver_state = copy.deepcopy(route.driver.hos_state)
+        else:
+            driver_state = DriverState()
+            # Initialize driver state from previous day
+            previous_driver_state = initial_state.get('driver_state', {})
+            driver_state.drive_today = previous_driver_state.get('drive_today', 0.0)
+            driver_state.work_today = previous_driver_state.get('work_today', 0.0)
+            driver_state.drive_this_week = previous_driver_state.get('drive_this_week', 0.0)
     else:
         current_position = None
         previous_day_load_w = 0.0
         previous_day_load_v = 0.0
-        driver_state = DriverState()
+        
+        # Use route's assigned driver state if available, otherwise create new state
+        if route.driver and route.driver.hos_state:
+            driver_state = copy.deepcopy(route.driver.hos_state)
+        else:
+            driver_state = DriverState()
     
     # H2: Capacity check with multi-day simulation
     load_w = previous_day_load_w
     load_v = previous_day_load_v
+    load_pallets = initial_state.get('load_pallets', 0) if initial_state else 0
     max_w = route.vehicle.weight_capacity
     max_v = route.vehicle.volume_capacity
+    max_pallets = route.vehicle.pallet_capacity  # Hard constraint on pallets
 
     # H3: LIFO Loading Constraint check
     lifo_stack = []
@@ -602,6 +650,7 @@ def is_feasible(route: 'Route') -> bool:
         if task.is_pickup():
             load_w += task.demand
             load_v += task.volume
+            load_pallets += getattr(task, 'pallets', 0)
             
             # LIFO constraint: push order_id onto stack
             if route.vehicle.lifo_required:
@@ -610,6 +659,7 @@ def is_feasible(route: 'Route') -> bool:
         elif task.is_delivery():
             load_w += task.demand  # demand is negative for deliveries
             load_v += task.volume  # volume is negative for deliveries
+            load_pallets += getattr(task, 'pallets', 0)  # pallets is negative for deliveries
             
             # LIFO constraint: check if this delivery matches top of stack
             if route.vehicle.lifo_required:
@@ -620,7 +670,13 @@ def is_feasible(route: 'Route') -> bool:
                 lifo_stack.pop()  # Remove delivered order from stack
         
         # Check capacity constraints
-        if load_w > max_w or load_v > max_v:
+        # Weight is now a soft constraint (removed from hard feasibility check)
+        # Volume remains a hard constraint
+        if load_v > max_v:
+            return False
+            
+        # Pallet capacity is now a hard constraint
+        if max_pallets is not None and load_pallets > max_pallets:
             return False
 
     # LIFO final check: all cargo must be delivered
@@ -677,139 +733,6 @@ def is_feasible(route: 'Route') -> bool:
             return False
         
     return True  # All checks passed, route is feasible
-
-
-@dataclass
-class DriverState:
-    """
-    Enhanced class to track driver's hours of service state according to European regulations.
-    
-    European HoS Regulations:
-    - After 4.5 hours of driving, a 45-minute break is mandatory (can be split into 15 + 30 mins)
-    - Maximum 9 hours of driving per day (extendable to 10 hours twice a week)
-    - Maximum 13 hours of work per day (extendable to 14 hours twice a week)  
-    - Minimum 11 hours of daily rest (can be reduced to 9 hours under certain conditions)
-    - Maximum 56 hours driving in a week (90 hours in any two consecutive weeks)
-    """
-    
-    # Current state counters
-    drive_since_break: float = 0.0      # Accumulated driving time since last break
-    work_since_break: float = 0.0       # Accumulated working time since last break
-    drive_today: float = 0.0             # Total driving time in current 24-hour period
-    work_today: float = 0.0              # Total duty time in current 24-hour period
-    drive_this_week: float = 0.0         # Driving time this week
-    drive_last_week: float = 0.0         # Driving time last week
-    
-    # Additional comprehensive state variables for advanced HoS simulation
-    time_in_daily_period: float = 0.0   # Time elapsed since end of last daily rest (max 24h)
-    work_this_week: float = 0.0          # Accumulated working time from Monday 00:00
-    time_since_weekly_rest: float = 0.0  # Time elapsed since last weekly rest ended (max 144h)
-    
-    # Extension tracking
-    daily_driving_extensions_used: int = 0      # Extensions to 10 hours used this week
-    daily_work_extensions_used: int = 0         # Extensions to 14 hours used this week
-    reduced_rest_used: int = 0                  # Reduced rest periods used this week
-    daily_rest_reductions_used: int = 0         # Count of 9h daily rests between weekly rests (max 3)
-    is_weekly_rest_reduction_taken: bool = False  # Flag if reduced weekly rest taken in last two weeks
-    
-    # Regulation limits in minutes (European HoS)
-    MAX_DRIVE_WITHOUT_BREAK = 4.5 * 60         # 4.5 hours
-    MAX_WORK_WITHOUT_BREAK = 6 * 60            # 6 hours
-    MAX_DRIVE_PER_DAY = 9 * 60                 # 9 hours (extendable to 10)
-    MAX_WORK_PER_DAY = 13 * 60                 # 13 hours (extendable to 14)
-    MAX_DRIVE_PER_WEEK = 56 * 60               # 56 hours
-    MAX_DRIVE_TWO_WEEKS = 90 * 60              # 90 hours in any two consecutive weeks
-    MIN_DAILY_REST = 11 * 60                   # 11 hours (reducible to 9)
-    MIN_WEEKLY_REST = 45 * 60                  # 45 hours
-    
-    def can_drive(self, duration: float) -> bool:
-        """Check if driver can drive for the specified duration without violating HoS."""
-        # Check break requirements
-        if self.drive_since_break + duration > self.MAX_DRIVE_WITHOUT_BREAK:
-            return False
-            
-        # Check daily limits (considering extensions)
-        max_daily = self.get_current_max_daily_drive()
-        if self.drive_today + duration > max_daily:
-            return False
-            
-        # Check weekly limits
-        if self.drive_this_week + duration > self.MAX_DRIVE_PER_WEEK:
-            return False
-            
-        # Check two-week limits
-        if self.drive_this_week + self.drive_last_week + duration > self.MAX_DRIVE_TWO_WEEKS:
-            return False
-            
-        return True
-    
-    def can_work(self, duration: float) -> bool:
-        """Check if driver can work for the specified duration without violating HoS."""
-        # Check work time since last break
-        if self.work_since_break + duration > self.MAX_WORK_WITHOUT_BREAK:
-            return False
-            
-        # Check daily work limits (considering extensions)
-        max_daily_work = self.get_current_max_daily_work()
-        if self.work_today + duration > max_daily_work:
-            return False
-            
-        return True
-    
-    def get_current_max_daily_drive(self) -> float:
-        """Get current maximum daily driving time considering extensions."""
-        if self.daily_driving_extensions_used < 2:
-            return 10 * 60  # Can extend to 10 hours
-        return self.MAX_DRIVE_PER_DAY  # 9 hours
-        
-    def get_current_max_daily_work(self) -> float:
-        """Get current maximum daily work time considering extensions."""
-        if self.daily_work_extensions_used < 2:
-            return 14 * 60  # Can extend to 14 hours
-        return self.MAX_WORK_PER_DAY  # 13 hours
-
-    def take_break(self, break_duration: float):
-        """Reset counters after taking a break."""
-        if break_duration >= 45:  # 45-minute break resets driving
-            self.drive_since_break = 0
-            if break_duration >= 45:  # Also resets work counter
-                self.work_since_break = 0
-        elif break_duration >= 15:  # Partial break (split break system)
-            # European regulations allow split breaks (15 + 30 minutes)
-            self.drive_since_break = max(0, self.drive_since_break - break_duration * 0.5)
-        
-    def take_daily_rest(self, rest_duration: float = None):
-        """Reset daily counters after taking a daily rest."""
-        if rest_duration is None:
-            rest_duration = self.MIN_DAILY_REST
-            
-        # Check if this was an extension day
-        if self.drive_today > self.MAX_DRIVE_PER_DAY:
-            self.daily_driving_extensions_used += 1
-        if self.work_today > self.MAX_WORK_PER_DAY:
-            self.daily_work_extensions_used += 1
-            
-        # Track reduced rest usage
-        if rest_duration < self.MIN_DAILY_REST:
-            self.reduced_rest_used += 1
-            
-        # Reset daily counters
-        self.drive_since_break = 0
-        self.work_since_break = 0
-        self.drive_today = 0
-        self.work_today = 0
-        
-    def take_weekly_rest(self):
-        """Reset weekly counters after taking a weekly rest."""
-        self.drive_last_week = self.drive_this_week
-        self.drive_this_week = 0
-        
-        # Reset weekly extension counters
-        self.daily_driving_extensions_used = 0
-        self.daily_work_extensions_used = 0
-        self.reduced_rest_used = 0
-        
-        self.take_daily_rest()
 
 
 # Remove the old _check_hos function as it's replaced by _check_hos_multiday
@@ -946,7 +869,19 @@ def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_task
     return True
 
 
-def _simulate_hos_advanced(route: 'Route', driver_state: 'DriverState', sorted_tasks: List) -> tuple[bool, float]:
+# HoS simulation functions have been moved to hos_simulation.py module
+# to resolve circular imports and improve modularity.
+# The functions below are kept for backward compatibility.
+
+def _get_max_drive_per_day(extensions_used: dict) -> float:
+    """Helper function for backward compatibility."""
+    driving_extensions = extensions_used.get('driving', 0)
+    return 10 * 60 if driving_extensions < 2 else 9 * 60
+
+def _get_max_work_per_day(extensions_used: dict) -> float:
+    """Helper function for backward compatibility.""" 
+    work_extensions = extensions_used.get('work', 0)
+    return 14 * 60 if work_extensions < 2 else 13 * 60
     """
     Advanced Hours of Service simulation with detailed iterative approach.
     

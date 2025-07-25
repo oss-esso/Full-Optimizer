@@ -23,7 +23,19 @@ Solving the driver assignment and vehicle routing problems simultaneously is com
 
 ## 3. Implementation Details
 
-### 3.1. Data Model Enhancements (`epdt_data_structures.py`)
+### 3.1. Data Loading from Excel
+
+The initial list of drivers should be loaded from the `AUTISTI` sheet in the `src/furgoni.xlsx` file.
+
+*   **Sheet Name:** `AUTISTI`
+*   **Columns:**
+    *   `NUMBER PLATE`: The default vehicle for the driver.
+    *   `DRIVER`: The name of the driver.
+    *   `LICENSE`: The driver's license type (`B` or `CE`).
+
+The script should iterate through this sheet to create a list of `Driver` objects.
+
+### 3.2. Data Model Enhancements (`epdt_data_structures.py`)
 
 1.  **Create a `Driver` Class:** Introduce a new data class to represent a driver.
 
@@ -43,6 +55,8 @@ Solving the driver assignment and vehicle routing problems simultaneously is com
     class Driver:
         id: str
         name: str
+        license: str  # 'B' or 'CE'
+        default_vehicle_id: str
         cost_per_hour: float
         home_depot_id: str
         qualifications: Set[str] = field(default_factory=set)
@@ -60,14 +74,14 @@ Solving the driver assignment and vehicle routing problems simultaneously is com
         # ... rest of the class
     ```
 
-### 3.2. Decouple Hours of Service Logic (`second_level.py`)
+### 3.3. Decouple Hours of Service Logic (`second_level.py`)
 
 The HoS simulation logic must be updated to operate on a `DriverState` object, not a `Vehicle`.
 
 *   The `_simulate_hos_advanced` function should accept a `DriverState` object as an input.
 *   When checking the feasibility of assigning a driver to a route, the simulation will use the `hos_state` from the specific `Driver` object being considered.
 
-### 3.3. Driver Assignment Algorithm (Stage 2)
+### 3.4. Driver Assignment Algorithm (Stage 2)
 
 This stage can be modeled as a **minimum weight bipartite matching** problem, which can be solved using the Hungarian algorithm or a linear programming solver.
 
@@ -81,7 +95,7 @@ This stage can be modeled as a **minimum weight bipartite matching** problem, wh
     cost = 0
 
     # 1. HoS Feasibility and Cost (ONLY FOR HEAVY TRUCKS)
-    if route.vehicle.weight_capacity > 3500:
+    if route.vehicle.vehicle_type == 'heavy':
         is_feasible, route_duration = _simulate_hos_advanced(route, d.hos_state)
         if not is_feasible:
             cost = float('inf') # Infeasible assignment
@@ -96,17 +110,44 @@ This stage can be modeled as a **minimum weight bipartite matching** problem, wh
     if d.home_depot_id != route.start_depot_id:
         cost += PENALTY_WRONG_DEPOT
 
+    # 3. License Qualification Check
+    if route.vehicle.vehicle_type == 'heavy' and d.license != 'CE':
+        cost = float('inf') # Infeasible: CE license required for CAMION
+    elif route.vehicle.vehicle_type == 'standard' and d.license != 'B':
+        cost = float('inf') # Infeasible: B license required for FURGONE
+
     if not d.qualifications.issuperset(route.required_qualifications):
         cost = float('inf') # Infeasible assignment
     ```
 
 3.  **Solve the Assignment Problem:** Use a solver to find the assignment that minimizes the total cost.
 
-### 3.4. Handling Team Driving
+### 3.5. Handling Team Driving
 
 For routes with two drivers, the `Route` class can be extended to have `driver1` and `driver2`. The `_simulate_hos_advanced` function would need to be modified to track the state of both drivers, alternating their driving and resting periods to maximize the vehicle's operational time.
 
-## 4. Academic Papers for Further Reading
+## 4. Code Review and Improvements
+
+After a thorough review of the driver-vehicle matching implementation, the following areas for improvement and potential errors have been identified:
+
+### 4.1. `algo/driver_assignment.py`
+
+*   **Hardcoded Values:** The `load_drivers_from_excel` function uses hardcoded values for `cost_per_hour` and `home_depot_id`. These should be read from the Excel file or a configuration file to make the system more flexible.
+*   **Incomplete `Driver` Object:** The `load_drivers_from_excel` function does not populate the `qualifications` field of the `Driver` object from the Excel file. This could lead to incorrect assignments if a vehicle requires a specific qualification that is not the default for the driver's license type.
+*   **Simplistic Cost Function:** The `calculate_assignment_cost` function uses a simple bonus for assigning a driver to their default vehicle. A more sophisticated cost function could consider factors like the driver's experience, performance, or the distance from their home depot to the route's start depot.
+*   **Dummy Assignments:** The `assign_drivers_to_routes` function uses a high cost for dummy assignments when the number of drivers and routes are unequal. This could be improved by using a more sophisticated method for handling unbalanced assignment problems, such as the auction algorithm.
+
+### 4.2. `algo/epdt_data_structures.py`
+
+*   **`DriverState` Class:** The `DriverState` class is well-defined, but it could be enhanced to include more detailed tracking of HoS-related events, such as the start and end times of breaks and rests. This would be useful for auditing and reporting purposes.
+*   **`Driver` Class:** The `Driver` class could be extended to include more attributes, such as the driver's preferred working hours, their performance history, or any special skills they may have.
+
+### 4.3. `algo/second_level.py`
+
+*   **HoS Simulation:** The `_simulate_hos_advanced` function is a complex piece of logic that could be simplified and made more modular. For example, the logic for handling breaks, daily rests, and weekly rests could be extracted into separate functions.
+*   **Circular Imports:** The file has circular imports with `epdt_data_structures.py`. This should be refactored to avoid potential issues.
+
+## 5. Academic Papers for Further Reading
 
 Here are the titles of some relevant academic papers on the Vehicle Routing Problem with Crew Scheduling (VRCSP) and Driver Assignment:
 
