@@ -25,18 +25,52 @@ This document outlines the necessary steps to integrate the advanced, realistic 
     - [ ] **Modify Second-Level Score Function:** Enhance `calculate_z2_score` by adding a new term that sums the accessibility values `Φi(t)` for each task in the route. The modified score will be `Ž2(r) = Z2(r) + φ(r)`, where `φ(r)` is the cumulative accessibility. This will make routes that travel through high-accessibility areas more attractive.
     - [ ] **Implementation Note:** The accessibility map `Φi(t)` should be pre-computed and stored, as its calculation is too computationally intensive to be performed in real-time during the main heuristic run. This should be an offline process that runs on the historical dataset.
 
-## 13. Interactive Map Visualization
+## 13. Fix `l1_heuristic` Usage in Test Runner
+
+**Objective:** Instruct a large language model (LLM) to fix the usage of the `l1_heuristic` in `tests/run_scenario_test.py`, as the current implementation incorrectly reports that the heuristic is not implemented.
+
+- [ ] **Problem:** The test runner script (`tests/run_scenario_test.py`) currently uses a mock solution because it fails to correctly import and use the `l1_heuristic` from `algo/first_level.py`. The output shows the warning: "`l1_heuristic` not yet implemented".
+- [ ] **Goal:** Modify the script to correctly call the `l1_heuristic` and process its results, removing the mock solution fallback.
+- [ ] **Instructions for LLM:**
+    1.  **Analyze `tests/run_scenario_test.py`:** Identify the section where the `l1_heuristic` is called.
+    2.  **Remove Mock Solution:** Delete the `if l1_heuristic is None:` block and the call to `_create_mock_solution`.
+    3.  **Ensure Correct Call:** The script should now directly call `solution = l1_heuristic(orders, vehicles, params)`.
+    4.  **Parameter Configuration:** The `configure_algorithm_parameters` function should be used to set up the `params` object that is passed to the heuristic. Ensure that the parameters are appropriate for a test run (e.g., a reasonable number of iterations).
+    5.  **Run and Validate:** After the changes, the script should be executed. The expected outcome is that the real `l1_heuristic` runs, and the `print_solution_summary` function displays the actual results from the solver, not from a mock object.
+
+## 14. Solver Performance and Assignment Analysis
+
+**Objective:** Investigate why not all tasks are being assigned by the heuristic solver, improve the assignment rate, and reduce the overall solve time.
+
+- [ ] **Problem:** The current heuristic solver has a high runtime (over 200 seconds) and fails to assign all tasks, whereas the mock fallback solution successfully assigns all tasks. This indicates potential issues with the heuristic's feasibility checks or search strategy.
+- [ ] **Goal:** Achieve a total assignment of all tasks, similar to the mock solution, and significantly reduce the solver's execution time.
+
+- [ ] **Investigation and Improvement Steps:**
+    1.  **Analyze Unassigned Tasks:**
+        - **Action:** In the `print_solution_summary` function, add a detailed analysis of the unassigned orders. For each unassigned order, print its properties (weight, volume, priority, etc.) and the potential reasons why it might have been rejected (e.g., "too large for any vehicle," "no feasible insertion point found").
+    2.  **Compare with Mock Solution:**
+        - **Action:** Run the `_create_mock_solution` function from the test runner to generate a baseline "perfect" assignment. Compare the routes and vehicle loads from the mock solution with the heuristic's solution to identify key differences in how tasks are distributed.
+    3.  **Review Heuristic Feasibility Checks:**
+        - **Action:** Carefully review the feasibility checks in `algo/second_level.py`, particularly the `is_feasible` function and the HoS simulation (`_simulate_hos_advanced`). It's possible that overly strict or incorrect constraints are preventing valid task insertions.
+    4.  **Profile and Optimize:**
+        - **Action:** Use a profiler (e.g., `cProfile`) to identify the most time-consuming parts of the `l1_heuristic`. The high runtime suggests that there may be bottlenecks in the neighborhood generation, scoring functions, or local search.
+        - **Action:** Based on the profiling results, explore optimization strategies such as:
+            - Using more efficient data structures.
+            - Reducing the size of the search neighborhoods.
+            - Implementing faster, approximate scoring functions for candidate evaluation.
+
+## 15. Interactive Map Visualization
 
 **Objective:** Integrate the interactive map visualization functionality into the main solver and test runner to generate an HTML map of the solution.
 
-### 13.1. Create a new module `algo/solution_visualizer.py`
+### 15.1. Create a new module `algo/solution_visualizer.py`
 
 - [ ] **Action:** Create a new Python script `algo/solution_visualizer.py` that will contain the adapted map visualization logic.
 - [ ] **Details:**
     1.  This module will import the necessary libraries (`folium`, `matplotlib`, etc.) and the EPDT data structures (`Solution`, `Route`, `Task`, `Vehicle`).
     2.  It will contain a new class, `EPDTMapVisualizer`, adapted from the `VRPMapVisualizer` in `src/vrp_map_visualization.py`.
 
-### 13.2. Adapt `VRPMapVisualizer` to `EPDTMapVisualizer`
+### 15.2. Adapt `VRPMapVisualizer` to `EPDTMapVisualizer`
 
 - [ ] **Action:** Modify the `create_interactive_map` function to work with the EPDT `Solution` object.
 - [ ] **Logic:**
@@ -51,7 +85,7 @@ This document outlines the necessary steps to integrate the advanced, realistic 
     5.  **Routes:** The routes will be color-coded for each vehicle.
     6.  **Legend:** An interactive legend will be created with clickable items for each vehicle. Clicking on a vehicle in the legend will toggle the visibility of its corresponding route and markers on the map.
 
-### 13.3. Integration with Test Runner (`tests/run_scenario_test.py`)
+### 15.3. Integration with Test Runner (`tests/run_scenario_test.py`)
 
 - [ ] **Action:** Modify the `run_scenario_test.py` script to generate and save the interactive map.
 - [ ] **Logic:**
@@ -59,24 +93,84 @@ This document outlines the necessary steps to integrate the advanced, realistic 
     2.  The map will be saved to the `results` directory with a filename that includes the scenario name and a timestamp (e.g., `furgoni_solution_map_1678886400.html`).
     3.  The path to the generated map file will be printed to the console at the end of the test run.
 
-## 14. Comprehensive Integration Test
+## 16. Comprehensive Integration Test
 
-**Objective:** Create a new test file that runs a single, comprehensive, full-featured scenario to validate the integration of all advanced features, including the enhanced driver assignment and scenario creation from the `furgoni.xlsx` file.
+**Objective:** Create a new test file that runs a single, comprehensive, full-featured scenario to validate the integration of all advanced features.
 
 - [ ] **Create `tests/comprehensive_integration_test.py`:**
     - **Action:** Develop a new Python script that mimics the structure of `tests/run_scenario_test.py` but is designed for a single, all-encompassing test run rather than multiple small, isolated tests.
-    - **Key Differences from `run_scenario_test.py`:**
-        - No command-line arguments for different tests.
-        - The script will execute a single, hardcoded, full-featured run.
 
-- [ ] **Test Execution Flow:**
-    1.  **Load Scenario:**
-        - Use the `create_scenario_from_excel` function from `utils/scenario_creator.py` to load the vehicle, order, and driver data from `src/furgoni.xlsx`.
-    2.  **Load Drivers:**
-        - Use the `load_drivers_from_excel_enhanced` function from `algo/driver_assignment_enhanced.py` to load the list of `EnhancedDriver` objects.
-    3.  **Run First-Level Heuristic:**
-        - Execute the `l1_heuristic` to generate the vehicle routes (without assigned drivers).
-    4.  **Run Driver Assignment:**
-        - Pass the generated routes and the list of `EnhancedDriver` objects to the `assign_drivers_to_routes_enhanced` function from `algo/driver_assignment_enhanced.py`.
-    5.  **Print Summary:**
-        - Call the `print_assignment_summary` function from `algo/driver_assignment_enhanced.py` to display the final driver assignments and a summary of the solution.
+- [ ] **Phase 1: Heuristic Solver Test**
+    1.  **Load Scenario:** Use `create_scenario_from_excel` to load vehicle and order data from `src/furgoni.xlsx`.
+    2.  **Run Heuristic:** Execute the `l1_heuristic` to generate a `Solution` object containing optimized vehicle routes (drivers are not assigned at this stage).
+    3.  **Validate Routes:** Print a summary of the routes, including the number of tasks, total distance, and feasibility, to ensure the heuristic solver is working correctly.
+
+- [ ] **Phase 2: Driver Assignment Integration**
+    1.  **Load Drivers:** Use `load_drivers_from_excel_enhanced` to load the list of `EnhancedDriver` objects.
+    2.  **Enhance Qualifications:** Call the `enhance_drivers_with_vehicle_capabilities` utility to ensure drivers are qualified for the vehicles in the generated routes.
+    3.  **Run Assignment:** Pass the routes from the heuristic solution and the list of enhanced drivers to the `assign_drivers_to_routes_enhanced` function.
+    4.  **Print Final Summary:** Call `print_assignment_summary` to display the final, complete solution with drivers assigned to routes.
+
+## 17. Enforce Pickup-Before-Delivery Precedence Constraint
+
+**Objective:** Fix a critical bug in the route validation logic that allows the solver to create infeasible routes where delivery tasks are performed before all pickup tasks have been completed. This violates the fundamental EPDT problem definition from Chapter 3 of the thesis.
+
+- [ ] **Problem:** The current implementation in `algo/second_level.py` does not enforce the rule that all pickups on a route must precede all deliveries. This leads to invalid solutions.
+- [ ] **Goal:** Modify the route feasibility check to correctly identify and reject routes that interleave pickups and deliveries.
+
+- [ ] **Implementation Steps:**
+    1.  **Locate the Simulation Loop:**
+        - **File:** `algo/second_level.py`
+        - **Function:** Find the primary function responsible for checking route feasibility (likely `is_feasible` or a similar function that iterates through a route's tasks chronologically).
+    2.  **Implement Precedence Check Logic:**
+        - **Action:** Inside the task iteration loop, introduce a new boolean state variable, e.g., `delivery_phase_started = False`.
+        - **Logic:**
+            - Before the loop begins, initialize `delivery_phase_started = False`.
+            - For each `task` in the route's sequence:
+                - If the `task.type` is a delivery (e.g., `task.is_delivery()` returns `True`), set `delivery_phase_started = True`.
+                - If the `task.type` is a pickup AND `delivery_phase_started` is already `True`, this is a constraint violation. The function must immediately return `False` for the route's feasibility.
+        - **Success Condition:** If the loop completes without ever triggering the violation, the route respects the precedence constraint.
+    3.  **Create a Validation Test:**
+        - **File:** `tests/test_route_validation.py` (or create a new dedicated test file).
+        - **Action:** Add a new test case `test_pickup_before_delivery_precedence`.
+        - **Logic:**
+            - Manually construct a `Route` object.
+            - Add tasks to it in an interleaved sequence (e.g., Pickup A -> Pickup B -> Delivery A -> Pickup C).
+            - Call the `is_feasible` function on this route.
+            - Assert that the function correctly returns `False`.
+            - Construct a second, valid route (e.g., Pickup A -> Pickup B -> Pickup C -> Delivery A) and assert that `is_feasible` returns `True`.
+
+## 18. Optimize OSRM Usage and First-Run Performance
+
+**Objective:** Drastically reduce the number of OSRM HTTP calls during the initial run of the heuristic solver to ensure a reasonable runtime, even with an empty cache.
+
+**Phase 1: Pre-computation and Caching**
+
+1.  **Implement a Standalone Pre-computation Script:**
+    *   **Action:** Create a new script, `utils/precompute_routes.py`.
+    *   **Goal:** This script will be run *before* the main heuristic. It will identify all unique pairs of locations in a given scenario and pre-populate the `moda_routes.db` cache with their OSRM data.
+    *   **Implementation:**
+        1.  The script will take a scenario file (e.g., `src/furgoni.xlsx`) as input.
+        2.  It will extract all unique location coordinates from the orders and depots.
+        3.  It will generate all possible pairs of these unique locations.
+        4.  For each pair, it will call the `_query_osrm_and_cache` function (which should be moved from `algo/route_provider.py` to a more accessible utility module) to fetch the OSRM data and save it to the database.
+    *   **Benefit:** This turns the expensive, online OSRM calls into a one-time, offline pre-computation step.
+
+**Phase 2: Intelligent Neighborhood Search**
+
+1.  **Introduce a "Delta Evaluation" in Neighborhood Functions:**
+    *   **Action:** Modify the neighborhood generation functions in `algo/first_level.py` (e.g., `single_order_relocation_neighborhood`).
+    *   **Goal:** Instead of re-calculating the entire route cost from scratch for every neighbor, calculate only the *change* in cost (the "delta").
+    *   **Implementation:**
+        1.  When an order is moved from route A to route B, the change in cost is primarily related to the edges that are removed and added.
+        2.  The cost of removing the order from route A can be calculated by subtracting the travel time of the two edges connected to its tasks.
+        3.  The cost of inserting the order into route B can be calculated by adding the travel time of the two new edges.
+        4.  This requires only a few lookups from the now pre-populated cache, instead of re-simulating the entire route.
+    *   **Benefit:** This will reduce the number of calls to the `calculate_z2_score` function, which is a major source of the redundant calculations.
+
+2.  **Limit the Scope of Neighborhood Searches:**
+    *   **Action:** Add parameters to the `l1_heuristic` to control the size and scope of the neighborhood searches.
+    *   **Goal:** Prevent the solver from exploring an excessive number of neighbors, especially in the early stages of the search.
+    *   **Implementation:**
+        1.  Introduce a `max_neighbors_to_evaluate` parameter. The neighborhood functions will stop generating new neighbors after this limit is reached.
+        2.  Implement a "best `k` insertions" strategy for the `best_insertion_initializer`. Instead of trying to insert an order into every possible position, only evaluate the `k` most promising positions (e.g., based on Euclidean distance as a cheap proxy).

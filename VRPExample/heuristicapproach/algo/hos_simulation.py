@@ -104,7 +104,7 @@ class HoSRegulations:
 
 def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
     """
-    Calculate travel time between two tasks.
+    Calculate travel time between two tasks using proper Haversine distance.
     
     Args:
         task1: Starting task
@@ -117,19 +117,49 @@ def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
     if not hasattr(task1, 'lat') or not hasattr(task2, 'lat'):
         return 15.0  # Default 15 minutes if no coordinates
     
-    import math
-    
-    # Simple Euclidean distance calculation
-    lat_diff = task2.lat - task1.lat
-    lon_diff = task2.lon - task1.lon
-    distance_km = math.sqrt(lat_diff**2 + lon_diff**2) * 111.0  # Rough km per degree
-    
-    # Use vehicle-specific average speed or default
-    avg_speed_kmh = getattr(vehicle, 'average_speed', 50.0)
-    travel_time_hours = distance_km / avg_speed_kmh
-    travel_time_minutes = travel_time_hours * 60.0
-    
-    return travel_time_minutes
+    # Import the proper Haversine calculation function
+    try:
+        from second_level import calculate_travel_time_haversine
+        
+        # Use vehicle-specific average speed or default to more realistic truck speed
+        avg_speed_kmh = getattr(vehicle, 'average_speed', 60.0)  # 60 km/h for realistic European truck travel
+        
+        # Use proper Haversine calculation
+        travel_time_minutes = calculate_travel_time_haversine(
+            task1.lat, task1.lon, 
+            task2.lat, task2.lon, 
+            avg_speed_kmh
+        )
+        
+        return travel_time_minutes
+        
+    except ImportError:
+        # Fallback to improved calculation if import fails
+        import math
+        
+        # Improved Haversine distance calculation (same as in second_level.py)
+        lat1_rad = math.radians(task1.lat)
+        lon1_rad = math.radians(task1.lon)
+        lat2_rad = math.radians(task2.lat)
+        lon2_rad = math.radians(task2.lon)
+        
+        dlat = lat2_rad - lat1_rad
+        dlon = lon2_rad - lon1_rad
+        
+        a = (math.sin(dlat/2)**2 + 
+             math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        
+        # Earth's radius in kilometers
+        R = 6371.0
+        distance_km = R * c
+        
+        # Use vehicle-specific average speed or default to realistic truck speed
+        avg_speed_kmh = getattr(vehicle, 'average_speed', 60.0)  # 60 km/h for European truck travel
+        travel_time_hours = distance_km / avg_speed_kmh
+        travel_time_minutes = travel_time_hours * 60.0
+        
+        return travel_time_minutes
 
 
 def check_break_requirement(driver_state: DriverState, upcoming_drive_time: float) -> Tuple[bool, float]:
@@ -225,7 +255,12 @@ def apply_break_to_driver_state(driver_state: DriverState, break_duration: float
     """
     # Enhanced break handling with event tracking
     if hasattr(driver_state, 'take_break'):
-        driver_state.take_break(break_duration, current_time, location)
+        try:
+            # Try with enhanced signature first
+            driver_state.take_break(break_duration, current_time, location)
+        except TypeError:
+            # Fallback to basic signature
+            driver_state.take_break(break_duration)
     else:
         # Fallback for basic DriverState
         if break_duration >= HoSRegulations.MIN_BREAK_DURATION:

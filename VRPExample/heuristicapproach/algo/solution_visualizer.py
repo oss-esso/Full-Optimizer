@@ -511,6 +511,9 @@ class EPDTMapVisualizer:
                 elif task.is_depot_return():
                     icon = folium.Icon(color=color, icon='home', prefix='fa')
                     tooltip_text = f"Return: {task.location_id}"
+                elif hasattr(task, 'is_depot_start') and task.is_depot_start():
+                    icon = folium.Icon(color=color, icon='play', prefix='fa')
+                    tooltip_text = f"Start: {task.location_id}"
                 else:
                     icon = folium.Icon(color=color, icon='map-marker', prefix='fa')
                     tooltip_text = f"Task: {task.location_id}"

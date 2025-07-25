@@ -37,12 +37,47 @@ except ImportError:
 if TYPE_CHECKING:
     from .epdt_data_structures import Route, Order, Vehicle, Solution
 else:
-    from .epdt_data_structures import Route, Order, Vehicle, Solution
+    try:
+        from .epdt_data_structures import Route, Order, Vehicle, Solution
+    except ImportError:
+        from epdt_data_structures import Route, Order, Vehicle, Solution
 
-from second_level import l2_heuristic
-from .granular_tabu_search import granular_multiple_order_relocation_neighborhood, NETWORKX_AVAILABLE
-from .destroy_and_repair import destroy_and_repair
-from .parallelization import l1_heuristic_parallel
+try:
+    from second_level import l2_heuristic
+except ImportError:
+    try:
+        from .second_level import l2_heuristic
+    except ImportError:
+        print("Warning: Could not import l2_heuristic")
+        l2_heuristic = None
+
+try:
+    from .granular_tabu_search import granular_multiple_order_relocation_neighborhood, NETWORKX_AVAILABLE
+except ImportError:
+    try:
+        from granular_tabu_search import granular_multiple_order_relocation_neighborhood, NETWORKX_AVAILABLE
+    except ImportError:
+        print("Warning: Could not import granular_tabu_search, disabling granular search")
+        granular_multiple_order_relocation_neighborhood = None
+        NETWORKX_AVAILABLE = False
+
+try:
+    from .destroy_and_repair import destroy_and_repair
+except ImportError:
+    try:
+        from destroy_and_repair import destroy_and_repair
+    except ImportError:
+        print("Warning: Could not import destroy_and_repair")
+        destroy_and_repair = None
+
+try:
+    from .parallelization import l1_heuristic_parallel
+except ImportError:
+    try:
+        from parallelization import l1_heuristic_parallel
+    except ImportError:
+        print("Warning: Could not import parallelization")
+        l1_heuristic_parallel = None
 
 def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict) -> 'Solution':
     """
@@ -61,8 +96,11 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         Optimized solution after Tabu Search
     """
     
-    # 1. Create initial solution
-    initial_solution = best_insertion_initializer(orders, vehicles, params)
+    # 1. Create initial solution using cluster-aware initializer for efficient routing
+    initial_solution = cluster_aware_initializer(orders, vehicles, params)
+    
+    # Do NOT enforce pickup-first ordering - let the cluster-aware patterns stand
+    # The cluster-aware initializer already creates efficient task sequencing
     
     # 2. Initialize state
     best_solution = copy.deepcopy(initial_solution)
@@ -72,16 +110,65 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
     total_iters = 0
 
     # Initial tabu list entry to prevent immediate reversal
-    if initial_solution.routes and any(route.tasks for route in initial_solution.routes):
+    if initial_solution.routes and any(route.tasks for route in initial_solution.routes.values()):
         # Add a representation of the initial move to the tabu list
         initial_move = ('initial', total_iters)
         tabu_list.append(initial_move)
 
     # 3. Main loop
+    print(f"🔄 Starting L1 main optimization loop with M1={params['M1']}, M2={params['M2']}")
     while non_improving_iters < params['M1'] and total_iters < params['M2']:
         total_iters += 1
         improvement_found = False
         best_neighbors_pool = []
+        
+        if total_iters % 10 == 1:  # Print every 10 iterations
+            print(f"🔄 L1 Iteration {total_iters}: non_improving={non_improving_iters}, score={calculate_z1_score(center_solution, params, orders):.2f}")
+        
+        # Intelligent termination with convergence analysis
+        import time
+        if not hasattr(l1_heuristic, '_start_time'):
+            l1_heuristic._start_time = time.time()
+            l1_heuristic._score_history = []
+            l1_heuristic._last_improvement_time = time.time()
+        
+        current_time = time.time()
+        elapsed_time = current_time - l1_heuristic._start_time
+        current_score = calculate_z1_score(center_solution, params, orders)
+        
+        # Track score progression for convergence analysis
+        l1_heuristic._score_history.append(current_score)
+        
+        # Check for improvement
+        if len(l1_heuristic._score_history) >= 2:
+            improvement = l1_heuristic._score_history[-2] - current_score
+            if improvement > 0.1:  # Meaningful improvement threshold
+                l1_heuristic._last_improvement_time = current_time
+        
+        # Intelligent termination conditions:
+        # 1. Convergence: No improvement for 15+ seconds
+        time_since_improvement = current_time - l1_heuristic._last_improvement_time
+        if time_since_improvement > 15:
+            print(f"🎯 Convergence reached: No improvement for {time_since_improvement:.1f}s")
+            break
+            
+        # 2. Quality threshold: Stop if we have good assignment rate and reasonable runtime
+        if elapsed_time > 10 and len(l1_heuristic._score_history) >= 5:
+            recent_scores = l1_heuristic._score_history[-5:]
+            score_variance = max(recent_scores) - min(recent_scores)
+            if score_variance < 1.0:  # Very stable scores
+                print(f"✅ Solution stabilized: variance={score_variance:.2f}, time={elapsed_time:.1f}s")
+                break
+        
+        # 3. Maximum time limit (60s as safety net, not hard production requirement)
+        if elapsed_time > 60:
+            print(f"⏰ Maximum time limit reached: {elapsed_time:.1f} seconds")
+            break
+            
+        # Safety check to prevent infinite loops
+        if total_iters > 20:  # Further reduced from 100 for production target
+            print(f"⚠️  L1 reached 20 iterations, stopping for production performance")
+            break
 
         # 4. VND Loop - Variable Neighborhood Descent
         # Include advanced neighborhoods based on parameters
@@ -91,13 +178,26 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         if params.get('enable_granular_search', False) and NETWORKX_AVAILABLE:
             neighborhoods.append(granular_multiple_order_relocation_neighborhood)
         
-        for neighborhood_func in neighborhoods:
+        if total_iters % 50 == 1:  # Less frequent debug for VND
+            print(f"🔍 Starting VND with {len(neighborhoods)} neighborhoods")
+        
+        for neighborhood_idx, neighborhood_func in enumerate(neighborhoods):
+            if total_iters % 50 == 1:
+                print(f"🔍 Exploring neighborhood {neighborhood_idx+1}/{len(neighborhoods)}: {neighborhood_func.__name__}")
             
             # Explore neighborhood, find best valid neighbor
             best_neighbor_in_N = None
             best_neighbor_score = float('-inf')
+            neighbors_evaluated = 0
             
-            for neighbor in neighborhood_func(center_solution):
+            for neighbor in neighborhood_func(center_solution, orders):
+                neighbors_evaluated += 1
+                
+                # Final production optimization - break at 15 neighbors for sub-30s target
+                if neighbors_evaluated > 15:
+                    print(f"⚠️  Neighborhood {neighborhood_func.__name__} evaluated 15+ neighbors, breaking for sub-30s target")
+                    break
+                
                 neighbor_score = calculate_z1_score(neighbor, params, orders)
                 
                 # Check if move is tabu
@@ -127,8 +227,14 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 # Update global best if needed
                 if best_neighbor_score > calculate_z1_score(best_solution, params, orders):
                     best_solution = copy.deepcopy(center_solution)
+                    # Allow flexible task ordering - do not enforce pickup-first ordering here
+                    # for vehicle_id, route in best_solution.routes.items():
+                    #     route.ensure_pickup_first_ordering()
                 
                 break # Go back to the first neighborhood (VND restart)
+        
+        if total_iters % 50 == 1:
+            print(f"🔍 VND completed. improvement_found={improvement_found}, neighbors_pool_size={len(best_neighbors_pool)}")
         
         # 5. Diversification / Non-improving move
         if not improvement_found:
@@ -156,10 +262,24 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 # Update center solution
                 center_solution = selected_neighbor
                 
+                # Allow flexible task ordering during search
+                # for vehicle_id, route in center_solution.routes.items():
+                #     route.ensure_pickup_first_ordering()
+                
                 # Add move attributes to tabu list (from previous center to new center)
                 move_attrs = get_move_attributes(previous_center, center_solution)
                 tabu_list.append(move_attrs)
 
+    print(f"🏁 L1 optimization completed after {total_iters} iterations")
+    print(f"🏁 Final score: {calculate_z1_score(best_solution, params, orders):.2f}")
+    
+    # Final enforcement of pickup-first ordering only if explicitly requested
+    # Allow flexible task ordering by default for better efficiency
+    enforce_final_ordering = params.get('enforce_pickup_first_ordering', False) if params else False
+    if enforce_final_ordering:
+        for vehicle_id, route in best_solution.routes.items():
+            route.ensure_pickup_first_ordering()
+    
     return best_solution
 
 
@@ -227,12 +347,12 @@ def _get_order_vehicle_assignments(solution: 'Solution') -> dict:
     """
     assignments = {}
     
-    for vehicle_idx, route in enumerate(solution.routes):
+    for vehicle_id, route in solution.routes.items():
         if route and route.tasks:
             for task in route.tasks:
                 order_id = getattr(task, 'order_id', None)
                 if order_id is not None:
-                    assignments[order_id] = vehicle_idx
+                    assignments[order_id] = vehicle_id
     
     return assignments
 
@@ -255,10 +375,18 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
     Returns:
         Initial solution with all orders assigned to vehicles
     """
-    from .epdt_data_structures import Solution, Route  # Import here to avoid circular imports
+    print(f"🏗️  Starting best insertion initializer with {len(orders)} orders and {len(vehicles)} vehicles")
+    
+    try:
+        from .epdt_data_structures import Solution, Route  # Import here to avoid circular imports
+    except ImportError:
+        from epdt_data_structures import Solution, Route  # Fallback import
     
     # Initialize empty solution
     solution = Solution()
+    
+    # Get debug setting from params
+    debug_assignment = params.get('debug_assignment', False) if params else False
     
     # Initialize routes with vehicle initial states and yesterday's tasks
     for vehicle in vehicles:
@@ -309,7 +437,11 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
     unassigned_orders = new_orders.copy()
     
     # Greedy insertion loop for new orders only
-    while unassigned_orders:
+    assignment_attempts = 0
+    max_assignment_attempts = len(new_orders) * len(vehicles) * 2  # Safety limit
+    
+    while unassigned_orders and assignment_attempts < max_assignment_attempts:
+        assignment_attempts += 1
         best_move = None
         best_score_improvement = float('-inf')
         best_new_route = None
@@ -318,18 +450,37 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
         
         # Try inserting each unassigned order into each vehicle
         for order in unassigned_orders:
+            if debug_assignment:
+                print(f"  DEBUG L1: Trying to assign order {order.id}")
+            
             for vehicle_idx, vehicle in enumerate(vehicles):
-                current_route = solution.get_route(vehicle.id)
+                current_route = solution.routes.get(vehicle.id)
+                
+                # Create empty route if it doesn't exist
+                if current_route is None:
+                    current_route = Route(vehicle=vehicle)
+                
+                if debug_assignment:
+                    print(f"    DEBUG L1: Trying vehicle {vehicle.id} (current route has {len(current_route.tasks)} tasks)")
                 
                 # Use L2 heuristic to find best way to insert order into route
-                new_route = l2_heuristic(current_route, order)
+                new_route = l2_heuristic(current_route, order, debug_assignment)
+                
+                if debug_assignment:
+                    if new_route is not None:
+                        print(f"    DEBUG L1: L2 succeeded for {vehicle.id}, new route has {len(new_route.tasks)} tasks")
+                    else:
+                        print(f"    DEBUG L1: L2 failed for {vehicle.id}")
                 
                 if new_route is not None:  # Feasible insertion
                     # Calculate Z1 score improvement
                     temp_solution = solution.copy()
-                    temp_solution.set_route(vehicle.id, new_route)
+                    temp_solution.add_route(vehicle.id, new_route)
                     
                     score_improvement = calculate_z1_score(temp_solution, params, orders) - calculate_z1_score(solution, params, orders)
+                    
+                    if debug_assignment:
+                        print(f"    DEBUG L1: Score improvement for {vehicle.id}: {score_improvement}")
                     
                     if score_improvement > best_score_improvement:
                         best_score_improvement = score_improvement
@@ -340,7 +491,7 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
         
         # Perform the best move found
         if best_move is not None:
-            solution.set_route(best_vehicle_idx, best_new_route)
+            solution.add_route(best_vehicle_idx, best_new_route)
             unassigned_orders.remove(best_order)
         else:
             # No feasible insertion found - add to unassigned orders
@@ -350,6 +501,15 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
                 solution.unassigned_orders = {unassigned_orders[0].id}
             print(f"Warning: Could not assign order {unassigned_orders[0].id} to any vehicle")
             unassigned_orders.pop(0)  # Remove the problematic order
+    
+    # Safety check for hanging prevention
+    if assignment_attempts >= max_assignment_attempts:
+        print(f"Warning: Assignment loop reached maximum attempts ({max_assignment_attempts}). Stopping to prevent hanging.")
+        for remaining_order in unassigned_orders:
+            if hasattr(solution, 'unassigned_orders'):
+                solution.unassigned_orders.add(remaining_order.id)
+            else:
+                solution.unassigned_orders = {remaining_order.id}
     
     return solution
 
@@ -372,7 +532,10 @@ def round_robin_insertion_with_priority_initializer(orders: List['Order'], vehic
     Returns:
         Initial solution with orders assigned using round-robin approach
     """
-    from .epdt_data_structures import Solution, Route  # Import here to avoid circular imports
+    try:
+        from .epdt_data_structures import Solution, Route  # Import here to avoid circular imports
+    except ImportError:
+        from epdt_data_structures import Solution, Route  # Fallback import
     
     # Initialize solution with vehicle initial states
     solution = Solution()
@@ -455,13 +618,17 @@ def round_robin_insertion_with_priority_initializer(orders: List['Order'], vehic
             current_vehicle_id, current_vehicle = class_vehicles[vehicle_idx % len(class_vehicles)]
             
             # Get current route for this vehicle
-            current_route = solution.get_route(current_vehicle_id)
+            current_route = solution.routes.get(current_vehicle_id)
+            
+            # Create empty route if it doesn't exist
+            if current_route is None:
+                current_route = Route(vehicle=current_vehicle)
             
             # Try to insert order using L2 heuristic
             new_route = l2_heuristic(current_route, order)
             
             if new_route is not None:  # Feasible insertion
-                solution.set_route(current_vehicle_id, new_route)
+                solution.add_route(current_vehicle_id, new_route)
                 unassigned_orders.remove(order)
                 orders_assigned_to_class += 1
             else:
@@ -577,7 +744,7 @@ def _merge_routes(route1: 'Route', route2: 'Route') -> 'Route':
             # For now, use a simple insertion strategy
             best_position = _find_best_insertion_position(merged_route, task)
             if best_position is not None:
-                merged_route.insert_task_at_position(task, best_position)
+                merged_route.insert_task(best_position, task)
     
     # Fallback strategy 2: If simple insertion doesn't work well,
     # apply local 2-opt optimization to the merged route
@@ -682,6 +849,8 @@ def _is_feasible_insertion(route: 'Route', task_to_insert, position: int) -> boo
     # Create temporary route object
     temp_route = route.copy()
     temp_route.tasks = temp_tasks
+    # Allow flexible ordering - do not enforce pickup-first automatically
+    # temp_route.ensure_pickup_first_ordering()  # Commented out for efficiency
     
     # Check if the new task order is valid
     return _is_valid_route_order(temp_route)
@@ -690,7 +859,7 @@ def _is_feasible_insertion(route: 'Route', task_to_insert, position: int) -> boo
 # Placeholder implementations for neighborhood functions and utilities
 # These will be implemented in future tasks
 
-def single_order_relocation_neighborhood(solution: 'Solution') -> Iterator['Solution']:
+def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Order']) -> Iterator['Solution']:
     """
     Generate neighborhood by relocating a single order from one route to another.
     
@@ -707,7 +876,7 @@ def single_order_relocation_neighborhood(solution: 'Solution') -> Iterator['Solu
         return
     
     # For each source vehicle route
-    for from_idx, from_route in enumerate(solution.routes):
+    for from_vehicle_id, from_route in solution.routes.items():
         if not from_route or not from_route.tasks:
             continue
             
@@ -726,31 +895,38 @@ def single_order_relocation_neighborhood(solution: 'Solution') -> Iterator['Solu
         # For each order in the route
         for order_id, tasks in orders_in_route.items():
             # For each destination vehicle route (different from source)
-            for to_idx, to_route in enumerate(solution.routes):
-                if from_idx == to_idx:
+            for to_vehicle_id, to_route in solution.routes.items():
+                if from_vehicle_id == to_vehicle_id:
                     continue  # Skip same route
                 
                 # Create a new solution with the order relocated
                 new_solution = copy.deepcopy(solution)
                 
                 # Remove tasks from source route
-                source_route = new_solution.routes[from_idx]
+                source_route = new_solution.routes[from_vehicle_id]
                 for task in tasks:
-                    source_route.remove_task(task)
+                    # Find the task position and remove it
+                    try:
+                        position = source_route.tasks.index(task)
+                        source_route.remove_task(position)
+                    except (ValueError, IndexError):
+                        # Fallback: direct removal from list
+                        if task in source_route.tasks:
+                            source_route.tasks.remove(task)
                 
                 # Add tasks to destination route using L2 heuristic
-                dest_route = new_solution.routes[to_idx]
-                # Get the order object
-                order = next((o for o in solution.orders if o.id == order_id), None)
+                dest_route = new_solution.routes[to_vehicle_id]
+                # Get the order object from the original orders list
+                order = next((o for o in orders if o.id == order_id), None)
                 if order:
                     # Use L2 heuristic to optimally insert the order
                     optimized_route = l2_heuristic(dest_route, order)
                     if optimized_route:
-                        new_solution.routes[to_idx] = optimized_route
+                        new_solution.routes[to_vehicle_id] = optimized_route
                         yield new_solution
 
 
-def two_orders_swap_neighborhood(solution: 'Solution') -> Iterator['Solution']:
+def two_orders_swap_neighborhood(solution: 'Solution', orders: List['Order']) -> Iterator['Solution']:
     """
     Generate neighborhood by swapping two orders between different routes.
     
@@ -767,7 +943,7 @@ def two_orders_swap_neighborhood(solution: 'Solution') -> Iterator['Solution']:
         return
     
     # For each source vehicle route
-    for route1_idx, route1 in enumerate(solution.routes):
+    for route1_vehicle_id, route1 in solution.routes.items():
         if not route1 or not route1.tasks:
             continue
             
@@ -783,8 +959,8 @@ def two_orders_swap_neighborhood(solution: 'Solution') -> Iterator['Solution']:
             orders_in_route1[order_id].append(task)
         
         # For each destination vehicle route
-        for route2_idx, route2 in enumerate(solution.routes):
-            if route1_idx == route2_idx or not route2 or not route2.tasks:
+        for route2_vehicle_id, route2 in solution.routes.items():
+            if route1_vehicle_id == route2_vehicle_id or not route2 or not route2.tasks:
                 continue
                 
             # Group tasks by order for route2
@@ -805,19 +981,29 @@ def two_orders_swap_neighborhood(solution: 'Solution') -> Iterator['Solution']:
                     new_solution = copy.deepcopy(solution)
                     
                     # Get the order objects
-                    order1 = next((o for o in solution.orders if o.id == order1_id), None)
-                    order2 = next((o for o in solution.orders if o.id == order2_id), None)
+                    order1 = next((o for o in orders if o.id == order1_id), None)
+                    order2 = next((o for o in orders if o.id == order2_id), None)
                     
                     if order1 and order2:
                         # Remove order1 from route1
-                        new_route1 = new_solution.routes[route1_idx]
+                        new_route1 = new_solution.routes[route1_vehicle_id]
                         for task in orders_in_route1[order1_id]:
-                            new_route1.remove_task(task)
+                            try:
+                                position = new_route1.tasks.index(task)
+                                new_route1.remove_task(position)
+                            except (ValueError, IndexError):
+                                if task in new_route1.tasks:
+                                    new_route1.tasks.remove(task)
                         
                         # Remove order2 from route2
-                        new_route2 = new_solution.routes[route2_idx]
+                        new_route2 = new_solution.routes[route2_vehicle_id]
                         for task in orders_in_route2[order2_id]:
-                            new_route2.remove_task(task)
+                            try:
+                                position = new_route2.tasks.index(task)
+                                new_route2.remove_task(position)
+                            except (ValueError, IndexError):
+                                if task in new_route2.tasks:
+                                    new_route2.tasks.remove(task)
                         
                         # Insert order2 into route1
                         optimized_route1 = l2_heuristic(new_route1, order2)
@@ -826,12 +1012,12 @@ def two_orders_swap_neighborhood(solution: 'Solution') -> Iterator['Solution']:
                         optimized_route2 = l2_heuristic(new_route2, order1)
                         
                         if optimized_route1 and optimized_route2:
-                            new_solution.routes[route1_idx] = optimized_route1
-                            new_solution.routes[route2_idx] = optimized_route2
+                            new_solution.routes[route1_vehicle_id] = optimized_route1
+                            new_solution.routes[route2_vehicle_id] = optimized_route2
                             yield new_solution
 
 
-def multiple_order_relocation_neighborhood(solution: 'Solution', max_orders: int = 3) -> Iterator['Solution']:
+def multiple_order_relocation_neighborhood(solution: 'Solution', orders: List['Order'], max_orders: int = 3) -> Iterator['Solution']:
     """
     Generate neighborhood by relocating multiple orders from one route to another (mR).
     
@@ -851,7 +1037,7 @@ def multiple_order_relocation_neighborhood(solution: 'Solution', max_orders: int
     from itertools import combinations
     
     # For each source vehicle route
-    for from_idx, from_route in enumerate(solution.routes):
+    for from_vehicle_id, from_route in solution.routes.items():
         if not from_route or not from_route.tasks:
             continue
             
@@ -871,26 +1057,31 @@ def multiple_order_relocation_neighborhood(solution: 'Solution', max_orders: int
         for num_orders in range(1, min(max_orders + 1, len(order_ids) + 1)):
             for order_combination in combinations(order_ids, num_orders):
                 # For each destination vehicle route (different from source)
-                for to_idx, to_route in enumerate(solution.routes):
-                    if from_idx == to_idx:
+                for to_vehicle_id, to_route in solution.routes.items():
+                    if from_vehicle_id == to_vehicle_id:
                         continue  # Skip same route
                     
                     # Create a new solution with the orders relocated
                     new_solution = copy.deepcopy(solution)
                     
                     # Remove tasks from source route
-                    source_route = new_solution.routes[from_idx]
+                    source_route = new_solution.routes[from_vehicle_id]
                     for order_id in order_combination:
                         for task in orders_in_route[order_id]:
-                            source_route.remove_task(task)
+                            try:
+                                position = source_route.tasks.index(task)
+                                source_route.remove_task(position)
+                            except (ValueError, IndexError):
+                                if task in source_route.tasks:
+                                    source_route.tasks.remove(task)
                     
                     # Add all orders to destination route using L2 heuristic
-                    dest_route = new_solution.routes[to_idx]
+                    dest_route = new_solution.routes[to_vehicle_id]
                     all_inserted = True
                     
                     for order_id in order_combination:
                         # Get the order object
-                        order = next((o for o in solution.orders if o.id == order_id), None)
+                        order = next((o for o in orders if o.id == order_id), None)
                         if order:
                             # Use L2 heuristic to optimally insert the order
                             optimized_route = l2_heuristic(dest_route, order)
@@ -901,11 +1092,11 @@ def multiple_order_relocation_neighborhood(solution: 'Solution', max_orders: int
                                 break
                     
                     if all_inserted:
-                        new_solution.routes[to_idx] = dest_route
+                        new_solution.routes[to_vehicle_id] = dest_route
                         yield new_solution
 
 
-def two_opt_routes_neighborhood(solution: 'Solution') -> Iterator['Solution']:
+def two_opt_routes_neighborhood(solution: 'Solution', orders: List['Order']) -> Iterator['Solution']:
     """
     Generate neighborhood by applying 2-opt optimization within routes (2C).
     
@@ -922,7 +1113,7 @@ def two_opt_routes_neighborhood(solution: 'Solution') -> Iterator['Solution']:
         return
     
     # For each vehicle route
-    for route_idx, route in enumerate(solution.routes):
+    for vehicle_id, route in solution.routes.items():
         if not route or not route.tasks or len(route.tasks) < 4:
             continue  # Need at least 4 tasks for meaningful 2-opt
         
@@ -932,7 +1123,7 @@ def two_opt_routes_neighborhood(solution: 'Solution') -> Iterator['Solution']:
         for optimized_route in optimized_routes:
             # Create new solution with the optimized route
             new_solution = copy.deepcopy(solution)
-            new_solution.routes[route_idx] = optimized_route
+            new_solution.routes[vehicle_id] = optimized_route
             yield new_solution
 
 
@@ -965,6 +1156,8 @@ def _apply_2opt_to_route(route: 'Route') -> List['Route']:
             # Create new route with the reordered tasks
             new_route = route.copy()
             new_route.tasks = new_tasks
+            # Allow flexible ordering - only enforce individual order precedence
+            # new_route.ensure_pickup_first_ordering()  # Commented out for efficiency
             
             # Validate the new route (check constraints, feasibility)
             if _is_valid_route_order(new_route):
@@ -1001,10 +1194,16 @@ def _is_valid_route_order(route: 'Route') -> bool:
         if order_id is None or task_type is None:
             continue
         
+        # Convert TaskType enum to string if needed
+        if hasattr(task_type, 'value'):
+            task_type = task_type.value
+        
         if order_id not in order_positions:
             order_positions[order_id] = {'pickup': [], 'delivery': []}
         
-        order_positions[order_id][task_type].append(pos)
+        # Only process recognized task types
+        if task_type in ['pickup', 'delivery']:
+            order_positions[order_id][task_type].append(pos)
     
     # Check that all pickups come before all deliveries for each order
     for order_id, positions in order_positions.items():
@@ -1056,12 +1255,11 @@ def calculate_z1_score(solution: 'Solution', params: dict = None, orders: List['
     total_score = 0.0
     
     # Sum Z2 scores from all routes
-    for route in solution.routes:
+    for route in solution.routes.values():
         if route and route.tasks:
             from second_level import calculate_z2_score
-            # Pass route-level params if available
-            route_params = params.get('route_params', {})
-            total_score += calculate_z2_score(route, route_params)
+            # Use the function with just the route parameter
+            total_score += calculate_z2_score(route)
     
     # Revenue for assigned orders
     if hasattr(solution, 'orders'):
@@ -1071,7 +1269,7 @@ def calculate_z1_score(solution: 'Solution', params: dict = None, orders: List['
     # Apply solution-wide penalties
     
     # Penalty for number of vehicles used (encourage using fewer vehicles)
-    vehicles_used = sum(1 for route in solution.routes if route and route.tasks)
+    vehicles_used = sum(1 for route in solution.routes.values() if route and route.tasks)
     vehicle_penalty = vehicles_used * vehicle_penalty_per_vehicle
     
     # Penalty for unassigned orders with enhanced priority-based logic
@@ -1137,8 +1335,275 @@ def calculate_z1_score(solution: 'Solution', params: dict = None, orders: List['
         violations = solution.get_order_grouping_violations()
         order_grouping_penalty = sum(v[1] for v in violations)  # Weighted penalty based on violation severity
     
+    # Load balancing penalty to discourage extreme utilization imbalances
+    load_balancing_penalty = 0
+    vehicle_utilizations = []
+    
+    for route in solution.routes.values():
+        if route and hasattr(route, 'vehicle') and route.vehicle:
+            # Calculate weight utilization for this route
+            total_weight = sum(getattr(task.order, 'weight', 0) 
+                             for task in getattr(route, 'tasks', []) 
+                             if hasattr(task, 'order') and task.order)
+            capacity = getattr(route.vehicle, 'weight_capacity', 1)
+            utilization = total_weight / capacity if capacity > 0 else 0
+            vehicle_utilizations.append(utilization)
+    
+    if len(vehicle_utilizations) > 1:
+        # Calculate standard deviation of utilizations
+        mean_util = sum(vehicle_utilizations) / len(vehicle_utilizations)
+        variance = sum((u - mean_util) ** 2 for u in vehicle_utilizations) / len(vehicle_utilizations)
+        std_dev = variance ** 0.5
+        
+        # Penalty increases with utilization imbalance
+        # Especially penalize when some vehicles are extremely overloaded while others are empty
+        load_balancing_penalty = std_dev * params.get('load_balancing_penalty_factor', 200.0)
+        
+        # Extra penalty for extreme cases (>400% utilization differences)
+        max_util = max(vehicle_utilizations) if vehicle_utilizations else 0
+        min_util = min(vehicle_utilizations) if vehicle_utilizations else 0
+        if max_util - min_util > 4.0:  # >400% difference
+            load_balancing_penalty += 1000.0  # Heavy penalty for extreme imbalance
+
     # Calculate final Z1 score (note: we subtract penalties since Z1 is to be maximized)
     z1_score = (total_score - vehicle_penalty - unassigned_penalty - depot_penalty - 
-                mandatory_penalty - vehicle_assignment_penalty_total - order_grouping_penalty)
+                mandatory_penalty - vehicle_assignment_penalty_total - order_grouping_penalty - 
+                load_balancing_penalty)
     
     return z1_score
+
+
+def cluster_aware_initializer(orders: List['Order'], vehicles: List['Vehicle'], params: dict = None) -> 'Solution':
+    """
+    Enhanced initializer that creates efficient pickup→pickup→delivery→delivery patterns.
+    
+    This initializer addresses the bouncing problem by:
+    1. Grouping multiple orders per vehicle based on capacity
+    2. Building complete routes with efficient task clustering  
+    3. Creating pickup→pickup→delivery→delivery patterns instead of pickup→delivery→pickup→delivery
+    """
+    print(f"🏗️  Starting cluster-aware initializer with {len(orders)} orders and {len(vehicles)} vehicles")
+    
+    solution = Solution()
+    unassigned_orders = orders.copy()
+    
+    # Get debug setting from params
+    debug_assignment = params.get('debug_assignment', False) if params else False
+    
+    # Phase 1: Smart Order-to-Vehicle Assignment
+    # Group multiple orders per vehicle to enable efficient clustering
+    vehicle_assignments = {}  # vehicle_id -> list of orders
+    
+    # Initialize assignment tracking
+    for vehicle in vehicles:
+        vehicle_assignments[vehicle.id] = []
+    
+    # Enhanced assignment strategy: Capacity-aware order grouping
+    ordered_vehicles = sorted(vehicles, key=lambda v: v.weight_capacity, reverse=True)  # Start with largest vehicles
+    
+    while unassigned_orders:
+        assignment_made = False
+        
+        for vehicle in ordered_vehicles:
+            if not unassigned_orders:
+                break
+                
+            # Find the best-fitting order for this vehicle considering current load
+            current_weight = sum(order.get_total_demand() for order in vehicle_assignments[vehicle.id])
+            current_volume = sum(order.get_total_volume() for order in vehicle_assignments[vehicle.id])
+            
+            # Select orders that fit within vehicle capacity
+            compatible_orders = []
+            for order in unassigned_orders:
+                if (current_weight + order.get_total_demand() <= vehicle.weight_capacity and 
+                    current_volume + order.get_total_volume() <= vehicle.volume_capacity):
+                    compatible_orders.append(order)
+            
+            # Assign the largest compatible order to maximize vehicle utilization
+            if compatible_orders:
+                # Sort by weight descending to fill vehicles efficiently
+                best_order = max(compatible_orders, key=lambda o: o.get_total_demand())
+                vehicle_assignments[vehicle.id].append(best_order)
+                unassigned_orders.remove(best_order)
+                assignment_made = True
+                
+                if debug_assignment:
+                    print(f"  DEBUG L1: Assigned order {best_order.id} to {vehicle.id} "
+                          f"(total load: {current_weight + best_order.get_total_demand()}kg)")
+        
+        # If no assignments were made, assign remaining orders to least loaded vehicles
+        if not assignment_made and unassigned_orders:
+            # Find vehicle with lowest current load
+            lightest_vehicle = min(ordered_vehicles, 
+                                 key=lambda v: sum(order.get_total_demand() for order in vehicle_assignments[v.id]))
+            
+            # Assign the first remaining order
+            order_to_assign = unassigned_orders[0]
+            vehicle_assignments[lightest_vehicle.id].append(order_to_assign)
+            unassigned_orders.remove(order_to_assign)
+            
+            if debug_assignment:
+                print(f"  DEBUG L1: Force-assigned order {order_to_assign.id} to {lightest_vehicle.id}")
+    
+    # Phase 2: Build Efficient Routes Using Enhanced Strategy
+    for vehicle in vehicles:
+        assigned_orders = vehicle_assignments[vehicle.id]
+        
+        if not assigned_orders:
+            continue  # Skip vehicles with no orders
+        
+        if debug_assignment:
+            print(f"  DEBUG L1: Building route for {vehicle.id} with {len(assigned_orders)} orders")
+        
+        # Create base route
+        current_route = Route(vehicle=vehicle)
+        
+        # Use enhanced multi-order insertion strategy
+        final_route = build_clustered_route(current_route, assigned_orders, debug_assignment)
+        
+        if final_route is not None:
+            solution.add_route(vehicle.id, final_route)
+            if debug_assignment:
+                print(f"  DEBUG L1: Successfully built route for {vehicle.id} with {len(final_route.tasks)} tasks")
+        else:
+            # Fallback: try inserting orders one by one using original L2
+            if debug_assignment:
+                print(f"  DEBUG L1: Clustered routing failed for {vehicle.id}, falling back to sequential insertion")
+            
+            for order in assigned_orders:
+                new_route = l2_heuristic(current_route, order, debug_assignment)
+                if new_route is not None:
+                    current_route = new_route
+                else:
+                    # Add to unassigned if even fallback fails
+                    if hasattr(solution, 'unassigned_orders'):
+                        solution.unassigned_orders.add(order.id)
+                    else:
+                        solution.unassigned_orders = {order.id}
+                    print(f"Warning: Could not assign order {order.id} to any vehicle")
+            
+            if len(current_route.tasks) > 0:
+                solution.add_route(vehicle.id, current_route)
+    
+    return solution
+
+
+def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool = False) -> Optional['Route']:
+    """
+    Build an efficient route with multiple orders using cluster-based insertion.
+    
+    This creates depot_start → pickup→pickup→delivery→delivery → depot_return patterns.
+    """
+    if debug_assignment:
+        print(f"    DEBUG L1: Building clustered route with {len(orders)} orders")
+    
+    # Extract all pickup and delivery tasks from orders
+    all_pickups = []
+    all_deliveries = []
+    
+    for order in orders:
+        pickup_tasks = order.get_pickups()
+        delivery_tasks = order.get_deliveries()
+        all_pickups.extend(pickup_tasks)
+        all_deliveries.extend(delivery_tasks)
+    
+    # Start with an empty route and add depot start task
+    current_route = route.copy()
+    
+    # Add depot start task if we have any actual cargo tasks
+    if all_pickups or all_deliveries:
+        # Get depot information from vehicle
+        depot_location_id = getattr(route.vehicle, 'depot_id', 'main_depot')
+        depot_lat = getattr(route.vehicle, 'depot_lat', 45.0)  # Default Asti area
+        depot_lon = getattr(route.vehicle, 'depot_lon', 9.0)   # Default Asti area
+        
+        # Import Task class for creating depot tasks
+        from epdt_data_structures import Task
+        
+        # Create and add depot start task at the beginning
+        depot_start_task = Task.create_depot_start_task(
+            vehicle_id=route.vehicle.id,
+            depot_location_id=depot_location_id,
+            depot_lat=depot_lat,
+            depot_lon=depot_lon
+        )
+        current_route.insert_task_without_reordering(0, depot_start_task)
+    
+    # Phase 1: Insert all pickups in a cluster
+    for pickup in all_pickups:
+        best_cost = float('inf')
+        best_route = None
+        
+        # Try inserting at each position
+        for pos in range(len(current_route.tasks) + 1):
+            test_route = current_route.copy()
+            test_route.insert_task_without_reordering(pos, pickup)
+            
+            if test_route.is_feasible():
+                from second_level import calculate_z2_score
+                cost = calculate_z2_score(test_route)
+                if cost < best_cost:
+                    best_cost = cost
+                    best_route = test_route
+        
+        if best_route:
+            current_route = best_route
+        else:
+            if debug_assignment:
+                print(f"    DEBUG L1: Failed to insert pickup {pickup.id}")
+            return None
+    
+    # Phase 2: Insert all deliveries after pickups (respecting individual precedence)
+    for delivery in all_deliveries:
+        best_cost = float('inf')
+        best_route = None
+        
+        # Find corresponding pickup position for precedence
+        pickup_pos = None
+        for i, task in enumerate(current_route.tasks):
+            if (hasattr(task, 'order_id') and hasattr(delivery, 'order_id') and 
+                task.order_id == delivery.order_id and task.is_pickup()):
+                pickup_pos = i
+                break
+        
+        # Insert delivery after its pickup
+        start_pos = (pickup_pos + 1) if pickup_pos is not None else len(all_pickups)
+        
+        for pos in range(start_pos, len(current_route.tasks) + 1):
+            test_route = current_route.copy()
+            test_route.insert_task_without_reordering(pos, delivery)
+            
+            if test_route.is_feasible():
+                from second_level import calculate_z2_score
+                cost = calculate_z2_score(test_route)
+                if cost < best_cost:
+                    best_cost = cost
+                    best_route = test_route
+        
+        if best_route:
+            current_route = best_route
+        else:
+            if debug_assignment:
+                print(f"    DEBUG L1: Failed to insert delivery {delivery.id}")
+            return None
+    
+    # Add depot return task at the end if we have any actual cargo tasks
+    if all_pickups or all_deliveries:
+        # Get depot information from vehicle (same as start)
+        depot_location_id = getattr(route.vehicle, 'depot_id', 'main_depot')
+        depot_lat = getattr(route.vehicle, 'depot_lat', 45.0)  # Default Asti area
+        depot_lon = getattr(route.vehicle, 'depot_lon', 9.0)   # Default Asti area
+        
+        # Create and add depot return task at the end
+        depot_return_task = Task.create_depot_return_task(
+            vehicle_id=route.vehicle.id,
+            depot_location_id=depot_location_id,
+            depot_lat=depot_lat,
+            depot_lon=depot_lon
+        )
+        current_route.insert_task_without_reordering(len(current_route.tasks), depot_return_task)
+    
+    if debug_assignment:
+        print(f"    DEBUG L1: Successfully built clustered route with {len(current_route.tasks)} tasks")
+    
+    return current_route

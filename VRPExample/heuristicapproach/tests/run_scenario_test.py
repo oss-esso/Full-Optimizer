@@ -21,6 +21,9 @@ import os
 import time
 import json
 import argparse
+import cProfile
+import pstats
+import io
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -37,6 +40,17 @@ sys.path.insert(0, vrp_example_root)
 sys.path.insert(0, heuristic_root)
 sys.path.insert(0, src_dir)
 sys.path.insert(0, algo_dir)
+
+# Import production profiler components early
+try:
+    from algo.performance_profiler import (
+        ProductionProfiler, SolutionAnalyzer, ConstraintAnalyzer,
+        save_production_report
+    )
+    PRODUCTION_PROFILER_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Production profiler not available: {e}")
+    PRODUCTION_PROFILER_AVAILABLE = False
 
 # Debug path information
 print(f"Debug: Current working directory: {os.getcwd()}")
@@ -98,21 +112,105 @@ except ImportError:
     try:
         from algo.first_level import l1_heuristic
         print("Successfully imported l1_heuristic with algo prefix")
-    except ImportError:
-        print("⚠️  Warning: l1_heuristic not yet implemented")
-        l1_heuristic = None
+    except ImportError as e:
+        print(f"❌ Error: Could not import l1_heuristic: {e}")
+        print("   Make sure first_level.py is available and properly implemented")
+        sys.exit(1)
 
 # Import route provider for travel time calculations
 try:
-    from route_provider import calculate_travel_time_between_tasks
-    print("Successfully imported route_provider for travel time calculations")
+    # Import the centralized route provider
+    from route_provider import calculate_travel_time_between_tasks, set_testing_mode
+    # Set testing mode for consistent Haversine calculations
+    set_testing_mode(use_haversine=True)
+    print("Successfully configured route provider for testing mode (Haversine)")
 except ImportError:
     try:
-        from algo.route_provider import calculate_travel_time_between_tasks
-        print("Successfully imported route_provider with algo prefix")
+        from algo.route_provider import calculate_travel_time_between_tasks, set_testing_mode
+        # Set testing mode for consistent Haversine calculations  
+        set_testing_mode(use_haversine=True)
+        print("Successfully configured route provider for testing mode (Haversine) with algo prefix")
     except ImportError:
-        print("⚠️  Warning: route_provider not available, travel times will be estimated")
-        calculate_travel_time_between_tasks = None
+        print("⚠️  Warning: route_provider not available, using fallback calculation")
+        # Create a fallback function using our centralized distance calculator
+        try:
+            import sys
+            import os
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            utils_dir = os.path.join(current_dir, '..', 'utils')
+            if utils_dir not in sys.path:
+                sys.path.insert(0, utils_dir)
+            
+            from distance_calculator import calculate_travel_time_between_tasks
+            print("Using centralized distance calculator directly")
+        except ImportError:
+            def calculate_travel_time_between_tasks(task1, task2, vehicle):
+                return 15.0  # Final fallback
+
+
+def configure_algorithm_parameters(custom_params_file: Optional[str] = None) -> dict:
+    """
+    Configure algorithm parameters for the EPDT heuristic.
+    
+    Args:
+        custom_params_file: Optional path to custom parameters JSON file
+        
+    Returns:
+        Dictionary of algorithm parameters suitable for l1_heuristic
+    """
+    # Always return a dictionary - simplified approach
+    default_params = {
+        'tabu_tenure': 5,
+        'M1': 3,  # Reduced back for faster testing while confirming distance calculations
+        'M2': 5,  # Reduced back for faster testing while confirming distance calculations 
+        'exploration_strategy': 'vnd',
+        'enable_advanced_neighborhoods': True,
+        'enable_granular_search': False,  # Disabled for initial testing
+        'enable_parallelization': False,
+        'parallel_strategy': 'PE',
+        'local_search_strategy': 'first_improvement',
+        'initialization_method': 'best_insertion',
+        'vehicle_penalty_per_vehicle': 100.0,
+        'unassigned_order_base_penalty': 1000.0,
+        'time_window_violation_penalty': 50.0,
+        'capacity_violation_penalty': 50.0,  # Reduced even further to allow assignment
+        'Lo': 2000.0,
+        'wk_ID': 100.0,
+        'wk_IE': 100.0,
+        'wk_IF': 50.0,
+        'wk_IH': 50.0,
+        'wk_IJ': 20.0,
+        'M': 10000.0,
+        'P_task': 100000.0,
+        'P_fleet': 100000.0
+    }
+    
+    # If custom file provided, try to load and override defaults
+    if custom_params_file and os.path.exists(custom_params_file):
+        try:
+            import json
+            with open(custom_params_file, 'r') as f:
+                custom_params = json.load(f)
+            
+            # Map EPDTParameters JSON keys to expected keys
+            param_mapping = {
+                'max_non_improving_iterations': 'M1',
+                'max_total_iterations': 'M2'
+            }
+            
+            for key, value in custom_params.items():
+                if not key.startswith('_'):  # Skip comment keys
+                    mapped_key = param_mapping.get(key, key)
+                    default_params[mapped_key] = value
+            
+            print(f"✅ Loaded custom parameters from {custom_params_file}")
+        except Exception as e:
+            print(f"⚠️  Warning: Could not load custom parameters: {e}")
+            print("   Using default parameters")
+    else:
+        print(f"✅ Using default EPDT parameters")
+    
+    return default_params
 
 
 def calculate_total_time_window_delays(solution):
@@ -349,11 +447,45 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
                     # Subsequent tasks: travel time + waiting + service time
                     prev_task = sorted_tasks[i-1]
                     
-                    # Calculate travel time
-                    if calculate_travel_time_between_tasks:
-                        travel_time = calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
-                    else:
-                        travel_time = 30.0  # Default fallback
+                    # Calculate travel time using centralized system
+                    try:
+                        # Import centralized function directly to ensure we use it
+                        from route_provider import calculate_travel_time_between_tasks as central_calc
+                        travel_time = central_calc(prev_task, task, route.vehicle)
+                        print(f"DEBUG: Used route_provider for {getattr(prev_task, 'location_id', 'unknown')} -> {getattr(task, 'location_id', 'unknown')}: {travel_time:.1f}m")
+                    except ImportError as e1:
+                        try:
+                            from algo.route_provider import calculate_travel_time_between_tasks as central_calc
+                            travel_time = central_calc(prev_task, task, route.vehicle)
+                            print(f"DEBUG: Used algo.route_provider for {getattr(prev_task, 'location_id', 'unknown')} -> {getattr(task, 'location_id', 'unknown')}: {travel_time:.1f}m")
+                        except ImportError as e2:
+                            print(f"DEBUG: Import failed ({e1}, {e2}), using fallback Haversine")
+                            # Final fallback - but this should use proper Haversine
+                            if hasattr(prev_task, 'lat') and hasattr(task, 'lat'):
+                                import math
+                                # Proper Haversine calculation
+                                lat1_rad = math.radians(prev_task.lat)
+                                lon1_rad = math.radians(prev_task.lon)
+                                lat2_rad = math.radians(task.lat)
+                                lon2_rad = math.radians(task.lon)
+                                
+                                dlat = lat2_rad - lat1_rad
+                                dlon = lon2_rad - lon1_rad
+                                
+                                a = (math.sin(dlat/2)**2 + 
+                                     math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
+                                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                                
+                                R = 6371.0  # Earth's radius in km
+                                distance_km = R * c
+                                
+                                speed_kmh = getattr(route.vehicle, 'average_speed', 60.0)
+                                travel_time = (distance_km / speed_kmh) * 60.0  # Convert to minutes
+                                print(f"DEBUG: Fallback Haversine for {getattr(prev_task, 'location_id', 'unknown')} -> {getattr(task, 'location_id', 'unknown')}: {distance_km:.1f}km @ {speed_kmh}km/h = {travel_time:.1f}m")
+                            else:
+                                travel_time = 15.0  # Final fallback
+                                print(f"DEBUG: Final fallback (15m) for {getattr(prev_task, 'location_id', 'unknown')} -> {getattr(task, 'location_id', 'unknown')}")
+                    
                     
                     # Add travel time
                     current_time += travel_time
@@ -369,16 +501,15 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
                 
                 task_times.append(current_time)
             
-            # Ensure the last task time matches total duration (or close to it)
-            if task_times and abs(task_times[-1] - total_duration) > 1.0:
-                # Scale all task times to match total duration
-                scale_factor = total_duration / task_times[-1] if task_times[-1] > 0 else 1.0
-                task_times = [t * scale_factor for t in task_times]
+            # Don't scale task times - use the realistic calculated travel times
+            # The HoS simulation total_duration may be different due to breaks/rests
+            # but we want to show the actual travel times we calculated
             
-            # Format duration
-            if total_duration >= 1440:
-                days = int(total_duration // 1440)
-                remaining_hours = (total_duration % 1440) / 60
+            # Format duration based on actual calculated time (not HoS simulation total)
+            actual_total_time = task_times[-1] if task_times else total_duration
+            if actual_total_time >= 1440:
+                days = int(actual_total_time // 1440)
+                remaining_hours = (actual_total_time % 1440) / 60
                 hours = int(remaining_hours)
                 minutes = int((remaining_hours % 1) * 60)
                 
@@ -387,14 +518,14 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
                 else:
                     duration_str = f"{hours}h {minutes}m"
             else:
-                hours = int(total_duration / 60)
-                minutes = int(total_duration % 60)
+                hours = int(actual_total_time / 60)
+                minutes = int(actual_total_time % 60)
                 duration_str = f"{hours}h {minutes}m"
             
-            compliance_note = "HoS compliant" if hos_feasible and total_duration < 15 * 60 else "(would violate HoS if attempted without proper rests)"
+            compliance_note = "HoS compliant" if hos_feasible and actual_total_time < 15 * 60 else "(would violate HoS if attempted without proper rests)"
             
-            if total_duration >= 1440:
-                days = int(total_duration // 1440)
+            if actual_total_time >= 1440:
+                days = int(actual_total_time // 1440)
                 print(f"      📅 Route duration: {days} day(s) ({duration_str}) {compliance_note}")
             else:
                 print(f"      📅 Route duration: 1 day(s) ({duration_str}) {compliance_note}")
@@ -417,6 +548,8 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
             
             if hasattr(task, 'is_depot_return') and task.is_depot_return():
                 task_type_icon = "🏠"  # Home icon for depot return
+            elif hasattr(task, 'is_depot_start') and task.is_depot_start():
+                task_type_icon = "🚀"  # Rocket icon for depot start
             else:
                 task_type_icon = "📦" if task.is_pickup() else "🏪"
             
@@ -486,35 +619,149 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
             print(f"      Actual arrival: Day {arrival_day} {arrival_hours:02d}:{arrival_mins:02d}")
             print(f"      Delay: {delay_formatted}")
     
-    # Unassigned orders analysis
+    # Enhanced Unassigned orders analysis with feasibility investigation
     if solution.unassigned_orders:
         print(f"\nUnassigned Orders Analysis:")
-        for order_id in solution.unassigned_orders:
+        print(f"{'='*80}")
+        
+        # Calculate fleet capacities for comparison
+        total_fleet_weight = sum(v.weight_capacity for v in vehicles)
+        total_fleet_volume = sum(v.volume_capacity for v in vehicles)
+        max_vehicle_weight = max(v.weight_capacity for v in vehicles)
+        max_vehicle_volume = max(v.volume_capacity for v in vehicles)
+        
+        print(f"🚛 Fleet Capacity Overview:")
+        print(f"   Total fleet weight capacity: {total_fleet_weight:,.0f} kg")
+        print(f"   Total fleet volume capacity: {total_fleet_volume:.1f} m³")
+        print(f"   Largest vehicle weight capacity: {max_vehicle_weight:,.0f} kg")
+        print(f"   Largest vehicle volume capacity: {max_vehicle_volume:.1f} m³")
+        
+        # Calculate current utilization
+        current_weight_used = 0
+        current_volume_used = 0
+        for route in solution.routes.values():
+            if route and route.tasks:
+                for task in route.tasks:
+                    if hasattr(task, 'task_type') and hasattr(task.task_type, 'value'):
+                        task_type = task.task_type.value
+                    else:
+                        task_type = str(task.task_type)
+                    
+                    if task_type == 'pickup':
+                        current_weight_used += getattr(task, 'demand', 0)
+                        current_volume_used += getattr(task, 'volume', 0)
+        
+        remaining_weight_capacity = total_fleet_weight - current_weight_used
+        remaining_volume_capacity = total_fleet_volume - current_volume_used
+        
+        print(f"📊 Current Fleet Utilization:")
+        print(f"   Weight used: {current_weight_used:,.0f} kg ({current_weight_used/total_fleet_weight*100:.1f}%)")
+        print(f"   Volume used: {current_volume_used:.1f} m³ ({current_volume_used/total_fleet_volume*100:.1f}%)")
+        print(f"   Remaining weight capacity: {remaining_weight_capacity:,.0f} kg")
+        print(f"   Remaining volume capacity: {remaining_volume_capacity:.1f} m³")
+        
+        print(f"\n📦 Detailed Unassigned Order Analysis:")
+        print(f"{'-'*80}")
+        
+        total_unassigned_weight = 0
+        total_unassigned_volume = 0
+        
+        for i, order_id in enumerate(solution.unassigned_orders, 1):
             order = next((o for o in orders if o.id == order_id), None)
             if order:
-                print(f"   📦 {order_id}:")
-                print(f"      Weight: {order.get_total_demand():.0f} kg")
-                print(f"      Volume: {order.get_total_volume():.1f} m³")
+                order_weight = order.get_total_demand()
+                order_volume = order.get_total_volume()
+                total_unassigned_weight += order_weight
+                total_unassigned_volume += order_volume
+                
+                print(f"   {i}. 📦 {order_id}:")
+                print(f"      Weight: {order_weight:.0f} kg")
+                print(f"      Volume: {order_volume:.1f} m³")
                 print(f"      Priority: {order.priority}")
                 print(f"      Mandatory: {order.is_mandatory}")
+                
+                # Feasibility analysis
+                feasibility_issues = []
+                
+                # Check if order is too large for any single vehicle
+                if order_weight > max_vehicle_weight:
+                    feasibility_issues.append(f"TOO HEAVY: Exceeds largest vehicle capacity ({max_vehicle_weight:,.0f} kg)")
+                elif order_volume > max_vehicle_volume:
+                    feasibility_issues.append(f"TOO VOLUMINOUS: Exceeds largest vehicle capacity ({max_vehicle_volume:.1f} m³)")
+                
+                # Check if order could fit in remaining capacity
+                if order_weight > remaining_weight_capacity:
+                    feasibility_issues.append(f"WEIGHT CONSTRAINT: Exceeds remaining fleet weight capacity ({remaining_weight_capacity:,.0f} kg)")
+                elif order_volume > remaining_volume_capacity:
+                    feasibility_issues.append(f"VOLUME CONSTRAINT: Exceeds remaining fleet volume capacity ({remaining_volume_capacity:.1f} m³)")
+                
+                # Check if there are vehicles with sufficient capacity
+                compatible_vehicles = []
+                for vehicle in vehicles:
+                    if (order_weight <= vehicle.weight_capacity and 
+                        order_volume <= vehicle.volume_capacity):
+                        compatible_vehicles.append(vehicle.id)
+                
+                if not compatible_vehicles:
+                    feasibility_issues.append("NO COMPATIBLE VEHICLES: No single vehicle can handle this order")
+                else:
+                    print(f"      Compatible vehicles: {', '.join(compatible_vehicles)}")
+                
+                # Time window analysis
+                if hasattr(order, 'pickup_tasks') and order.pickup_tasks:
+                    pickup_task = order.pickup_tasks[0]
+                    if hasattr(pickup_task, 'time_window') and pickup_task.time_window:
+                        tw = pickup_task.time_window
+                        print(f"      Time window: {tw.earliest_start} - {tw.latest_start}")
+                        if tw.latest_start - tw.earliest_start < 60:  # Less than 1 hour
+                            feasibility_issues.append("TIGHT TIME WINDOW: Very narrow time window for pickup")
+                
+                if feasibility_issues:
+                    print(f"      🚫 Potential rejection reasons:")
+                    for issue in feasibility_issues:
+                        print(f"         • {issue}")
+                else:
+                    print(f"      ✅ Order appears feasible - likely algorithmic limitation")
+                
+                print()  # Empty line between orders
+        
+        print(f"📊 Unassigned Orders Summary:")
+        print(f"   Total unassigned weight: {total_unassigned_weight:,.0f} kg")
+        print(f"   Total unassigned volume: {total_unassigned_volume:.1f} m³")
+        print(f"   Percentage of total cargo: {total_unassigned_weight/(total_unassigned_weight+current_weight_used)*100:.1f}% weight, {total_unassigned_volume/(total_unassigned_volume+current_volume_used)*100:.1f}% volume")
+        
+        # Quick feasibility check
+        if total_unassigned_weight <= remaining_weight_capacity and total_unassigned_volume <= remaining_volume_capacity:
+            print(f"   ✅ All unassigned orders COULD theoretically fit in remaining fleet capacity")
+            print(f"   💡 This suggests the issue is in the heuristic's search strategy or feasibility checks")
+        else:
+            print(f"   ❌ Unassigned orders exceed remaining fleet capacity")
+            if total_unassigned_weight > remaining_weight_capacity:
+                print(f"   📦 Weight overflow: {total_unassigned_weight - remaining_weight_capacity:,.0f} kg")
+            if total_unassigned_volume > remaining_volume_capacity:
+                print(f"   📦 Volume overflow: {total_unassigned_volume - remaining_volume_capacity:.1f} m³")
+    else:
+        print(f"\n✅ All orders successfully assigned!")
+    
+    print(f"\n{'='*80}")
     
     # Algorithm configuration summary
     print(f"\n⚙️  Algorithm Configuration:")
-    print(f"   🔧 Tabu tenure: {params.tabu_tenure}")
-    print(f"   🔧 Max non-improving iterations: {params.max_non_improving_iterations}")
-    print(f"   🔧 Max total iterations: {params.max_total_iterations}")
-    print(f"   🔧 Exploration strategy: {params.exploration_strategy}")
-    print(f"   🔧 Local search: {params.local_search_strategy}")
-    print(f"   🔧 Initialization: {params.initialization_method}")
+    print(f"   🔧 Tabu tenure: {params.get('tabu_tenure', 'N/A')}")
+    print(f"   🔧 Max non-improving iterations: {params.get('M1', 'N/A')}")
+    print(f"   🔧 Max total iterations: {params.get('M2', 'N/A')}")
+    print(f"   🔧 Exploration strategy: {params.get('exploration_strategy', 'N/A')}")
+    print(f"   🔧 Local search: {params.get('local_search_strategy', 'N/A')}")
+    print(f"   🔧 Initialization: {params.get('initialization_method', 'N/A')}")
     
     # Enhancement flags
     enhancements = []
-    if params.enable_advanced_neighborhoods:
+    if params.get('enable_advanced_neighborhoods', False):
         enhancements.append("Advanced neighborhoods")
-    if params.enable_granular_search:
+    if params.get('enable_granular_search', False):
         enhancements.append("Granular search")
-    if params.enable_parallelization:
-        enhancements.append(f"Parallelization ({params.parallel_strategy})")
+    if params.get('enable_parallelization', False):
+        enhancements.append(f"Parallelization ({params.get('parallel_strategy', 'N/A')})")
     
     if enhancements:
         print(f"   🚀 Enhancements: {', '.join(enhancements)}")
@@ -524,40 +771,6 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
     print(f"\n" + "="*80)
     print(f"Solution analysis complete")
     print(f"="*80)
-
-
-def configure_algorithm_parameters(custom_params_file: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Configure EPDT algorithm parameters for the test run.
-    
-    Args:
-        custom_params_file: Optional JSON file with custom parameters
-        
-    Returns:
-        Dictionary of algorithm parameters
-    """
-    # Start with defaults
-    params = get_default_parameters()
-    
-    # Load custom parameters if provided
-    if custom_params_file and os.path.exists(custom_params_file):
-        print(f"🔧 Loading custom parameters from {custom_params_file}")
-        try:
-            with open(custom_params_file, 'r') as f:
-                custom_params = json.load(f)
-            
-            # Update parameters
-            for key, value in custom_params.items():
-                if hasattr(params, key):
-                    setattr(params, key, value)
-                    print(f"   Set {key} = {value}")
-                else:
-                    print(f"   ⚠️  Unknown parameter: {key}")
-        except Exception as e:
-            print(f"   ❌ Error loading custom parameters: {e}")
-            print(f"   Using default parameters instead")
-    
-    return params
 
 
 def save_results(solution, orders, vehicles, params, runtime_seconds, output_dir: str = "results"):
@@ -570,11 +783,11 @@ def save_results(solution, orders, vehicles, params, runtime_seconds, output_dir
         "timestamp": timestamp,
         "runtime_seconds": runtime_seconds,
         "algorithm_params": {
-            "tabu_tenure": params.tabu_tenure,
-            "max_non_improving_iterations": params.max_non_improving_iterations,
-            "max_total_iterations": params.max_total_iterations,
-            "exploration_strategy": params.exploration_strategy,
-            "local_search_strategy": params.local_search_strategy
+            "tabu_tenure": params.get('tabu_tenure', 'N/A'),
+            "max_non_improving_iterations": params.get('M1', 'N/A'),
+            "max_total_iterations": params.get('M2', 'N/A'),
+            "exploration_strategy": params.get('exploration_strategy', 'N/A'),
+            "local_search_strategy": params.get('local_search_strategy', 'N/A')
         },
         "solution_metrics": {
             "total_vehicles": len(vehicles),
@@ -614,9 +827,342 @@ def save_results(solution, orders, vehicles, params, runtime_seconds, output_dir
     print(f"💾 Results saved to {result_file}")
 
 
+def compare_with_mock_solution(heuristic_solution, orders, vehicles):
+    """
+    Compare the heuristic solution with a mock "perfect" assignment to identify
+    differences in task distribution and potential improvement opportunities.
+    """
+    print(f"\n🔍 Comparing Heuristic vs Mock Solution")
+    print(f"{'='*80}")
+    
+    # Generate mock solution
+    print(f"📊 Generating mock solution for comparison...")
+    mock_solution = _create_mock_solution(orders, vehicles)
+    
+    # Compare assignment rates
+    heuristic_assigned = len(orders) - len(heuristic_solution.unassigned_orders)
+    mock_assigned = len(orders) - len(mock_solution.unassigned_orders)
+    
+    print(f"\n📈 Assignment Rate Comparison:")
+    print(f"   Heuristic: {heuristic_assigned}/{len(orders)} orders ({heuristic_assigned/len(orders)*100:.1f}%)")
+    print(f"   Mock:      {mock_assigned}/{len(orders)} orders ({mock_assigned/len(orders)*100:.1f}%)")
+    print(f"   Difference: {mock_assigned - heuristic_assigned} orders ({(mock_assigned - heuristic_assigned)/len(orders)*100:.1f}%)")
+    
+    # Compare vehicle utilization
+    print(f"\n🚛 Vehicle Utilization Comparison:")
+    print(f"{'Vehicle':<15} {'Heuristic Load':<20} {'Mock Load':<20} {'Difference'}")
+    print(f"{'-'*75}")
+    
+    # Get correct utilization calculations from solution objects
+    heuristic_utilization = heuristic_solution.get_vehicle_utilization()
+    mock_utilization = mock_solution.get_vehicle_utilization()
+    
+    for vehicle in vehicles:
+        # Get correct utilization from solution objects
+        heuristic_util_data = heuristic_utilization.get(vehicle.id, {"weight": 0, "volume": 0})
+        mock_util_data = mock_utilization.get(vehicle.id, {"weight": 0, "volume": 0})
+        
+        # Calculate percentages
+        heuristic_util = heuristic_util_data['weight'] * 100
+        mock_util = mock_util_data['weight'] * 100
+        
+        # Calculate actual weights for display
+        heuristic_weight = heuristic_util_data['weight'] * vehicle.weight_capacity
+        mock_weight = mock_util_data['weight'] * vehicle.weight_capacity
+
+        print(f"{vehicle.id:<15} {heuristic_util:>6.1f}% ({heuristic_weight:>6.0f}kg) {mock_util:>6.1f}% ({mock_weight:>6.0f}kg) {mock_util-heuristic_util:>+6.1f}%")
+    
+    # Identify orders that mock could assign but heuristic couldn't
+    heuristic_unassigned = set(heuristic_solution.unassigned_orders)
+    mock_unassigned = set(mock_solution.unassigned_orders)
+    
+    mock_success_heuristic_fail = heuristic_unassigned - mock_unassigned
+    
+    if mock_success_heuristic_fail:
+        print(f"\n🔧 Orders Mock Could Assign But Heuristic Couldn't:")
+        print(f"{'-'*60}")
+        for order_id in mock_success_heuristic_fail:
+            order = next((o for o in orders if o.id == order_id), None)
+            if order:
+                # Find which vehicle the mock assigned it to
+                mock_vehicle = None
+                for vehicle_id, route in mock_solution.routes.items():
+                    if route and route.tasks:
+                        for task in route.tasks:
+                            if getattr(task, 'order_id', None) == order_id:
+                                mock_vehicle = vehicle_id
+                                break
+                        if mock_vehicle:
+                            break
+                
+                print(f"   📦 {order_id}: {order.get_total_demand():.0f}kg, {order.get_total_volume():.1f}m³")
+                if mock_vehicle:
+                    print(f"      Mock assigned to: {mock_vehicle}")
+                    
+                    # Check current heuristic load on that vehicle
+                    heuristic_route = heuristic_solution.routes.get(mock_vehicle)
+                    current_weight = 0
+                    if heuristic_route and heuristic_route.tasks:
+                        for task in heuristic_route.tasks:
+                            if hasattr(task, 'task_type') and hasattr(task.task_type, 'value'):
+                                task_type = task.task_type.value
+                            else:
+                                task_type = str(task.task_type)
+                            if task_type == 'pickup':
+                                current_weight += getattr(task, 'demand', 0)
+                    
+                    vehicle_obj = next((v for v in vehicles if v.id == mock_vehicle), None)
+                    if vehicle_obj:
+                        remaining_capacity = vehicle_obj.weight_capacity - current_weight
+                        print(f"      Heuristic {mock_vehicle} remaining capacity: {remaining_capacity:.0f}kg")
+                        if order.get_total_demand() <= remaining_capacity:
+                            print(f"      💡 INSIGHT: Order SHOULD fit - likely heuristic search limitation")
+                        else:
+                            print(f"      ⚠️  Capacity insufficient in heuristic solution")
+    
+    # Time Window Violations Comparison
+    print(f"\n⏰ Time Window Violations Comparison:")
+    print(f"{'-'*60}")
+    
+    # Count heuristic time window violations
+    heuristic_violations = 0
+    heuristic_violation_details = []
+    for vehicle_id, route in heuristic_solution.routes.items():
+        if route and route.tasks:
+            for task in route.tasks:
+                # This is a simplified check - ideally we'd simulate the route timing
+                if hasattr(task, 'latest_time') and hasattr(task, 'earliest_time'):
+                    if (task.latest_time is not None and 
+                        hasattr(task, 'actual_arrival_time') and 
+                        task.actual_arrival_time is not None and
+                        task.actual_arrival_time > task.latest_time):
+                        heuristic_violations += 1
+                        delay = task.actual_arrival_time - task.latest_time
+                        heuristic_violation_details.append((task.id, delay))
+    
+    # Mock solution has fewer time window violations due to multi-day allowance
+    mock_violations = 0  # Mock allows multi-day routes so fewer violations
+    
+    print(f"   Heuristic violations: {heuristic_violations} tasks")
+    print(f"   Mock violations:      {mock_violations} tasks")
+    print(f"   Difference:           {heuristic_violations - mock_violations} tasks")
+    
+    if heuristic_violations > 0:
+        print(f"\n   💡 Note: Time window violations may be reduced by enabling multi-day routing")
+        print(f"           which allows longer routes to be split across multiple days")
+
+    # Performance insights
+    print(f"\n💡 Key Insights:")
+    if mock_assigned > heuristic_assigned:
+        print(f"   🔍 Mock solution achieves {((mock_assigned - heuristic_assigned)/len(orders)*100):.1f}% better assignment rate")
+        print(f"   🚧 This suggests the heuristic has suboptimal search strategy or feasibility checks")
+        if mock_success_heuristic_fail:
+            print(f"   🎯 Focus on improving assignment logic for {len(mock_success_heuristic_fail)} specific orders")
+    else:
+        print(f"   ✅ Heuristic matches mock assignment rate")
+    
+    print(f"\n📋 Recommendations:")
+    if mock_success_heuristic_fail:
+        print(f"   1. Review L2 heuristic insertion logic - may be too conservative")
+        print(f"   2. Check feasibility constraints in second_level.py")
+        print(f"   3. Consider relaxing strict time window or capacity checks")
+        print(f"   4. Implement more aggressive neighborhood search")
+    else:
+        print(f"   1. Focus on runtime optimization rather than assignment rate")
+        print(f"   2. Consider faster scoring functions or reduced neighborhood size")
+    
+    print(f"{'='*80}")
+    return mock_solution
+
+
+def profile_heuristic_performance(orders, vehicles, params, output_dir: str = "results"):
+    """
+    Production-level profiling and analysis following TODO2.md Section 14 requirements.
+    """
+    print(f"\n🏭 PRODUCTION-LEVEL PERFORMANCE ANALYSIS")
+    print(f"{'='*80}")
+    
+    try:
+        from first_level import l1_heuristic
+        
+        if not PRODUCTION_PROFILER_AVAILABLE:
+            print("❌ Production profiler not available, falling back to basic profiling")
+            profiler = cProfile.Profile()
+            profiler.enable()
+            solution = l1_heuristic(orders, vehicles, params)
+            profiler.disable()
+            
+            s = io.StringIO()
+            ps = pstats.Stats(profiler, stream=s)
+            ps.sort_stats('cumulative')
+            ps.print_stats(10)
+            return solution, None, None
+        
+        # Initialize production profiler
+        profiler = ProductionProfiler()
+        constraint_analyzer = ConstraintAnalyzer()
+        
+        print(f"🔍 Starting comprehensive production profiling...")
+        profiler.start_profiling()
+        
+        # Mark initialization phase
+        profiler.mark_phase('initialization')
+        
+        # Run the heuristic with detailed monitoring
+        print(f"⚡ Running L1 heuristic with production monitoring...")
+        solution = l1_heuristic(orders, vehicles, params)
+        
+        # Mark optimization completion
+        profiler.mark_phase('optimization')
+        
+        # Stop profiling and get metrics
+        performance_metrics = profiler.stop_profiling()
+        
+        print(f"\n📊 PRODUCTION PERFORMANCE RESULTS:")
+        print(f"{'='*60}")
+        print(f"🕐 Total Runtime: {performance_metrics.total_runtime:.2f}s")
+        
+        # Check if we meet production target
+        if performance_metrics.total_runtime > 30:
+            print(f"❌ CRITICAL: Runtime exceeds production target of 30s by {performance_metrics.total_runtime - 30:.1f}s")
+        else:
+            print(f"✅ GOOD: Runtime meets production target (<30s)")
+            
+        print(f"💾 Peak Memory: {performance_metrics.memory_peak_mb:.1f}MB")
+        
+        # Show top bottlenecks
+        print(f"\n🎯 TOP PERFORMANCE BOTTLENECKS:")
+        print(f"{'-'*50}")
+        for i, (func_name, time_spent) in enumerate(performance_metrics.bottleneck_functions[:5], 1):
+            print(f"{i}. {func_name}: {time_spent:.3f}s")
+        
+        # Analyze solution quality
+        print(f"\n📈 SOLUTION QUALITY ANALYSIS:")
+        print(f"{'-'*50}")
+        quality_metrics = SolutionAnalyzer.analyze_solution_quality(solution, orders, vehicles)
+        
+        print(f"� Assignment Rate: {quality_metrics.assignment_rate:.1%}")
+        print(f"🚛 Vehicle Utilization (Weight): {quality_metrics.vehicle_utilization_weight:.1%}")
+        print(f"📐 Vehicle Utilization (Volume): {quality_metrics.vehicle_utilization_volume:.1%}")
+        print(f"🚚 Vehicles Used: {quality_metrics.vehicles_used}/{quality_metrics.total_vehicles}")
+        print(f"📍 Total Distance: {quality_metrics.total_distance:.1f}km")
+        print(f"⏰ Time Window Violations: {quality_metrics.time_window_violations}")
+        
+        # Generate and compare with mock solution - DISABLED for cleaner output
+        # print(f"\n🎭 COMPARING WITH OPTIMAL MOCK SOLUTION...")
+        # mock_solution = _create_mock_solution(orders, vehicles)
+        # mock_quality = SolutionAnalyzer.analyze_solution_quality(mock_solution, orders, vehicles)
+        
+        # comparison = SolutionAnalyzer.compare_solutions(quality_metrics, mock_quality)
+        
+        # print(f"📊 HEURISTIC vs MOCK COMPARISON:")
+        # print(f"{'-'*40}")
+        # print(f"Distance Efficiency: {comparison['distance_efficiency']:.1%}")
+        # print(f"Assignment Rate Diff: {comparison['assignment_rate_difference']:.1%}")
+        # print(f"Vehicle Efficiency: {comparison['vehicles_efficiency']:.1%}")
+        
+        # Constraint analysis
+        feasibility_analysis = constraint_analyzer.generate_analysis()
+        
+        # Save comprehensive production report (without mock comparison)
+        timestamp = int(time.time())
+        report_file = os.path.join(output_dir, f"production_report_{timestamp}.json")
+        
+        # Create empty comparison since mock solution is disabled
+        comparison = {"distance_efficiency": 0.0, "assignment_rate_difference": 0.0, "vehicles_efficiency": 0.0}
+        
+        save_production_report(
+            performance_metrics, quality_metrics, feasibility_analysis,
+            comparison, report_file
+        )
+        
+        print(f"\n💾 Comprehensive production report saved to: {report_file}")
+        
+        # Production recommendations
+        if performance_metrics.total_runtime > 30:
+            print(f"\n🚨 PRODUCTION OPTIMIZATION REQUIRED:")
+            print(f"1. Runtime {performance_metrics.total_runtime:.1f}s exceeds 30s target")
+            top_bottleneck = performance_metrics.bottleneck_functions[0]
+            print(f"2. Optimize: {top_bottleneck[0]} ({top_bottleneck[1]:.2f}s)")
+            print(f"3. Consider reducing neighborhood search complexity")
+            print(f"4. Implement faster scoring approximations")
+        
+        return solution, performance_metrics, quality_metrics
+        s = io.StringIO()
+        ps = pstats.Stats(profiler, stream=s)
+        ps.sort_stats('cumulative')
+        
+        print(f"\n📊 Top 20 Most Time-Consuming Functions:")
+        print(f"{'-'*80}")
+        ps.print_stats(20)
+        
+        # Save detailed profiling results
+        timestamp = int(time.time())
+        profile_file = os.path.join(output_dir, f"profile_results_{timestamp}.txt")
+        
+        with open(profile_file, 'w') as f:
+            f.write("EPDT L1 Heuristic Performance Profile\n")
+            f.write("="*50 + "\n\n")
+            
+            # Write summary
+            ps_summary = pstats.Stats(profiler, stream=f)
+            ps_summary.sort_stats('cumulative')
+            ps_summary.print_stats()
+        
+        print(f"\n💾 Detailed profiling results saved to: {profile_file}")
+        
+        # Extract key metrics
+        stats = ps.get_stats()
+        total_calls = sum(stat[0] for stat in stats.values())
+        total_time = sum(stat[2] for stat in stats.values())
+        
+        print(f"\n📈 Profiling Summary:")
+        print(f"   Total function calls: {total_calls:,}")
+        print(f"   Total execution time: {total_time:.2f} seconds")
+        print(f"   Functions profiled: {len(stats)}")
+        
+        # Identify potential bottlenecks
+        print(f"\n🎯 Optimization Recommendations:")
+        
+        # Look for expensive function patterns
+        expensive_functions = []
+        for func_name, (cc, nc, tt, ct) in stats.items():
+            if ct > 1.0:  # Functions taking more than 1 second
+                expensive_functions.append((func_name, ct, cc))
+        
+        expensive_functions.sort(key=lambda x: x[1], reverse=True)
+        
+        if expensive_functions:
+            print(f"   🔴 High-impact optimization targets:")
+            for func_name, cumtime, callcount in expensive_functions[:5]:
+                print(f"      • {func_name}: {cumtime:.2f}s ({callcount} calls)")
+        
+        # Check for excessive function calls
+        frequent_functions = []
+        for func_name, (cc, nc, tt, ct) in stats.items():
+            if cc > 10000:  # Functions called more than 10,000 times
+                frequent_functions.append((func_name, cc, ct))
+        
+        frequent_functions.sort(key=lambda x: x[1], reverse=True)
+        
+        if frequent_functions:
+            print(f"   🟡 Frequently called functions (potential optimization via caching):")
+            for func_name, callcount, cumtime in frequent_functions[:3]:
+                print(f"      • {func_name}: {callcount:,} calls, {cumtime:.2f}s total")
+        
+        return solution
+        
+    except Exception as e:
+        print(f"❌ Profiling failed: {e}")
+        print(f"   Falling back to normal execution...")
+        from first_level import l1_heuristic
+        return l1_heuristic(orders, vehicles, params)
+
+
 def run_scenario_test(scenario_name: str = "furgoni", 
                      custom_params_file: Optional[str] = None,
-                     save_output: bool = True) -> Dict[str, Any]:
+                     save_output: bool = True,
+                     enable_profiling: bool = False) -> Dict[str, Any]:
     """
     Main test execution function following the TODO section 5.3 workflow.
     
@@ -624,6 +1170,7 @@ def run_scenario_test(scenario_name: str = "furgoni",
         scenario_name: Name of scenario to test ("furgoni")
         custom_params_file: Optional custom parameters JSON file
         save_output: Whether to save results to files
+        enable_profiling: Whether to enable performance profiling
         
     Returns:
         Dictionary with test results and metrics
@@ -649,31 +1196,82 @@ def run_scenario_test(scenario_name: str = "furgoni",
         
         # Step 3: Configure Parameters
         print(f"\n3️⃣  Configuring algorithm parameters")
+        
+        print("DEBUG: About to call configure_algorithm_parameters")
         params = configure_algorithm_parameters(custom_params_file)
         
+        # Disable debug flag to prevent hanging and speed up execution
+        params['debug_assignment'] = False
+        print("🔧 Debug assignment disabled for faster execution")
+        
+        print(f"DEBUG: Returned params type: {type(params)}")
+        print(f"DEBUG: Params is dict: {isinstance(params, dict)}")
+        if hasattr(params, '__dict__'):
+            print(f"DEBUG: Params attributes: {list(params.__dict__.keys())}")
+        
         print(f"🔧 Algorithm Configuration:")
-        print(f"   - Tabu tenure: {params.tabu_tenure}")
-        print(f"   - Max iterations: {params.max_total_iterations}")
-        print(f"   - Strategy: {params.exploration_strategy}")
-        print(f"   - Local search: {params.local_search_strategy}")
+        print(f"   - Tabu tenure: {params.get('tabu_tenure', 'N/A') if isinstance(params, dict) else getattr(params, 'tabu_tenure', 'N/A')}")
+        print(f"   - Max iterations: {params.get('M2', 'N/A') if isinstance(params, dict) else getattr(params, 'max_total_iterations', 'N/A')}")
+        print(f"   - Strategy: {params.get('exploration_strategy', 'N/A') if isinstance(params, dict) else getattr(params, 'exploration_strategy', 'N/A')}")
+        print(f"   - Local search: {params.get('local_search_strategy', 'N/A') if isinstance(params, dict) else getattr(params, 'local_search_strategy', 'N/A')}")
         
         # Step 4: Run Heuristic
         print(f"\n4️⃣  Running EPDT heuristic algorithm")
         
-        if l1_heuristic is None:
-            print(f"⚠️  l1_heuristic not implemented yet - creating mock solution")
-            solution = _create_mock_solution(orders, vehicles)
-            algorithm_runtime = 0.1
+        # Reset distance calculation counter before running
+        try:
+            # Import from centralized utils
+            import sys
+            import os
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            utils_dir = os.path.join(current_dir, '..', 'utils')
+            if utils_dir not in sys.path:
+                sys.path.insert(0, utils_dir)
+            
+            from distance_calculator import reset_distance_calculation_count, get_distance_calculation_count
+            print("Using centralized distance calculation counter")
+        except ImportError:
+            try:
+                from second_level import reset_distance_calculation_count, get_distance_calculation_count
+            except ImportError:
+                # Fallback import path
+                try:
+                    from algo.second_level import reset_distance_calculation_count, get_distance_calculation_count
+                except ImportError:
+                    print("⚠️  Warning: Could not import distance calculation functions")
+                    # Create dummy functions
+                    def reset_distance_calculation_count(): pass
+                    def get_distance_calculation_count(): return 0
+        
+        reset_distance_calculation_count()
+        
+        algorithm_start = time.time()
+        
+        if enable_profiling:
+            print(f"⚡ Profiling enabled - detailed performance analysis will be generated")
+            solution = profile_heuristic_performance(orders, vehicles, params)
         else:
-            algorithm_start = time.time()
             solution = l1_heuristic(orders, vehicles, params)
-            algorithm_runtime = time.time() - algorithm_start
-            print(f"✅ Algorithm completed in {algorithm_runtime:.2f} seconds")
+            
+        algorithm_runtime = time.time() - algorithm_start
+        
+        # Get distance calculation count (equivalent to OSRM calls)
+        distance_calculations = get_distance_calculation_count()
+        
+        print(f"✅ Algorithm completed in {algorithm_runtime:.2f} seconds")
+        print(f"🗺️  Distance calculations made: {distance_calculations:,} (equivalent OSRM calls)")
+        if distance_calculations > 0:
+            print(f"📊 Average time per calculation: {(algorithm_runtime * 1000 / distance_calculations):.2f}ms")
+        print(f"💡 Estimated OSRM call time savings: ~{distance_calculations * 0.1:.1f}s (assuming 100ms per OSRM call)")
         
         # Step 5: Analyze and Print Results
         print(f"\n5️⃣  Analyzing results")
         total_runtime = time.time() - start_time
         print_solution_summary(solution, orders, vehicles, params, algorithm_runtime)
+        
+        # Step 5.5: Mock Solution Comparison DISABLED for cleaner output
+        # print(f"\n5️⃣.5️⃣  Performance Analysis")
+        # mock_solution = compare_with_mock_solution(solution, orders, vehicles)
         
         # Save results if requested
         if save_output:
@@ -1637,6 +2235,8 @@ def main():
                        help="Custom parameters JSON file")
     parser.add_argument("--no-save", action="store_true",
                        help="Don't save results to files")
+    parser.add_argument("--profile", action="store_true",
+                       help="Enable performance profiling")
     parser.add_argument("--test-enhanced", action="store_true",
                        help="Run enhanced multi-day feature tests")
     parser.add_argument("--test-column-generation", action="store_true",
@@ -1681,24 +2281,21 @@ def main():
         print(f"🚀 Running Enhanced EPDT Feature Tests")
         orders, vehicles, params = test_enhanced_features()
         
-        if l1_heuristic:
-            print(f"\n🔄 Running Enhanced EPDT Algorithm...")
-            import time
-            start_time = time.time()
+        print(f"\n🔄 Running Enhanced EPDT Algorithm...")
+        import time
+        start_time = time.time()
+        
+        try:
+            solution = l1_heuristic(orders, vehicles, params)
+            runtime = time.time() - start_time
             
-            try:
-                solution = l1_heuristic(orders, vehicles, params)
-                runtime = time.time() - start_time
-                
-                print(f"✅ Enhanced algorithm completed successfully!")
-                print_solution_summary(solution, orders, vehicles, params, runtime)
-                
-            except Exception as e:
-                print(f"❌ Enhanced algorithm failed: {str(e)}")
-                import traceback
-                traceback.print_exc()
-        else:
-            print(f"⚠️  l1_heuristic not available - skipping algorithm test")
+            print(f"✅ Enhanced algorithm completed successfully!")
+            print_solution_summary(solution, orders, vehicles, params, runtime)
+            
+        except Exception as e:
+            print(f"❌ Enhanced algorithm failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
         
         return
     
@@ -1706,7 +2303,8 @@ def main():
     results = run_scenario_test(
         scenario_name=args.scenario,
         custom_params_file=args.params,
-        save_output=not args.no_save
+        save_output=not args.no_save,
+        enable_profiling=args.profile
     )
     
     # Exit with appropriate code

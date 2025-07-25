@@ -5,9 +5,15 @@ This module provides route information for the EPDT algorithm by:
 1. Caching route data in a local SQLite database 
 2. Fetching from OSRM API when cache misses occur
 3. Supporting vehicle-specific travel time calculations
+4. Providing centralized travel time calculation with configurable modes
 
 The module encapsulates the road composition logic from tests/road_composition.py
 and provides a clean interface for the EPDT algorithm to get realistic travel times.
+
+Configuration:
+- USE_OSRM: Global flag to control whether to use OSRM service or Haversine calculation
+- Set to False for testing with consistent Haversine distances
+- Set to True for production with OSRM routing service
 """
 
 import requests
@@ -17,6 +23,25 @@ import os
 from collections import defaultdict
 from typing import Dict, Optional, Tuple, Any
 from pathlib import Path
+
+# Global configuration flag for travel time calculation mode
+USE_OSRM = True  # Set to False for testing mode with Haversine calculation
+
+def set_testing_mode(use_haversine: bool = True):
+    """
+    Configure the route provider for testing or production mode.
+    
+    Args:
+        use_haversine: If True, use Haversine calculation (testing mode)
+                      If False, use OSRM service (production mode)
+    """
+    global USE_OSRM
+    USE_OSRM = not use_haversine
+    print(f"Route provider mode: {'OSRM' if USE_OSRM else 'Haversine (testing)'}")
+
+def is_testing_mode() -> bool:
+    """Check if currently in testing mode (using Haversine calculation)."""
+    return not USE_OSRM
 
 
 # Speed profiles based on OSRM car.lua profile (km/h)
@@ -421,8 +446,8 @@ def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
     """
     Calculate travel time between two tasks for a specific vehicle.
     
-    This is the main function to replace _calculate_travel_time_between_tasks
-    in second_level.py.
+    This is the centralized function for travel time calculation that decides
+    whether to use OSRM service or Haversine calculation based on the USE_OSRM flag.
     
     Args:
         task1: Starting task with lat, lon, and location_id attributes
@@ -432,17 +457,68 @@ def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
     Returns:
         Travel time in minutes
     """
-    provider = get_route_provider()
+    global USE_OSRM
     
-    # Extract coordinates and node IDs
-    start_coords = (getattr(task1, 'lon', 0), getattr(task1, 'lat', 0))
-    end_coords = (getattr(task2, 'lon', 0), getattr(task2, 'lat', 0))
-    start_node_id = getattr(task1, 'location_id', f"{task1.lat}_{task1.lon}")
-    end_node_id = getattr(task2, 'location_id', f"{task2.lat}_{task2.lon}")
+    if USE_OSRM:
+        # Production mode: Use OSRM service
+        try:
+            provider = get_route_provider()
+            
+            # Extract coordinates and node IDs
+            start_coords = (getattr(task1, 'lon', 0), getattr(task1, 'lat', 0))
+            end_coords = (getattr(task2, 'lon', 0), getattr(task2, 'lat', 0))
+            start_node_id = getattr(task1, 'location_id', f"{task1.lat}_{task1.lon}")
+            end_node_id = getattr(task2, 'location_id', f"{task2.lat}_{task2.lon}")
+            
+            # Get vehicle type, default to 'standard' if not specified
+            vehicle_type = getattr(vehicle, 'vehicle_type', 'standard')
+            
+            return provider.calculate_vehicle_travel_time(
+                start_node_id, end_node_id, vehicle_type, start_coords, end_coords
+            )
+        except Exception as e:
+            print(f"Warning: OSRM calculation failed ({e}), falling back to Haversine")
+            # Fall through to Haversine calculation
     
-    # Get vehicle type, default to 'standard' if not specified
-    vehicle_type = getattr(vehicle, 'vehicle_type', 'standard')
-    
-    return provider.calculate_vehicle_travel_time(
-        start_node_id, end_node_id, vehicle_type, start_coords, end_coords
-    )
+    # Testing mode or OSRM fallback: Use centralized Haversine calculation
+    try:
+        # Import from our centralized distance calculator
+        import sys
+        import os
+        
+        # Add utils directory to path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        utils_dir = os.path.join(current_dir, '..', 'utils')
+        if utils_dir not in sys.path:
+            sys.path.insert(0, utils_dir)
+        
+        from distance_calculator import calculate_travel_time_between_tasks as haversine_calc
+        return haversine_calc(task1, task2, vehicle)
+        
+    except ImportError as e:
+        print(f"Warning: Could not import centralized distance calculator ({e})")
+        # Ultimate fallback - basic calculation
+        if hasattr(task1, 'lat') and hasattr(task2, 'lat'):
+            import math
+            
+            # Basic Haversine calculation
+            lat1_rad = math.radians(task1.lat)
+            lon1_rad = math.radians(task1.lon)
+            lat2_rad = math.radians(task2.lat)
+            lon2_rad = math.radians(task2.lon)
+            
+            dlat = lat2_rad - lat1_rad
+            dlon = lon2_rad - lon1_rad
+            
+            a = (math.sin(dlat/2)**2 + 
+                 math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+            
+            R = 6371.0  # Earth's radius in km
+            distance_km = R * c
+            
+            speed_kmh = getattr(vehicle, 'average_speed', 60.0)
+            travel_time_hours = distance_km / speed_kmh
+            return travel_time_hours * 60.0
+        
+        return 15.0  # Final fallback

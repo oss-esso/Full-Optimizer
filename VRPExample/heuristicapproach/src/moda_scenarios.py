@@ -121,9 +121,9 @@ def create_furgoni_scenario(average_speed_kmh=70) -> VRPInstance:
     locations_data = [
         # Day 0-1: Local/nearby deliveries (FURGONE routes)
         ("schonaich_de", "gentile gusto carl Zeiss Str. 4 71101 Schonaich DE", 9.0000, 48.6667, 
-         0*1440+480, 1*1440+1080, 30, False),  # Day 0 8:00 AM - Day 1 6:00 PM
+         1*1440+480, 2*1440+1080, 30, False),  # Day 0 8:00 AM - Day 1 6:00 PM
         ("malmoe_sweden", "malmoe sweden menarini diag.slr", 13.0038, 55.6050, 
-         0*1440+600, 1*1440+1200, 30, False),  # Day 0 10:00 AM - Day 1 8:00 PM
+         1*1440+600, 2*1440+1200, 30, False),  # Day 0 10:00 AM - Day 1 8:00 PM
         
         # Day 1-2: Regional deliveries  
         ("salvazzano_pd", "Via Pelosa 20 35030 Salvazzano Dentro PD", 11.7833, 45.3833, 
