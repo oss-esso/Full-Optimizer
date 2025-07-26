@@ -111,6 +111,53 @@ This document outlines the necessary steps to integrate the advanced, realistic 
     3.  **Run Assignment:** Pass the routes from the heuristic solution and the list of enhanced drivers to the `assign_drivers_to_routes_enhanced` function.
     4.  **Print Final Summary:** Call `print_assignment_summary` to display the final, complete solution with drivers assigned to routes.
 
+## 19. Debug and Resolve Assignment Failures
+
+**Objective:** Systematically debug the `l1_heuristic` to understand why it fails to assign all orders and implement fixes to achieve a 100% assignment rate.
+
+- [ ] **Problem:** The `comprehensive_integration_test.py` output reveals that a significant number of orders are left unassigned by the heuristic. This indicates that the solver's constraints or search operators are too restrictive, preventing valid insertions.
+- [ ] **Goal:** Identify the exact reasons for assignment failures and modify the heuristic to assign all orders, mirroring the behavior of a baseline or mock solution.
+
+- [ ] **Debugging and Resolution Steps:**
+
+    1.  **Instrument the Heuristic for Detailed Logging:**
+        - **Action:** Modify the `l1_heuristic` and its sub-components (especially `best_insertion_initializer` and neighborhood search functions) to produce detailed logs.
+        - **Logging Details:**
+            - When an order is considered for insertion, log the order ID and the vehicle being tested.
+            - If an insertion fails, log the *exact* reason (e.g., "Capacity violation: weight exceeds limit," "Time window violation: arrival at task X is too late," "HOS violation: driver runs out of driving time").
+            - To do this, the `is_feasible` function in `algo/second_level.py` should be modified to return not just `True` or `False`, but a tuple `(bool, str)`, where the string contains the reason for failure.
+
+    2.  **Analyze Unassigned Orders Systematically:**
+        - **Action:** Enhance the `print_route_validation_summary` function in `tests/comprehensive_integration_test.py`.
+        - **Enhancement:**
+            - Create a set of all order IDs at the beginning of the function.
+            - As you iterate through the solution's routes, remove the assigned order IDs from this set.
+            - After the loop, the set will contain only the unassigned order IDs.
+            - Iterate through the unassigned orders and print a detailed profile for each one, including:
+                - Order ID, weight, volume, pickup/delivery locations.
+                - Time windows for both pickup and delivery tasks.
+                - Any other relevant properties (e.g., priority).
+
+    3.  **Create a Focused Debugging Test:**
+        - **Action:** Create a new test script, `tests/debug_order_assignment.py`, that focuses on a *single* unassigned order.
+        - **Test Logic:**
+            1.  Load the full scenario (`furgoni.xlsx`).
+            2.  Identify one of the unassigned orders from the comprehensive test output.
+            3.  Run a simplified version of the heuristic that attempts to insert only this specific order into every available vehicle's route.
+            4.  Use the detailed logging from step 1 to trace exactly why the insertion fails for each vehicle. This will isolate the constraint or logic that is causing the issue.
+
+    4.  **Review and Refine Constraints:**
+        - **Action:** Based on the debugging output, critically review the constraints in `algo/second_level.py`.
+        - **Common Issues to Look For:**
+            - **Overly Strict Time Windows:** Are the time windows too narrow, making it impossible to arrive on time?
+            - **Incorrect Capacity Calculations:** Is the vehicle's remaining capacity being calculated correctly after each task?
+            - **Flawed HOS Simulation:** Is the Hours of Service simulation prematurely marking routes as infeasible? Check for off-by-one errors or incorrect time accumulation.
+            - **Depot Return Time:** Is the heuristic correctly calculating the time required to return to the depot at the end of the route?
+
+    5.  **Iterate and Validate:**
+        - **Action:** After applying a fix, re-run the `comprehensive_integration_test.py` to see if the assignment rate improves.
+        - **Goal:** Continue this cycle of debugging, fixing, and validating until all orders are successfully assigned.
+
 ## 17. Enforce Pickup-Before-Delivery Precedence Constraint
 
 **Objective:** Fix a critical bug in the route validation logic that allows the solver to create infeasible routes where delivery tasks are performed before all pickup tasks have been completed. This violates the fundamental EPDT problem definition from Chapter 3 of the thesis.

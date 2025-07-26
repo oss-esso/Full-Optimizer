@@ -182,7 +182,13 @@ def configure_algorithm_parameters(custom_params_file: Optional[str] = None) -> 
         'wk_IJ': 20.0,
         'M': 10000.0,
         'P_task': 100000.0,
-        'P_fleet': 100000.0
+        'P_fleet': 100000.0,
+        
+        # Performance optimization parameters (Phase 2)
+        'max_neighbors_to_evaluate': 15,  # Limit neighborhood search scope
+        'best_k_insertions': 5,  # Only evaluate top 5 insertion positions
+        'enable_delta_evaluation': True,  # Use incremental cost calculation
+        'max_neighbors_per_iteration': 20,  # Global limit per VND iteration
     }
     
     # If custom file provided, try to load and override defaults

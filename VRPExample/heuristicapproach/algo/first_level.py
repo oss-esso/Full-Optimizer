@@ -171,8 +171,8 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
             break
 
         # 4. VND Loop - Variable Neighborhood Descent
-        # Include advanced neighborhoods based on parameters
-        neighborhoods = [single_order_relocation_neighborhood, two_orders_swap_neighborhood]
+        # Include unassigned order insertion as the first neighborhood (highest priority)
+        neighborhoods = [unassigned_order_insertion_neighborhood, single_order_relocation_neighborhood, two_orders_swap_neighborhood]
         if params.get('enable_advanced_neighborhoods', False):
             neighborhoods.extend([multiple_order_relocation_neighborhood, two_opt_routes_neighborhood])
         if params.get('enable_granular_search', False) and NETWORKX_AVAILABLE:
@@ -181,9 +181,19 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         if total_iters % 50 == 1:  # Less frequent debug for VND
             print(f"🔍 Starting VND with {len(neighborhoods)} neighborhoods")
         
+        # Track total neighbors evaluated across all neighborhoods in this VND iteration
+        total_neighbors_this_vnd = 0
+        max_neighbors_per_iteration = params.get('max_neighbors_per_iteration', 20)
+        
         for neighborhood_idx, neighborhood_func in enumerate(neighborhoods):
             if total_iters % 50 == 1:
                 print(f"🔍 Exploring neighborhood {neighborhood_idx+1}/{len(neighborhoods)}: {neighborhood_func.__name__}")
+            
+            # Check if we've already evaluated too many neighbors in this VND iteration
+            if total_neighbors_this_vnd >= max_neighbors_per_iteration:
+                if total_iters % 50 == 1:
+                    print(f"⚠️  VND iteration reached {max_neighbors_per_iteration} neighbors limit, skipping remaining neighborhoods")
+                break
             
             # Explore neighborhood, find best valid neighbor
             best_neighbor_in_N = None
@@ -192,10 +202,19 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
             
             for neighbor in neighborhood_func(center_solution, orders):
                 neighbors_evaluated += 1
+                total_neighbors_this_vnd += 1
                 
-                # Final production optimization - break at 15 neighbors for sub-30s target
-                if neighbors_evaluated > 15:
-                    print(f"⚠️  Neighborhood {neighborhood_func.__name__} evaluated 15+ neighbors, breaking for sub-30s target")
+                # Use configurable neighbor limit for performance optimization
+                max_neighbors = params.get('max_neighbors_to_evaluate', 15)
+                if neighbors_evaluated > max_neighbors:
+                    if total_iters % 50 == 1:  # Only print occasionally to reduce log noise
+                        print(f"⚠️  Neighborhood {neighborhood_func.__name__} evaluated {max_neighbors}+ neighbors, breaking for sub-30s target")
+                    break
+                
+                # Also check global VND iteration limit
+                if total_neighbors_this_vnd >= max_neighbors_per_iteration:
+                    if total_iters % 50 == 1:
+                        print(f"⚠️  VND iteration reached {max_neighbors_per_iteration} total neighbors, breaking")
                     break
                 
                 neighbor_score = calculate_z1_score(neighbor, params, orders)
@@ -210,6 +229,14 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 if (not is_tabu or aspiration) and (best_neighbor_in_N is None or neighbor_score > best_neighbor_score):
                     best_neighbor_in_N = neighbor
                     best_neighbor_score = neighbor_score
+                    
+                    # First improvement strategy: if we found an improving move, stop searching this neighborhood
+                    current_score = calculate_z1_score(center_solution, params, orders)
+                    if params.get('local_search_strategy', 'best_improvement') == 'first_improvement' and neighbor_score > current_score:
+                        if total_iters % 50 == 1:
+                            print(f"⚠️  First improvement found, stopping neighborhood search early")
+                        break
+                        
                 elif not is_tabu:
                     # Add to pool for diversification if not tabu but not improving
                     best_neighbors_pool.append((neighbor, neighbor_score))
@@ -453,7 +480,38 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
             if debug_assignment:
                 print(f"  DEBUG L1: Trying to assign order {order.id}")
             
+            # Performance optimization: use "best k insertions" strategy
+            best_k = params.get('best_k_insertions', 5) if params else 5
+            
+            # Calculate Euclidean distances to all vehicles as a cheap proxy for insertion cost
+            vehicle_distances = []
             for vehicle_idx, vehicle in enumerate(vehicles):
+                # Get order's first pickup location for distance calculation
+                pickup_tasks = order.get_pickups()
+                if pickup_tasks:
+                    pickup_lat = pickup_tasks[0].lat
+                    pickup_lon = pickup_tasks[0].lon
+                    
+                    # Calculate distance to vehicle's depot or current location
+                    vehicle_lat = getattr(vehicle, 'depot_lat', 44.9009)  # Default Asti coordinates (Via del Lavoro 38)
+                    vehicle_lon = getattr(vehicle, 'depot_lon', 8.2057)
+                    
+                    # Simple Euclidean distance calculation
+                    import math
+                    distance = math.sqrt((pickup_lat - vehicle_lat)**2 + (pickup_lon - vehicle_lon)**2)
+                    vehicle_distances.append((distance, vehicle_idx, vehicle))
+                else:
+                    # If no pickup tasks, add with maximum distance (low priority)
+                    vehicle_distances.append((float('inf'), vehicle_idx, vehicle))
+            
+            # Sort by distance and only evaluate the best k vehicles
+            vehicle_distances.sort(key=lambda x: x[0])
+            candidate_vehicles = vehicle_distances[:best_k]
+            
+            if debug_assignment and len(candidate_vehicles) < len(vehicles):
+                print(f"    DEBUG L1: Using best-{best_k} strategy, evaluating {len(candidate_vehicles)}/{len(vehicles)} vehicles")
+            
+            for distance, vehicle_idx, vehicle in candidate_vehicles:
                 current_route = solution.routes.get(vehicle.id)
                 
                 # Create empty route if it doesn't exist
@@ -858,6 +916,69 @@ def _is_feasible_insertion(route: 'Route', task_to_insert, position: int) -> boo
 
 # Placeholder implementations for neighborhood functions and utilities
 # These will be implemented in future tasks
+
+def unassigned_order_insertion_neighborhood(solution: 'Solution', orders: List['Order']) -> Iterator['Solution']:
+    """
+    Generate neighborhood by attempting to insert unassigned orders into existing routes or idle vehicles.
+    
+    This is crucial for the L1 heuristic to recover from initialization failures.
+    It tries to assign orders that failed during the cluster-aware initializer phase.
+    
+    Args:
+        solution: Current solution to generate neighbors from
+        orders: All orders (including unassigned ones)
+        
+    Yields:
+        New solutions with previously unassigned orders inserted
+    """
+    if not solution:
+        return
+    
+    # Find unassigned orders
+    assigned_order_ids = set()
+    for route in solution.routes.values():
+        if route and route.tasks:
+            for task in route.tasks:
+                order_id = getattr(task, 'order_id', None)
+                if order_id:
+                    assigned_order_ids.add(order_id)
+    
+    unassigned_orders = [order for order in orders if order.id not in assigned_order_ids]
+    
+    if not unassigned_orders:
+        return  # No unassigned orders to insert
+    
+    # Strategy 1: Try inserting into existing routes
+    for unassigned_order in unassigned_orders:
+        for vehicle_id, route in solution.routes.items():
+            if not route:
+                continue
+                
+            # Try L2 insertion into existing route
+            from second_level import l2_heuristic
+            new_route = l2_heuristic(route, unassigned_order, debug_assignment=False)
+            
+            if new_route is not None:
+                # Create new solution with the updated route
+                new_solution = solution.copy()
+                new_solution.routes[vehicle_id] = new_route
+                
+                # Remove from unassigned if solution tracks them
+                if hasattr(new_solution, 'unassigned_orders') and unassigned_order.id in new_solution.unassigned_orders:
+                    new_solution.unassigned_orders.remove(unassigned_order.id)
+                
+                yield new_solution
+    
+    # Strategy 2: Try assigning to idle vehicles
+    all_vehicles = set()
+    used_vehicles = set(solution.routes.keys())
+    
+    # We need access to the full vehicle list - this is a limitation of the current architecture
+    # For now, we'll skip idle vehicle assignment and rely on existing route insertion
+    # TODO: Pass vehicle list to neighborhood functions or store in solution
+    
+    return
+
 
 def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Order']) -> Iterator['Solution']:
     """
@@ -1514,8 +1635,8 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
     if all_pickups or all_deliveries:
         # Get depot information from vehicle
         depot_location_id = getattr(route.vehicle, 'depot_id', 'main_depot')
-        depot_lat = getattr(route.vehicle, 'depot_lat', 45.0)  # Default Asti area
-        depot_lon = getattr(route.vehicle, 'depot_lon', 9.0)   # Default Asti area
+        depot_lat = getattr(route.vehicle, 'depot_lat', 44.9009)  # Default Asti coordinates (Via del Lavoro 38)
+        depot_lon = getattr(route.vehicle, 'depot_lon', 8.2057)
         
         # Import Task class for creating depot tasks
         from epdt_data_structures import Task
@@ -1534,12 +1655,14 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
         best_cost = float('inf')
         best_route = None
         
-        # Try inserting at each position
+        # Try inserting at each position using relaxed feasibility check
         for pos in range(len(current_route.tasks) + 1):
             test_route = current_route.copy()
             test_route.insert_task_without_reordering(pos, pickup)
             
-            if test_route.is_feasible():
+            # Use relaxed feasibility check during initialization to allow more exploration
+            from second_level import is_feasible_for_insertion
+            if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
                 from second_level import calculate_z2_score
                 cost = calculate_z2_score(test_route)
                 if cost < best_cost:
@@ -1573,7 +1696,9 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
             test_route = current_route.copy()
             test_route.insert_task_without_reordering(pos, delivery)
             
-            if test_route.is_feasible():
+            # Use relaxed feasibility check during initialization to allow more exploration
+            from second_level import is_feasible_for_insertion
+            if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
                 from second_level import calculate_z2_score
                 cost = calculate_z2_score(test_route)
                 if cost < best_cost:
@@ -1591,8 +1716,8 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
     if all_pickups or all_deliveries:
         # Get depot information from vehicle (same as start)
         depot_location_id = getattr(route.vehicle, 'depot_id', 'main_depot')
-        depot_lat = getattr(route.vehicle, 'depot_lat', 45.0)  # Default Asti area
-        depot_lon = getattr(route.vehicle, 'depot_lon', 9.0)   # Default Asti area
+        depot_lat = getattr(route.vehicle, 'depot_lat', 44.9009)  # Default Asti coordinates (Via del Lavoro 38)
+        depot_lon = getattr(route.vehicle, 'depot_lon', 8.2057)
         
         # Create and add depot return task at the end
         depot_return_task = Task.create_depot_return_task(

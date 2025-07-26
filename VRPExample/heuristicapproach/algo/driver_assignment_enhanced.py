@@ -335,82 +335,90 @@ def assign_drivers_to_routes_enhanced(drivers: List[EnhancedDriver],
     heavy_routes = [r for r in routes if r.vehicle.vehicle_type == 'heavy']
     light_routes = [r for r in routes if r.vehicle.vehicle_type != 'heavy']
     
-    print(f"Enhanced assignment: {len(drivers)} drivers to {len(routes)} routes")
+    print(f"Simplified assignment: {len(drivers)} drivers to {len(routes)} routes")
     print(f"  - Heavy truck routes: {len(heavy_routes)}")
     print(f"  - Light vehicle routes: {len(light_routes)}")
     print(f"  - CE licensed drivers: {sum(1 for d in drivers if d.license == 'CE')}")
     print(f"  - B licensed drivers: {sum(1 for d in drivers if d.license == 'B')}")
     
-    # Create cost matrix with improved handling for unbalanced problems
-    n_drivers = len(drivers)
-    n_routes = len(routes)
-    
-    if n_drivers == n_routes:
-        # Balanced problem - use standard Hungarian algorithm
-        cost_matrix = np.full((n_drivers, n_routes), config.dummy_assignment_cost)
-        
-        for i, driver in enumerate(drivers):
-            for j, route in enumerate(routes):
-                cost_matrix[i, j] = calculate_enhanced_assignment_cost(driver, route, config)
-        
-        row_indices, col_indices = linear_sum_assignment(cost_matrix)
-        
-    else:
-        # Unbalanced problem - use augmented matrix approach
-        max_size = max(n_drivers, n_routes)
-        cost_matrix = np.full((max_size, max_size), config.dummy_assignment_cost)
-        
-        # Fill actual costs
-        for i, driver in enumerate(drivers):
-            for j, route in enumerate(routes):
-                cost_matrix[i, j] = calculate_enhanced_assignment_cost(driver, route, config)
-        
-        # Solve augmented problem
-        row_indices, col_indices = linear_sum_assignment(cost_matrix)
-        
-        # Filter out dummy assignments
-        valid_assignments = []
-        for i, j in zip(row_indices, col_indices):
-            if i < n_drivers and j < n_routes and cost_matrix[i, j] < config.dummy_assignment_cost * 0.9:
-                valid_assignments.append((i, j))
-        
-        row_indices = [pair[0] for pair in valid_assignments]
-        col_indices = [pair[1] for pair in valid_assignments]
-    
-    # Process assignments
+    # Use simple greedy assignment instead of complex cost matrix
     assignments = {}
-    total_cost = 0.0
-    successful_assignments = 0
-    failed_assignments = []
+    assigned_drivers = set()
     
-    for i, j in zip(row_indices, col_indices):
-        if i < n_drivers and j < n_routes:
-            driver = drivers[i]
-            route = routes[j]
-            cost = calculate_enhanced_assignment_cost(driver, route, config)
+    # Phase 1: Assign CE drivers to heavy trucks first (mandatory requirement)
+    ce_drivers = [d for d in drivers if d.license == 'CE' and d.availability_status == "available"]
+    for route in heavy_routes:
+        if not ce_drivers:
+            break
+        # Find best available CE driver
+        best_driver = None
+        best_score = float('inf')
+        
+        for driver in ce_drivers:
+            if driver.id in assigned_drivers:
+                continue
             
-            if cost != float('inf') and cost < config.dummy_assignment_cost * 0.9:
-                assignments[route.vehicle.id] = driver.id
-                route.driver = driver
-                total_cost += cost
-                successful_assignments += 1
+            # Simple scoring: depot match + default vehicle bonus
+            score = 100.0  # Base cost
+            if hasattr(driver, 'home_depot_id') and hasattr(route.vehicle, 'depot_id'):
+                if driver.home_depot_id == route.vehicle.depot_id:
+                    score -= 20.0  # Depot match bonus
+            if hasattr(driver, 'default_vehicle_id'):
+                if driver.default_vehicle_id == route.vehicle.id:
+                    score -= 30.0  # Default vehicle bonus
                 
-                print(f"✓ Assigned driver {driver.name} to vehicle {route.vehicle.id} "
-                      f"(cost: {cost:.2f}, experience: {driver.experience_years}yr, "
-                      f"rating: {driver.performance_rating:.1f})")
+            if score < best_score:
+                best_score = score
+                best_driver = driver
+        
+        if best_driver:
+            assignments[route.vehicle.id] = best_driver.name
+            assigned_drivers.add(best_driver.id)
+            ce_drivers.remove(best_driver)
+    
+    # Phase 2: Assign remaining drivers to remaining routes (light vehicles + unassigned heavy)
+    remaining_drivers = [d for d in drivers if d.id not in assigned_drivers and d.availability_status == "available"]
+    remaining_routes = [r for r in routes if r.vehicle.id not in assignments]
+    
+    for route in remaining_routes:
+        if not remaining_drivers:
+            break
+            
+        # Find best available driver
+        best_driver = None
+        best_score = float('inf')
+        
+        for driver in remaining_drivers:
+            # Check license compatibility
+            license_compatible = False
+            if route.vehicle.vehicle_type == 'heavy':
+                license_compatible = driver.license == 'CE'
             else:
-                failed_assignments.append((driver.name, route.vehicle.id, "Infeasible or too costly"))
+                license_compatible = driver.license in ['B', 'CE']  # Both can drive light vehicles
+            
+            if not license_compatible:
+                continue
+                
+            # Simple scoring
+            score = 100.0  # Base cost
+            if hasattr(driver, 'home_depot_id') and hasattr(route.vehicle, 'depot_id'):
+                if driver.home_depot_id == route.vehicle.depot_id:
+                    score -= 20.0  # Depot match bonus
+            if hasattr(driver, 'default_vehicle_id'):
+                if driver.default_vehicle_id == route.vehicle.id:
+                    score -= 30.0  # Default vehicle bonus
+                
+            if score < best_score:
+                best_score = score
+                best_driver = driver
+        
+        if best_driver:
+            assignments[route.vehicle.id] = best_driver.name
+            assigned_drivers.add(best_driver.id)
+            remaining_drivers.remove(best_driver)
     
-    # Report results
-    print(f"\nAssignment Results:")
-    print(f"  Successfully assigned: {successful_assignments}/{len(routes)} routes")
-    print(f"  Total assignment cost: {total_cost:.2f}")
-    print(f"  Average cost per assignment: {total_cost/max(1, successful_assignments):.2f}")
-    
-    if failed_assignments:
-        print(f"  Failed assignments: {len(failed_assignments)}")
-        for driver_name, vehicle_id, reason in failed_assignments[:5]:  # Show first 5
-            print(f"    - {driver_name} → {vehicle_id}: {reason}")
+    print(f"✅ Assignment completed: {len(assignments)} drivers assigned to routes")
+    print(f"   • Unassigned drivers: {len(drivers) - len(assignments)}")
     
     return assignments
 
@@ -525,8 +533,6 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
     assigned_drivers = set()
     heavy_routes_assigned = 0
     light_routes_assigned = 0
-    total_experience = 0
-    total_performance = 0
     
     print("\nRoute Assignments:")
     print("-" * 50)
@@ -537,25 +543,14 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                 heavy_routes_assigned += 1
             else:
                 light_routes_assigned += 1
-            
-            # Enhanced info if available
-            experience_info = ""
-            performance_info = ""
-            if hasattr(route.driver, 'experience_years'):
-                experience_info = f", Exp: {route.driver.experience_years}yr"
-                total_experience += route.driver.experience_years
-            if hasattr(route.driver, 'performance_rating'):
-                performance_info = f", Rating: {route.driver.performance_rating:.1f}"
-                total_performance += route.driver.performance_rating
                 
             print(f"Vehicle {route.vehicle.id:10} → Driver {route.driver.name:15} "
-                  f"(License: {route.driver.license}, Type: {route.vehicle.vehicle_type}"
-                  f"{experience_info}{performance_info})")
+                  f"(License: {route.driver.license}, Type: {route.vehicle.vehicle_type})")
         else:
             print(f"Vehicle {route.vehicle.id:10} → UNASSIGNED "
                   f"(Type: {route.vehicle.vehicle_type})")
     
-    # Enhanced statistics
+    # Simplified statistics
     assigned_count = len(assigned_drivers)
     print(f"\nEnhanced Assignment Statistics:")
     print(f"  Total routes: {len(routes)}")
@@ -565,20 +560,13 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
     print(f"  Drivers assigned: {assigned_count}")
     print(f"  Drivers unassigned: {len(drivers) - assigned_count}")
     
-    if assigned_count > 0:
-        print(f"  Average experience: {total_experience/assigned_count:.1f} years")
-        print(f"  Average performance: {total_performance/assigned_count:.1f}/10")
-    
-    # Show unassigned drivers
+    # Show unassigned drivers (simplified)
     unassigned_drivers = [d for d in drivers if d.id not in assigned_drivers]
     if unassigned_drivers:
         print(f"\nUnassigned Drivers:")
         for driver in unassigned_drivers[:10]:  # Show first 10
-            experience_info = ""
-            if hasattr(driver, 'experience_years'):
-                experience_info = f", Exp: {driver.experience_years}yr"
             print(f"  {driver.name} (License: {driver.license}, "
-                  f"Default: {driver.default_vehicle_id}{experience_info})")
+                  f"Default: {driver.default_vehicle_id})")
 
 
 if __name__ == "__main__":

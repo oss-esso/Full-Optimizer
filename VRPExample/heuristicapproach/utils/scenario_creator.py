@@ -32,7 +32,7 @@ from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 # Configuration constants
 GEOCODE_CACHE_FILE = "geocode_cache.json"
 DEFAULT_SERVICE_TIME = 15.0  # Default service time in minutes
-DEFAULT_DEPOT_COORDS = (45.4064, 11.8768)  # Padova, Italy as default depot
+DEFAULT_DEPOT_COORDS = (44.9009, 8.2057)  # Asti, Italy - Via del Lavoro 38
 
 # Column mapping for CONSEGNE sheet
 CONSEGNE_COLUMN_MAPPING = {
@@ -157,6 +157,7 @@ def get_coordinates(address: str, cache: Dict[str, Dict[str, float]]) -> Optiona
     Get latitude and longitude coordinates for an address.
     
     Uses caching to avoid repeated API calls for the same address.
+    Enhanced with retry logic and better timeout handling.
     
     Args:
         address: Full address string to geocode
@@ -170,26 +171,42 @@ def get_coordinates(address: str, cache: Dict[str, Dict[str, float]]) -> Optiona
         coords = cache[address]
         return (coords["lat"], coords["lon"])
     
-    # Initialize geocoder
-    geolocator = Photon(user_agent="epdt_scenario_creator")
+    # Initialize geocoder with optimized settings
+    geolocator = Photon(user_agent="epdt_scenario_creator", timeout=15)
     
-    try:
-        # Respect rate limits
-        time.sleep(1)
-        
-        location = geolocator.geocode(address, timeout=10)
-        if location:
-            coords = {"lat": location.latitude, "lon": location.longitude}
-            cache[address] = coords
-            logger.info(f"Geocoded: {address} -> ({coords['lat']:.6f}, {coords['lon']:.6f})")
-            return (location.latitude, location.longitude)
-        else:
-            logger.warning(f"Could not geocode address: {address}")
+    # Retry configuration
+    max_retries = 2
+    base_delay = 1.5  # Slightly longer delay for better Photon performance
+    
+    for attempt in range(max_retries + 1):
+        try:
+            # Progressive delay: 1.5s, 3s, 4.5s
+            if attempt > 0:
+                delay = base_delay * (1 + attempt * 0.5)
+                logger.info(f"Retrying geocoding for {address} (attempt {attempt + 1}) after {delay}s delay...")
+                time.sleep(delay)
+            else:
+                time.sleep(base_delay)  # Always respect rate limits
             
-    except (GeocoderTimedOut, GeocoderServiceError) as e:
-        logger.error(f"Geocoding error for {address}: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error geocoding {address}: {e}")
+            location = geolocator.geocode(address, timeout=15)
+            if location:
+                coords = {"lat": location.latitude, "lon": location.longitude}
+                cache[address] = coords
+                logger.info(f"Geocoded: {address} -> ({coords['lat']:.6f}, {coords['lon']:.6f})")
+                return (location.latitude, location.longitude)
+            else:
+                logger.warning(f"Could not geocode address: {address}")
+                break  # No point retrying if address not found
+                
+        except (GeocoderTimedOut, GeocoderServiceError) as e:
+            if attempt < max_retries:
+                logger.warning(f"Geocoding timeout for {address} (attempt {attempt + 1}): {e}")
+                continue  # Retry on timeout/service error
+            else:
+                logger.error(f"Geocoding failed after {max_retries + 1} attempts for {address}: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error geocoding {address}: {e}")
+            break  # Don't retry on unexpected errors
     
     return None
 
@@ -210,9 +227,13 @@ def construct_full_address(row: pd.Series) -> str:
     if 'ADDRESS' in row and pd.notna(row['ADDRESS']):
         address_parts.append(str(row['ADDRESS']).strip())
     
-    # Add postal code
+    # Add postal code (ensure it's formatted as integer, not float)
     if 'POSTAL CODE' in row and pd.notna(row['POSTAL CODE']):
-        address_parts.append(str(row['POSTAL CODE']).strip())
+        postal_code = row['POSTAL CODE']
+        # Convert float postal codes to integers to avoid .0 suffix
+        if isinstance(postal_code, (int, float)):
+            postal_code = int(postal_code)
+        address_parts.append(str(postal_code).strip())
     
     # Add country
     if 'COUNTRY' in row and pd.notna(row['COUNTRY']):
@@ -293,9 +314,11 @@ def create_task_from_row(row: pd.Series, geocode_cache: Dict[str, Dict[str, floa
         if task_type == TaskType.PICKUP:
             demand = abs(load_kg)
             volume = abs(load_volume)
+            pallets_adjusted = abs(pallets)  # Positive for pickup
         else:  # DELIVERY
             demand = -abs(load_kg)
             volume = -abs(load_volume)
+            pallets_adjusted = -abs(pallets)  # Negative for delivery
         
         # Parse time windows (simplified for now)
         time_window_hours = safe_parse_value(row, 'TIME WINDOW HOURS', None, str)
@@ -337,7 +360,7 @@ def create_task_from_row(row: pd.Series, geocode_cache: Dict[str, Dict[str, floa
             soft_time_window=True,  # Default to soft time windows
             demand=demand,
             volume=volume,
-            pallets=pallets,
+            pallets=pallets_adjusted,  # Use adjusted pallets with proper sign
             priority=priority,
             requires_low_temp=requires_low_temp,
             requires_loader=requires_loader
@@ -476,40 +499,51 @@ def create_scenario_from_excel(file_path: str) -> Tuple[List[Order], List[Vehicl
     
     logger.info(f"Created {len(vehicles)} vehicles")
     
-    # --- Order and Task Creation ---
+    # --- Order and Task Creation with Depot Bay Pairs ---
     orders = []
     logger.info("Creating orders and tasks...")
     
+    # Depot coordinates (Padova, Italy)
+    depot_lat, depot_lon = DEFAULT_DEPOT_COORDS
+    
     # Each row in CONSEGNE represents a location that needs service
-    # We'll create a separate order for each location (simplification)
+    # We'll create paired tasks: customer task + corresponding depot bay task
     
     for idx, row in orders_df.iterrows():
-        task = create_task_from_row(row, geocode_cache)
-        if task:
-            # Create a single-task order
-            if task.is_pickup():
-                pickup_tasks = [task]
-                delivery_tasks = []
+        customer_task = create_task_from_row(row, geocode_cache)
+        if customer_task:
+            # Create corresponding depot bay task
+            depot_task = create_depot_bay_task(customer_task, depot_lat, depot_lon)
+            
+            if depot_task:
+                # Create order with paired tasks
+                if customer_task.is_pickup():
+                    # Customer pickup requires depot delivery (unloading)
+                    pickup_tasks = [customer_task]
+                    delivery_tasks = [depot_task]
+                else:
+                    # Customer delivery requires depot pickup (loading)
+                    pickup_tasks = [depot_task]
+                    delivery_tasks = [customer_task]
+                
+                # Determine order properties from customer task
+                priority = customer_task.priority
+                is_urgent = priority >= 3
+                is_mandatory = True  # All orders are now mandatory for testing/debugging
+                
+                order = Order(
+                    id=customer_task.order_id,
+                    pickup_tasks=pickup_tasks,
+                    delivery_tasks=delivery_tasks,
+                    priority=priority,
+                    is_urgent=is_urgent,
+                    is_mandatory=is_mandatory
+                )
+                
+                orders.append(order)
+                logger.debug(f"Created order {order.id} with paired tasks: customer {customer_task.task_type.value} + depot {depot_task.task_type.value}")
             else:
-                pickup_tasks = []
-                delivery_tasks = [task]
-            
-            # Determine order properties from task
-            priority = task.priority
-            is_urgent = priority >= 3
-            is_mandatory = priority >= 2
-            
-            order = Order(
-                id=task.order_id,
-                pickup_tasks=pickup_tasks,
-                delivery_tasks=delivery_tasks,
-                priority=priority,
-                is_urgent=is_urgent,
-                is_mandatory=is_mandatory
-            )
-            
-            orders.append(order)
-            logger.debug(f"Created order {order.id} with 1 task ({task.task_type.value})")
+                logger.warning(f"Failed to create depot bay task for {customer_task.id}")
         else:
             logger.warning(f"Skipped location at row {idx + 2}")  # +2 for 1-indexed + header
     
@@ -527,6 +561,63 @@ def create_scenario_from_excel(file_path: str) -> Tuple[List[Order], List[Vehicl
     
     logger.info(f"Scenario creation complete: {len(orders)} orders, {len(vehicles)} vehicles")
     return orders, vehicles
+
+
+def create_depot_bay_task(customer_task: Task, depot_lat: float, depot_lon: float) -> Optional[Task]:
+    """
+    Create a corresponding depot bay task for a customer task.
+    
+    Args:
+        customer_task: The original customer task (pickup or delivery)
+        depot_lat: Depot latitude coordinate
+        depot_lon: Depot longitude coordinate
+        
+    Returns:
+        Depot bay task or None if creation failed
+    """
+    try:
+        # Determine depot task type (opposite of customer task)
+        if customer_task.is_pickup():
+            # Customer pickup → Depot delivery (unload cargo at depot)
+            depot_task_type = TaskType.DELIVERY
+            depot_task_id = f"DEPOT_DELIVERY_{customer_task.order_id}"
+            depot_demand = -customer_task.demand  # Negative for delivery
+            depot_volume = -customer_task.volume  # Negative for delivery
+            depot_pallets = -customer_task.pallets  # Negative for delivery (unloading pallets)
+        else:
+            # Customer delivery → Depot pickup (load cargo from depot)
+            depot_task_type = TaskType.PICKUP
+            depot_task_id = f"DEPOT_PICKUP_{customer_task.order_id}"
+            depot_demand = -customer_task.demand  # Convert negative delivery to positive pickup
+            depot_volume = -customer_task.volume  # Convert negative delivery volume to positive pickup
+            depot_pallets = -customer_task.pallets  # Convert negative delivery pallets to positive pickup
+        
+        # Create depot bay task
+        depot_task = Task(
+            id=depot_task_id,
+            location_id="DEPOT_BAY_ASTI",
+            task_type=depot_task_type,
+            order_id=customer_task.order_id,
+            lat=depot_lat,
+            lon=depot_lon,
+            service_time=5.0,  # 5 minutes for depot operations
+            earliest_time=None,  # No time constraints for depot
+            latest_time=None,
+            soft_time_window=True,
+            demand=depot_demand,
+            volume=depot_volume,
+            pallets=depot_pallets,  # Fixed: pallets now follow same sign logic as weight/volume
+            priority=customer_task.priority,
+            requires_low_temp=customer_task.requires_low_temp,
+            requires_loader=customer_task.requires_loader
+        )
+        
+        logger.debug(f"Created depot bay task: {depot_task_id} ({depot_task_type.value}) for customer task {customer_task.id}")
+        return depot_task
+        
+    except Exception as e:
+        logger.error(f"Error creating depot bay task for {customer_task.id}: {e}")
+        return None
 
 
 def validate_scenario(orders: List[Order], vehicles: List[Vehicle]) -> bool:
