@@ -1025,7 +1025,7 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
         elif task.is_delivery():
             load_w += task.demand  # demand is negative for deliveries
             load_v += task.volume  # volume is negative for deliveries
-            load_pallets -= getattr(task, 'pallets', 0)  # Remove pallets for delivery
+            load_pallets += getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
         
         # Track peak loads
         peak_load_w = max(peak_load_w, load_w)
@@ -1084,7 +1084,7 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
                     print(f"                DEBUG INSERTION: Delivery {task.id} attempted before its pickup was completed")
                 return False
             # Remove pallets from load
-            load_pallets_check -= getattr(task, 'pallets', 0)
+            load_pallets_check += getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
             
         # Physical constraint: never exceed pallet capacity
         if max_pallets is not None and load_pallets_check > max_pallets:
@@ -1181,7 +1181,7 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                     return False, reason
                 return False
             # Remove pallets from load
-            load_pallets_check -= getattr(task, 'pallets', 0)
+            load_pallets_check += getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
             
         # Physical constraint: never exceed pallet capacity during route execution
         max_pallets = route.vehicle.pallet_capacity
@@ -1278,7 +1278,7 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         elif task.is_delivery():
             load_w += task.demand  # demand is negative for deliveries
             load_v += task.volume  # volume is negative for deliveries
-            load_pallets -= getattr(task, 'pallets', 0)  # Remove pallets for delivery (pallets value is positive)
+            load_pallets += getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
             
             # LIFO constraint: check if this delivery matches top of stack
             if route.vehicle.lifo_required:

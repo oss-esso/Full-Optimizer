@@ -221,3 +221,48 @@ This document outlines the necessary steps to integrate the advanced, realistic 
     *   **Implementation:**
         1.  Introduce a `max_neighbors_to_evaluate` parameter. The neighborhood functions will stop generating new neighbors after this limit is reached.
         2.  Implement a "best `k` insertions" strategy for the `best_insertion_initializer`. Instead of trying to insert an order into every possible position, only evaluate the `k` most promising positions (e.g., based on Euclidean distance as a cheap proxy).
+tions" strategy for the `best_insertion_initializer`. Instead of trying to insert an order into every possible position, only evaluate the `k` most promising positions (e.g., based on Euclidean distance as a cheap proxy).
+
+## 20. Advanced Order Insertion Strategies for Large Orders
+
+**Objective:** Address the failure to assign large or constrained orders by implementing more advanced insertion heuristics that can intelligently re-organize the solution, as inspired by academic literature on VRPs (e.g., Gastaldon, 2018).
+
+- [ ] **Problem:** The current `best_insertion` heuristic is a greedy, myopic approach. It assigns the "easiest" orders first, which can fill up vehicles in a suboptimal way. When a large, difficult-to-place order is considered later, there may be no single vehicle that can accommodate it, even if a combination of smaller orders could be rearranged across the fleet to make space.
+- [ ] **Goal:** Implement and test two advanced strategies—Regret-k Insertion and Destroy and Repair—to improve the assignment rate for large orders and find higher-quality solutions.
+
+### 20.1. Implement Regret-k Insertion Heuristic
+
+- [ ] **Goal:** Prioritize orders that have the fewest good placement options (i.e., a high "regret" if they are not placed in their best possible route). This prevents the solver from using up the best slots on cheap, easy-to-place orders.
+- [ ] **Action:** Create a new initialization function `regret_k_initializer` in `algo/first_level.py`.
+- [ ] **Logic:**
+    1.  For each unassigned order, calculate the cost of inserting it into every feasible position in every vehicle's route. Store all these potential insertion costs.
+    2.  For each order, find its best insertion cost (`cost_1`) and its `k`-th best insertion cost (`cost_k`). A `k` value of 2 or 3 is common.
+    3.  Calculate the **regret value** for each order: `regret = cost_k - cost_1`. A high regret value means the order has one very good position and the next best options are much worse.
+    4.  In a loop, select the order with the **highest regret value** and place it in its best position (`cost_1`).
+    5.  Update the routes and repeat until all orders are assigned.
+- [ ] **Integration:** Modify `l1_heuristic` to allow selecting `regret_k_initializer` as the `initialization_method` via the `params` dictionary.
+
+### 20.2. Implement Destroy and Repair Operator
+
+- [ ] **Goal:** When a large order cannot be assigned, intelligently "destroy" a part of the existing solution to "repair" it by inserting the difficult order.
+- [ ] **Action:** Create a new module `algo/destroy_and_repair.py` and integrate it into the `l1_heuristic` loop.
+- [ ] **Logic:**
+    1.  **Trigger:** This operator is called from `l1_heuristic` if, after the initialization phase, there are still unassigned orders.
+    2.  **Select Order:** Pick the largest (or highest priority) unassigned order, let's call it `Order_X`.
+    3.  **Destroy Phase:**
+        -   Identify a target vehicle `V` that is the "closest" to being able to handle `Order_X` (e.g., it has the most compatible capacity type but is slightly overloaded).
+        -   From vehicle `V`'s route, remove a set of smaller, already-assigned orders. The orders to be removed can be selected based on:
+            -   **Proximity:** Orders whose pickup/delivery locations are near `Order_X`'s locations.
+            -   **Cost:** Orders that are the "cheapest" to re-insert elsewhere.
+    4.  **Repair Phase:**
+        -   Attempt to insert `Order_X` into the now-emptier route of vehicle `V`.
+        -   If successful, take the orders that were removed during the "destroy" phase and attempt to re-insert them into the solution using the standard `best_insertion` or `regret_k_insertion` logic.
+- [ ] **Integration:** The `l1_heuristic` will call `destroy_and_repair(solution, unassigned_orders)` if necessary. The function will modify the `solution` object in place.
+
+### 20.3. Update Configuration and Testing
+
+- [ ] **Action:** Update `configure_algorithm_parameters` in `tests/comprehensive_integration_test.py`.
+- [ ] **Details:**
+    -   Add a new parameter `initialization_method` that can be set to `'best_insertion'` or `'regret_k'`.
+    -   Add a boolean parameter `enable_destroy_and_repair` to control whether the new operator is used.
+- [ ] **Action:** Create a new test file `tests/test_large_order_assignment.py` that specifically loads a scenario with known difficult orders and asserts that the new heuristics can successfully assign them where the old one failed.tions" strategy for the `best_insertion_initializer`. Instead of trying to insert an order into every possible position, only evaluate the `k` most promising positions (e.g., based on Euclidean distance as a cheap proxy).

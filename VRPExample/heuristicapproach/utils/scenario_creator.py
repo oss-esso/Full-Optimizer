@@ -387,7 +387,7 @@ def create_vehicle_from_row(row: pd.Series) -> Optional[Vehicle]:
     try:
         # Parse basic information using safe parsing
         vehicle_id = safe_parse_value(row, 'NUMBER PLATE', 'UNKNOWN', str)
-        depot_id = 'DEPOT-PADOVA'  # Default depot
+        depot_id = 'DEPOT-ASTI'  # Default depot
         
         # Parse capacity constraints
         weight_capacity = safe_parse_value(row, 'MAX LOAD KG', 3500.0, float)

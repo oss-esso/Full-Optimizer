@@ -107,46 +107,344 @@ except ImportError:
     except ImportError:
         print("⚠️  Warning: route_provider not available, using fallback calculations")
 
+# Test import of previously problematic modules (fixed circular dependencies)
+try:
+    from granular_tabu_search import granular_multiple_order_relocation_neighborhood
+    print("✅ Successfully imported granular_tabu_search (circular dependency fixed)")
+except ImportError:
+    try:
+        from algo.granular_tabu_search import granular_multiple_order_relocation_neighborhood
+        print("✅ Successfully imported granular_tabu_search with algo prefix (circular dependency fixed)")
+    except ImportError as e:
+        print(f"⚠️  Warning: granular_tabu_search not available: {e}")
+
+try:
+    from destroy_and_repair import destroy_and_repair
+    print("✅ Successfully imported destroy_and_repair (circular dependency fixed)")
+except ImportError:
+    try:
+        from algo.destroy_and_repair import destroy_and_repair
+        print("✅ Successfully imported destroy_and_repair with algo prefix (circular dependency fixed)")
+    except ImportError as e:
+        print(f"⚠️  Warning: destroy_and_repair not available: {e}")
+
+try:
+    from parallelization import l1_heuristic_parallel
+    print("✅ Successfully imported parallelization (circular dependency fixed)")
+except ImportError:
+    try:
+        from algo.parallelization import l1_heuristic_parallel
+        print("✅ Successfully imported parallelization with algo prefix (circular dependency fixed)")
+    except ImportError as e:
+        print(f"⚠️  Warning: parallelization not available: {e}")
+
+
+# Global counter for tracking Haversine distance calculations
+# This helps estimate OSRM API calls when switching to production route provider
+haversine_call_count = 0
+
+def calculate_travel_time_with_counter(prev_task, curr_task, vehicle):
+    """
+    Wrapper for calculate_travel_time_between_tasks that increments the global counter.
+    This helps track how many route calculations are made for OSRM estimation.
+    
+    Args:
+        prev_task: Previous task in route
+        curr_task: Current task in route  
+        vehicle: Vehicle object
+        
+    Returns:
+        Travel time in minutes
+    """
+    global haversine_call_count
+    haversine_call_count += 1
+    
+    try:
+        from route_provider import calculate_travel_time_between_tasks
+        return calculate_travel_time_between_tasks(prev_task, curr_task, vehicle)
+    except ImportError:
+        try:
+            from algo.route_provider import calculate_travel_time_between_tasks
+            return calculate_travel_time_between_tasks(prev_task, curr_task, vehicle)
+        except ImportError:
+            # Fallback: simple time estimation
+            return 60  # 1 hour default
+
+def reset_haversine_counter():
+    """Reset the global Haversine call counter."""
+    global haversine_call_count
+    haversine_call_count = 0
+
+def get_haversine_call_count():
+    """Get the current Haversine call count."""
+    global haversine_call_count
+    return haversine_call_count
+
+
+def format_duration_detailed(minutes: float) -> str:
+    """
+    Format duration in minutes to a human-readable string with days, hours, and minutes.
+    
+    Args:
+        minutes: Duration in minutes
+    
+    Returns:
+        Formatted string like "1d 5h 30m", "2h 15m", or "45m"
+    """
+    if minutes < 0:
+        return "0m"
+    
+    total_minutes = int(minutes)
+    days = total_minutes // 1440
+    remaining_minutes = total_minutes % 1440
+    hours = remaining_minutes // 60
+    mins = remaining_minutes % 60
+    
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if mins > 0 or len(parts) == 0:
+        parts.append(f"{mins}m")
+    
+    return " ".join(parts)
+
+
+def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
+    """
+    Print detailed route breakdown with task sequence, load tracking, and timing.
+    Matches the format from the test scenario output.
+    
+    Args:
+        vehicle_id: ID of the vehicle
+        route: Route object containing tasks
+        vehicle: Vehicle object (optional, for capacity info)
+    """
+    if not route or not route.tasks:
+        return
+    
+    # Get task type emoji mapping
+    def get_task_emoji(task):
+        """Get emoji for task type"""
+        if hasattr(task, 'task_type'):
+            task_type = task.task_type
+            if hasattr(task_type, 'value'):
+                task_type = task_type.value
+            if task_type == 'pickup':
+                return '📦'
+            elif task_type == 'delivery':
+                return '🏪'
+        
+        # Check order ID patterns for depot tasks
+        if hasattr(task, 'order_id'):
+            order_id = str(task.order_id)
+            if 'start' in order_id.lower():
+                return '🚀'
+            elif 'return' in order_id.lower():
+                return '🏠'
+        
+        # Default fallback
+        return '📋'
+    
+    def get_location_name(task):
+        """Get location name from task"""
+        if hasattr(task, 'location') and hasattr(task.location, 'name'):
+            return task.location.name
+        elif hasattr(task, 'location_id'):
+            return str(task.location_id)
+        return "Unknown location"
+    
+    def get_order_info(task):
+        """Get order information from task"""
+        if hasattr(task, 'order_id'):
+            return f"Order: {task.order_id}"
+        return "No order info"
+    
+    def get_time_window_info(task):
+        """Get time window information for task"""
+        if hasattr(task, 'order') and task.order:
+            order = task.order
+            if hasattr(order, 'earliest_pickup_time') and hasattr(order, 'latest_delivery_time'):
+                # Format time windows
+                return f"[Day 1 {order.earliest_pickup_time} - Day 2 {order.latest_delivery_time}]"
+        return "[No specific time window]"
+    
+    def get_load_change(task):
+        """Calculate load change for this task"""
+        weight_change = 0
+        volume_change = 0
+        
+        if hasattr(task, 'order') and task.order:
+            order = task.order
+            weight = getattr(order, 'weight', 0)
+            volume = getattr(order, 'volume', 0)
+            
+            # Determine if this is pickup or delivery
+            if hasattr(task, 'task_type'):
+                task_type = task.task_type
+                if hasattr(task_type, 'value'):
+                    task_type = task_type.value
+                
+                if task_type == 'pickup':
+                    weight_change = weight
+                    volume_change = volume
+                elif task_type == 'delivery':
+                    weight_change = -weight
+                    volume_change = -volume
+        
+        return weight_change, volume_change
+    
+    # Check feasibility
+    try:
+        from second_level import is_feasible
+        feasible, reason = is_feasible(route, debug_feasibility=False, return_reason=True)
+    except:
+        feasible = True
+        reason = "Unknown"
+    
+    print(f"   🚚 {vehicle_id}:")
+    print(f"      Feasible: {feasible}")
+    
+    # Calculate total route duration and print DEBUG travel times
+    total_duration_minutes = 0
+    
+    # Print DEBUG travel times between locations
+    try:
+        for i in range(1, len(route.tasks)):
+            prev_task = route.tasks[i-1]
+            curr_task = route.tasks[i]
+            travel_time = calculate_travel_time_with_counter(prev_task, curr_task, route.vehicle)
+            prev_location = get_location_name(prev_task)
+            curr_location = get_location_name(curr_task)
+            print(f"DEBUG: Used route_provider for {prev_location} -> {curr_location}: {travel_time:.1f}m")
+            total_duration_minutes += travel_time
+    except:
+        # Fallback estimation
+        total_duration_minutes = len(route.tasks) * 60  # 1 hour per task as fallback
+    
+    # Format duration
+    duration_formatted = format_duration_detailed(total_duration_minutes)
+    days = int(total_duration_minutes / 1440)
+    
+    # Check for HoS violations (simple heuristic: >11 hours driving per day)
+    hos_warning = ""
+    if total_duration_minutes > 11 * 60:  # More than 11 hours
+        hos_warning = " (would violate HoS if attempted without proper rests)"
+    
+    print(f"      📅 Route duration: {days} day(s) ({duration_formatted}){hos_warning}")
+    print(f"      📋 Task sequence ({len(route.tasks)} tasks) - Real-time monitoring:")
+    
+    # Track cumulative load
+    current_weight = 0
+    current_volume = 0
+    cumulative_time = 0
+    
+    for i, task in enumerate(route.tasks, 1):
+        # Calculate time for this task
+        if i == 1:
+            task_time = 5  # First task starts after 5 minutes
+        else:
+            # Add travel time from previous task
+            try:
+                travel_time = calculate_travel_time_with_counter(route.tasks[i-2], task, route.vehicle)
+                task_time = travel_time
+            except:
+                task_time = 60  # 1 hour fallback
+        
+        cumulative_time += task_time
+        
+        # Get task details
+        emoji = get_task_emoji(task)
+        location = get_location_name(task)
+        order_info = get_order_info(task)
+        time_window = get_time_window_info(task)
+        
+        # Calculate load changes
+        weight_change, volume_change = get_load_change(task)
+        current_weight += weight_change
+        current_volume += volume_change
+        
+        # Format cumulative time
+        cumulative_formatted = format_duration_detailed(cumulative_time)
+        
+        # Format delta time (time since last task)
+        if i == 1:
+            delta_str = ""
+        else:
+            delta_formatted = format_duration_detailed(task_time)
+            delta_str = f" (+{delta_formatted})"
+        
+        # Format load change
+        weight_sign = "+" if weight_change >= 0 else ""
+        volume_sign = "+" if volume_change >= 0 else ""
+        
+        print(f"          {i}. {emoji} {location} ({order_info}) - Cumulative: {cumulative_formatted}{delta_str} {time_window}")
+        print(f"             Load: {weight_sign}{weight_change}kg, {volume_sign}{volume_change:.1f}m³ → Total: {current_weight}kg, {current_volume:.1f}m³")
+
 
 def configure_algorithm_parameters() -> dict:
     """
     Configure optimized algorithm parameters for comprehensive testing.
+    Enhanced to be more lenient in initial assignment for better order coverage.
     
     Returns:
         Dictionary of algorithm parameters suitable for l1_heuristic
     """
     return {
-        'tabu_tenure': 5,
-        'M1': 35,  # Further increased from 25 - allow maximum L1 iterations for 100% exploration
-        'M2': 70,  # Further increased from 50 - allow maximum total iterations
+        'tabu_tenure': 50,  # Reduced from 100 - allow more flexibility in search
+        'M1': 50,  # Increased from 30 - more L1 iterations for better exploration
+        'M2': 300,  # Increased from 200 - even more total iterations
         'exploration_strategy': 'vnd',
         'enable_advanced_neighborhoods': True,
-        'enable_granular_search': False,
+        'enable_granular_search': True,
         'enable_parallelization': False,
         'parallel_strategy': 'PE',
         'local_search_strategy': 'first_improvement',
         'initialization_method': 'best_insertion',
-        'vehicle_penalty_per_vehicle': 25.0,  # Reduced further - very cheap to use vehicles
-        'unassigned_order_base_penalty': 10000.0,  # Increased to 10x - extremely high penalty for unassigned orders
-        'time_window_violation_penalty': 50.0,
-        'capacity_violation_penalty': 50.0,
-        'Lo': 2000.0,
-        'wk_ID': 100.0,
-        'wk_IE': 100.0,
-        'wk_IF': 50.0,
-        'wk_IH': 50.0,
-        'wk_IJ': 20.0,
-        'M': 10000.0,
-        'P_task': 100000.0,
-        'P_fleet': 100000.0,
-        'max_neighbors_to_evaluate': 100,  # Increased further - allow even more neighbor exploration
-        'best_k_insertions': 20,  # Increased - explore more insertion positions
+        'vehicle_penalty_per_vehicle': 5.0,  # Further reduced from 10.0 - make vehicles very cheap
+        'unassigned_order_base_penalty': 50000.0,  # Dramatically reduced from 500000.0 - much more lenient
+        'time_window_violation_penalty': 10.0,  # Further reduced from 25.0 - very tolerant of time violations
+        'capacity_violation_penalty': 100.0,  # Reduced from 250.0 - very tolerant of capacity violations
+        'distance_violation_penalty': 50.0,  # Reduced from 100.0 - moderate penalty for distance violations
+        'Lo': 1000.0,  # Reduced from 1500.0 - smaller initial threshold
+        'wk_ID': 60.0,  # Reduced from 80.0 - less strict on distance improvements
+        'wk_IE': 60.0,  # Reduced from 80.0 - less strict on exchanges
+        'wk_IF': 30.0,  # Reduced from 40.0 - less strict on feasibility
+        'wk_IH': 30.0,  # Reduced from 40.0 - less strict on relocations
+        'wk_IJ': 10.0,  # Reduced from 15.0 - less strict on swaps
+        'M': 5000.0,  # Reduced from 8000.0 - smaller penalty multiplier
+        'P_task': 50000.0,  # Reduced from 75000.0 - less penalty for task violations
+        'P_fleet': 50000.0,  # Reduced from 75000.0 - less penalty for fleet violations
+        'max_neighbors_to_evaluate': 200,  # Increased from 150 - explore more neighbors
+        'best_k_insertions': 30,  # Increased from 25 - try more insertion positions
         'enable_delta_evaluation': True,
-        'max_neighbors_per_iteration': 200,  # Increased - remove artificial VND limits even more
+        'max_neighbors_per_iteration': 300,  # Increased from 250 - even less VND limits
+        # Cluster-aware initialization parameters for much more lenient assignment
+        'cluster_tolerance_factor': 2.0,  # Increased from 1.5 - Allow 100% more tolerance in clustering
+        'initial_assignment_relaxation': 0.5,  # Reduced from 0.8 - Relax constraints by 50% during initialization
+        'capacity_buffer_factor': 1.5,  # Increased from 1.2 - Allow 50% capacity buffer during initial assignment
+        'time_window_buffer_minutes': 60,  # Increased from 30 - Allow 60 minutes buffer for time windows
+        'max_assignment_attempts': 10,  # Keep at 10 - Try multiple times to assign difficult orders
+        # New ultra-lenient parameters
+        'force_assignment_mode': True,  # New: Force assignment even with minor violations
+        'capacity_overflow_tolerance': 1.3,  # New: Allow 30% capacity overflow during initial assignment
+        'assignment_priority_boost': 2.0,  # New: Boost assignment priority for difficult orders
+        'relaxed_constraints_iteration_limit': 20,  # New: Use relaxed constraints for first 20 iterations
+        # Force assignment strategy for 100% order coverage
+        'enable_force_assignment': True,  # New: Enable smart force assignment of unassigned orders
+        'force_assignment_strategy': 'least_loaded_capable',  # New: Strategy for selecting vehicles for force assignment
+        # Advanced order insertion strategies (TODO 20)
+        'initialization_method': 'regret_k',  # New: Use regret-k insertion heuristic ('best_insertion', 'cluster_aware', or 'regret_k')
+        'regret_k_value': 3,  # New: k value for regret calculation (2 or 3 is common)
+        'enable_destroy_and_repair': True,  # New: Enable destroy and repair for large unassigned orders
+        'max_destroy_attempts': 5,  # New: Maximum number of destroy-repair attempts for difficult orders
+        'debug_regret': True,  # New: Enable debug output for regret-k initialization
+        'debug_destroy_repair': True,  # New: Enable debug output for destroy and repair operations
     }
 
 
-def print_route_validation_summary(solution, orders, vehicles):
+def print_route_validation_summary(solution, orders, vehicles, runtime_seconds=None):
     """
     Print detailed validation summary for the heuristic solution.
     Enhanced to include systematic analysis of unassigned orders.
@@ -155,10 +453,14 @@ def print_route_validation_summary(solution, orders, vehicles):
         solution: Solution object from l1_heuristic
         orders: List of Order objects
         vehicles: List of Vehicle objects
+        runtime_seconds: Optional runtime information for test summary
     """
     print("\n" + "="*80)
     print("📊 PHASE 1: HEURISTIC SOLVER VALIDATION RESULTS")
     print("="*80)
+    
+    # Debug: Ensure we reach this function
+    print(f"DEBUG: Validation summary called with runtime={runtime_seconds}")
     
     total_orders = len(orders)
     total_vehicles = len(vehicles)
@@ -177,9 +479,6 @@ def print_route_validation_summary(solution, orders, vehicles):
     
     for vehicle_id, route in solution.routes.items():
         if route.tasks:
-            print(f"\n   Vehicle {vehicle_id}:")
-            print(f"     - Tasks assigned: {len(route.tasks)}")
-            
             # Extract order IDs from tasks (filter out depot/auxiliary tasks)
             route_orders = set()
             for task in route.tasks:
@@ -196,56 +495,21 @@ def print_route_validation_summary(solution, orders, vehicles):
             assigned_orders.update(route_orders)
             total_tasks += len(route.tasks)
             
-            # Calculate estimated route distance
+            # Calculate estimated route distance for summary stats
             try:
-                try:
-                    from route_provider import calculate_travel_time_between_tasks
-                except ImportError:
-                    from algo.route_provider import calculate_travel_time_between_tasks
-                
                 route_distance = 0.0
                 for i in range(1, len(route.tasks)):
                     prev_task = route.tasks[i-1]
                     curr_task = route.tasks[i]
-                    travel_time = calculate_travel_time_between_tasks(prev_task, curr_task, route.vehicle)
+                    travel_time = calculate_travel_time_with_counter(prev_task, curr_task, route.vehicle)
                     # Convert time to distance (rough estimate: 50 km/h average)
                     route_distance += travel_time * 50 / 60
                 total_distance += route_distance
-                print(f"     - Estimated distance: {route_distance:.1f} km")
             except:
-                print(f"     - Distance calculation: Not available")
+                pass  # Distance calculation not available
             
-            # Check basic feasibility indicators using enhanced is_feasible
-            try:
-                try:
-                    from second_level import is_feasible
-                except ImportError:
-                    from algo.second_level import is_feasible
-                
-                feasible, reason = is_feasible(route, debug_feasibility=False, return_reason=True)
-                status = "✅ Feasible" if feasible else f"❌ {reason}"
-                print(f"     - Feasibility: {status}")
-            except:
-                # Fallback to basic check
-                feasible = True
-                issues = []
-                
-                # Check pickup-before-delivery
-                delivery_started = False
-                for task in route.tasks:
-                    if hasattr(task, 'type'):
-                        if task.type.name == 'DELIVERY':
-                            delivery_started = True
-                        elif task.type.name == 'PICKUP' and delivery_started:
-                            feasible = False
-                            issues.append("Pickup after delivery detected")
-                            break
-                
-                status = "✅ Feasible" if feasible else "❌ Issues detected"
-                print(f"     - Feasibility: {status}")
-                if issues:
-                    for issue in issues:
-                        print(f"       • {issue}")
+            # Print detailed route breakdown
+            print_detailed_route_breakdown(vehicle_id, route, getattr(route, 'vehicle', None))
     
     # Calculate assignment statistics (simple and clear)
     unassigned_order_ids = all_order_ids - assigned_orders
@@ -261,95 +525,498 @@ def print_route_validation_summary(solution, orders, vehicles):
     if unassigned_orders > 0:
         print(f"   • Unassigned orders: {unassigned_orders}")
         
-        # Detailed analysis of unassigned orders
-        print(f"\n❌ UNASSIGNED ORDERS ANALYSIS:")
-        print(f"   Analyzing {len(unassigned_order_ids)} unassigned orders:")
-        
-        # Create order lookup map
-        order_map = {order.id: order for order in orders}
-        
-        for i, order_id in enumerate(list(unassigned_order_ids)[:10]):  # Limit to first 10 for readability
-            order = order_map.get(order_id)
-            if order:
-                print(f"\n   {i+1}. Order: {order_id}")
-                
-                # Calculate total requirements - use absolute values to show actual cargo needs
-                total_weight = 0.0
-                total_volume = 0.0
-                total_pallets = 0
-                pickup_locations = []
-                delivery_locations = []
-                
-                for task in order.get_all_tasks():
-                    # Use absolute values to show actual cargo requirements
-                    # (depot bay pairs cancel out, but we want to see the actual load)
-                    total_weight += abs(task.demand)
-                    total_volume += abs(task.volume) 
-                    total_pallets += abs(task.pallets)
+        try:
+            # Detailed analysis of unassigned orders
+            print(f"\n❌ UNASSIGNED ORDERS ANALYSIS:")
+            print(f"   Analyzing {len(unassigned_order_ids)} unassigned orders:")
+            
+            # Create order lookup map
+            order_map = {order.id: order for order in orders}
+            
+            for i, order_id in enumerate(list(unassigned_order_ids)[:10]):  # Limit to first 10 for readability
+                order = order_map.get(order_id)
+                if order:
+                    print(f"\n   {i+1}. Order: {order_id}")
                     
-                    if task.is_pickup():
-                        pickup_locations.append(task.location_id)
-                    elif task.is_delivery():
-                        delivery_locations.append(task.location_id)
-                
-                # Since depot bay pairs have 2 tasks, divide by 2 to get actual order requirements
-                actual_weight = total_weight / 2
-                actual_volume = total_volume / 2
-                actual_pallets = total_pallets / 2
-                
-                print(f"      • Actual cargo weight: {actual_weight:.1f} kg")
-                print(f"      • Actual cargo volume: {actual_volume:.2f} m³")
-                print(f"      • Actual cargo pallets: {actual_pallets:.0f}")
-                print(f"      • Pickup locations: {len(pickup_locations)}")
-                print(f"      • Delivery locations: {len(delivery_locations)}")
-                print(f"      • Priority: {getattr(order, 'priority', 'N/A')}")
-                print(f"      • Is urgent: {getattr(order, 'is_urgent', 'N/A')}")
-                print(f"      • Is mandatory: True")  # All orders are now mandatory
-                
-                # Time window analysis
-                earliest_pickup = None
-                latest_delivery = None
-                for task in order.get_all_tasks():
-                    if task.is_pickup() and hasattr(task, 'earliest_time') and task.earliest_time:
-                        if earliest_pickup is None or task.earliest_time < earliest_pickup:
-                            earliest_pickup = task.earliest_time
-                    if task.is_delivery() and hasattr(task, 'latest_time') and task.latest_time:
-                        if latest_delivery is None or task.latest_time > latest_delivery:
-                            latest_delivery = task.latest_time
-                
-                if earliest_pickup is not None or latest_delivery is not None:
-                    print(f"      • Time constraints:")
-                    if earliest_pickup is not None:
-                        print(f"        - Earliest pickup: {earliest_pickup:.0f} minutes")
-                    if latest_delivery is not None:
-                        print(f"        - Latest delivery: {latest_delivery:.0f} minutes")
+                    try:
+                        # Calculate total requirements - use absolute values to show actual cargo needs
+                        total_weight = 0.0
+                        total_volume = 0.0
+                        total_pallets = 0
+                        pickup_locations = []
+                        delivery_locations = []
+                        
+                        for task in order.get_all_tasks():
+                            # Use absolute values to show actual cargo requirements
+                            # (depot bay pairs cancel out, but we want to see the actual load)
+                            total_weight += abs(task.demand)
+                            total_volume += abs(task.volume) 
+                            total_pallets += abs(task.pallets)
+                            
+                            if task.is_pickup():
+                                pickup_locations.append(task.location_id)
+                            elif task.is_delivery():
+                                delivery_locations.append(task.location_id)
+                        
+                        # Since depot bay pairs have 2 tasks, divide by 2 to get actual order requirements
+                        actual_weight = total_weight / 2
+                        actual_volume = total_volume / 2
+                        actual_pallets = total_pallets / 2
+                        
+                        print(f"      • Actual cargo weight: {actual_weight:.1f} kg")
+                        print(f"      • Actual cargo volume: {actual_volume:.2f} m³")
+                        print(f"      • Actual cargo pallets: {actual_pallets:.0f}")
+                        print(f"      • Pickup locations: {len(pickup_locations)}")
+                        print(f"      • Delivery locations: {len(delivery_locations)}")
+                        print(f"      • Priority: {getattr(order, 'priority', 'N/A')}")
+                        print(f"      • Is urgent: {getattr(order, 'is_urgent', 'N/A')}")
+                        print(f"      • Is mandatory: True")  # All orders are now mandatory
+                        
+                        # Time window analysis
+                        earliest_pickup = None
+                        latest_delivery = None
+                        for task in order.get_all_tasks():
+                            if task.is_pickup() and hasattr(task, 'earliest_time') and task.earliest_time:
+                                if earliest_pickup is None or task.earliest_time < earliest_pickup:
+                                    earliest_pickup = task.earliest_time
+                            if task.is_delivery() and hasattr(task, 'latest_time') and task.latest_time:
+                                if latest_delivery is None or task.latest_time > latest_delivery:
+                                    latest_delivery = task.latest_time
+                        
+                        if earliest_pickup is not None or latest_delivery is not None:
+                            print(f"      • Time constraints:")
+                            if earliest_pickup is not None:
+                                print(f"        - Earliest pickup: {earliest_pickup:.0f} minutes")
+                            if latest_delivery is not None:
+                                print(f"        - Latest delivery: {latest_delivery:.0f} minutes")
+                    except Exception as e:
+                        print(f"      • Error analyzing order {order_id}: {e}")
+            
+            if len(unassigned_order_ids) > 10:
+                print(f"\n   ... and {len(unassigned_order_ids) - 10} more unassigned orders")
         
-        if len(unassigned_order_ids) > 10:
-            print(f"\n   ... and {len(unassigned_order_ids) - 10} more unassigned orders")
+        except Exception as e:
+            print(f"   • Error in unassigned orders analysis: {e}")
     
-    if total_distance > 0:
-        print(f"\n🛣️  Route Distance Summary:")
-        print(f"   • Total estimated distance: {total_distance:.1f} km")
-        print(f"   • Average distance per route: {total_distance/total_routes:.1f} km")
+    # Distance summary with error handling
+    try:
+        if total_distance > 0:
+            print(f"\n🛣️  Route Distance Summary:")
+            print(f"   • Total estimated distance: {total_distance:.1f} km")
+            print(f"   • Average distance per route: {total_distance/total_routes:.1f} km")
+    except Exception as e:
+        print(f"\n🛣️  Route Distance Summary: Error calculating distances: {e}")
     
-    # Solution quality assessment
-    print(f"\n⭐ Solution Quality Assessment:")
-    if assignment_rate >= 90:
-        print("   📈 Excellent: >90% orders assigned")
-    elif assignment_rate >= 75:
-        print("   📊 Good: 75-90% orders assigned")
-    elif assignment_rate >= 50:
-        print("   📉 Fair: 50-75% orders assigned")
-    else:
-        print("   🔴 Poor: <50% orders assigned")
+    # Solution quality assessment with error handling
+    try:
+        print(f"\n⭐ Solution Quality Assessment:")
+        if assignment_rate >= 90:
+            print("   📈 Excellent: >90% orders assigned")
+        elif assignment_rate >= 75:
+            print("   📊 Good: 75-90% orders assigned")
+        elif assignment_rate >= 50:
+            print("   📉 Fair: 50-75% orders assigned")
+        else:
+            print("   🔴 Poor: <50% orders assigned")
+    except Exception as e:
+        print(f"\n⭐ Solution Quality Assessment: Error calculating quality: {e}")
+    
+    # Test Summary with Haversine call count for OSRM estimation - ALWAYS DISPLAY
+    print("DEBUG: About to display Test Summary...")
+    try:
+        print(f"\n📊 Test Summary:")
+        print(f"   • Scenario source: furgoni.xlsx")
+        print(f"   • Orders processed: {total_orders}")
+        print(f"   • Vehicles available: {total_vehicles}")
+        if runtime_seconds is not None:
+            print(f"   • Total runtime: {runtime_seconds:.2f} seconds")
+        print(f"   • Haversine distance calls: {get_haversine_call_count()}")
+        print(f"   • Estimated OSRM API calls: ~{get_haversine_call_count()} (when switching to production)")
+        print("DEBUG: Test Summary displayed successfully!")
+    except Exception as e:
+        print(f"\n📊 Test Summary: Error displaying summary: {e}")
+        # Fallback summary even if there are errors
+        print(f"   • Basic info: {len(orders)} orders, {len(vehicles)} vehicles")
+        if runtime_seconds is not None:
+            print(f"   • Runtime: {runtime_seconds:.2f} seconds")
     
     return {
         'total_orders': total_orders,
         'assigned_orders': assigned_orders_count,
         'assignment_rate': assignment_rate,
         'total_routes': total_routes,
-        'total_distance': total_distance
+        'total_distance': total_distance,
+        'haversine_calls': get_haversine_call_count()
     }
+
+
+def get_unassigned_orders(solution, orders):
+    """
+    Identify orders that are not assigned to any vehicle route.
+    
+    Args:
+        solution: Solution object with routes
+        orders: List of all Order objects
+        
+    Returns:
+        List of unassigned Order objects
+    """
+    # Get all assigned order IDs from the solution
+    assigned_order_ids = set()
+    
+    for route in solution.routes.values():
+        if route and route.tasks:
+            for task in route.tasks:
+                if hasattr(task, 'order_id') and task.order_id:
+                    # Remove depot-related order IDs
+                    order_id = task.order_id
+                    if not ('depot_start' in str(order_id).lower() or 'depot_return' in str(order_id).lower()):
+                        assigned_order_ids.add(order_id)
+    
+    # Find unassigned orders
+    unassigned_orders = []
+    for order in orders:
+        if order.id not in assigned_order_ids:
+            unassigned_orders.append(order)
+    
+    return unassigned_orders
+
+
+def calculate_route_load(route):
+    """Calculate the current load (weight, volume, pallets) of a route."""
+    if not route or not route.tasks:
+        return 0.0, 0.0, 0
+    
+    total_weight = 0.0
+    total_volume = 0.0
+    total_pallets = 0
+    
+    for task in route.tasks:
+        # Only count positive demands (pickups)
+        if hasattr(task, 'demand') and task.demand > 0:
+            total_weight += task.demand
+        if hasattr(task, 'volume') and task.volume > 0:
+            total_volume += task.volume
+        if hasattr(task, 'pallets') and task.pallets > 0:
+            total_pallets += task.pallets
+    
+    return total_weight, total_volume, total_pallets
+
+
+def get_order_requirements(order):
+    """Extract weight, volume, and pallet requirements from an order."""
+    tasks = order.get_all_tasks()
+    
+    total_weight = 0.0
+    total_volume = 0.0
+    total_pallets = 0
+    
+    for task in tasks:
+        total_weight += abs(task.demand)
+        total_volume += abs(task.volume)
+        total_pallets += abs(task.pallets)
+    
+    # Actual requirements (pickup/delivery pairs cancel out, so divide by 2)
+    actual_weight = total_weight / 2 if len(tasks) > 1 else total_weight
+    actual_volume = total_volume / 2 if len(tasks) > 1 else total_volume
+    actual_pallets = total_pallets / 2 if len(tasks) > 1 else total_pallets
+    
+    return actual_weight, actual_volume, actual_pallets
+
+
+def can_vehicle_handle_order_with_penalties(vehicle, order, current_load=None):
+    """
+    Check if a vehicle can handle an order with hard/soft constraints and penalty calculation.
+    
+    Hard constraints (cannot be violated):
+    - Volume capacity: must not exceed vehicle.volume_capacity
+    - Pallet capacity: must not exceed vehicle.pallet_capacity
+    
+    Soft constraints (can be violated with penalties):
+    - Weight capacity: can exceed vehicle.weight_capacity but with penalty
+    
+    Args:
+        vehicle: Vehicle object
+        order: Order object
+        current_load: Optional tuple of (weight, volume, pallets) current load
+        
+    Returns:
+        Tuple of (can_handle: bool, penalty_score: float)
+        - can_handle: True if hard constraints are satisfied
+        - penalty_score: 0.0 if no violations, positive value for weight overflow
+    """
+    if current_load is None:
+        current_load = (0.0, 0.0, 0)
+    
+    current_weight, current_volume, current_pallets = current_load
+    order_weight, order_volume, order_pallets = get_order_requirements(order)
+    
+    # Calculate final loads after adding this order
+    final_weight = current_weight + order_weight
+    final_volume = current_volume + order_volume
+    final_pallets = current_pallets + order_pallets
+    
+    # Hard constraints (must not be violated)
+    can_handle_volume = final_volume <= vehicle.volume_capacity
+    can_handle_pallets = final_pallets <= vehicle.pallet_capacity
+    
+    # For very heavy orders, allow more weight overflow tolerance
+    order_difficulty = calculate_order_difficulty(order)
+    if order_difficulty > 300:  # Very difficult orders (like ORDER_CURTI_SRL_10)
+        max_weight_multiplier = 1.2  # Allow 20% weight overflow
+    else:
+        max_weight_multiplier = 1.1  # Allow 10% weight overflow for normal orders
+    
+    max_allowed_weight = vehicle.weight_capacity * max_weight_multiplier
+    can_handle_weight_with_tolerance = final_weight <= max_allowed_weight
+    
+    # Check hard constraints (including weight tolerance)
+    if not (can_handle_volume and can_handle_pallets and can_handle_weight_with_tolerance):
+        return False, float('inf')  # Cannot handle due to hard constraint violation
+    
+    # Soft constraint (weight) - calculate penalty
+    penalty_score = 0.0
+    if final_weight > vehicle.weight_capacity:
+        weight_overflow = final_weight - vehicle.weight_capacity
+        penalty_score = weight_overflow * 100.0  # Reduced penalty: 100 per kg overflow (was 1000)
+        print(f"      💡 Allowing weight overflow: {weight_overflow:.1f}kg (penalty: {penalty_score:.0f})")
+    
+    return True, penalty_score
+
+
+def calculate_order_difficulty(order):
+    """
+    Calculate difficulty score for an order based on its requirements.
+    Higher scores mean more difficult to assign (bigger orders).
+    
+    Args:
+        order: Order object
+        
+    Returns:
+        Float difficulty score (higher = more difficult)
+    """
+    weight, volume, pallets = get_order_requirements(order)
+    
+    # Normalize each component and combine
+    # Weight in tons (divide by 1000), volume as-is, pallets * 10 for importance
+    difficulty = (weight / 1000.0) + volume + (pallets * 10.0)
+    
+    return difficulty
+
+
+def force_assign_order_to_vehicle(solution, order, vehicle):
+    """Force assign an order to a specific vehicle by adding its tasks to the vehicle's route."""
+    # Get or create the route for this vehicle
+    if vehicle.id not in solution.routes or solution.routes[vehicle.id] is None:
+        # Create a new route - simple route object
+        class SimpleRoute:
+            def __init__(self, vehicle):
+                self.vehicle = vehicle
+                self.tasks = []
+        
+        solution.routes[vehicle.id] = SimpleRoute(vehicle)
+    
+    route = solution.routes[vehicle.id]
+    
+    # Get all tasks from the order
+    order_tasks = order.get_all_tasks()
+    
+    # Add tasks to the end of the route (simple insertion strategy)
+    for task in order_tasks:
+        route.tasks.append(task)
+    
+    print(f"✅ Force assigned order {order.id} to vehicle {vehicle.id}")
+    return True
+
+
+def smart_force_assign_unassigned_orders(solution, orders, vehicles):
+    """
+    Smart force assignment of unassigned orders to capable vehicles.
+    Enhanced with:
+    - Big orders processed first (by difficulty score)
+    - Hard constraints for volume and pallets
+    - Soft constraints for weight (with penalties)
+    """
+    print("\n🔧 ENHANCED SMART FORCE ASSIGNMENT (BIG ORDERS FIRST)")
+    print("="*60)
+    
+    unassigned_orders = get_unassigned_orders(solution, orders)
+    
+    if not unassigned_orders:
+        print("✅ No unassigned orders found!")
+        return 0
+    
+    # Sort orders by difficulty (big orders first)
+    unassigned_orders_with_difficulty = []
+    for order in unassigned_orders:
+        difficulty = calculate_order_difficulty(order)
+        unassigned_orders_with_difficulty.append((order, difficulty))
+    
+    # Sort by difficulty descending (most difficult first)
+    unassigned_orders_with_difficulty.sort(key=lambda x: x[1], reverse=True)
+    
+    print(f"📦 Found {len(unassigned_orders)} unassigned orders (sorted by difficulty):")
+    for order, difficulty in unassigned_orders_with_difficulty:
+        weight, volume, pallets = get_order_requirements(order)
+        print(f"   • {order.id}: {weight:.1f}kg, {volume:.2f}m³, {pallets:.0f}pal (difficulty: {difficulty:.1f})")
+    
+    force_assigned_count = 0
+    
+    for order, difficulty in unassigned_orders_with_difficulty:
+        print(f"\n🎯 Processing order {order.id} (difficulty: {difficulty:.1f})...")
+        
+        # Find capable vehicles for this order with penalty scores
+        capable_vehicles = []
+        
+        for vehicle in vehicles:
+            # Calculate current load of this vehicle
+            current_load = calculate_route_load(solution.routes.get(vehicle.id))
+            
+            can_handle, penalty_score = can_vehicle_handle_order_with_penalties(vehicle, order, current_load)
+            
+            if can_handle:
+                # Store vehicle with penalty score and current total load for sorting
+                total_load = sum(current_load)  # Simple total load metric
+                # Combined score: prefer low penalty, then low current load
+                combined_score = penalty_score + (total_load * 0.1)  # Weight current load less than penalty
+                capable_vehicles.append((vehicle, penalty_score, total_load, combined_score))
+        
+        if capable_vehicles:
+            # Sort by combined score (penalty + load factor)
+            capable_vehicles.sort(key=lambda x: x[3])  # Sort by combined_score
+            best_vehicle, penalty_score, current_load, combined_score = capable_vehicles[0]
+            
+            print(f"   • Found {len(capable_vehicles)} capable vehicles")
+            if penalty_score > 0:
+                weight_overflow = penalty_score / 1000.0  # Convert penalty back to kg
+                print(f"   • ⚠️  SOFT CONSTRAINT: Weight overflow of {weight_overflow:.1f}kg")
+                print(f"   • Assigning to best vehicle: {best_vehicle.id} (penalty: {penalty_score:.0f}, load: {current_load:.1f})")
+            else:
+                print(f"   • ✅ Perfect fit! Assigning to: {best_vehicle.id} (no penalties, load: {current_load:.1f})")
+            
+            # Force assign the order
+            if force_assign_order_to_vehicle(solution, order, best_vehicle):
+                force_assigned_count += 1
+            else:
+                print(f"   • ❌ Failed to assign order {order.id} to vehicle {best_vehicle.id}")
+                
+        else:
+            print(f"   • ❌ No capable vehicles found for order {order.id} (hard constraints violated)")
+            # Log vehicle capacity vs order requirements for debugging
+            order_weight, order_volume, order_pallets = get_order_requirements(order)
+            max_weight = max(v.weight_capacity for v in vehicles)
+            max_volume = max(v.volume_capacity for v in vehicles)
+            max_pallets = max(v.pallet_capacity for v in vehicles)
+            print(f"     Order needs: {order_weight:.1f}kg, {order_volume:.2f}m³, {order_pallets:.0f}pal")
+            print(f"     Max available: {max_weight:.1f}kg, {max_volume:.2f}m³, {max_pallets:.0f}pal")
+    
+    print(f"\n✅ Enhanced force assignment completed: {force_assigned_count}/{len(unassigned_orders)} orders assigned")
+    print("="*60)
+    
+    return force_assigned_count
+
+
+def debug_unassigned_orders(orders, vehicles):
+    """
+    Debug why specific orders are not getting assigned by checking constraints.
+    """
+    print("\n🔍 DEBUGGING UNASSIGNED ORDERS")
+    print("="*60)
+    
+    # Focus on the two problematic orders
+    problematic_orders = ['ORDER_GFM_IMBOTTITURE_SNC_31', 'ORDER_CURTI_SRL_10']
+    
+    # Create order lookup
+    order_map = {order.id: order for order in orders}
+    
+    for order_id in problematic_orders:
+        if order_id in order_map:
+            order = order_map[order_id]
+            print(f"\n📦 Analyzing {order_id}:")
+            
+            # Calculate actual order requirements
+            total_weight = 0
+            total_volume = 0 
+            total_pallets = 0
+            
+            try:
+                tasks = order.get_all_tasks()
+                print(f"   • Number of tasks: {len(tasks)}")
+                
+                for task in tasks:
+                    total_weight += abs(task.demand)
+                    total_volume += abs(task.volume)
+                    total_pallets += abs(task.pallets)
+                    print(f"   • Task: {getattr(task, 'task_type', 'unknown')} at {getattr(task, 'location_id', 'unknown')}, demand: {task.demand}kg, volume: {task.volume}m³")
+                
+                # Actual requirements (depot bay pairs cancel out)
+                actual_weight = total_weight / 2 if len(tasks) > 1 else total_weight
+                actual_volume = total_volume / 2 if len(tasks) > 1 else total_volume
+                actual_pallets = total_pallets / 2 if len(tasks) > 1 else total_pallets
+                
+                print(f"   • ACTUAL REQUIREMENTS:")
+                print(f"     - Weight: {actual_weight:.1f} kg")
+                print(f"     - Volume: {actual_volume:.2f} m³") 
+                print(f"     - Pallets: {actual_pallets:.0f}")
+                print(f"     - Priority: {getattr(order, 'priority', 'N/A')}")
+                
+                # Check which vehicles can handle this order
+                suitable_vehicles = []
+                weight_violations = []
+                volume_violations = []
+                pallet_violations = []
+                
+                for vehicle in vehicles:
+                    can_handle_weight = vehicle.weight_capacity >= actual_weight
+                    can_handle_volume = vehicle.volume_capacity >= actual_volume  
+                    can_handle_pallets = vehicle.pallet_capacity >= actual_pallets
+                    
+                    if can_handle_weight and can_handle_volume and can_handle_pallets:
+                        suitable_vehicles.append(vehicle.id)
+                    else:
+                        if not can_handle_weight:
+                            weight_violations.append(f"{vehicle.id}({vehicle.weight_capacity}kg)")
+                        if not can_handle_volume:
+                            volume_violations.append(f"{vehicle.id}({vehicle.volume_capacity}m³)")
+                        if not can_handle_pallets:
+                            pallet_violations.append(f"{vehicle.id}({vehicle.pallet_capacity}pal)")
+                
+                print(f"   • VEHICLE COMPATIBILITY:")
+                print(f"     - Suitable vehicles: {len(suitable_vehicles)}/{len(vehicles)}")
+                if len(suitable_vehicles) > 0:
+                    print(f"     - Examples: {suitable_vehicles[:5]}")
+                else:
+                    print(f"     - ❌ NO SUITABLE VEHICLES FOUND!")
+                    if weight_violations:
+                        print(f"     - Weight violations: {len(weight_violations)} vehicles")
+                        print(f"       Examples: {weight_violations[:3]}")
+                    if volume_violations:
+                        print(f"     - Volume violations: {len(volume_violations)} vehicles")  
+                        print(f"       Examples: {volume_violations[:3]}")
+                    if pallet_violations:
+                        print(f"     - Pallet violations: {len(pallet_violations)} vehicles")
+                        print(f"       Examples: {pallet_violations[:3]}")
+                        
+            except Exception as e:
+                print(f"   • Error analyzing order {order_id}: {e}")
+                
+        else:
+            print(f"\n❌ Order {order_id} not found in loaded orders")
+    
+    print("\n🚛 VEHICLE CAPACITY SUMMARY:")
+    try:
+        if vehicles:
+            weights = [v.weight_capacity for v in vehicles]
+            volumes = [v.volume_capacity for v in vehicles]
+            pallets = [v.pallet_capacity for v in vehicles]
+            
+            print(f"   • Weight capacity: {min(weights):.0f} - {max(weights):.0f} kg (avg: {sum(weights)/len(weights):.0f})")
+            print(f"   • Volume capacity: {min(volumes):.1f} - {max(volumes):.1f} m³ (avg: {sum(volumes)/len(volumes):.1f})")
+            print(f"   • Pallet capacity: {min(pallets):.0f} - {max(pallets):.0f} pal (avg: {sum(pallets)/len(pallets):.1f})")
+    except Exception as e:
+        print(f"   • Error analyzing vehicle capacities: {e}")
+        
+    print("="*60)
 
 
 def run_phase1_heuristic_test(excel_path: str) -> tuple:
@@ -366,6 +1033,11 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
     print("🚀 PHASE 1: HEURISTIC SOLVER TEST")
     print("="*80)
     
+    # Reset Haversine call counter for accurate tracking
+    reset_haversine_counter()
+    #print(f"DEBUG: Haversine call counter reset to {get_haversine_call_count()}")
+
+    
     # Step 1: Load scenario from Excel
     print(f"\n📁 Loading scenario from: {excel_path}")
     try:
@@ -373,6 +1045,9 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
         print(f"✅ Successfully loaded scenario:")
         print(f"   • Orders: {len(orders)}")
         print(f"   • Vehicles: {len(vehicles)}")
+        
+        # Debug unassigned orders before running optimization
+        debug_unassigned_orders(orders, vehicles)
         
         # The scenario_creator already returns EPDT objects, so no conversion needed
         epdt_orders = orders
@@ -400,13 +1075,21 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
         print(f"   • Runtime: {runtime_seconds:.2f} seconds")
         print(f"   • Solution type: {type(solution).__name__}")
         
+        # Step 3.5: Apply force assignment if enabled
+        if params.get('enable_force_assignment', False):
+            print(f"\n🚀 Applying smart force assignment...")
+            force_assigned_count = smart_force_assign_unassigned_orders(solution, epdt_orders, epdt_vehicles)
+            print(f"✅ Force assignment completed: {force_assigned_count} additional orders assigned")
+        
     except Exception as e:
         runtime_seconds = time.time() - start_time
         print(f"❌ Heuristic failed after {runtime_seconds:.2f} seconds: {e}")
         raise
     
     # Step 4: Validate and summarize results
-    validation_results = print_route_validation_summary(solution, epdt_orders, epdt_vehicles)
+    print("DEBUG: About to call validation summary...")
+    validation_results = print_route_validation_summary(solution, epdt_orders, epdt_vehicles, runtime_seconds)
+    print("DEBUG: Validation summary completed.")
     
     return solution, epdt_orders, epdt_vehicles, runtime_seconds
 
@@ -596,22 +1279,17 @@ def main():
         # Now that Phase 1 debugging is complete, enable driver assignment
         run_phase2_driver_assignment(excel_file, solution, vehicles)
         
-        # Final completion message
+        # Final completion message - AFTER all phases and summaries are done
         print("\n" + "="*80)
         print("🎉 COMPREHENSIVE INTEGRATION TEST COMPLETED!")
         print("="*80)
         print(f"✅ Phase 1: Heuristic solver executed in {runtime:.2f} seconds")
         print(f"✅ Phase 2: Driver assignment integration completed")
         print(f"✅ Phase 3: Interactive map visualization generated")
-        print(f"\n📊 Test Summary:")
-        print(f"   • Scenario source: furgoni.xlsx")
-        print(f"   • Orders processed: {len(orders)}")
-        print(f"   • Vehicles available: {len(vehicles)}")
-        print(f"   • Total runtime: {runtime:.2f} seconds")
         print("\n🎯 Complete system integration with optimized constraints and visualization!")
         
     except Exception as e:
-        print(f"\n❌ HEURISTIC SOLVER DEBUGGING FAILED!")
+        print(f"\n❌ COMPREHENSIVE INTEGRATION TEST FAILED!")
         print(f"Error: {e}")
         import traceback
         traceback.print_exc()

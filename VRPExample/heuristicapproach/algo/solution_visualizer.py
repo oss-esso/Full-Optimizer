@@ -464,12 +464,17 @@ class EPDTMapVisualizer:
             total_tasks = len(route.tasks)
             
             # Store route information for legend
+            driver_name = "Unassigned"
+            if hasattr(route, 'driver') and route.driver:
+                driver_name = route.driver.name if hasattr(route.driver, 'name') else str(route.driver)
+            
             route_info[vehicle_id] = {
                 'color': color,
                 'distance': route_distance,
                 'orders': total_orders,
                 'tasks': total_tasks,
-                'vehicle_type': route.vehicle.vehicle_type if hasattr(route.vehicle, 'vehicle_type') else 'Unknown'
+                'vehicle_type': route.vehicle.vehicle_type if hasattr(route.vehicle, 'vehicle_type') else 'Unknown',
+                'driver': driver_name
             }
             
             # Add task markers
@@ -629,6 +634,7 @@ class EPDTMapVisualizer:
             legend_html += f'''
             <div id="vehicle-{vehicle_id}" class="vehicle-legend-entry" style="margin-bottom: 8px; padding: 6px; border-left: 4px solid {info['color']}; background-color: #f9f9f9; cursor: pointer; border-radius: 3px; transition: all 0.3s ease;" onclick="toggleVehicle('{vehicle_id}')" onmouseover="if(!this.classList.contains('selected')) this.style.backgroundColor='#e6f7ff'" onmouseout="if(!this.classList.contains('selected')) this.style.backgroundColor='#f9f9f9'">
                 <div style="font-weight: bold; color: {info['color']};">🚚 {vehicle_id}</div>
+                <div style="font-size: 11px; margin-top: 1px; color: #555;">👤 {info['driver']}</div>
                 <div style="font-size: 12px; margin-top: 2px;">
                     Type: {info['vehicle_type']}<br>
                     📦 Orders: {info['orders']} | Tasks: {info['tasks']}<br>

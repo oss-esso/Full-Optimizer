@@ -51,33 +51,7 @@ except ImportError:
         print("Warning: Could not import l2_heuristic")
         l2_heuristic = None
 
-try:
-    from .granular_tabu_search import granular_multiple_order_relocation_neighborhood, NETWORKX_AVAILABLE
-except ImportError:
-    try:
-        from granular_tabu_search import granular_multiple_order_relocation_neighborhood, NETWORKX_AVAILABLE
-    except ImportError:
-        print("Warning: Could not import granular_tabu_search, disabling granular search")
-        granular_multiple_order_relocation_neighborhood = None
-        NETWORKX_AVAILABLE = False
-
-try:
-    from .destroy_and_repair import destroy_and_repair
-except ImportError:
-    try:
-        from destroy_and_repair import destroy_and_repair
-    except ImportError:
-        print("Warning: Could not import destroy_and_repair")
-        destroy_and_repair = None
-
-try:
-    from .parallelization import l1_heuristic_parallel
-except ImportError:
-    try:
-        from parallelization import l1_heuristic_parallel
-    except ImportError:
-        print("Warning: Could not import parallelization")
-        l1_heuristic_parallel = None
+# Removed problematic circular imports - these modules will be imported locally where needed
 
 def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict) -> 'Solution':
     """
@@ -90,17 +64,34 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
     Args:
         orders: List of orders to be assigned
         vehicles: List of available vehicles  
-        params: Algorithm parameters including tabu_tenure, M1, M2, exploration_strategy
+        params: Algorithm parameters including tabu_tenure, M1, M2, exploration_strategy, initialization_method
         
     Returns:
         Optimized solution after Tabu Search
     """
     
-    # 1. Create initial solution using cluster-aware initializer for efficient routing
-    initial_solution = cluster_aware_initializer(orders, vehicles, params)
+    # 1. Create initial solution using selected initialization method
+    initialization_method = params.get('initialization_method', 'cluster_aware')
     
-    # Do NOT enforce pickup-first ordering - let the cluster-aware patterns stand
-    # The cluster-aware initializer already creates efficient task sequencing
+    if initialization_method == 'regret_k':
+        print("🧠 Using Regret-k initialization strategy")
+        initial_solution = regret_k_initializer(orders, vehicles, params)
+    else:
+        print("🏗️  Using cluster-aware initialization strategy") 
+        initial_solution = cluster_aware_initializer(orders, vehicles, params)
+    
+    # Check for destroy and repair if enabled and there are unassigned orders
+    if params.get('enable_destroy_and_repair', False):
+        unassigned_count = len(getattr(initial_solution, 'unassigned_orders', set()))
+        if unassigned_count > 0:
+            print(f"🔧 Applying destroy and repair for {unassigned_count} unassigned orders")
+            try:
+                from destroy_and_repair import destroy_and_repair_large_orders
+                initial_solution = destroy_and_repair_large_orders(initial_solution, orders, vehicles, params)
+            except ImportError:
+                print("⚠️  Warning: destroy_and_repair module not available")
+    
+    # Do NOT enforce pickup-first ordering - let the initialization patterns stand
     
     # 2. Initialize state
     best_solution = copy.deepcopy(initial_solution)
@@ -175,8 +166,21 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         neighborhoods = [unassigned_order_insertion_neighborhood, single_order_relocation_neighborhood, two_orders_swap_neighborhood]
         if params.get('enable_advanced_neighborhoods', False):
             neighborhoods.extend([multiple_order_relocation_neighborhood, two_opt_routes_neighborhood])
-        if params.get('enable_granular_search', False) and NETWORKX_AVAILABLE:
-            neighborhoods.append(granular_multiple_order_relocation_neighborhood)
+        
+        # Import granular search locally to avoid circular imports
+        if params.get('enable_granular_search', False):
+            try:
+                from .granular_tabu_search import granular_multiple_order_relocation_neighborhood, NETWORKX_AVAILABLE
+                if NETWORKX_AVAILABLE:
+                    neighborhoods.append(granular_multiple_order_relocation_neighborhood)
+            except ImportError:
+                try:
+                    from granular_tabu_search import granular_multiple_order_relocation_neighborhood, NETWORKX_AVAILABLE
+                    if NETWORKX_AVAILABLE:
+                        neighborhoods.append(granular_multiple_order_relocation_neighborhood)
+                except ImportError:
+                    if total_iters % 100 == 1:  # Only warn occasionally
+                        print("Warning: Could not import granular_tabu_search, skipping granular search")
         
         if total_iters % 50 == 1:  # Less frequent debug for VND
             print(f"🔍 Starting VND with {len(neighborhoods)} neighborhoods")
@@ -984,7 +988,7 @@ def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Ord
     """
     Generate neighborhood by relocating a single order from one route to another.
     
-    This implements the 1R neighborhood operation from the EPDT algorithm.
+    This implements the 1R (single order relocation) neighborhood operation from the EPDT algorithm.
     For each order in each route, try moving it to every other route.
     
     Args:
@@ -1051,7 +1055,7 @@ def two_orders_swap_neighborhood(solution: 'Solution', orders: List['Order']) ->
     """
     Generate neighborhood by swapping two orders between different routes.
     
-    This implements the 2S neighborhood operation from the EPDT algorithm.
+    This implements the 2S (two orders swap) neighborhood operation from the EPDT algorithm.
     For each pair of orders in different routes, try swapping them.
     
     Args:
@@ -1342,7 +1346,7 @@ def _is_valid_route_order(route: 'Route') -> bool:
     return True
 
 
-@jit(nopython=False, forceobj=True)  # Performance optimization
+#@jit(nopython=False, forceobj=True)  # Performance optimization
 def calculate_z1_score(solution: 'Solution', params: dict = None, orders: List['Order'] = None) -> float:
     """
     Calculate the Z1 score for a complete solution with enhanced priority-based penalties.
@@ -1732,3 +1736,182 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
         print(f"    DEBUG L1: Successfully built clustered route with {len(current_route.tasks)} tasks")
     
     return current_route
+
+
+def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], params: dict = None) -> 'Solution':
+    """
+    Regret-k Insertion Heuristic for Advanced Order Assignment.
+    
+    Prioritizes orders that have the fewest good placement options (high "regret").
+    This prevents the solver from using up the best slots on easy-to-place orders.
+    
+    Args:
+        orders: List of orders to be assigned
+        vehicles: List of available vehicles
+        params: Algorithm parameters (k value for regret calculation)
+        
+    Returns:
+        Solution with orders assigned using regret-k strategy
+    """
+    if params is None:
+        params = {}
+    
+    k = params.get('regret_k_value', 3)  # Default k=3 for regret calculation
+    debug_regret = params.get('debug_regret', False)
+    
+    print(f"🧠 Starting regret-{k} initializer with {len(orders)} orders and {len(vehicles)} vehicles")
+    
+    solution = Solution()
+    unassigned_orders = orders.copy()
+    
+    # Initialize empty routes for all vehicles
+    for vehicle in vehicles:
+        solution.add_route(vehicle.id, Route(vehicle=vehicle))
+    
+    # Main regret-k loop
+    iteration = 0
+    while unassigned_orders:
+        iteration += 1
+        if debug_regret and iteration % 10 == 1:
+            print(f"  Regret iteration {iteration}: {len(unassigned_orders)} orders remaining")
+        
+        best_regret = -1
+        best_order = None
+        best_insertion = None
+        order_costs = {}  # Use order.id as key instead of order object
+        
+        # Step 1: Calculate insertion costs for all unassigned orders
+        for order in unassigned_orders:
+            insertion_costs = []
+            
+            # Try inserting this order into every vehicle's route
+            for vehicle in vehicles:
+                current_route = solution.routes[vehicle.id]
+                
+                # Get all possible insertion positions for this order
+                order_tasks = order.get_all_tasks()
+                if not order_tasks:
+                    continue
+                
+                # Find best insertion cost for this vehicle
+                best_vehicle_cost = float('inf')
+                best_vehicle_insertion = None
+                
+                # Try all possible insertion patterns (pickup positions + delivery positions)
+                for pickup_task in order.get_pickups():
+                    for delivery_task in order.get_deliveries():
+                        # Try different insertion positions
+                        for pickup_pos in range(len(current_route.tasks) + 1):
+                            for delivery_pos in range(pickup_pos + 1, len(current_route.tasks) + 2):
+                                # Create test route
+                                test_route = current_route.copy()
+                                
+                                # Insert pickup first, then delivery
+                                test_route.insert_task_without_reordering(pickup_pos, pickup_task)
+                                test_route.insert_task_without_reordering(delivery_pos, delivery_task)
+                                
+                                # Check feasibility with lenient constraints during initialization
+                                try:
+                                    from second_level import is_feasible_for_insertion, calculate_z2_score
+                                    if is_feasible_for_insertion(test_route, debug_insertion=False):
+                                        cost = calculate_z2_score(test_route)
+                                        if cost < best_vehicle_cost:
+                                            best_vehicle_cost = cost
+                                            best_vehicle_insertion = {
+                                                'vehicle': vehicle,
+                                                'route': test_route,
+                                                'cost': cost,
+                                                'pickup_pos': pickup_pos,
+                                                'delivery_pos': delivery_pos,
+                                                'order': order  # Store order reference
+                                            }
+                                except Exception as e:
+                                    if debug_regret:
+                                        print(f"    Warning: Error evaluating insertion for {order.id}: {e}")
+                                    continue
+                
+                # Add this vehicle's best cost to the list
+                if best_vehicle_cost < float('inf'):
+                    insertion_costs.append(best_vehicle_cost)
+                    if best_vehicle_insertion:
+                        if order.id not in order_costs:
+                            order_costs[order.id] = []
+                        order_costs[order.id].append(best_vehicle_insertion)
+            
+            # Step 2: Calculate regret value for this order
+            if len(insertion_costs) >= k:
+                insertion_costs.sort()
+                cost_1 = insertion_costs[0]  # Best insertion cost
+                cost_k = insertion_costs[k-1]  # k-th best insertion cost
+                regret = cost_k - cost_1
+                
+                if debug_regret:
+                    print(f"    Order {order.id}: best_cost={cost_1:.2f}, {k}th_cost={cost_k:.2f}, regret={regret:.2f}")
+                
+                # Select order with highest regret
+                if regret > best_regret:
+                    best_regret = regret
+                    best_order = order
+                    # Find the best insertion among all vehicles for this order
+                    if order.id in order_costs:
+                        best_insertion = min(order_costs[order.id], key=lambda x: x['cost'])
+        
+        # Step 3: Insert the order with highest regret in its best position
+        if best_order and best_insertion:
+            vehicle_id = best_insertion['vehicle'].id
+            solution.routes[vehicle_id] = best_insertion['route']
+            unassigned_orders.remove(best_order)
+            
+            if debug_regret:
+                print(f"  ✅ Inserted order {best_order.id} into vehicle {vehicle_id} (regret: {best_regret:.2f}, cost: {best_insertion['cost']:.2f})")
+        else:
+            # No feasible insertion found - try force assignment or break
+            if unassigned_orders:
+                problematic_order = unassigned_orders[0]
+                print(f"⚠️  No feasible insertion found for order {problematic_order.id}, skipping...")
+                unassigned_orders.remove(problematic_order)
+                # Add to unassigned list in solution
+                if not hasattr(solution, 'unassigned_orders'):
+                    solution.unassigned_orders = set()
+                solution.unassigned_orders.add(problematic_order.id)
+    
+    # Add depot tasks to all routes with actual orders
+    for vehicle_id, route in solution.routes.items():
+        if route.tasks and not any('depot' in str(task.id).lower() for task in route.tasks):
+            _add_depot_tasks_to_route(route)
+    
+    print(f"✅ Regret-{k} initialization completed: {len(orders) - len(unassigned_orders)}/{len(orders)} orders assigned")
+    return solution
+
+
+def _add_depot_tasks_to_route(route: 'Route'):
+    """Helper function to add depot start and return tasks to a route."""
+    try:
+        from epdt_data_structures import Task
+        
+        vehicle = route.vehicle
+       
+        depot_location_id = getattr(vehicle, 'depot_id', 'main_depot')
+        depot_lat = getattr(vehicle, 'depot_lat', 44.9009)
+        depot_lon = getattr(vehicle, 'depot_lon', 8.2057)
+        
+        # Add depot start at beginning
+        depot_start = Task.create_depot_start_task(
+            vehicle_id=vehicle.id,
+            depot_location_id=depot_location_id,
+            depot_lat=depot_lat,
+            depot_lon=depot_lon
+        )
+        route.insert_task_without_reordering(0, depot_start)
+        
+        # Add depot return at end
+        depot_return = Task.create_depot_return_task(
+            vehicle_id=vehicle.id,
+            depot_location_id=depot_location_id,
+            depot_lat=depot_lat,
+            depot_lon=depot_lon
+        )
+        route.insert_task_without_reordering(len(route.tasks), depot_return)
+        
+    except Exception as e:
+        print(f"Warning: Could not add depot tasks to route: {e}")

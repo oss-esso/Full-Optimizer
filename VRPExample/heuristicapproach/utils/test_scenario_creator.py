@@ -40,7 +40,7 @@ def create_test_scenario(file_path: str) -> Tuple[List[Order], List[Vehicle]]:
             
             vehicle = Vehicle(
                 id=vehicle_id,
-                depot_id='DEPOT-PADOVA',
+                depot_id='DEPOT-ASTI',
                 weight_capacity=weight_capacity,
                 volume_capacity=volume_capacity,
                 cost_per_km=1.5 if vehicle_type == 'heavy' else 1.0,

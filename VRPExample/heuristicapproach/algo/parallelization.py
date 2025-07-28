@@ -1,8 +1,8 @@
-
 from typing import List, Optional, Iterator, Callable, TYPE_CHECKING
 import multiprocessing
 import concurrent.futures
 import copy
+import collections  # Add missing collections import
 
 if TYPE_CHECKING:
     from route import Route
