@@ -23,6 +23,7 @@ Usage:
 import sys
 import os
 import time
+import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
@@ -94,16 +95,16 @@ except ImportError:
         print(f"❌ Error importing driver assignment: {e}")
         sys.exit(1)
 
-# Import route provider for testing mode
+# Import route provider for OSRM mode
 try:
     from route_provider import set_testing_mode
-    set_testing_mode(use_haversine=True)
-    print("✅ Configured route provider for testing mode")
+    set_testing_mode(use_haversine=False)  # Enable OSRM routing
+    print("✅ Configured route provider for OSRM mode")
 except ImportError:
     try:
         from algo.route_provider import set_testing_mode
-        set_testing_mode(use_haversine=True)
-        print("✅ Configured route provider for testing mode with algo prefix")
+        set_testing_mode(use_haversine=False)  # Enable OSRM routing
+        print("✅ Configured route provider for OSRM mode with algo prefix")
     except ImportError:
         print("⚠️  Warning: route_provider not available, using fallback calculations")
 
@@ -138,15 +139,23 @@ except ImportError:
     except ImportError as e:
         print(f"⚠️  Warning: parallelization not available: {e}")
 
+# Import route pre-computation infrastructure
+try:
+    from utils.precompute_routes import RoutePrecomputer
+    print("✅ Successfully imported RoutePrecomputer for OSRM pre-computation")
+except ImportError as e:
+    print(f"⚠️  Warning: RoutePrecomputer not available: {e}")
+    RoutePrecomputer = None
 
-# Global counter for tracking Haversine distance calculations
-# This helps estimate OSRM API calls when switching to production route provider
-haversine_call_count = 0
+
+# Global counter for tracking route calculations
+# This helps track how many route calculations are made (OSRM calls or cache hits)
+route_calculation_count = 0
 
 def calculate_travel_time_with_counter(prev_task, curr_task, vehicle):
     """
     Wrapper for calculate_travel_time_between_tasks that increments the global counter.
-    This helps track how many route calculations are made for OSRM estimation.
+    This helps track how many route calculations are made.
     
     Args:
         prev_task: Previous task in route
@@ -156,8 +165,8 @@ def calculate_travel_time_with_counter(prev_task, curr_task, vehicle):
     Returns:
         Travel time in minutes
     """
-    global haversine_call_count
-    haversine_call_count += 1
+    global route_calculation_count
+    route_calculation_count += 1
     
     try:
         from route_provider import calculate_travel_time_between_tasks
@@ -170,15 +179,15 @@ def calculate_travel_time_with_counter(prev_task, curr_task, vehicle):
             # Fallback: simple time estimation
             return 60  # 1 hour default
 
-def reset_haversine_counter():
-    """Reset the global Haversine call counter."""
-    global haversine_call_count
-    haversine_call_count = 0
+def reset_route_calculation_counter():
+    """Reset the global route calculation counter."""
+    global route_calculation_count
+    route_calculation_count = 0
 
-def get_haversine_call_count():
-    """Get the current Haversine call count."""
-    global haversine_call_count
-    return haversine_call_count
+def get_route_calculation_count():
+    """Get the current route calculation count."""
+    global route_calculation_count
+    return route_calculation_count
 
 
 def format_duration_detailed(minutes: float) -> str:
@@ -630,8 +639,8 @@ def print_route_validation_summary(solution, orders, vehicles, runtime_seconds=N
         print(f"   • Vehicles available: {total_vehicles}")
         if runtime_seconds is not None:
             print(f"   • Total runtime: {runtime_seconds:.2f} seconds")
-        print(f"   • Haversine distance calls: {get_haversine_call_count()}")
-        print(f"   • Estimated OSRM API calls: ~{get_haversine_call_count()} (when switching to production)")
+        print(f"   • Route calculations: {get_route_calculation_count()}")
+        print(f"   • OSRM calls made: ~{get_route_calculation_count()} (cached results available for future runs)")
         print("DEBUG: Test Summary displayed successfully!")
     except Exception as e:
         print(f"\n📊 Test Summary: Error displaying summary: {e}")
@@ -646,7 +655,7 @@ def print_route_validation_summary(solution, orders, vehicles, runtime_seconds=N
         'assignment_rate': assignment_rate,
         'total_routes': total_routes,
         'total_distance': total_distance,
-        'haversine_calls': get_haversine_call_count()
+        'route_calculations': get_route_calculation_count()
     }
 
 
@@ -1034,7 +1043,7 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
     print("="*80)
     
     # Reset Haversine call counter for accurate tracking
-    reset_haversine_counter()
+    reset_route_calculation_counter()
     #print(f"DEBUG: Haversine call counter reset to {get_haversine_call_count()}")
 
     
@@ -1256,6 +1265,97 @@ def run_phase2_driver_assignment(excel_path: str, solution, vehicles) -> None:
         print(f"⚠️ Error generating map: {e}")
 
 
+def run_precomputation_phase(excel_file: str):
+    """
+    Run OSRM route pre-computation phase to optimize performance.
+    
+    This phase pre-computes all possible routes between unique locations
+    in the scenario, dramatically reducing optimization runtime by eliminating
+    OSRM API calls during the heuristic search.
+    
+    Args:
+        excel_file: Path to the Excel scenario file
+    """
+    print("=" * 80)
+    print("🚀 OSRM ROUTE PRE-COMPUTATION PHASE")
+    print("=" * 80)
+    
+    if RoutePrecomputer is None:
+        print("⚠️  RoutePrecomputer not available, skipping pre-computation")
+        print("   The optimization will use on-demand OSRM calls instead")
+        print("   (This will be slower but still functional)")
+        return
+    
+    try:
+        # Initialize the route pre-computer
+        print("🔧 Initializing route pre-computer...")
+        precomputer = RoutePrecomputer(
+            osrm_url="https://router.project-osrm.org",  # Public OSRM server
+            batch_size=20,  # Conservative batch size for public server
+            rate_limit_delay=0.2  # Respectful delay for public server
+        )
+        
+        # Load scenario locations from Excel
+        print(f"📁 Loading scenario locations from: {excel_file}")
+        locations = precomputer.load_scenario_from_excel(excel_file)
+        
+        if not locations:
+            print("❌ No locations loaded from scenario, skipping pre-computation")
+            return
+            
+        print(f"✅ Loaded {len(locations)} unique locations")
+        unique_pairs = len(locations) * (len(locations) - 1)  # All pairs except self-loops
+        print(f"🔗 Total route pairs to pre-compute: {unique_pairs}")
+        
+        # Check current cache status
+        import sqlite3
+        try:
+            conn = sqlite3.connect(precomputer.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM route_cache")
+            cache_count_before = cursor.fetchone()[0]
+            conn.close()
+            print(f"💾 Current cache size: {cache_count_before} routes")
+        except:
+            cache_count_before = 0
+            print("💾 Cache database will be created")
+        
+        # Run pre-computation
+        print("\n🔄 Starting route pre-computation...")
+        start_time = time.time()
+        
+        precomputer.precompute_all_routes()
+        
+        precompute_time = time.time() - start_time
+        
+        # Check final cache status
+        try:
+            conn = sqlite3.connect(precomputer.db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM route_cache")
+            cache_count_after = cursor.fetchone()[0]
+            conn.close()
+            new_routes = cache_count_after - cache_count_before
+        except:
+            cache_count_after = cache_count_before
+            new_routes = 0
+        
+        print(f"\n✅ Pre-computation completed!")
+        print(f"📊 Summary:")
+        print(f"   • Pre-computation time: {precompute_time:.1f} seconds")
+        print(f"   • Routes in cache before: {cache_count_before}")
+        print(f"   • Routes in cache after: {cache_count_after}")
+        print(f"   • New routes cached: {new_routes}")
+        print(f"   • Cache coverage: {(cache_count_after/unique_pairs)*100:.1f}%")
+        print(f"\n🎯 Expected benefit: Subsequent optimizations should make ~0 OSRM calls!")
+        
+    except Exception as e:
+        print(f"❌ Pre-computation failed: {e}")
+        print("   The optimization will continue with on-demand OSRM calls")
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     """
     Main function to run the comprehensive integration test.
@@ -1272,6 +1372,9 @@ def main():
     print(f"📂 Using Excel file: {excel_file}")
     
     try:
+        # Run Pre-computation Phase: OSRM Route Pre-computation
+        run_precomputation_phase(excel_file)
+        
         # Run Phase 1: Heuristic Solver Test
         solution, orders, vehicles, runtime = run_phase1_heuristic_test(excel_file)
         

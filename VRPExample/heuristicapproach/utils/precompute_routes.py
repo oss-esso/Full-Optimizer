@@ -104,9 +104,79 @@ class RoutePrecomputer:
             sys.exit(1)
             
     def load_scenario_from_excel(self, excel_path: str) -> List[LocationInfo]:
-        """Load scenario from Excel file (future implementation)."""
-        # TODO: Implement Excel loading when needed
-        raise NotImplementedError("Excel loading not yet implemented")
+        """Load scenario from Excel file."""
+        try:
+            print(f"📁 Loading scenario from Excel file: {excel_path}")
+            
+            # Import the scenario creator
+            import sys
+            from pathlib import Path
+            
+            # Add parent directories for imports
+            current_dir = Path(__file__).parent
+            src_dir = current_dir.parent / "src"
+            sys.path.insert(0, str(src_dir))
+            
+            from scenario_creator import create_scenario_from_excel
+            
+            # Create the scenario
+            orders, vehicles, scenario_info = create_scenario_from_excel(excel_path)
+            print(f"✅ Loaded scenario with {len(orders)} orders and {len(vehicles)} vehicles")
+            
+            # Extract unique locations
+            locations = []
+            seen_coords = set()
+            location_id_counter = 0
+            
+            # Add depot (assuming it's consistent across all scenarios)
+            depot_lat, depot_lon = 44.89149000, 8.20317000  # DEPOT_BAY_ASTI coordinates
+            depot_key = (depot_lat, depot_lon)
+            if depot_key not in seen_coords:
+                locations.append(LocationInfo(
+                    id="DEPOT_BAY_ASTI",
+                    lat=depot_lat,
+                    lon=depot_lon,
+                    location_type="depot"
+                ))
+                seen_coords.add(depot_key)
+            
+            # Extract order locations
+            for order in orders:
+                if hasattr(order, 'tasks'):
+                    for task in order.tasks:
+                        if hasattr(task, 'location') and hasattr(task.location, 'latitude') and hasattr(task.location, 'longitude'):
+                            lat = float(task.location.latitude)
+                            lon = float(task.location.longitude)
+                            coord_key = (lat, lon)
+                            
+                            if coord_key not in seen_coords:
+                                # Use location name if available, otherwise generate ID
+                                if hasattr(task.location, 'name') and task.location.name:
+                                    location_id = task.location.name
+                                else:
+                                    location_id = f"location_{location_id_counter}"
+                                    location_id_counter += 1
+                                
+                                # Determine location type based on task
+                                location_type = "pickup" if hasattr(task, 'task_type') and 'pickup' in str(task.task_type).lower() else "delivery"
+                                
+                                locations.append(LocationInfo(
+                                    id=location_id,
+                                    lat=lat,
+                                    lon=lon,
+                                    location_type=location_type
+                                ))
+                                seen_coords.add(coord_key)
+            
+            print(f"✅ Extracted {len(locations)} unique locations")
+            self.locations = locations
+            return locations
+            
+        except Exception as e:
+            print(f"❌ Error loading scenario from Excel: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
         
     def _extract_locations_from_vrp_instance(self, vrp_instance) -> List[LocationInfo]:
         """Extract all unique locations from a VRP instance."""
