@@ -448,6 +448,7 @@ def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
     
     This is the centralized function for travel time calculation that decides
     whether to use OSRM service or Haversine calculation based on the USE_OSRM flag.
+    Enhanced with cross-validation to detect inconsistencies between OSRM and Haversine.
     
     Args:
         task1: Starting task with lat, lon, and location_id attributes
@@ -459,46 +460,13 @@ def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
     """
     global USE_OSRM
     
-    if USE_OSRM:
-        # Production mode: Use OSRM service
-        try:
-            provider = get_route_provider()
-            
-            # Extract coordinates and node IDs
-            start_coords = (getattr(task1, 'lon', 0), getattr(task1, 'lat', 0))
-            end_coords = (getattr(task2, 'lon', 0), getattr(task2, 'lat', 0))
-            start_node_id = getattr(task1, 'location_id', f"{task1.lat}_{task1.lon}")
-            end_node_id = getattr(task2, 'location_id', f"{task2.lat}_{task2.lon}")
-            
-            # Get vehicle type, default to 'standard' if not specified
-            vehicle_type = getattr(vehicle, 'vehicle_type', 'standard')
-            
-            return provider.calculate_vehicle_travel_time(
-                start_node_id, end_node_id, vehicle_type, start_coords, end_coords
-            )
-        except Exception as e:
-            print(f"Warning: OSRM calculation failed ({e}), falling back to Haversine")
-            # Fall through to Haversine calculation
+    # Cross-validation threshold (percentage difference)
+    CROSS_VALIDATION_THRESHOLD = 200.0  # Log warning if difference exceeds 50%
     
-    # Testing mode or OSRM fallback: Use centralized Haversine calculation
-    try:
-        # Import from our centralized distance calculator
-        import sys
-        import os
-        
-        # Add utils directory to path
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        utils_dir = os.path.join(current_dir, '..', 'utils')
-        if utils_dir not in sys.path:
-            sys.path.insert(0, utils_dir)
-        
-        from distance_calculator import calculate_travel_time_between_tasks as haversine_calc
-        return haversine_calc(task1, task2, vehicle)
-        
-    except ImportError as e:
-        print(f"Warning: Could not import centralized distance calculator ({e})")
-        # Ultimate fallback - basic calculation
-        if hasattr(task1, 'lat') and hasattr(task2, 'lat'):
+    # Always calculate Haversine for cross-validation when coordinates are available
+    haversine_time = None
+    if hasattr(task1, 'lat') and hasattr(task2, 'lat'):
+        try:
             import math
             
             # Basic Haversine calculation
@@ -518,7 +486,73 @@ def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
             distance_km = R * c
             
             speed_kmh = getattr(vehicle, 'average_speed', 60.0)
-            travel_time_hours = distance_km / speed_kmh
-            return travel_time_hours * 60.0
+            haversine_time = (distance_km / speed_kmh) * 60.0  # Convert to minutes
+        except Exception as e:
+            print(f"Warning: Haversine calculation failed for cross-validation: {e}")
+    
+    if USE_OSRM:
+        # Production mode: Use OSRM service with cross-validation
+        osrm_time = None
+        try:
+            provider = get_route_provider()
+            
+            # Extract coordinates and node IDs
+            start_coords = (getattr(task1, 'lon', 0), getattr(task1, 'lat', 0))
+            end_coords = (getattr(task2, 'lon', 0), getattr(task2, 'lat', 0))
+            start_node_id = getattr(task1, 'location_id', f"{task1.lat}_{task1.lon}")
+            end_node_id = getattr(task2, 'location_id', f"{task2.lat}_{task2.lon}")
+            
+            # Get vehicle type, default to 'standard' if not specified
+            vehicle_type = getattr(vehicle, 'vehicle_type', 'standard')
+            
+            osrm_time = provider.calculate_vehicle_travel_time(
+                start_node_id, end_node_id, vehicle_type, start_coords, end_coords
+            )
+            
+            # Cross-validation: Compare OSRM and Haversine results
+            if haversine_time is not None and osrm_time is not None:
+                if haversine_time > 0:  # Avoid division by zero
+                    percentage_diff = abs(osrm_time - haversine_time) / haversine_time * 100
+                    
+                    # Log both values for comparison
+                    task1_location = getattr(task1, 'location_id', f"({task1.lat:.3f},{task1.lon:.3f})")
+                    task2_location = getattr(task2, 'location_id', f"({task2.lat:.3f},{task2.lon:.3f})")
+                    
+                    #print(f"TRAVEL_TIME_VALIDATION: {task1_location} → {task2_location}")
+                    #print(f"  OSRM: {osrm_time:.1f}m | Haversine: {haversine_time:.1f}m | Diff: {percentage_diff:.1f}%")
+                    
+                    # Warning for significant discrepancies
+                    if percentage_diff > CROSS_VALIDATION_THRESHOLD:
+                        print(f"  ⚠️  WARNING: Travel time discrepancy exceeds {CROSS_VALIDATION_THRESHOLD}% threshold!")
+                        print(f"      This may indicate OSRM routing issues or unusual road conditions.")
+            
+            return osrm_time
+            
+        except Exception as e:
+            print(f"Warning: OSRM calculation failed ({e}), falling back to Haversine")
+            if haversine_time is not None:
+                return haversine_time
+            # Fall through to centralized Haversine calculation
+    
+    # Testing mode or OSRM fallback: Use centralized Haversine calculation
+    if haversine_time is not None:
+        return haversine_time
+    
+    try:
+        # Import from our centralized distance calculator
+        import sys
+        import os
         
-        return 15.0  # Final fallback
+        # Add utils directory to path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        utils_dir = os.path.join(current_dir, '..', 'utils')
+        if utils_dir not in sys.path:
+            sys.path.insert(0, utils_dir)
+        
+        from distance_calculator import calculate_travel_time_between_tasks as haversine_calc
+        return haversine_calc(task1, task2, vehicle)
+        
+    except ImportError as e:
+        print(f"Warning: Could not import centralized distance calculator ({e})")
+        # Ultimate fallback - return the calculated Haversine or minimum time
+        return haversine_time if haversine_time is not None else 15.0

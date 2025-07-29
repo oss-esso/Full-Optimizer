@@ -552,9 +552,11 @@ class Driver:
     name: str
     license: str  # 'B' or 'CE'
     default_vehicle_id: str
-    cost_per_hour: float = 25.0  # Default hourly cost
+    cost_per_hour: float = 25.0  # Hourly cost for this driver (wage)
+    max_shift_hours: float = 13.0  # Maximum total work hours for a single shift
+    max_driving_hours: float = 9.0  # Maximum driving hours within a shift
     home_depot_id: str = "main_depot"  # Default depot
-    qualifications: Set[str] = field(default_factory=set)
+    qualifications: Set[str] = field(default_factory=set)  # Driver capabilities (e.g., ADR_CERTIFIED, FORKLIFT_LICENSE)
     hos_state: DriverState = field(default_factory=DriverState)
     
     def can_operate_vehicle(self, vehicle: 'Vehicle') -> bool:

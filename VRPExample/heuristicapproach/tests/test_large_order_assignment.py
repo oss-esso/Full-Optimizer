@@ -36,9 +36,9 @@ def test_regret_k_vs_cluster_aware():
         
         # Load scenario with problematic large orders
         excel_file = os.path.join(heuristic_root, 'src', 'furgoni.xlsx')
-        orders, vehicles = create_scenario_from_excel(excel_file)
+        orders, vehicles, drivers = create_scenario_from_excel(excel_file)
         
-        print(f"📦 Loaded scenario: {len(orders)} orders, {len(vehicles)} vehicles")
+        print(f"📦 Loaded scenario: {len(orders)} orders, {len(vehicles)} vehicles, {len(drivers)} drivers")
         
         # Test 1: Cluster-aware initialization
         print("\n🏗️  Testing cluster-aware initialization...")
@@ -197,7 +197,7 @@ def test_specific_difficult_orders():
         
         # Load scenario
         excel_file = os.path.join(heuristic_root, 'src', 'furgoni.xlsx')
-        orders, vehicles = create_scenario_from_excel(excel_file)
+        orders, vehicles, drivers = create_scenario_from_excel(excel_file)
         
         # Identify the most difficult orders
         difficult_orders = []

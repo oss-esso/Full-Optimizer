@@ -1,0 +1,19 @@
+EPDT Comprehensive Integration Test Results
+Generated on: 2025-07-29 23:14:05
+Exit Code: 1
+============================================================
+
+STDOUT:
+=== EPDT Comprehensive Integration Test ===
+Test directory: C:\Users\Edoardo\Documents\EPFL\Full-Optimizer\VRPExample\heuristicapproach\tests
+Heuristic root: C:\Users\Edoardo\Documents\EPFL\Full-Optimizer\VRPExample\heuristicapproach\tests\..
+
+
+STDERR:
+Traceback (most recent call last):
+  File "C:\Users\Edoardo\Documents\EPFL\Full-Optimizer\VRPExample\heuristicapproach\tests\comprehensive_integration_test.py", line 50, in <module>
+    print("\u2705 Successfully imported create_scenario_from_excel")
+  File "C:\Users\Edoardo\miniconda3\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>

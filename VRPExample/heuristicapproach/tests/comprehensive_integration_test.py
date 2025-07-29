@@ -26,6 +26,7 @@ import time
 import sqlite3
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 
 # Add necessary paths for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -223,148 +224,87 @@ def format_duration_detailed(minutes: float) -> str:
 def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
     """
     Print detailed route breakdown with task sequence, load tracking, and timing.
-    Matches the format from the test scenario output.
-    
-    Args:
-        vehicle_id: ID of the vehicle
-        route: Route object containing tasks
-        vehicle: Vehicle object (optional, for capacity info)
     """
     if not route or not route.tasks:
         return
-    
-    # Get task type emoji mapping
-    def get_task_emoji(task):
-        """Get emoji for task type"""
-        if hasattr(task, 'task_type'):
-            task_type = task.task_type
-            if hasattr(task_type, 'value'):
-                task_type = task_type.value
-            if task_type == 'pickup':
-                return '📦'
-            elif task_type == 'delivery':
-                return '🏪'
-        
-        # Check order ID patterns for depot tasks
-        if hasattr(task, 'order_id'):
-            order_id = str(task.order_id)
-            if 'start' in order_id.lower():
-                return '🚀'
-            elif 'return' in order_id.lower():
-                return '🏠'
-        
-        # Default fallback
-        return '📋'
-    
+
     def get_location_name(task):
-        """Get location name from task"""
-        if hasattr(task, 'location') and hasattr(task.location, 'name'):
-            return task.location.name
-        elif hasattr(task, 'location_id'):
-            return str(task.location_id)
-        return "Unknown location"
-    
+        return getattr(getattr(task, 'location', None), 'name', getattr(task, 'location_id', "Unknown"))
+
     def get_order_info(task):
-        """Get order information from task"""
-        if hasattr(task, 'order_id'):
-            return f"Order: {task.order_id}"
-        return "No order info"
-    
+        return f"Order: {getattr(task, 'order_id', 'N/A')}"
+
+    def format_absolute_minutes(minutes):
+        if minutes is None:
+            return "No window"
+        day = int(minutes / 1440) + 1
+        remaining_minutes = int(minutes % 1440)
+        hour = remaining_minutes // 60
+        minute = remaining_minutes % 60
+        return f"Day {day}, {hour:02d}:{minute:02d}"
+
     def get_time_window_info(task):
-        """Get time window information for task"""
-        if hasattr(task, 'order') and task.order:
-            order = task.order
-            if hasattr(order, 'earliest_pickup_time') and hasattr(order, 'latest_delivery_time'):
-                # Format time windows
-                return f"[Day 1 {order.earliest_pickup_time} - Day 2 {order.latest_delivery_time}]"
-        return "[No specific time window]"
-    
+        earliest = getattr(task, 'earliest_time', None)
+        latest = getattr(task, 'latest_time', None)
+        start_str = format_absolute_minutes(earliest)
+        end_str = format_absolute_minutes(latest)
+        return f"[{start_str} -> {end_str}]"
+
     def get_load_change(task):
-        """Calculate load change for this task"""
-        weight_change = 0
-        volume_change = 0
-        
-        if hasattr(task, 'order') and task.order:
-            order = task.order
-            weight = getattr(order, 'weight', 0)
-            volume = getattr(order, 'volume', 0)
-            
-            # Determine if this is pickup or delivery
-            if hasattr(task, 'task_type'):
-                task_type = task.task_type
-                if hasattr(task_type, 'value'):
-                    task_type = task_type.value
-                
-                if task_type == 'pickup':
-                    weight_change = weight
-                    volume_change = volume
-                elif task_type == 'delivery':
-                    weight_change = -weight
-                    volume_change = -volume
-        
+        weight_change = getattr(task, 'demand', 0.0)
+        volume_change = getattr(task, 'volume', 0.0)
         return weight_change, volume_change
-    
-    # Check feasibility
+
     try:
         from second_level import is_feasible
-        feasible, reason = is_feasible(route, debug_feasibility=False, return_reason=True)
-    except:
-        feasible = True
-        reason = "Unknown"
-    
-    print(f"   🚚 {vehicle_id}:")
+        feasible, reason = is_feasible(route, debug_feasibility=True, return_reason=True)
+    except ImportError:
+        feasible, reason = True, "(Feasibility check unavailable)"
+
+    print(f"   VEHICLE: {vehicle_id}:")
     print(f"      Feasible: {feasible}")
-    
-    # Calculate total route duration and print DEBUG travel times
+    if not feasible:
+        print(f"      Reason: {reason}")
+
     total_duration_minutes = 0
-    
-    # Print DEBUG travel times between locations
-    try:
-        for i in range(1, len(route.tasks)):
-            prev_task = route.tasks[i-1]
-            curr_task = route.tasks[i]
-            travel_time = calculate_travel_time_with_counter(prev_task, curr_task, route.vehicle)
-            prev_location = get_location_name(prev_task)
-            curr_location = get_location_name(curr_task)
-            print(f"DEBUG: Used route_provider for {prev_location} -> {curr_location}: {travel_time:.1f}m")
-            total_duration_minutes += travel_time
-    except:
-        # Fallback estimation
-        total_duration_minutes = len(route.tasks) * 60  # 1 hour per task as fallback
-    
-    # Format duration
+    if len(route.tasks) > 1:
+        try:
+            for i in range(1, len(route.tasks)):
+                prev_task = route.tasks[i-1]
+                curr_task = route.tasks[i]
+                travel_time = calculate_travel_time_with_counter(prev_task, curr_task, route.vehicle)
+                prev_location = get_location_name(prev_task)
+                curr_location = get_location_name(curr_task)
+                #print(f"DEBUG: Used route_provider for {prev_location} -> {curr_location}: {travel_time:.1f}m")
+                total_duration_minutes += travel_time
+                # Add service time at current location
+                service_time = getattr(curr_task, 'service_time', 5.0)  # Default 5 minutes
+                total_duration_minutes += service_time
+        except Exception as e:
+            total_duration_minutes = len(route.tasks) * 60  # Fallback
+
     duration_formatted = format_duration_detailed(total_duration_minutes)
     days = int(total_duration_minutes / 1440)
-    
-    # Check for HoS violations (simple heuristic: >11 hours driving per day)
-    hos_warning = ""
-    if total_duration_minutes > 11 * 60:  # More than 11 hours
-        hos_warning = " (would violate HoS if attempted without proper rests)"
-    
-    print(f"      📅 Route duration: {days} day(s) ({duration_formatted}){hos_warning}")
-    print(f"      📋 Task sequence ({len(route.tasks)} tasks) - Real-time monitoring:")
-    
-    # Track cumulative load
-    current_weight = 0
-    current_volume = 0
-    cumulative_time = 0
-    
+    hos_warning = " (would violate HoS if attempted without proper rests)" if total_duration_minutes > 11 * 60 else ""
+
+    print(f"       Route duration: {days} day(s) ({duration_formatted}){hos_warning}")
+    print(f"       Task sequence ({len(route.tasks)} tasks) - Real-time monitoring:")
+
+    current_weight, current_volume, cumulative_time = 0, 0, 0
+
     for i, task in enumerate(route.tasks, 1):
-        # Calculate time for this task
-        if i == 1:
-            task_time = 5  # First task starts after 5 minutes
-        else:
-            # Add travel time from previous task
+        travel_time = 0
+        if i > 1:
             try:
                 travel_time = calculate_travel_time_with_counter(route.tasks[i-2], task, route.vehicle)
-                task_time = travel_time
             except:
-                task_time = 60  # 1 hour fallback
-        
-        cumulative_time += task_time
-        
+                travel_time = 60  # Fallback
+
+        # Add service time and travel time
+        service_time = getattr(task, 'service_time', 5.0)
+        cumulative_time += travel_time + service_time
+
         # Get task details
-        emoji = get_task_emoji(task)
         location = get_location_name(task)
         order_info = get_order_info(task)
         time_window = get_time_window_info(task)
@@ -381,15 +321,30 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
         if i == 1:
             delta_str = ""
         else:
-            delta_formatted = format_duration_detailed(task_time)
+            delta_formatted = format_duration_detailed(travel_time + service_time)
             delta_str = f" (+{delta_formatted})"
         
         # Format load change
         weight_sign = "+" if weight_change >= 0 else ""
         volume_sign = "+" if volume_change >= 0 else ""
         
-        print(f"          {i}. {emoji} {location} ({order_info}) - Cumulative: {cumulative_formatted}{delta_str} {time_window}")
-        print(f"             Load: {weight_sign}{weight_change}kg, {volume_sign}{volume_change:.1f}m³ → Total: {current_weight}kg, {current_volume:.1f}m³")
+        print(f"          {i}. {location} ({order_info}) - Cumulative: {cumulative_formatted}{delta_str} {time_window}")
+        print(f"             Load: {weight_sign}{weight_change:.1f}kg, {volume_sign}{volume_change:.1f}m³ → Total: {current_weight:.1f}kg, {current_volume:.1f}m³")
+        
+        # Display arrival status relative to time window
+        arrival_status = ""
+        if hasattr(task, 'earliest_time') and hasattr(task, 'latest_time'):
+            if task.earliest_time is not None and cumulative_time < task.earliest_time:
+                wait_time = task.earliest_time - cumulative_time
+                arrival_status = f"(Arrived early, would wait {format_duration_detailed(wait_time)})"
+            elif task.latest_time is not None and cumulative_time > task.latest_time:
+                lateness = cumulative_time - task.latest_time
+                arrival_status = f"(LATE by {format_duration_detailed(lateness)})"
+            else:
+                arrival_status = "(On time)"
+        else:
+            arrival_status = "(No time window)"
+        print(f"             Status: {arrival_status}")
 
 
 def configure_algorithm_parameters() -> dict:
@@ -411,9 +366,9 @@ def configure_algorithm_parameters() -> dict:
         'parallel_strategy': 'PE',
         'local_search_strategy': 'first_improvement',
         'initialization_method': 'best_insertion',
-        'vehicle_penalty_per_vehicle': 5.0,  # Further reduced from 10.0 - make vehicles very cheap
+        'vehicle_penalty_per_vehicle': 0.0,  # Further reduced from 10.0 - make vehicles very cheap
         'unassigned_order_base_penalty': 50000.0,  # Dramatically reduced from 500000.0 - much more lenient
-        'time_window_violation_penalty': 10.0,  # Further reduced from 25.0 - very tolerant of time violations
+        'time_window_violation_penalty': 500.0, # Significantly increased to enforce time windows
         'capacity_violation_penalty': 100.0,  # Reduced from 250.0 - very tolerant of capacity violations
         'distance_violation_penalty': 50.0,  # Reduced from 100.0 - moderate penalty for distance violations
         'Lo': 1000.0,  # Reduced from 1500.0 - smaller initial threshold
@@ -1050,7 +1005,7 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
     # Step 1: Load scenario from Excel
     print(f"\n📁 Loading scenario from: {excel_path}")
     try:
-        orders, vehicles = create_scenario_from_excel(excel_path)
+        orders, vehicles, drivers = create_scenario_from_excel(excel_path)
         print(f"✅ Successfully loaded scenario:")
         print(f"   • Orders: {len(orders)}")
         print(f"   • Vehicles: {len(vehicles)}")
@@ -1264,6 +1219,102 @@ def run_phase2_driver_assignment(excel_path: str, solution, vehicles) -> None:
     except Exception as e:
         print(f"⚠️ Error generating map: {e}")
 
+    # Step 7: Export Routes to Text Format
+    print(f"\n📝 Exporting routes to text format...")
+    try:
+        route_export_path = f"route_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+        export_routes_to_text(solution, route_export_path)
+        print(f"📝 Routes exported to: {route_export_path}")
+    except Exception as e:
+        print(f"⚠️ Error exporting routes: {e}")
+
+
+def export_routes_to_text(solution, file_path: str):
+    """
+    Export route information to a text file.
+    
+    Args:
+        solution: The VRP solution object
+        file_path: Path where to save the text export
+    """
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write("="*80 + "\n")
+        f.write("VRP SOLUTION EXPORT\n")
+        f.write("="*80 + "\n")
+        f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        
+        # Handle different solution types
+        if hasattr(solution, 'routes'):
+            routes = solution.routes
+        elif isinstance(solution, list):
+            routes = solution
+        else:
+            f.write(f"Error: Unknown solution type: {type(solution)}\n")
+            return
+        
+        # Summary statistics
+        vehicle_count = len(routes)
+        total_orders = 0
+        total_cost = 0.0
+        
+        for route in routes:
+            if hasattr(route, 'tasks') and route.tasks:
+                total_orders += len([task for task in route.tasks if hasattr(task, 'task_type') and task.task_type.name == 'DELIVERY'])
+            if hasattr(route, 'total_cost'):
+                total_cost += route.total_cost
+        
+        f.write(f"SUMMARY:\n")
+        f.write(f"  • Total Vehicles Used: {vehicle_count}\n")
+        f.write(f"  • Total Orders Delivered: {total_orders}\n")
+        f.write(f"  • Solution Cost: {total_cost:.2f}\n\n")
+        
+        # Route details
+        for route_idx, route in enumerate(routes, 1):
+            if not hasattr(route, 'tasks') or not route.tasks:
+                continue
+                
+            f.write(f"ROUTE {route_idx}:\n")
+            
+            # Vehicle info
+            if hasattr(route, 'vehicle') and route.vehicle:
+                f.write(f"  Vehicle: {route.vehicle.vehicle_id}\n")
+                
+                # Driver info
+                if hasattr(route.vehicle, 'assigned_driver') and route.vehicle.assigned_driver:
+                    driver = route.vehicle.assigned_driver
+                    f.write(f"  Driver: {driver.driver_id} ({driver.name})\n")
+                    if hasattr(driver, 'license_types') and driver.license_types:
+                        f.write(f"  Licenses: {', '.join(driver.license_types)}\n")
+                    if hasattr(driver, 'capabilities') and driver.capabilities:
+                        f.write(f"  Capabilities: {', '.join(driver.capabilities)}\n")
+            
+            # Route tasks
+            f.write(f"  Tasks:\n")
+            for task_idx, task in enumerate(route.tasks, 1):
+                weight = abs(task.demand) if hasattr(task, 'demand') and task.demand else 0
+                task_type = task.task_type.name if hasattr(task, 'task_type') else 'UNKNOWN'
+                location_name = task.location_name if hasattr(task, 'location_name') else 'UNKNOWN'
+                order_id = task.order_id if hasattr(task, 'order_id') else 'UNKNOWN'
+                
+                f.write(f"    {task_idx:2d}. {task_type}: {location_name}\n")
+                f.write(f"        Order: {order_id}\n")
+                f.write(f"        Weight: {weight:.1f}kg\n")
+                
+                if hasattr(task, 'time_windows') and task.time_windows:
+                    tw = task.time_windows[0]
+                    f.write(f"        Time Window: {tw.start_time:.0f}-{tw.end_time:.0f} min\n")
+                f.write("\n")
+            
+            # Route metrics
+            if hasattr(route, 'total_distance'):
+                f.write(f"  Route Distance: {route.total_distance:.2f} km\n")
+            if hasattr(route, 'total_cost'):
+                f.write(f"  Route Cost: {route.total_cost:.2f}\n")
+            
+            total_weight = sum(abs(task.demand) for task in route.tasks if hasattr(task, 'demand') and task.demand)
+            f.write(f"  Total Weight: {total_weight:.1f}kg\n")
+            f.write("\n" + "-"*60 + "\n\n")
+
 
 def run_precomputation_phase(excel_file: str):
     """
@@ -1363,7 +1414,7 @@ def main():
     print("Starting EPDT Comprehensive Integration Test...")
     
     # Define path to the Excel file
-    excel_file = os.path.join(src_dir, 'furgoni.xlsx')
+    excel_file = os.path.join(src_dir, 'furgoni2.xlsx')
     
     if not os.path.exists(excel_file):
         print(f"❌ Error: Excel file not found at {excel_file}")

@@ -266,3 +266,107 @@ tions" strategy for the `best_insertion_initializer`. Instead of trying to inser
     -   Add a new parameter `initialization_method` that can be set to `'best_insertion'` or `'regret_k'`.
     -   Add a boolean parameter `enable_destroy_and_repair` to control whether the new operator is used.
 - [ ] **Action:** Create a new test file `tests/test_large_order_assignment.py` that specifically loads a scenario with known difficult orders and asserts that the new heuristics can successfully assign them where the old one failed.tions" strategy for the `best_insertion_initializer`. Instead of trying to insert an order into every possible position, only evaluate the `k` most promising positions (e.g., based on Euclidean distance as a cheap proxy).
+
+## 21. Validate Travel Time Calculations and Depot Operations
+
+**Objective:** Ensure the accuracy of travel time calculations by cross-validating OSRM and Haversine methods, and verify that all routes correctly start and end at a depot or depot bay.
+
+- [ ] **Problem:** There are discrepancies in travel time calculations, and it's unclear if the Haversine fallback is being used correctly. Additionally, route validation needs to be stricter about depot starts and ends.
+- [ ] **Goal:** Implement a robust validation system to catch inconsistencies in travel times and ensure all routes adhere to depot constraints.
+
+- [ ] **Implementation Steps:**
+
+    1.  **Cross-Validate Travel Times:**
+        -   **Action:** In `algo/route_provider.py`, when `USE_OSRM` is `True`, after fetching a route from OSRM, also calculate the Haversine distance for the same pair of coordinates.
+        -   **Logging:** Log both the OSRM time and the Haversine time, along with a percentage difference. If the difference exceeds a certain threshold (e.g., 50%), log a warning.
+        -   **Action:** In `tests/run_scenario_test.py`, enhance the `print_solution_summary` function. When printing the route details, for each leg of the journey, display both the OSRM-based travel time and the Haversine-based travel time. This will make it easy to spot significant discrepancies during testing.
+
+    2.  **Strengthen Depot Start/End Validation:**
+        -   **Action:** In `algo/second_level.py`, within the `is_feasible` function, add an explicit check at the beginning and end of the task sequence.
+        -   **Logic:**
+            -   The first task in a route's task list *must* be a depot start task (e.g., `task.is_depot_start()` is `True`).
+            -   The last task in a route's task list *must* be a depot return task (e.g., `task.is_depot_return()` is `True`).
+            -   If either of these conditions is not met, the route should be marked as infeasible.
+        -   **Action:** Create a dedicated test in `tests/test_route_validation.py` to ensure this check works correctly. Create a route that does not start with a depot task and another that does not end with one, and assert that `is_feasible` returns `False` for both.
+
+## 22. Replace Photon with Nominatim for Geocoding
+
+**Objective:** Standardize the geocoding service to Nominatim to ensure consistency and reliability, removing the deprecated Photon service.
+
+- [ ] **Problem:** The current geocoding implementation in `utils/scenario_creator.py` uses a mix of services and fallbacks, including the less reliable Photon service. The `test_photon_geocoding.py` script highlights that Nominatim is a more robust alternative.
+- [ ] **Goal:** Refactor the `get_coordinates` function in `utils/scenario_creator.py` to exclusively use Nominatim, adopting the best practices identified in the `test_nominatim_geocoding` function.
+
+- [ ] **Implementation Steps:**
+
+    1.  **Refactor `get_coordinates` in `utils/scenario_creator.py`:**
+        -   **Action:** Replace the entire body of the `get_coordinates` function with a new implementation based on the `test_nominatim_geocoding` function from `tests/test_photon_geocoding.py`.
+        -   **Key Logic to Port:**
+            -   Use the Nominatim API endpoint: `https://nominatim.openstreetmap.org/search`.
+            -   Set a proper `User-Agent` header in the request to comply with Nominatim's usage policy (e.g., `'EPDT-Scenario-Creator/1.0'`).
+            -   Construct the request parameters as a dictionary (`'q': address, 'format': 'json', etc.`).
+            -   Implement a simple retry mechanism with a delay (`time.sleep`) to handle `GeocoderTimedOut` or `GeocoderServiceError` exceptions gracefully.
+            -   After a successful API call, parse the JSON response to extract the latitude and longitude from the first result.
+            -   Ensure the function continues to use the existing caching mechanism: check the cache before the API call and save the result to the cache after a successful call.
+
+    2.  **Create a New Geocoding Validation Test:**
+        -   **Action:** Create a new test file, `tests/test_scenario_geocoding.py`.
+        -   **Goal:** This test will validate that the refactored `scenario_creator.py` correctly geocodes addresses from an Excel file.
+        -   **Test Logic:**
+            1.  The test should use a small, sample Excel file (`tests/sample_scenario_for_geocoding.xlsx`) with a few addresses.
+            2.  It should call the `create_scenario_from_excel` function from `utils/scenario_creator.py`.
+            3.  **Assertions:**
+                -   Assert that the function returns a list of `Order` objects.
+                -   For each `Order`, iterate through its `Task` objects.
+                -   Assert that each `Task` has valid latitude and longitude attributes (i.e., they are not `None` and are within the valid range for coordinates).
+                -   Check that the `geocode_cache.json` file is created or updated.
+            4.  **Cache Testing:**
+                -   Run the `create_scenario_from_excel` function a second time.
+                -   Use a mock to verify that the geocoding API (`requests.get`) is *not* called on the second run, proving that the results were successfully retrieved from the cache.
+
+
+## 23 Guide for Interpreting the Excel Scenario File (`src/furgoni2.xlsx`)
+
+This guide provides detailed instructions for a coding agent on how to parse the three sheets of the Excel file (`CONSEGNE`, `AUTISTI`, `VEICOLI`) into the required Python data structures (`Order`, `Task`, `Driver`, `Vehicle`).
+
+### 1. The `CONSEGNE` Sheet
+
+**Purpose:** This sheet defines all individual tasks (pickups or deliveries). Each row is a single task. Tasks are grouped into `Order` objects based on the `ORDER_ID` column.
+
+**Column-by-Column Interpretation:**
+
+-   **`ORDER`**: **(Primary Key for Grouping)** Read this string value. Use `pandas.groupby('ORDER_ID')` to iterate through all rows belonging to the same order. For each group, create one `Order` object.
+-   **`COMPANY`**: Read as a string. This is descriptive information for the task.
+-   **`STREET`, `HOUSE NUMBER`, `CITY`, `PROVINCE`, `POSTAL CODE`, `COUNTRY`**: Read these as strings. Concatenate them into a single, comma-separated address string (e.g., "Via Roma 10, 10121, Torino, TO,  Italy") to be passed to the geocoding service.
+-   **`EARLIEST DAY`, `LATEST DAY`**: Parse as integers. These define the multi-day time window for the task. Store them in the `Task` object.
+-   **`TIME WINDOW START`, `TIME WINDOW END`**: Parse these time strings (format `HH:MM:SS`). Convert them into total minutes from the start of the day (e.g., `09:00:00` becomes `540`). Store these integer values in the `Task` object.
+-   **`SERVICE TIME`**: Parse as a float. This is the time in minutes required to complete the task at the location.
+-   **`TASK`**: Read the string. If it is `"DELIVERY"`, map it to `TaskType.DELIVERY`. If it is `"PICKUP"`, map it to `TaskType.PICKUP`.
+-   **`LOAD KG`, `LOAD VOLUME M^3`, `PALLETS`**: Parse these as numeric values. **Crucially**, for `DELIVERY` tasks, these values must be made **negative** (e.g., `-150.5`) to signify that capacity is being freed up. For `PICKUP` tasks, they remain **positive**.
+-   `"LOW_TEMP, LOADER"` , '"HANGERS"` store them in the `Task` object. This will be used for matching with vehicle and driver capabilities.
+
+### 2. The `AUTISTI` Sheet
+
+**Purpose:** This sheet defines the available drivers. Each row corresponds to a single `Driver` object.
+
+**Column-by-Column Interpretation:**
+
+-   **`LICENSE PLATE`**: Read as a string. This is the number plate of the driver's **preferred vehicle**. Store this to create an initial, default pairing between a driver and a vehicle.
+-   **`DRIVER`**: Read as a string. This is the unique identifier for the `Driver` object.
+-   **`LICENSE`**: Read as a string (e.g., `"B"`, `"C"`, `"CE"`). This is a **hard constraint**. The algorithm must ensure that a driver is only ever assigned to a vehicle that their license permits them to drive.
+-   **`COST PER HOUR`**: Parse as a float. This is the driver's hourly wage and is a key component of the total route cost.
+
+### 3. The `VEICOLI` Sheet
+
+**Purpose:** This sheet defines the vehicle fleet. Each row corresponds to a single `Vehicle` object.
+
+**Column-by-Column Interpretation:**
+
+-   **`NUMBER PLATE`**: Read as a string. This is the unique identifier for the `Vehicle` object.
+-   **`TYPE OF VEHICLE`**: Read as a string (e.g., `"Van"`, `"Truck"`). This will be used to check compatibility against a driver's `LICENSE`.
+-   **`MAX LOAD KG`, `MAX LOAD VOLUME M^3`, `PALLET`**: Parse as numeric types. These are the capacity limits of the vehicle.
+-   **`COST PER KM`, `FIXED COST`**: Parse as floats. These are the vehicle-specific operational costs.
+-   `"LOW_TEMP, LOADER"` , '"HANGERS"` store them in the `Vehicle` object. This will be used for matching with tasks.
+
+-   **`REGULATIONS`**: Parse as a boolean (`YES`/`NO`). This determines which set of Hours of Service (HOS) rules apply to the vehicle's route.
+
+- **`LAST IN FIRST OUT`**: used for the Vehicle object to define the LIFO loading

@@ -120,8 +120,8 @@ class RoutePrecomputer:
             from scenario_creator import create_scenario_from_excel
             
             # Create the scenario
-            orders, vehicles, scenario_info = create_scenario_from_excel(excel_path)
-            print(f"✅ Loaded scenario with {len(orders)} orders and {len(vehicles)} vehicles")
+            orders, vehicles, drivers = create_scenario_from_excel(excel_path)
+            print(f"✅ Loaded scenario with {len(orders)} orders, {len(vehicles)} vehicles, and {len(drivers)} drivers")
             
             # Extract unique locations
             locations = []

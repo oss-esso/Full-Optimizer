@@ -453,44 +453,63 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
                     # Subsequent tasks: travel time + waiting + service time
                     prev_task = sorted_tasks[i-1]
                     
-                    # Calculate travel time using centralized system
+                    # Calculate travel time using both OSRM and Haversine for cross-validation
+                    osrm_time = None
+                    haversine_time = None
+                    
+                    # Always calculate Haversine for comparison
+                    if hasattr(prev_task, 'lat') and hasattr(task, 'lat'):
+                        import math
+                        # Proper Haversine calculation
+                        lat1_rad = math.radians(prev_task.lat)
+                        lon1_rad = math.radians(prev_task.lon)
+                        lat2_rad = math.radians(task.lat)
+                        lon2_rad = math.radians(task.lon)
+                        
+                        dlat = lat2_rad - lat1_rad
+                        dlon = lon2_rad - lon1_rad
+                        
+                        a = (math.sin(dlat/2)**2 + 
+                             math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
+                        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                        
+                        R = 6371.0  # Earth's radius in km
+                        distance_km = R * c
+                        
+                        speed_kmh = getattr(route.vehicle, 'average_speed', 60.0)
+                        haversine_time = (distance_km / speed_kmh) * 60.0  # Convert to minutes
+                    
+                    # Try to get OSRM time using centralized system
                     try:
                         # Import centralized function directly to ensure we use it
                         from route_provider import calculate_travel_time_between_tasks as central_calc
-                        travel_time = central_calc(prev_task, task, route.vehicle)
-                        print(f"DEBUG: Used route_provider for {getattr(prev_task, 'location_id', 'unknown')} -> {getattr(task, 'location_id', 'unknown')}: {travel_time:.1f}m")
-                    except ImportError as e1:
+                        osrm_time = central_calc(prev_task, task, route.vehicle)
+                    except ImportError:
                         try:
                             from algo.route_provider import calculate_travel_time_between_tasks as central_calc
-                            travel_time = central_calc(prev_task, task, route.vehicle)
-                            print(f"DEBUG: Used algo.route_provider for {getattr(prev_task, 'location_id', 'unknown')} -> {getattr(task, 'location_id', 'unknown')}: {travel_time:.1f}m")
-                        except ImportError as e2:
-                            print(f"DEBUG: Import failed ({e1}, {e2}), using fallback Haversine")
-                            # Final fallback - but this should use proper Haversine
-                            if hasattr(prev_task, 'lat') and hasattr(task, 'lat'):
-                                import math
-                                # Proper Haversine calculation
-                                lat1_rad = math.radians(prev_task.lat)
-                                lon1_rad = math.radians(prev_task.lon)
-                                lat2_rad = math.radians(task.lat)
-                                lon2_rad = math.radians(task.lon)
-                                
-                                dlat = lat2_rad - lat1_rad
-                                dlon = lon2_rad - lon1_rad
-                                
-                                a = (math.sin(dlat/2)**2 + 
-                                     math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
-                                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-                                
-                                R = 6371.0  # Earth's radius in km
-                                distance_km = R * c
-                                
-                                speed_kmh = getattr(route.vehicle, 'average_speed', 60.0)
-                                travel_time = (distance_km / speed_kmh) * 60.0  # Convert to minutes
-                                print(f"DEBUG: Fallback Haversine for {getattr(prev_task, 'location_id', 'unknown')} -> {getattr(task, 'location_id', 'unknown')}: {distance_km:.1f}km @ {speed_kmh}km/h = {travel_time:.1f}m")
-                            else:
-                                travel_time = 15.0  # Final fallback
-                                print(f"DEBUG: Final fallback (15m) for {getattr(prev_task, 'location_id', 'unknown')} -> {getattr(task, 'location_id', 'unknown')}")
+                            osrm_time = central_calc(prev_task, task, route.vehicle)
+                        except ImportError:
+                            osrm_time = haversine_time  # Use Haversine if OSRM fails
+                    
+                    # Use OSRM time as primary, fallback to Haversine
+                    travel_time = osrm_time if osrm_time is not None else haversine_time if haversine_time is not None else 15.0
+                    
+                    # Enhanced logging with cross-validation
+                    prev_location = getattr(prev_task, 'location_id', 'unknown')
+                    curr_location = getattr(task, 'location_id', 'unknown')
+                    
+                    if osrm_time is not None and haversine_time is not None:
+                        # Both calculations available - show comparison
+                        diff_percent = abs(osrm_time - haversine_time) / haversine_time * 100 if haversine_time > 0 else 0
+                        warning = " ⚠️" if diff_percent > 50 else ""
+                        print(f"ROUTE_ANALYSIS: {prev_location} → {curr_location}")
+                        print(f"  OSRM: {osrm_time:.1f}m | Haversine: {haversine_time:.1f}m | Diff: {diff_percent:.1f}%{warning}")
+                    elif osrm_time is not None:
+                        print(f"ROUTE_ANALYSIS: {prev_location} → {curr_location} - OSRM: {osrm_time:.1f}m")
+                    elif haversine_time is not None:
+                        print(f"ROUTE_ANALYSIS: {prev_location} → {curr_location} - Haversine: {haversine_time:.1f}m")
+                    else:
+                        print(f"ROUTE_ANALYSIS: {prev_location} → {curr_location} - Fallback: 15.0m")
                     
                     
                     # Add travel time

@@ -21,7 +21,7 @@ try:
     excel_file = 'src/furgoni.xlsx'
     if os.path.exists(excel_file):
         print("📂 Loading scenario from Excel...")
-        orders, vehicles = create_scenario_from_excel(excel_file)
+        orders, vehicles, drivers = create_scenario_from_excel(excel_file)
         print(f"✅ Loaded {len(orders)} orders and {len(vehicles)} vehicles")
         
         # Find ORDER_CURTI_SRL_10 or similar

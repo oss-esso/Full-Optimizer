@@ -9,7 +9,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 def examine_excel():
-    file_path = os.path.join(os.path.dirname(__file__), '..', 'src', 'furgoni.xlsx')
+    file_path = os.path.join(os.path.dirname(__file__), '..', 'src', 'furgoni2.xlsx')
     
     try:
         # Read all sheets

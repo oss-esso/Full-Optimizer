@@ -35,7 +35,7 @@ def test_l2_fix():
     print(f"📂 Loading scenario from: {excel_file}")
     
     try:
-        orders, vehicles = create_scenario_from_excel(excel_file)
+        orders, vehicles, drivers = create_scenario_from_excel(excel_file)
         print(f"✅ Loaded {len(orders)} orders and {len(vehicles)} vehicles")
         
         # Find a problematic delivery-only order
