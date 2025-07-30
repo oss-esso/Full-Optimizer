@@ -311,6 +311,44 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         for vehicle_id, route in best_solution.routes.items():
             route.ensure_pickup_first_ordering()
     
+    # Final check: Ensure all active routes have depot start/end tasks
+    depot_location_id = "DEPOT-ASTI"
+    depot_lat, depot_lon = 44.9009, 8.2057
+    
+    from epdt_data_structures import Task, TaskType
+    
+    for vehicle_id, route in best_solution.routes.items():
+        if route.tasks:  # Only for routes that are not empty
+            # Check for depot start
+            if not route.tasks[0].is_depot_start():
+                start_task = Task(
+                    id=f"depot_start_order_{vehicle_id}",
+                    location_id=depot_location_id,
+                    task_type=TaskType.DEPOT_START,
+                    order_id=f"depot_start_order_{vehicle_id}",
+                    lat=depot_lat,
+                    lon=depot_lon,
+                    service_time=5.0,
+                    demand=0.0,
+                    volume=0.0
+                )
+                route.tasks.insert(0, start_task)
+            
+            # Check for depot return
+            if not route.tasks[-1].is_depot_return():
+                return_task = Task(
+                    id=f"depot_return_order_{vehicle_id}",
+                    location_id=depot_location_id,
+                    task_type=TaskType.DEPOT_RETURN,
+                    order_id=f"depot_return_order_{vehicle_id}",
+                    lat=depot_lat,
+                    lon=depot_lon,
+                    service_time=5.0,
+                    demand=0.0,
+                    volume=0.0
+                )
+                route.tasks.append(return_task)
+    
     return best_solution
 
 

@@ -816,6 +816,7 @@ class Route:
     _cached_distance: Optional[float] = field(default=None, init=False) 
     _cached_time: Optional[float] = field(default=None, init=False)
     _is_feasible_cached: Optional[bool] = field(default=None, init=False)
+    total_wait_time: float = 0.0  # <-- ADD THIS LINE - Total accumulated waiting time for the route
     
     def _enforce_pickup_first_ordering(self) -> None:
         """

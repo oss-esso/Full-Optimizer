@@ -288,21 +288,46 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
     hos_warning = " (would violate HoS if attempted without proper rests)" if total_duration_minutes > 11 * 60 else ""
 
     print(f"       Route duration: {days} day(s) ({duration_formatted}){hos_warning}")
+    
+    # Display total waiting time if any waiting occurred
+    if hasattr(route, 'total_wait_time') and route.total_wait_time > 0:
+        wait_time_formatted = format_duration_detailed(route.total_wait_time)
+        print(f"       Total waiting time: {wait_time_formatted}")
+    
     print(f"       Task sequence ({len(route.tasks)} tasks) - Real-time monitoring:")
 
-    current_weight, current_volume, cumulative_time = 0, 0, 0
+    current_weight, current_volume, completion_time = 0, 0, 0
 
     for i, task in enumerate(route.tasks, 1):
+        # Calculate waiting time at departure (following markdown specification)
+        departure_time = completion_time
         travel_time = 0
+        wait_time = 0
+        
         if i > 1:
             try:
-                travel_time = calculate_travel_time_with_counter(route.tasks[i-2], task, route.vehicle)
+                prev_task = route.tasks[i-2]  # Previous task (i-2 because enumerate starts at 1)
+                travel_time = calculate_travel_time_with_counter(prev_task, task, route.vehicle)
+                
+                # Calculate waiting time at previous location (as per markdown)
+                if task.earliest_time and task.earliest_time > 0:
+                    # Required departure time from previous location to arrive exactly at earliest_time
+                    required_departure_time = task.earliest_time - travel_time
+                    
+                    # If we are ready to depart earlier than required, we wait at previous location
+                    if completion_time < required_departure_time:
+                        wait_time = required_departure_time - completion_time
+                        
             except:
                 travel_time = 60  # Fallback
 
-        # Add service time and travel time
+        # Departure time from previous task location includes waiting
+        departure_time = completion_time + wait_time
+        
+        # Arrival at current task
+        arrival_time = departure_time + travel_time
         service_time = getattr(task, 'service_time', 5.0)
-        cumulative_time += travel_time + service_time
+        completion_time = arrival_time + service_time
 
         # Get task details
         location = get_location_name(task)
@@ -314,15 +339,22 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
         current_weight += weight_change
         current_volume += volume_change
         
-        # Format cumulative time
-        cumulative_formatted = format_duration_detailed(cumulative_time)
+        # Format cumulative time (arrival time at this task)
+        cumulative_formatted = format_duration_detailed(arrival_time)
         
-        # Format delta time (time since last task)
+        # Format delta time with breakdown (as per markdown specification)
         if i == 1:
             delta_str = ""
         else:
-            delta_formatted = format_duration_detailed(travel_time + service_time)
-            delta_str = f" (+{delta_formatted})"
+            if wait_time > 0:
+                # Show breakdown: travel time + wait time (as per markdown)
+                travel_formatted = format_duration_detailed(travel_time)
+                wait_formatted = format_duration_detailed(wait_time)
+                delta_str = f" (+{travel_formatted} travel, +{wait_formatted} wait)"
+            else:
+                # Only travel time
+                travel_formatted = format_duration_detailed(travel_time)
+                delta_str = f" (+{travel_formatted})"
         
         # Format load change
         weight_sign = "+" if weight_change >= 0 else ""
@@ -331,19 +363,25 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
         print(f"          {i}. {location} ({order_info}) - Cumulative: {cumulative_formatted}{delta_str} {time_window}")
         print(f"             Load: {weight_sign}{weight_change:.1f}kg, {volume_sign}{volume_change:.1f}m³ → Total: {current_weight:.1f}kg, {current_volume:.1f}m³")
         
-        # Display arrival status relative to time window
+        # Display arrival status with waiting information (as per markdown specification)
         arrival_status = ""
         if hasattr(task, 'earliest_time') and hasattr(task, 'latest_time'):
-            if task.earliest_time is not None and cumulative_time < task.earliest_time:
-                wait_time = task.earliest_time - cumulative_time
-                arrival_status = f"(Arrived early, would wait {format_duration_detailed(wait_time)})"
-            elif task.latest_time is not None and cumulative_time > task.latest_time:
-                lateness = cumulative_time - task.latest_time
+            if task.earliest_time is not None and arrival_time < task.earliest_time:
+                remaining_wait = task.earliest_time - arrival_time
+                arrival_status = f"(Arrived early, would wait {format_duration_detailed(remaining_wait)})"
+            elif task.latest_time is not None and arrival_time > task.latest_time:
+                lateness = arrival_time - task.latest_time
                 arrival_status = f"(LATE by {format_duration_detailed(lateness)})"
             else:
                 arrival_status = "(On time)"
         else:
-            arrival_status = "(No time window)"
+            arrival_status = "(On time)"
+            
+        # For previous task, show if there was waiting before departure (as per markdown)
+        if i > 1 and wait_time > 0:
+            prev_location = get_location_name(route.tasks[i-2])
+            print(f"             Waiting: ({format_duration_detailed(wait_time)} at {prev_location} before departure)")
+        
         print(f"             Status: {arrival_status}")
 
 
@@ -364,7 +402,7 @@ def configure_algorithm_parameters() -> dict:
         'enable_granular_search': True,
         'enable_parallelization': False,
         'parallel_strategy': 'PE',
-        'local_search_strategy': 'first_improvement',
+        'local_search_strategy': 'best_improvement',
         'initialization_method': 'best_insertion',
         'vehicle_penalty_per_vehicle': 0.0,  # Further reduced from 10.0 - make vehicles very cheap
         'unassigned_order_base_penalty': 50000.0,  # Dramatically reduced from 500000.0 - much more lenient

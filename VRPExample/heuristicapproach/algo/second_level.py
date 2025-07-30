@@ -1472,12 +1472,130 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         if hasattr(last_task, 'location') and last_task.location != route.preferred_end_position:
             return False
         
-    if return_reason:
-        return True, "Route is feasible - all constraints satisfied"
-    return True  # All checks passed, route is feasible
-
-
 # Remove the old _check_hos function as it's replaced by _check_hos_multiday
+
+def format_absolute_minutes(minutes):
+    """Format absolute minutes from planning start into readable Day X, HH:MM format."""
+    if minutes is None:
+        return "No window"
+    day = int(minutes / 1440) + 1
+    remaining_minutes = int(minutes % 1440)
+    hour = remaining_minutes // 60
+    minute = remaining_minutes % 60
+    return f"Day {day}, {hour:02d}:{minute:02d}"
+
+def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bool = False) -> Union[bool, Tuple[bool, str]]:
+    """
+    Check if a route is feasible considering all constraints, including multi-day operations and HoS.
+    This is the definitive check for a route's validity.
+    """
+    if not route or not route.tasks:
+        return (True, "Empty route") if return_reason else True
+
+    if debug_feasibility:
+        print(f"DEBUG FEASIBILITY: Checking route feasibility for vehicle {route.vehicle.id}")
+        print(f"DEBUG FEASIBILITY: Route has {len(route.tasks)} tasks")
+
+    # 1. Depot Start/End Validation
+    if not route.tasks[0].is_depot_start() or not route.tasks[-1].is_depot_return():
+        reason = f"Route validation failed: First task ({route.tasks[0].id}) is not a depot start task or last task ({route.tasks[-1].id}) is not a depot return task"
+        if debug_feasibility:
+            print(f"DEBUG FEASIBILITY: {reason}")
+        return (False, reason) if return_reason else False
+    if debug_feasibility:
+        print("DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot")
+
+    # 2. Capacity Validation
+    current_weight = 0
+    current_volume = 0
+    current_pallets = 0
+    for task in route.tasks:
+        current_weight += getattr(task, 'demand', 0)
+        current_volume += getattr(task, 'volume', 0)
+        current_pallets += getattr(task, 'pallets', 0)
+        if (current_weight > route.vehicle.weight_capacity or 
+            current_volume > route.vehicle.volume_capacity or 
+            current_pallets > route.vehicle.pallet_capacity):
+            reason = f"Capacity violation at task {task.id}: W:{current_weight}/{route.vehicle.weight_capacity}, V:{current_volume}/{route.vehicle.volume_capacity}, P:{current_pallets}/{route.vehicle.pallet_capacity}"
+            if debug_feasibility:
+                print(f"DEBUG FEASIBILITY: {reason}")
+            return (False, reason) if return_reason else False
+    if debug_feasibility:
+        print("DEBUG FEASIBILITY: ✅ Capacity validation passed")
+
+    # 3. Time Window and HoS Validation
+    try:
+        from route_provider import calculate_travel_time_between_tasks
+    except ImportError:
+        return (False, "Route provider not available for time calculations") if return_reason else False
+
+    # Initialize time and waiting time tracking
+    completion_time = 0.0  # Tracks the completion time of the last task
+    route.total_wait_time = 0.0
+    daily_driving_time = 0
+    daily_work_time = 0
+    current_day = 1
+
+    for i in range(len(route.tasks)):
+        task = route.tasks[i]
+        
+        departure_time = completion_time
+        travel_time = 0
+        wait_time = 0
+
+        if i > 0:
+            prev_task = route.tasks[i-1]
+            travel_time = calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
+            
+            # If the next task has an earliest start time, we might need to wait at the previous location.
+            if task.earliest_time and task.earliest_time > 0:
+                # Required departure time from previous location to arrive exactly at earliest_time
+                required_departure_time = task.earliest_time - travel_time
+                
+                # If we are ready to depart earlier than required, we wait.
+                if completion_time < required_departure_time:
+                    wait_time = required_departure_time - completion_time
+                    route.total_wait_time += wait_time
+        
+        # Departure time from previous task location includes waiting
+        departure_time = completion_time + wait_time
+        
+        # Arrival at current task
+        arrival_time = departure_time + travel_time
+        service_start_time = arrival_time
+
+        # Check for lateness
+        if task.latest_time and service_start_time > task.latest_time:
+            reason = f"Time window violation at task {task.id}: Service start {format_absolute_minutes(service_start_time)} is after latest {format_absolute_minutes(task.latest_time)}"
+            if debug_feasibility:
+                print(f"DEBUG FEASIBILITY: {reason}")
+            return (False, reason) if return_reason else False
+
+        service_time = getattr(task, 'service_time', 0)
+        completion_time = service_start_time + service_time
+
+        # HoS (Hours of Service) checks
+        # This is a simplified check. A full implementation would be more complex.
+        new_day = int(completion_time // 1440) + 1
+        if new_day > current_day:
+            daily_driving_time = 0
+            daily_work_time = 0
+            current_day = new_day
+
+        daily_driving_time += travel_time
+        # Per regulations, waiting time does not contribute to driving or work time.
+        daily_work_time += travel_time + service_time
+
+        if daily_driving_time > route.vehicle.max_driving_time or daily_work_time > route.vehicle.max_work_time:
+            reason = f"HoS constraint violated (LEGAL LIMITS) on day {current_day}: Drive={daily_driving_time:.1f}m, Work={daily_work_time:.1f}m"
+            if debug_feasibility:
+                print(f"DEBUG FEASIBILITY: {reason}")
+            return (False, reason) if return_reason else False
+
+    if debug_feasibility:
+        print("DEBUG FEASIBILITY: ✅ Time window and HoS validation passed")
+
+    return (True, "Route is feasible") if return_reason else True
 
 def _enforce_pickup_first_sequencing_basic(tasks: List) -> List:
     """

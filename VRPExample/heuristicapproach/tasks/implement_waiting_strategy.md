@@ -1,159 +1,160 @@
-# Implementing a Vehicle Waiting Strategy
+# Plan: Implement Explicit Waiting Time Simulation at Departure
 
-## 1. Problem Overview
+## 1. Objective
 
-The current solver is producing infeasible routes because it does not account for waiting time. Vehicles are arriving at customer locations before their time windows open, leading to `Feasible: False` statuses. Additionally, some routes do not start at the depot, which is a fundamental requirement.
+The goal is to enhance the solver to explicitly calculate and track vehicle waiting times, modeling the wait as occurring *before* departure to a task. This ensures that a vehicle waits at its current location (e.g., the depot) to arrive at the next task just in time for its time window. This change will provide more realistic routes and accurate Hours of Service (HoS) calculations.
 
-To solve this, we need to implement a waiting strategy that allows vehicles to wait, either at the depot before starting a route or at a customer location, to ensure that all time window constraints are met.
+The final output should reflect this waiting time being associated with the departure from a location. For example, a long wait to serve the first customer should be shown as waiting at the depot.
 
-## 2. Core Concepts
+A route that currently looks like this:
+`VEHICLE: XA345KW: ... 2. VIA LEGNANO, MESERO (MI), ITALY (Order: 5) - ... Status: (Arrived early, would wait 1d 21h 15m)`
 
-*   **Waiting at Depot:** A vehicle assigned a route where the first task has a late time window (e.g., on Day 2) should not depart on Day 1. It should wait at the depot and begin its route at an appropriate time to meet the first task's window.
+Should be transformed to reflect that the waiting happens at the previous stop (e.g., DEPOT-ASTI). The cumulative time at each step should include any waiting that occurred before departing to that step.
 
-*   **Waiting at Task Location:** If a vehicle arrives at a customer location before the `earliest_time` of the task, it must wait until the window opens before starting its service.
+## 2. Implementation Plan
 
-*   **Feasibility:** The `is_feasible` check must be updated to account for this waiting time. A route is only feasible if, after accounting for all travel, service, and waiting times, no task is serviced *after* its `latest_time`.
+This will be achieved in three steps:
 
-## 3. Remediation Plan
+### Task 1: Enhance the Route Data Structure
 
-### Task 1: Implement Waiting Logic in Feasibility Check
+To track waiting time, we first need a place to store it.
 
-*   **File to modify:** `algo/second_level.py`
-*   **Goal:** Update the `is_feasible` function to correctly calculate route timing, including waiting time, and validate against time windows.
+*   **File to Modify:** `algo/epdt_data_structures.py`
+*   **Action:** Add a `total_wait_time` attribute to the `Route` dataclass. This will hold the accumulated waiting time for the entire route.
 
 **Instructions:**
 
-Replace the entire `is_feasible` function with the following corrected and enhanced version. This version introduces a `current_time` variable to track the vehicle's progress and correctly calculates waiting time.
+In the `Route` dataclass definition, add the `total_wait_time` field as shown below.
 
 ```python
+# In algo/epdt_data_structures.py
+@dataclass
+class Route:
+    # ... existing fields ...
+    _cached_time: Optional[float] = field(default=None, init=False)
+    _is_feasible_cached: Optional[bool] = field(default=None, init=False)
+    total_wait_time: float = 0.0 # <-- ADD THIS LINE
+    
+    # ... rest of the class ...
+```
+
+### Task 2: Calculate Waiting Time at Departure
+
+The core logic for calculating route feasibility must be updated to model waiting at the departure location.
+
+*   **File to Modify:** `algo/second_level.py`
+*   **Action:** Update the `is_feasible` function to calculate `wait_time` based on the next task's time window and apply this wait at the current location.
+
+**Instructions:**
+
+Replace the existing `is_feasible` function with the following enhanced version. This version calculates wait time to ensure on-time arrival at the next task and updates timing calculations accordingly.
+
+```python
+# In algo/second_level.py
+
 def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bool = False) -> Union[bool, Tuple[bool, str]]:
     """
-    Check if a route is feasible considering all constraints, including multi-day operations and HoS.
-    This is the definitive check for a route's validity.
+    Check if a route is feasible considering all constraints, including multi-day operations, HoS, and waiting times.
+    Waiting is modeled as occurring at the departure location to arrive "just-in-time" for the next task.
     """
     if not route or not route.tasks:
         return (True, "Empty route") if return_reason else True
 
-    if debug_feasibility:
-        print(f"DEBUG FEASIBILITY: Checking route feasibility for vehicle {route.vehicle.id}")
-        print(f"DEBUG FEASIBILITY: Route has {len(route.tasks)} tasks")
+    # ... (Depot and Capacity validation remains the same) ...
 
-    # 1. Depot Start/End Validation
-    if not route.tasks[0].is_depot_start() or not route.tasks[-1].is_depot_return():
-        reason = f"Route validation failed: First task ({route.tasks[0].id}) is not a depot start task or last task ({route.tasks[-1].id}) is not a depot return task"
-        if debug_feasibility:
-            print(f"DEBUG FEASIBILITY: {reason}")
-        return (False, reason) if return_reason else False
-    if debug_feasibility:
-        print("DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot")
-
-    # 2. Capacity Validation
-    current_weight = 0
-    current_volume = 0
-    current_pallets = 0
-    for task in route.tasks:
-        current_weight += getattr(task, 'demand', 0)
-        current_volume += getattr(task, 'volume', 0)
-        current_pallets += getattr(task, 'pallets', 0)
-        if (current_weight > route.vehicle.weight_capacity or 
-            current_volume > route.vehicle.volume_capacity or 
-            current_pallets > route.vehicle.pallet_capacity):
-            reason = f"Capacity violation at task {task.id}: W:{current_weight}/{route.vehicle.weight_capacity}, V:{current_volume}/{route.vehicle.volume_capacity}, P:{current_pallets}/{route.vehicle.pallet_capacity}"
-            if debug_feasibility:
-                print(f"DEBUG FEASIBILITY: {reason}")
-            return (False, reason) if return_reason else False
-    if debug_feasibility:
-        print("DEBUG FEASIBILITY: ✅ Capacity validation passed")
-
-    # 3. Time Window and HoS Validation
+    # 3. Time Window, HoS, and Waiting Time Validation
     try:
         from route_provider import calculate_travel_time_between_tasks
     except ImportError:
         return (False, "Route provider not available for time calculations") if return_reason else False
 
-    # Initialize time tracking. Start at 0, but the first task's earliest_time will dictate the actual departure.
-    current_time = 0
+    # Initialize time and waiting time tracking
+    completion_time = 0.0  # Tracks the completion time of the last task
+    route.total_wait_time = 0.0
     daily_driving_time = 0
     daily_work_time = 0
     current_day = 1
 
     for i in range(len(route.tasks)):
         task = route.tasks[i]
-        travel_time = 0
-        if i > 0:
-            travel_time = calculate_travel_time_between_tasks(route.tasks[i-1], task, route.vehicle)
-
-        # Update time with travel
-        arrival_time = current_time + travel_time
-
-        # --- WAITING LOGIC ---
-        # Check if we need to wait for the time window to open
-        wait_time = 0
-        if task.earliest_time and arrival_time < task.earliest_time:
-            wait_time = task.earliest_time - arrival_time
         
-        service_start_time = arrival_time + wait_time
+        departure_time = completion_time
+        travel_time = 0
+        wait_time = 0
+
+        if i > 0:
+            prev_task = route.tasks[i-1]
+            travel_time = calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
+            
+            # If the next task has an earliest start time, we might need to wait at the previous location.
+            if task.earliest_time and task.earliest_time > 0:
+                # Required departure time from previous location to arrive exactly at earliest_time
+                required_departure_time = task.earliest_time - travel_time
+                
+                # If we are ready to depart earlier than required, we wait.
+                if completion_time < required_departure_time:
+                    wait_time = required_departure_time - completion_time
+                    route.total_wait_time += wait_time
+        
+        # Departure time from previous task location includes waiting
+        departure_time = completion_time + wait_time
+        
+        # Arrival at current task
+        arrival_time = departure_time + travel_time
+        service_start_time = arrival_time
 
         # Check for lateness
         if task.latest_time and service_start_time > task.latest_time:
             reason = f"Time window violation at task {task.id}: Service start {format_absolute_minutes(service_start_time)} is after latest {format_absolute_minutes(task.latest_time)}"
-            if debug_feasibility:
-                print(f"DEBUG FEASIBILITY: {reason}")
             return (False, reason) if return_reason else False
 
         service_time = getattr(task, 'service_time', 0)
-        current_time = service_start_time + service_time
+        completion_time = service_start_time + service_time
 
-        # HoS (Hours of Service) checks
-        # This is a simplified check. A full implementation would be more complex.
-        new_day = int(current_time // 1440) + 1
-        if new_day > current_day:
-            daily_driving_time = 0
-            daily_work_time = 0
-            current_day = new_day
-
-        daily_driving_time += travel_time
-        daily_work_time += travel_time + service_time + wait_time
-
-        if daily_driving_time > route.vehicle.max_driving_time or daily_work_time > route.vehicle.max_work_time:
-            reason = f"HoS constraint violated (LEGAL LIMITS) on day {current_day}: Drive={daily_driving_time:.1f}m, Work={daily_work_time:.1f}m"
-            if debug_feasibility:
-                print(f"DEBUG FEASIBILITY: {reason}")
-            return (False, reason) if return_reason else False
-
-    if debug_feasibility:
-        print("DEBUG FEASIBILITY: ✅ Time window and HoS validation passed")
+        # ... (HoS checks remain the same, but are now based on more accurate timing) ...
+        # Note: Ensure HoS logic correctly handles the 'wait_time'. Depending on regulations,
+        # long waiting periods might count as rest. This implementation assumes waiting
+        # is 'on-duty' time. The HoS logic should be reviewed for compliance.
 
     return (True, "Route is feasible") if return_reason else True
 ```
 
-### Task 2: Fix Depot Start in Heuristic
+### Task 3: Display Waiting Time in Output
 
-*   **File to modify:** `algo/first_level.py`
-*   **Goal:** Ensure that all routes generated by the `l1_heuristic` start and end with a depot task.
+Update the visualization logic to display where waiting occurs. The waiting time before starting a leg of the journey should be displayed at the *departure* task, and the cumulative time of the arrival task should reflect this wait.
+
+*   **File to Modify:** `algo/solution_visualizer.py`
+*   **Action:** Modify the function that formats the route details to calculate and display the waiting time at each task before departure to the next. The cumulative time for subsequent tasks must include this waiting period.
 
 **Instructions:**
 
-In the `l1_heuristic` function, after the main optimization loop finishes, add a final check to ensure all routes that have tasks are properly framed by depot start/return tasks.
+In the function that formats the route summary (e.g., `get_solution_summary_string`), you must replicate the timing logic from the new `is_feasible` function. As you iterate through the tasks to print them, you must calculate the waiting time that occurs *at the current task* before departing to the *next* task.
 
-**At the end of the `l1_heuristic` function, right before the `return solution` statement, insert this block of code:**
+The status message for a task should indicate any waiting time. The cumulative time for the next task should be presented to clearly show the components of travel and waiting time.
+
+**Example of new output format:**
+
+`1. DEPOT-ASTI ... Status: (Waiting 1d 21h 15m before departure)`
+`2. VIA LEGNANO, MESERO ... Cumulative: 1d 23h 59m (+2h 39m travel, +1d 21h 15m wait) ...`
+
+**Example Logic:**
 
 ```python
-    # Final check: Ensure all active routes have depot start/end tasks
-    depot_location = solution.depot_location # Assuming solution has this
-    for vehicle_id, route in solution.routes.items():
-        if route.tasks: # Only for routes that are not empty
-            # Check for depot start
-            if not route.tasks[0].is_depot_start():
-                start_task = Task(id=f"depot_start_order_{vehicle_id}", location_id=depot_location.id, task_type=TaskType.DEPOT_START, order_id=f"depot_start_order_{vehicle_id}", lat=depot_location.lat, lon=depot_location.lon)
-                route.tasks.insert(0, start_task)
-            
-            # Check for depot return
-            if not route.tasks[-1].is_depot_return():
-                return_task = Task(id=f"depot_return_order_{vehicle_id}", location_id=depot_location.id, task_type=TaskType.DEPOT_RETURN, order_id=f"depot_return_order_{vehicle_id}", lat=depot_location.lat, lon=depot_location.lon)
-                route.tasks.append(return_task)
+# In algo/solution_visualizer.py ...
 
-    return solution
+# You will need to maintain the state of `completion_time` as you loop through tasks to print them.
+#
+# For each task `i` in the route:
+# 1. Calculate `wait_time` that occurs at task `i` before departing for task `i+1`.
+#    (This requires `completion_time` at `i`, `travel_time` to `i+1`, and `earliest_time` of `i+1`)
+#
+# 2. Print details for task `i`, including the `wait_time` if it's > 0.
+#
+# 3. For task `i+1`, when printing its cumulative time, break down the increment into
+#    travel time from `i` and wait time at `i`.
+#
+# 4. Update `completion_time` for the next iteration.
+#    completion_time_i = arrival_time_i + service_time_i
+#    departure_time_i = completion_time_i + wait_time_at_i
+#    arrival_time_i+1 = departure_time_i + travel_time
 ```
-
-By implementing these changes, the solver will be able to create feasible, multi-day routes that respect time windows by intelligently waiting, and the test output will accurately reflect all timing calculations.
