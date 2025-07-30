@@ -370,3 +370,115 @@ This guide provides detailed instructions for a coding agent on how to parse the
 -   **`REGULATIONS`**: Parse as a boolean (`YES`/`NO`). This determines which set of Hours of Service (HOS) rules apply to the vehicle's route.
 
 - **`LAST IN FIRST OUT`**: used for the Vehicle object to define the LIFO loading
+
+## 24. Enhance Driver Summary with Daily Work/Drive Time
+
+**Objective:** Add a detailed, day-by-day breakdown of work and drive time to the final driver assignment summary to provide a clearer overview of each driver's workload.
+
+- [ ] **Problem:** The current driver assignment summary only shows which driver is assigned to which vehicle. While the main route validation summary contains detailed HoS (Hours of Service) data, it's not presented in the final, driver-centric summary, making it difficult to quickly assess if a driver's schedule is balanced and compliant over the multi-day planning horizon.
+- [ ] **Goal:** Modify the `print_assignment_summary` function to include a daily breakdown of work time and drive time for each assigned driver, similar to the data shown in the HoS violation reports.
+
+- [ ] **Instructions for LLM:**
+
+    1.  **Locate the Data Source:**
+        -   **File:** `algo/second_level.py`
+        -   **Function:** `_simulate_hos_advanced`
+        -   **Analysis:** Examine this function to understand how it calculates and stores the daily work and drive times. It likely returns a data structure (e.g., a dictionary or a list of objects) containing the simulation results for each day of the route. This data is then attached to the `Route` object, likely in a field like `route.hos_daily_summary`.
+
+    2.  **Find the Summary Generation Function:**
+        -   **File:** `tests/comprehensive_integration_test.py` (or a similar test runner script where driver assignments are printed).
+        -   **Function:** `print_assignment_summary` (or a similar named function).
+        -   **Analysis:** This function currently iterates through the assigned routes and prints the driver-vehicle pairing.
+
+    3.  **Modify the Summary Output:**
+        -   **Action:** Inside the `print_assignment_summary` function, for each `route` in the solution, access the stored HoS simulation results.
+        -   **Logic:**
+            -   After printing the driver and vehicle, iterate through the daily summary data stored on the `route` object.
+            -   For each day, print the `Day`, `Work Time`, and `Drive Time` in a clear, indented format.
+        -   **Example Output:**
+            ```
+            Vehicle FX194HX    → Driver Martinas 1      (License: CE, Type: heavy)
+                - Day 1: Work: 480m, Drive: 240m
+                - Day 2: Work: 520m, Drive: 300m
+                - Day 3: Work: 700.8m, Drive: 640.8m (HOS VIOLATION)
+            ```
+    4.  **Handle Feasibility Status:**
+        -   **Action:** In the daily breakdown, if a day's work or drive time exceeds the legal limits, highlight it as a "HOS VIOLATION" as shown in the example. The feasibility status and reason should be available from the `is_feasible` check which is also stored on the route object.
+
+## 25. Implement Soft Constraint for HOS Violations
+
+**Objective:** Convert the hard Hours of Service (HOS) constraint into a soft constraint with a configurable penalty, allowing the solver to create routes with minor HOS violations if it leads to a better overall solution.
+
+- [ ] **Problem:** Currently, any HOS violation makes a route completely infeasible. This is too rigid and can prevent the solver from finding good solutions, especially when a small amount of overtime for one driver could prevent the need for an entirely new vehicle.
+- [ ] **Goal:** Implement a penalty-based system where HOS violations add to the route's total cost instead of making it invalid. This provides a "tweaking knob" to control how strictly HOS rules are enforced.
+
+- [ ] **Instructions for LLM:**
+
+    1.  **Add New Configuration Parameter:**
+        -   **File:** `tests/comprehensive_integration_test.py`
+        -   **Function:** `configure_algorithm_parameters`
+        -   **Action:** Add a new parameter `hos_violation_penalty_per_minute` and set it to a reasonable default value (e.g., `100.0`). This will be the cost for every minute a driver goes over the allowed work or drive time.
+
+    2.  **Modify HOS Simulation to Return Violation Minutes:**
+        -   **File:** `algo/second_level.py`
+        -   **Function:** `_simulate_hos_advanced`
+        -   **Action:** Modify the function to return not just a boolean indicating feasibility, but the total number of minutes the route is in violation.
+        -   **Logic:**
+            -   Inside the simulation, if the daily drive or work time exceeds the limits, calculate the difference (the number of minutes in violation).
+            -   The function should return a tuple: `(is_feasible, violation_minutes, reason)`. If there is no violation, `violation_minutes` should be `0`.
+
+    3.  **Update Feasibility Check to Calculate Penalty:**
+        -   **File:** `algo/second_level.py`
+        -   **Function:** `is_feasible`
+        -   **Action:** Modify this function to use the new return value from `_simulate_hos_advanced`.
+        -   **Logic:**
+            -   Call `_simulate_hos_advanced` and get the `violation_minutes`.
+            -   Instead of returning `False` immediately on an HOS violation, the function should now always return `True` for HOS checks, but it should also return the calculated `violation_minutes`. The function signature might change to return a dictionary of penalties, e.g., `{'hos_penalty': total_hos_penalty}`.
+
+    4.  **Integrate Penalty into the Main Score Function:**
+        -   **File:** `algo/second_level.py`
+        -   **Function:** `calculate_z2_score`
+        -   **Action:** Modify the score calculation to include the new HOS penalty.
+        -   **Logic:**
+            -   The `calculate_z2_score` function will now need to get the HOS violation penalty. It might need to call a modified `is_feasible` or another helper function that runs the HOS simulation.
+            -   Add the HOS penalty to the total score: `total_cost += hos_violation_minutes * params['hos_violation_penalty_per_minute']`. This makes routes with HOS violations more "expensive" but not impossible.
+
+## 26. Support Date-Based Time Windows in Scenario Creator
+
+**Objective:** Modify the scenario creator to accept date strings (e.g., "2025-07-30") for time windows, making it easier to use with calendar-based planning.
+
+- [ ] **Problem:** The `EARLIEST DAY` and `LATEST DAY` columns in the Excel file currently require integer day indices (1, 2, 3,...). This is not intuitive and requires manual conversion from a calendar.
+- [ ] **Goal:** Enhance the `create_scenario_from_excel` function in `utils/scenario_creator.py` to automatically handle date strings, converting them into the required zero-based integer day indices for the solver.
+
+- [ ] **Instructions for LLM:**
+
+    1.  **Pre-scan for a Global Start Date:**
+        -   **File:** `utils/scenario_creator.py`
+        -   **Function:** `create_scenario_from_excel`
+        -   **Action:** Before processing the rows, iterate through the `EARLIEST DAY` column of the `CONSEGNE` sheet to find the overall earliest date in the entire dataset. This date will become the reference point for the entire planning horizon (Day 0).
+        -   **Logic:**
+            -   Use `pd.to_datetime` to parse the values in the column, ignoring errors for now.
+            -   Find the minimum (earliest) date among all valid dates found. This is your `global_start_date`.
+
+    2.  **Modify Task Creation to Convert Dates to Day Indices:**
+        -   **File:** `utils/scenario_creator.py`
+        -   **Function:** `create_task_from_row` (or the main loop in `create_scenario_from_excel` that calls it).
+        -   **Action:** When parsing the `EARLIEST DAY` and `LATEST DAY` for each task, convert the date string into a relative, zero-based integer day index.
+        -   **Logic:**
+            -   For each task's `EARLIEST DAY`, parse it into a datetime object.
+            -   Calculate the difference between the task's date and the `global_start_date`. The result will be a `timedelta`.
+            -   The day index is `timedelta.days`. This will be `0` for the first day, `1` for the second, and so on.
+            -   Repeat for `LATEST DAY`.
+
+    3.  **Update Absolute Time Calculation:**
+        -   **File:** `utils/scenario_creator.py`
+        -   **Function:** `create_task_from_row`
+        -   **Action:** Adjust the formula that calculates the absolute time in minutes.
+        -   **Logic:**
+            -   The old formula was `(day - 1) * 1440 + time_minutes`.
+            -   The new formula should be `day_index * 1440 + time_minutes`, where `day_index` is the zero-based integer calculated in the previous step.
+
+    4.  **Ensure Backward Compatibility:**
+        -   **Action:** The code should still handle integer values in the `EARLIEST DAY` and `LATEST DAY` columns gracefully.
+        -   **Logic:**
+            -   When parsing, check the type of the value. If it's an integer, use it directly (you may need to adjust it to be zero-based, e.g., `day_index = int_value - 1`). If it's a string, attempt to parse it as a date.

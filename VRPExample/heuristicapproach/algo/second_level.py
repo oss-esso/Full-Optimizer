@@ -1143,8 +1143,9 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
     
     # Enhanced debugging for assignment failures
     if debug_feasibility:
-        print(f"            DEBUG FEASIBILITY: Checking route feasibility for vehicle {route.vehicle.id}")
-        print(f"            DEBUG FEASIBILITY: Route has {len(route.tasks)} tasks")
+        #print(f"            DEBUG FEASIBILITY: Checking route feasibility for vehicle {route.vehicle.id}")
+        #print(f"            DEBUG FEASIBILITY: Route has {len(route.tasks)} tasks")
+        pass
     
     # H0: DEPOT START/END VALIDATION - Must be first check
     # Every route must start with a depot start task and end with a depot return task
@@ -1154,7 +1155,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         if not (hasattr(first_task, 'is_depot_start') and first_task.is_depot_start()):
             reason = f"Route validation failed: First task ({first_task.id if hasattr(first_task, 'id') else 'unknown'}) is not a depot start task"
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: {reason}")
+                #print(f"            DEBUG FEASIBILITY: {reason}")
+                pass
             if return_reason:
                 return False, reason
             return False
@@ -1164,13 +1166,15 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         if not (hasattr(last_task, 'is_depot_return') and last_task.is_depot_return()):
             reason = f"Route validation failed: Last task ({last_task.id if hasattr(last_task, 'id') else 'unknown'}) is not a depot return task"
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: {reason}")
+                #print(f"            DEBUG FEASIBILITY: {reason}")
+                pass
             if return_reason:
                 return False, reason
             return False
         
         if debug_feasibility:
-            print(f"            DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot")
+            #print(f"            DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot")
+            pass
     
     # H1: Multi-day chronological simulation setup
     # Check original task order first for pickup-before-delivery precedence constraint
@@ -1202,7 +1206,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             if order_id and order_id not in completed_pickups:
                 reason = f"Enhanced logical precedence violated: Delivery {task.id} attempted before its pickup was completed"
                 if debug_feasibility:
-                    print(f"            DEBUG FEASIBILITY: {reason}")
+                    #print(f"            DEBUG FEASIBILITY: {reason}")
+                    pass
                 if return_reason:
                     return False, reason
                 return False
@@ -1214,7 +1219,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         if max_pallets is not None and load_pallets_check > max_pallets:
             reason = f"Pallet capacity exceeded during route execution: {load_pallets_check} > {max_pallets}"
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: {reason}")
+                #print(f"            DEBUG FEASIBILITY: {reason}")
+                pass
             if return_reason:
                 return False, reason
             return False
@@ -1289,7 +1295,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             # Order doesn't matter for delivery-only since they'll all be delivered
             lifo_stack = list(delivery_only_orders)
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: Pre-loaded LIFO stack for delivery-only orders: {lifo_stack}")
+                #print(f"            DEBUG FEASIBILITY: Pre-loaded LIFO stack for delivery-only orders: {lifo_stack}")
+                pass
 
     for task in sorted_tasks:
         if task.is_pickup():
@@ -1311,14 +1318,16 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                 if not lifo_stack:
                     reason = f"LIFO violation: trying to deliver {task.id} when no cargo loaded"
                     if debug_feasibility:
-                        print(f"            DEBUG FEASIBILITY: {reason}")
+                        #print(f"            DEBUG FEASIBILITY: {reason}")
+                        pass
                     if return_reason:
                         return False, reason
                     return False
                 if lifo_stack[-1] != task.order_id:
                     reason = f"LIFO violation: expected {lifo_stack[-1]}, got {task.order_id}"
                     if debug_feasibility:
-                        print(f"            DEBUG FEASIBILITY: {reason}")
+                        #print(f"            DEBUG FEASIBILITY: {reason}")
+                        pass
                     if return_reason:
                         return False, reason
                     return False
@@ -1330,7 +1339,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         if load_v > max_v:
             reason = f"Volume constraint violated: {load_v:.2f} > {max_v:.2f} for task {task.id}"
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: {reason}")
+                #print(f"            DEBUG FEASIBILITY: {reason}")
+                pass
             if return_reason:
                 return False, reason
             return False
@@ -1339,7 +1349,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         if max_pallets is not None and load_pallets > max_pallets:
             reason = f"Pallet constraint violated: {load_pallets} > {max_pallets} for task {task.id}"
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: {reason}")
+                #print(f"            DEBUG FEASIBILITY: {reason}")
+                pass
             if return_reason:
                 return False, reason
             return False
@@ -1348,7 +1359,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
     if route.vehicle.lifo_required and lifo_stack:
         reason = f"LIFO constraint violated: undelivered cargo: {lifo_stack}"
         if debug_feasibility:
-            print(f"            DEBUG FEASIBILITY: {reason}")
+            #print(f"            DEBUG FEASIBILITY: {reason}")
+            pass
         if return_reason:
             return False, reason
         return False
@@ -1384,13 +1396,15 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                     (last_pickup[1] == first_delivery[1] and last_pickup[0] >= first_delivery[0])):
                     reason = f"Precedence constraint violated for {order_id}: last pickup (day={last_pickup[1]}, pos={last_pickup[0]}) >= first delivery (day={first_delivery[1]}, pos={first_delivery[0]})"
                     if debug_feasibility:
-                        print(f"            DEBUG FEASIBILITY: {reason}")
+                        #print(f"            DEBUG FEASIBILITY: {reason}")
+                        pass
                     if return_reason:
                         return False, reason
                     return False
             except (ValueError, TypeError, KeyError) as e:
                 if debug_feasibility:
-                    print(f"            DEBUG FEASIBILITY: Error in precedence check for {order_id}: {e}")
+                    #print(f"            DEBUG FEASIBILITY: Error in precedence check for {order_id}: {e}")
+                    pass
                 # Skip this order's precedence check if there's an error
                 continue
 
@@ -1423,7 +1437,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
     if is_initialization:
         # Skip HoS during initialization to allow assignment
         if debug_feasibility:
-            print(f"            DEBUG FEASIBILITY: HoS constraint bypassed during initialization")
+            #print(f"            DEBUG FEASIBILITY: HoS constraint bypassed during initialization")
+            pass
         pass
     else:
         # Apply STRICT LEGAL HoS during optimization - THESE ARE LEGALLY MANDATED
@@ -1440,13 +1455,15 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             if not _check_hos_multiday(route, driver_state, sorted_tasks):
                 reason = "HoS constraint violated (LEGAL LIMITS)"
                 if debug_feasibility:
-                    print(f"            DEBUG FEASIBILITY: {reason}")
+                    #print(f"            DEBUG FEASIBILITY: {reason}")
+                    pass
                 if return_reason:
                     return False, reason
                 return False
         except Exception as e:
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: HoS check failed with error: {e}")
+                #print(f"            DEBUG FEASIBILITY: HoS check failed with error: {e}")
+                pass
             # For robustness, allow route to pass but log the error
             pass
     
@@ -1460,7 +1477,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                     if task.earliest_time > task.latest_time:
                         reason = f"Invalid time window for task {task.id}: earliest ({task.earliest_time}) > latest ({task.latest_time})"
                         if debug_feasibility:
-                            print(f"            DEBUG FEASIBILITY: {reason}")
+                            #print(f"            DEBUG FEASIBILITY: {reason}")
+                            pass
                         if return_reason:
                             return False, reason
                         return False
@@ -1493,17 +1511,20 @@ def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bo
         return (True, "Empty route") if return_reason else True
 
     if debug_feasibility:
-        print(f"DEBUG FEASIBILITY: Checking route feasibility for vehicle {route.vehicle.id}")
-        print(f"DEBUG FEASIBILITY: Route has {len(route.tasks)} tasks")
+        #print(f"DEBUG FEASIBILITY: Checking route feasibility for vehicle {route.vehicle.id}")
+        #print(f"DEBUG FEASIBILITY: Route has {len(route.tasks)} tasks")
+        pass
 
     # 1. Depot Start/End Validation
     if not route.tasks[0].is_depot_start() or not route.tasks[-1].is_depot_return():
         reason = f"Route validation failed: First task ({route.tasks[0].id}) is not a depot start task or last task ({route.tasks[-1].id}) is not a depot return task"
         if debug_feasibility:
-            print(f"DEBUG FEASIBILITY: {reason}")
+            #print(f"DEBUG FEASIBILITY: {reason}")
+            pass
         return (False, reason) if return_reason else False
     if debug_feasibility:
-        print("DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot")
+        #print("DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot")
+        pass
 
     # 2. Capacity Validation
     current_weight = 0
@@ -1518,10 +1539,12 @@ def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bo
             current_pallets > route.vehicle.pallet_capacity):
             reason = f"Capacity violation at task {task.id}: W:{current_weight}/{route.vehicle.weight_capacity}, V:{current_volume}/{route.vehicle.volume_capacity}, P:{current_pallets}/{route.vehicle.pallet_capacity}"
             if debug_feasibility:
-                print(f"DEBUG FEASIBILITY: {reason}")
+                #print(f"DEBUG FEASIBILITY: {reason}")
+                pass
             return (False, reason) if return_reason else False
     if debug_feasibility:
-        print("DEBUG FEASIBILITY: ✅ Capacity validation passed")
+        #print("DEBUG FEASIBILITY: ✅ Capacity validation passed")
+        pass
 
     # 3. Time Window and HoS Validation
     try:
@@ -1535,6 +1558,9 @@ def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bo
     daily_driving_time = 0
     daily_work_time = 0
     current_day = 1
+    
+    # Initialize daily HoS breakdown storage for enhanced driver summary
+    daily_hos_breakdown = {}  # Will store {day: {'drive': minutes, 'work': minutes, 'violations': []}}
 
     for i in range(len(route.tasks)):
         task = route.tasks[i]
@@ -1567,8 +1593,18 @@ def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bo
         # Check for lateness
         if task.latest_time and service_start_time > task.latest_time:
             reason = f"Time window violation at task {task.id}: Service start {format_absolute_minutes(service_start_time)} is after latest {format_absolute_minutes(task.latest_time)}"
+            
+            # Store HoS data before returning (for violated routes)
+            if current_day not in daily_hos_breakdown:
+                daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
+            daily_hos_breakdown[current_day]['drive'] = daily_driving_time
+            daily_hos_breakdown[current_day]['work'] = daily_work_time
+            daily_hos_breakdown[current_day]['violations'].append(reason)
+            route.hos_daily_summary = daily_hos_breakdown
+            
             if debug_feasibility:
-                print(f"DEBUG FEASIBILITY: {reason}")
+                #print(f"DEBUG FEASIBILITY: {reason}")
+                pass
             return (False, reason) if return_reason else False
 
         service_time = getattr(task, 'service_time', 0)
@@ -1578,6 +1614,12 @@ def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bo
         # This is a simplified check. A full implementation would be more complex.
         new_day = int(completion_time // 1440) + 1
         if new_day > current_day:
+            # Store the previous day's data before resetting
+            if current_day not in daily_hos_breakdown:
+                daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
+            daily_hos_breakdown[current_day]['drive'] = daily_driving_time
+            daily_hos_breakdown[current_day]['work'] = daily_work_time
+            
             daily_driving_time = 0
             daily_work_time = 0
             current_day = new_day
@@ -1588,12 +1630,31 @@ def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bo
 
         if daily_driving_time > route.vehicle.max_driving_time or daily_work_time > route.vehicle.max_work_time:
             reason = f"HoS constraint violated (LEGAL LIMITS) on day {current_day}: Drive={daily_driving_time:.1f}m, Work={daily_work_time:.1f}m"
+            
+            # Store violation in daily breakdown
+            if current_day not in daily_hos_breakdown:
+                daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
+            daily_hos_breakdown[current_day]['drive'] = daily_driving_time
+            daily_hos_breakdown[current_day]['work'] = daily_work_time
+            daily_hos_breakdown[current_day]['violations'].append(reason)
+            
             if debug_feasibility:
-                print(f"DEBUG FEASIBILITY: {reason}")
+                #print(f"DEBUG FEASIBILITY: {reason}")
+                pass
             return (False, reason) if return_reason else False
 
+    # Store the final day's data
+    if current_day not in daily_hos_breakdown:
+        daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
+    daily_hos_breakdown[current_day]['drive'] = daily_driving_time
+    daily_hos_breakdown[current_day]['work'] = daily_work_time
+    
+    # Store the daily HoS breakdown on the route for later access
+    route.hos_daily_summary = daily_hos_breakdown
+
     if debug_feasibility:
-        print("DEBUG FEASIBILITY: ✅ Time window and HoS validation passed")
+        #print("DEBUG FEASIBILITY: ✅ Time window and HoS validation passed")
+        pass
 
     return (True, "Route is feasible") if return_reason else True
 

@@ -1,0 +1,676 @@
+  Convergence reached: No improvement for 15.5s
+🏁 L1 optimization completed after 3 iterations
+🏁 Final score: 1831546.85
+✅ Heuristic completed successfully!
+   • Runtime: 54.28 seconds
+   • Solution type: Solution
+
+🚀 Applying smart force assignment...
+
+🔧 ENHANCED SMART FORCE ASSIGNMENT (BIG ORDERS FIRST)
+============================================================
+✅ No unassigned orders found!
+✅ Force assignment completed: 0 additional orders assigned
+DEBUG: About to call validation summary...
+
+================================================================================
+📊 PHASE 1: HEURISTIC SOLVER VALIDATION RESULTS
+================================================================================
+DEBUG: Validation summary called with runtime=54.27621579170227
+
+🚛 Vehicle and Route Summary:
+   • Total available vehicles: 55
+   • Vehicles with routes: 22
+   • Vehicles idle: 33
+   VEHICLE: FX194HX:
+      Feasible: False
+      Reason: HoS constraint violated (LEGAL LIMITS) on day 3: Drive=640.8m, Work=700.8m
+       Route duration: 0 day(s) (13h 48m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 2d 8h 35m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_FX194HX) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA BOGNETTI, PISTOIA (PT), ITALY (Order: 10) - Cumulative: 2d 14h (+5h 19m travel, +2d 8h 35m wait) [Day 3, 14:00 -> Day 3, 23:00]
+             Load: +1016.0kg, +17.0m³ → Total: 1016.0kg, 17.0m³
+             Waiting: (2d 8h 35m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA ENRICO MATTEI, MESERO (MI), ITALY (Order: 10) - Cumulative: 2d 19h 51m (+5h 21m) [Day 3, 00:00 -> Day 4, 15:00]
+             Load: -1016.0kg, -17.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_FX194HX) - Cumulative: 2d 22h 23m (+2h 2m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GA621VG:
+      Feasible: False
+      Reason: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=583.2m, Work=763.2m
+       Route duration: 2 day(s) (2d 16h 5m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 1d 3h 48m
+       Task sequence (14 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GA621VG) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 39) - Cumulative: 1d (+9m travel, +23h 45m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +218.0kg, +1.9m³ → Total: 218.0kg, 1.9m³
+             Waiting: (23h 45m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. REGIONE GABANNONE, TERRUGGIA (AL), ITALY (Order: 39) - Cumulative: 1d 1h 35m (+1h 5m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -218.0kg, -1.9m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. STRADA STATALE 231, SANTA VITTORIA D'ALBA (CN), ITALY (Order: 4) - Cumulative: 1d 8h (+1h 51m travel, +4h 2m wait) [Day 2, 08:00 -> Day 2, 10:00]
+             Load: +171.0kg, +2.1m³ → Total: 171.0kg, 2.1m³
+             Waiting: (4h 2m at REGIONE GABANNONE, TERRUGGIA (AL), ITALY before departure)
+             Status: (On time)
+          5. VIA ENRICO MATTEI, MESERO (MI), ITALY (Order: 4) - Cumulative: 1d 11h 18m (+2h 48m) [Day 2, 00:00 -> Day 3, 18:00]
+             Load: -171.0kg, -2.1m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          6. VIA OBERDAN, TORNACO (NO), ITALY (Order: 40) - Cumulative: 1d 12h 47m (+58m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +2000.0kg, +5.0m³ → Total: 2000.0kg, 5.0m³
+             Status: (On time)
+          7. VIA ROMA, PESSINETTO (TO), ITALY (Order: 40) - Cumulative: 1d 16h 6m (+2h 49m) [Day 2, 12:00 -> Day 2, 18:00]
+             Load: -2000.0kg, -5.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          8. VIA LEGNANO, MESERO (MI), ITALY (Order: 5) - Cumulative: 2d (+2h 42m travel, +4h 40m wait) [Day 3, 00:00 -> Day 3, 18:00]        
+             Load: +1600.0kg, +4.3m³ → Total: 1600.0kg, 4.3m³
+             Waiting: (4h 40m at VIA ROMA, PESSINETTO (TO), ITALY before departure)
+             Status: (On time)
+          9. VIA DI  TOR CERVARA, ROMA (RM), ITALY (Order: 5) - Cumulative: 2d 9h 31m (+9h 1m) [Day 3, 00:00 -> Day 4, 15:00]
+             Load: -1600.0kg, -4.3m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          10. VIA TONALE, ALBANO SANT'ALESSANDRO (BG), ITALY (Order: 30) - Cumulative: 2d 18h 43m (+8h 42m) [Day 3, 00:00 -> Day 3, 18:00]    
+             Load: +300.0kg, +1.4m³ → Total: 300.0kg, 1.4m³
+             Status: (LATE by 43m)
+          11. STRADA PROVINCIALE 9, MONALE (AT), ITALY (Order: 30) - Cumulative: 3d 7h 13m (+11h 59m) [Day 3, 00:00 -> Day 4, 18:00]
+             Load: -300.0kg, -1.4m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          12. VIA MARIO PERNIS, PORPORANO (PR), ITALY (Order: 1) - Cumulative: 3d 17h 53m (+10h 9m) [Day 1, 07:30 -> Day 1, 09:30]
+             Load: +2000.0kg, +1.5m³ → Total: 2000.0kg, 1.5m³
+             Status: (LATE by 3d 8h 23m)
+          13. VIA LAMBRO, MARNATE (VA), ITALY (Order: 1) - Cumulative: 3d 21h 24m (+3h 1m) [Day 2, 00:00 -> Day 2, 14:00]
+             Load: -2000.0kg, -1.5m³ → Total: 0.0kg, 0.0m³
+             Status: (LATE by 2d 7h 24m)
+          14. DEPOT-ASTI (Order: depot_return_order_GA621VG) - Cumulative: 4d 34m (+2h 39m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GA625VG:
+      Feasible: False
+      Reason: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=908.9m, Work=1088.9m
+       Route duration: 0 day(s) (19h 18m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 23h 48m
+       Task sequence (8 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GA625VG) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 34) - Cumulative: 1d (+6m travel, +23h 48m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +133.0kg, +1.9m³ → Total: 133.0kg, 1.9m³
+             Waiting: (23h 48m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA TORINO, SAVIGLIANO (CN), ITALY (Order: 34) - Cumulative: 1d 1h 44m (+1h 14m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -133.0kg, -1.9m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 36) - Cumulative: 1d 3h 26m (+1h 12m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +174.0kg, +1.0m³ → Total: 174.0kg, 1.0m³
+             Status: (On time)
+          5. PIAZZALE PIETRO FERRERO, ALBA (CN), ITALY (Order: 36) - Cumulative: 1d 4h 28m (+31m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -174.0kg, -1.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          6. PIAZZA PALAGI, BIBBIENA (AR), ITALY (Order: 2) - Cumulative: 1d 10h 46m (+5h 48m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +360.0kg, +3.8m³ → Total: 360.0kg, 3.8m³
+             Status: (On time)
+          7. VIA GERMAGNANO, TORINO (TO), ITALY (Order: 2) - Cumulative: 1d 17h 32m (+6h 15m) [Day 2, 00:00 -> Day 4, 18:00]
+             Load: -360.0kg, -3.8m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          8. DEPOT-ASTI (Order: depot_return_order_GA625VG) - Cumulative: 1d 19h 7m (+1h 4m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GA646VG:
+      Feasible: True
+       Route duration: 0 day(s) (13h 39m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 23h 48m
+       Task sequence (8 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GA646VG) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 32) - Cumulative: 1d (+6m travel, +23h 48m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +50.0kg, +1.0m³ → Total: 50.0kg, 1.0m³
+             Waiting: (23h 48m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA GERBOLE, VOLVERA (TO), ITALY (Order: 32) - Cumulative: 1d 1h 28m (+58m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -50.0kg, -1.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 38) - Cumulative: 1d 2h 54m (+56m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +403.0kg, +4.2m³ → Total: 403.0kg, 4.2m³
+             Status: (On time)
+          5. VIA VECCHIA FORNACE, CASTELL'ALFERO (AT), ITALY (Order: 38) - Cumulative: 1d 3h 43m (+18m) [Day 2, 00:00 -> Day 2, 18:00]        
+             Load: -403.0kg, -4.2m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          6. STRADA DELLA MASOLINA, PIOBESI TORINESE (TO), ITALY (Order: 7) - Cumulative: 1d 5h 24m (+1h 10m) [Day 2, 00:00 -> Day 2, 18:00]  
+             Load: +150.0kg, +1.0m³ → Total: 150.0kg, 1.0m³
+             Status: (On time)
+          7. VIA  CA' NOVE, SAN MARTINO BUONALBERGO (VR), ITALY (Order: 7) - Cumulative: 1d 9h 46m (+3h 51m) [Day 2, 00:00 -> Day 3, 18:00]
+             Load: -150.0kg, -1.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          8. DEPOT-ASTI (Order: depot_return_order_GA646VG) - Cumulative: 1d 13h 28m (+3h 12m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GA647VG:
+      Feasible: True
+       Route duration: 0 day(s) (5h 8m)
+       Total waiting time: 21h 16m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GA647VG) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA SERRA, QUATTORDIO (AL), ITALY (Order: 11) - Cumulative: 28m (+23m) [Day 1, 00:00 -> Day 1, 16:30]
+             Load: +700.0kg, +1.9m³ → Total: 700.0kg, 1.9m³
+             Status: (On time)
+          3. VIA DEI TRASPORTI, VILLADOSSOLA (VB), ITALY (Order: 11) - Cumulative: 1d (+1h 45m travel, +21h 16m wait) [Day 2, 00:00 -> Day 2, 07:00]
+             Load: -700.0kg, -1.9m³ → Total: 0.0kg, 0.0m³
+             Waiting: (21h 16m at VIA SERRA, QUATTORDIO (AL), ITALY before departure)
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_GA647VG) - Cumulative: 1d 2h 24m (+1h 54m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GC002LX:
+      Feasible: True
+       Route duration: 0 day(s) (8h 15m)
+       Total waiting time: 23h 45m
+       Task sequence (6 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GC002LX) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 35) - Cumulative: 1d (+9m travel, +23h 45m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +150.0kg, +1.9m³ → Total: 150.0kg, 1.9m³
+             Waiting: (23h 45m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. STRADA STATALE 231, MONTICELLO D'ALBA (CN), ITALY (Order: 35) - Cumulative: 1d 1h 17m (+47m) [Day 2, 00:00 -> Day 2, 18:00]      
+             Load: -150.0kg, -1.9m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. VIA FRATELLI ROSSELLI, TREZZANO SUL NAVIGLIO (MI), ITALY (Order: 8) - Cumulative: 1d 4h 29m (+2h 42m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +1380.0kg, +10.4m³ → Total: 1380.0kg, 10.4m³
+             Status: (On time)
+          5. STRADA ORIOLO, VOGHERA (PV), ITALY (Order: 8) - Cumulative: 1d 6h 15m (+1h 15m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -1380.0kg, -10.4m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          6. DEPOT-ASTI (Order: depot_return_order_GC002LX) - Cumulative: 1d 8h 1m (+1h 15m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GC069LX:
+      Feasible: True
+       Route duration: 0 day(s) (6m)
+       Task sequence (2 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GC069LX) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. DEPOT-ASTI (Order: depot_return_order_GC069LX) - Cumulative: 6m (+1m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GC079LX:
+      Feasible: True
+       Route duration: 0 day(s) (3h 35m)
+       Total waiting time: 23h 45m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GC079LX) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 17) - Cumulative: 1d (+9m travel, +23h 45m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +1000.0kg, +3.0m³ → Total: 1000.0kg, 3.0m³
+             Waiting: (23h 45m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA AURORA, RORETO DI CHERASCO (CN), ITALY (Order: 17) - Cumulative: 1d 1h 43m (+1h 13m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -1000.0kg, -3.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_GC079LX) - Cumulative: 1d 3h 21m (+1h 7m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GC086LX:
+      Feasible: False
+      Reason: Time window violation at task TASK_18_34: Service start Day 2, 12:03 is after latest Day 1, 18:00
+       Route duration: 0 day(s) (19h 19m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 1d 4h 42m
+       Task sequence (6 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GC086LX) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. CORSO RIGOLA, VERCELLI (VC), ITALY (Order: 23) - Cumulative: 1d (+1h 28m travel, +22h 26m wait) [Day 2, 00:00 -> Day 2, 18:00]   
+             Load: +1841.0kg, +16.2m³ → Total: 1841.0kg, 16.2m³
+             Waiting: (22h 26m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA DOMENICO BOSATELLI, BERGAMO (BG), ITALY (Order: 23) - Cumulative: 1d 9h (+2h 13m travel, +6h 16m wait) [Day 2, 09:00 -> Day 2, 17:00]
+             Load: -1841.0kg, -16.2m³ → Total: 0.0kg, 0.0m³
+             Waiting: (6h 16m at CORSO RIGOLA, VERCELLI (VC), ITALY before departure)
+             Status: (On time)
+          4. VIA BORGHETTO, CHIVASSO (TO), ITALY (Order: 18) - Cumulative: 1d 12h 3m (+2h 33m) [Day 1, 00:00 -> Day 1, 18:00]
+             Load: +3000.0kg, +5.4m³ → Total: 3000.0kg, 5.4m³
+             Status: (LATE by 18h 3m)
+          5. VIA DELLA LORA, BARBERINO DI MUGELLO (FI), ITALY (Order: 18) - Cumulative: 1d 18h 29m (+5h 55m) [Day 1, 00:00 -> Day 2, 18:00]   
+             Load: -3000.0kg, -5.4m³ → Total: 0.0kg, 0.0m³
+             Status: (LATE by 29m)
+          6. DEPOT-ASTI (Order: depot_return_order_GC086LX) - Cumulative: 2d 2m (+5h 2m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GE026FZ:
+      Feasible: True
+       Route duration: 0 day(s) (6h 20m)
+       Total waiting time: 21h 33m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GE026FZ) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA MADONNA, LALLIO (BG), ITALY (Order: 16) - Cumulative: 1d (+2h 21m travel, +21h 33m wait) [Day 2, 00:00 -> Day 2, 10:00]      
+             Load: +840.0kg, +4.0m³ → Total: 840.0kg, 4.0m³
+             Waiting: (21h 33m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA REDIPUGLIA, CASTELLANZA (VA), ITALY (Order: 16) - Cumulative: 1d 1h 27m (+57m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -840.0kg, -4.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_GE026FZ) - Cumulative: 1d 3h 54m (+1h 57m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GE027FZ:
+      Feasible: False
+      Reason: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=767.5m, Work=952.5m
+       Route duration: 0 day(s) (15h 52m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 23h 48m
+       Task sequence (8 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GE027FZ) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 28) - Cumulative: 1d (+6m travel, +23h 48m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +200.0kg, +1.0m³ → Total: 200.0kg, 1.0m³
+             Waiting: (23h 48m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA STAZIONE, MELE (GE), ITALY (Order: 28) - Cumulative: 1d 1h 44m (+1h 14m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -200.0kg, -1.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 33) - Cumulative: 1d 3h 29m (+1h 15m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +500.0kg, +1.9m³ → Total: 500.0kg, 1.9m³
+             Status: (On time)
+          5. VIA DELLE CERAMICHE, SAVIGLIANO (CN), ITALY (Order: 33) - Cumulative: 1d 5h 8m (+1h 9m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -500.0kg, -1.9m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          6. VIA GALILEI, MARIGLIANELLA, ITALY (Order: 13) - Cumulative: 1d 10h 35m (+4h 56m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +19.0kg, +1.5m³ → Total: 19.0kg, 1.5m³
+             Status: (On time)
+          7. VIA DOGANA PO, CASTEL SAN GIOVANNI (PC), ITALY (Order: 13) - Cumulative: 1d 13h 51m (+2h 46m) [Day 2, 00:00 -> Day 2, 18:00]     
+             Load: -19.0kg, -1.5m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          8. DEPOT-ASTI (Order: depot_return_order_GE027FZ) - Cumulative: 1d 15h 41m (+1h 19m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GE030FZ:
+      Feasible: False
+      Reason: Time window violation at task TASK_24_48: Service start Day 2, 09:37 is after latest Day 1, 18:00
+       Route duration: 1 day(s) (1d 5h 38m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 23h 45m
+       Task sequence (8 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GE030FZ) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 27) - Cumulative: 1d (+9m travel, +23h 45m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +2193.5kg, +3.9m³ → Total: 2193.5kg, 3.9m³
+             Waiting: (23h 45m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA VAL LERONE, ARENZANO (GE), ITALY (Order: 27) - Cumulative: 1d 2h 16m (+1h 46m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -2193.5kg, -3.9m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. VIA PIETRO NENNI, PEDERNO DUGNANO (MI), ITALY (Order: 19) - Cumulative: 1d 5h 42m (+2h 56m) [Day 2, 00:00 -> Day 2, 18:00]       
+             Load: +1160.0kg, +3.0m³ → Total: 1160.0kg, 3.0m³
+             Status: (On time)
+          5. VIA MEDAGLIA ORO GIACOMO GRECIS, COVO (BG), ITALY (Order: 19) - Cumulative: 1d 7h 25m (+1h 12m) [Day 2, 00:00 -> Day 2, 18:00]   
+             Load: -1160.0kg, -3.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          6. VIA LOMBARDIA, PARABIAGO (MI), ITALY (Order: 24) - Cumulative: 1d 9h 37m (+1h 42m) [Day 1, 00:00 -> Day 1, 18:00]
+             Load: +3980.0kg, +7.2m³ → Total: 3980.0kg, 7.2m³
+             Status: (LATE by 15h 37m)
+          7. VIA TIBURTINA, TIVOLI (RM), ITALY (Order: 24) - Cumulative: 1d 19h 20m (+9h 12m) [Day 2, 00:00 -> Day 3, 18:00]
+             Load: -3980.0kg, -7.2m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          8. DEPOT-ASTI (Order: depot_return_order_GE030FZ) - Cumulative: 2d 5h 24m (+9h 34m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GE031FZ:
+      Feasible: True
+       Route duration: 0 day(s) (12h 28m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 19h 44m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GE031FZ) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. STRADA PROVINCIALE 52, VIZZOLA TICINO (VA), ITALY (Order: 25) - Cumulative: 1d (+4h 10m travel, +19h 44m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +764.0kg, +5.8m³ → Total: 764.0kg, 5.8m³
+             Waiting: (19h 44m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA FIGLIODONI, BARZANò (LC), ITALY (Order: 25) - Cumulative: 1d 5h 13m (+4h 43m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -764.0kg, -5.8m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_GE031FZ) - Cumulative: 1d 8h 13m (+2h 30m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GS451PC:
+      Feasible: False
+      Reason: Time window violation at task TASK_29_58: Service start Day 3, 01:04 is after latest Day 2, 18:00
+       Route duration: 1 day(s) (1d 14h 7m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 23h 48m
+       Task sequence (10 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GS451PC) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 31) - Cumulative: 1d (+6m travel, +23h 48m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +100.0kg, +1.0m³ → Total: 100.0kg, 1.0m³
+             Waiting: (23h 48m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA MAURO POZZOLO, SAN GIOVANNI BIANCO (BG), ITALY (Order: 31) - Cumulative: 1d 3h 27m (+2h 57m) [Day 2, 00:00 -> Day 2, 18:00]  
+             Load: -100.0kg, -1.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY (Order: 26) - Cumulative: 1d 6h 55m (+2h 57m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +54.0kg, +1.0m³ → Total: 54.0kg, 1.0m³
+             Status: (On time)
+          5. VIA CRISTOFORO COLOMBO, POZZO D'ADDA (MI), ITALY (Order: 26) - Cumulative: 1d 9h 38m (+2h 13m) [Day 2, 00:00 -> Day 2, 18:00]    
+             Load: -54.0kg, -1.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          6. VIA MATTEOTTI, BRESSANA BOTTARONE (PV), ITALY (Order: 21) - Cumulative: 1d 11h 40m (+1h 31m) [Day 2, 00:00 -> Day 2, 18:00]      
+             Load: +159.6kg, +1.9m³ → Total: 159.6kg, 1.9m³
+             Status: (On time)
+          7. VIA SAN ROCCO, RORETO DI CHERASCO (CN), ITALY (Order: 21) - Cumulative: 1d 14h 4m (+1h 54m) [Day 2, 00:00 -> Day 2, 18:00]       
+             Load: -159.6kg, -1.9m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          8. STRADA PROVINCIALE 9, MONALE (AT), ITALY (Order: 29) - Cumulative: 2d 1h 4m (+10h 30m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +300.0kg, +1.4m³ → Total: 300.0kg, 1.4m³
+             Status: (LATE by 7h 4m)
+          9. VIA TONALE, ALBANO SANT'ALESSANDRO (BG), ITALY (Order: 29) - Cumulative: 2d 10h 52m (+9h 17m) [Day 2, 00:00 -> Day 3, 18:00]     
+             Load: -300.0kg, -1.4m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          10. DEPOT-ASTI (Order: depot_return_order_GS451PC) - Cumulative: 2d 13h 55m (+2h 33m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GA622VG:
+      Feasible: True
+       Route duration: 0 day(s) (9h 58m)
+       Total waiting time: 20h 58m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GA622VG) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIALE ITALIA, LA SPEZIA (SP), ITALY (Order: 6) - Cumulative: 1d (+2h 56m travel, +20h 58m wait) [Day 2, 00:00 -> Day 2, 18:00]   
+             Load: +1000.0kg, +4.5m³ → Total: 1000.0kg, 4.5m³
+             Waiting: (20h 58m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA MILANO, PESCHIERA DEL GARDA (VR), ITALY (Order: 6) - Cumulative: 1d 3h 33m (+3h 3m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -1000.0kg, -4.5m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_GA622VG) - Cumulative: 1d 6h 57m (+2h 53m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GA633VG:
+      Feasible: True
+       Route duration: 0 day(s) (3h 35m)
+       Total waiting time: 23h 45m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GA633VG) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 22) - Cumulative: 1d (+9m travel, +23h 45m wait) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: +200.0kg, +12.0m³ → Total: 200.0kg, 12.0m³
+             Waiting: (23h 45m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA SAN ROCCO, RORETO DI CHERASCO (CN), ITALY (Order: 22) - Cumulative: 1d 1h 44m (+1h 14m) [Day 2, 00:00 -> Day 2, 18:00]       
+             Load: -200.0kg, -12.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_GA633VG) - Cumulative: 1d 3h 21m (+1h 7m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: GW877CW:
+      Feasible: True
+       Route duration: 0 day(s) (10h 3m)
+       Total waiting time: 22h 13m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GW877CW) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA LOMBROSO, MILANO (MI), ITALY (Order: 20) - Cumulative: 1d (+1h 41m travel, +22h 13m wait) [Day 2, 00:00 -> Day 2, 12:00]     
+             Load: +300.0kg, +1.0m³ → Total: 300.0kg, 1.0m³
+             Waiting: (22h 13m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. PLACE DU CASINO, MONTE CARLO (MC), MONACO (Order: 20) - Cumulative: 1d 4h 24m (+3h 54m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -300.0kg, -1.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_GW877CW) - Cumulative: 1d 8h 16m (+3h 22m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: XA359KW:
+      Feasible: False
+      Reason: HoS constraint violated (LEGAL LIMITS) on day 4: Drive=740.3m, Work=800.3m
+       Route duration: 0 day(s) (23h 44m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 2d 22h 43m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_XA359KW) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA FREJUS, ORBASSANO (TO), ITALY (Order: 3) - Cumulative: 3d (+1h 11m travel, +2d 22h 43m wait) [Day 4, 00:00 -> Day 4, 16:00]  
+             Load: +24000.0kg, +90.0m³ → Total: 24000.0kg, 90.0m³
+             Waiting: (2d 22h 43m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA ROMA, AVEZZANO (AQ), ITALY (Order: 3) - Cumulative: 3d 11h 39m (+11h 9m) [Day 4, 00:00 -> Day 7, 18:00]
+             Load: -24000.0kg, -90.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_XA359KW) - Cumulative: 3d 22h 28m (+10h 19m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: XA356KW:
+      Feasible: True
+       Route duration: 0 day(s) (9h 59m)
+       Total waiting time: 1d 21h 55m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_XA356KW) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA FAUSER, NOVARA (NO), ITALY (Order: 9) - Cumulative: 2d (+1h 59m travel, +1d 21h 55m wait) [Day 3, 00:00 -> Day 3, 18:00]     
+             Load: +19200.0kg, +30.0m³ → Total: 19200.0kg, 30.0m³
+             Waiting: (1d 21h 55m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIALE RISORGIMENTO, RIVAROLO MANTOVANO (MN), ITALY (Order: 9) - Cumulative: 2d 4h (+3h 30m) [Day 3, 00:00 -> Day 3, 18:00]       
+             Load: -19200.0kg, -30.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_XA356KW) - Cumulative: 2d 7h 55m (+3h 24m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: XA819VA:
+      Feasible: False
+      Reason: Time window violation at task TASK_12_22: Service start Day 2, 08:10 is after latest Day 2, 07:00
+       Route duration: 0 day(s) (19h 31m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 22h 56m
+       Task sequence (6 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_XA819VA) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. LOCALITà SAN MARTINO NISOCCO, MONTà (CN), ITALY (Order: 37) - Cumulative: 1d (+58m travel, +22h 56m wait) [Day 2, 00:00 -> Day 2, 14:30]
+             Load: +200.0kg, +1.0m³ → Total: 200.0kg, 1.0m³
+             Waiting: (22h 56m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA ALBEROGROSSO, CICAGNA (GE), ITALY (Order: 37) - Cumulative: 1d 4h 14m (+3h 44m) [Day 2, 00:00 -> Day 2, 18:00]
+             Load: -200.0kg, -1.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          4. VIA MONTE PASUBIO, CHIUSANICO (IM), ITALY (Order: 12) - Cumulative: 1d 8h 10m (+3h 26m) [Day 2, 00:00 -> Day 2, 07:00]
+             Load: +24000.0kg, +31.0m³ → Total: 24000.0kg, 31.0m³
+             Status: (LATE by 1h 10m)
+          5. VIA MONTRAMITO, MASSAROSA (LU), ITALY (Order: 12) - Cumulative: 1d 13h 35m (+4h 54m) [Day 2, 00:00 -> Day 2, 12:00]
+             Load: -24000.0kg, -31.0m³ → Total: 0.0kg, 0.0m³
+             Status: (LATE by 1h 35m)
+          6. DEPOT-ASTI (Order: depot_return_order_XA819VA) - Cumulative: 1d 18h 28m (+4h 22m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: XA346KW:
+      Feasible: True
+       Route duration: 0 day(s) (8h 44m)
+       Total waiting time: 1d 3h 21m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_XA346KW) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA FAUSER, NOVARA (NO), ITALY (Order: 15) - Cumulative: 1d (+1h 59m travel, +21h 55m wait) [Day 2, 00:00 -> Day 2, 18:00]       
+             Load: +19200.0kg, +54.0m³ → Total: 19200.0kg, 54.0m³
+             Waiting: (21h 55m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA 24 MAGGIO, PARATICO (BS), ITALY (Order: 15) - Cumulative: 1d 8h (+2h 3m travel, +5h 26m wait) [Day 2, 08:00 -> Day 2, 12:00] 
+             Load: -19200.0kg, -54.0m³ → Total: 0.0kg, 0.0m³
+             Waiting: (5h 26m at VIA FAUSER, NOVARA (NO), ITALY before departure)
+             Status: (On time)
+          4. DEPOT-ASTI (Order: depot_return_order_XA346KW) - Cumulative: 1d 12h 5m (+3h 35m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+   VEHICLE: XA345KW:
+      Feasible: False
+      Reason: Time window violation at task TASK_14_27: Service start Day 3, 22:41 is after latest Day 3, 18:00
+       Route duration: 1 day(s) (1d 6h 37m) (would violate HoS if attempted without proper rests)
+       Total waiting time: 2d 6h 45m
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_XA345KW) - Cumulative: 0m [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+          2. VIA ROMA, TERRUGGIA (AL), ITALY (Order: 14) - Cumulative: 2d 8h (+1h 9m travel, +2d 6h 45m wait) [Day 3, 08:00 -> Day 3, 15:30]  
+             Load: +2800.0kg, +18.2m³ → Total: 2800.0kg, 18.2m³
+             Waiting: (2d 6h 45m at DEPOT-ASTI before departure)
+             Status: (On time)
+          3. VIA ROMA, ALTAMURA (BA), ITALY (Order: 14) - Cumulative: 2d 22h 41m (+14h 11m) [Day 3, 00:00 -> Day 3, 18:00]
+             Load: -2800.0kg, -18.2m³ → Total: 0.0kg, 0.0m³
+             Status: (LATE by 4h 41m)
+          4. DEPOT-ASTI (Order: depot_return_order_XA345KW) - Cumulative: 3d 13h 22m (+14h 11m) [No window -> No window]
+             Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
+             Status: (On time)
+
+📦 Order Assignment Summary:
+   • Orders assigned: 40/40 (100.0%)
+   • Total tasks created: 124
+
+🛣️  Route Distance Summary:
+   • Total estimated distance: 16208.9 km
+   • Average distance per route: 736.8 km
+
+⭐ Solution Quality Assessment:
+   📈 Excellent: >90% orders assigned
+DEBUG: About to display Test Summary...
+
+📊 Test Summary:
+   • Scenario source: furgoni.xlsx
+   • Orders processed: 40
+   • Vehicles available: 55
+   • Total runtime: 54.28 seconds
+   • Route calculations: 306
+   • OSRM calls made: ~306 (cached results available for future runs)
+DEBUG: Test Summary displayed successfully!
+DEBUG: Validation summary completed.
+
+================================================================================
+👨‍💼 PHASE 2: DRIVER ASSIGNMENT INTEGRATION
+================================================================================
+
+📁 Loading drivers from: c:\Users\Edoardo\Documents\EPFL\Full-Optimizer\VRPExample\heuristicapproach\tests\..\src\furgoni2.xlsx
+Corrected driver Giancarlo Zan. license from C to B (operates FURGONE)
+Corrected driver Catali license from C to CE (operates CAMION)
+Corrected driver Nicola license from C to CE (operates CAMION)
+Loaded 55 drivers from AUTISTI
+  - CE license drivers: 16
+  - B license drivers: 39
+  - Drivers with special qualifications: 47
+✅ Successfully loaded drivers:
+   • Total drivers: 55
+   • License distribution:
+     - Unknown: 55 drivers
+
+🔧 Driver qualifications enhanced via license correction logic
+   (Built into load_drivers_from_excel_enhanced function)
+
+🛣️  Preparing routes for driver assignment...
+✅ Active routes identified: 22
+   • Route objects prepared: 22
+
+🎯 Running driver assignment...
+Simplified assignment: 55 drivers to 22 routes
+  - Heavy truck routes: 13
+  - Light vehicle routes: 9
+  - CE licensed drivers: 16
+  - B licensed drivers: 39
+✅ Assignment completed: 22 drivers assigned to routes
+   • Unassigned drivers: 33
+✅ Driver assignment completed!
+   • Active vehicles: 22
+   • Available drivers: 55
+   • Successful assignments: 22
+   • Idle drivers: 33
+   🔗 Linked Martinas 1 to route FX194HX
+   🔗 Linked Claudio to route GA621VG
+   🔗 Linked Sorin to route GC002LX
+   🔗 Linked Emanuele to route GC069LX
+   🔗 Linked Catali to route GC079LX
+   🔗 Linked Modou to route GC086LX
+   🔗 Linked Nicola to route GE030FZ
+   🔗 Linked Arifei to route GA633VG
+   🔗 Linked Mohamed to route XA359KW
+   🔗 Linked Raluca to route XA356KW
+   🔗 Linked  Alin to route XA819VA
+   🔗 Linked Martinas 2 to route XA346KW
+   🔗 Linked Anisoara to route XA345KW
+   🔗 Linked Massimo to route GA625VG
+   🔗 Linked Fabio Paglianiti to route GA646VG
+   🔗 Linked Vece to route GA647VG
+   🔗 Linked Daniela to route GE026FZ
+   🔗 Linked Giorgi to route GE027FZ
+   🔗 Linked Aimad to route GE031FZ
+   🔗 Linked Dumitru to route GS451PC
+   🔗 Linked Dani to route GA622VG
+   🔗 Linked Angelo D'amato to route GW877CW
+✅ Driver objects properly linked to routes!
+
+📋 Generating final solution summary...
+
+============================================================
+ENHANCED DRIVER ASSIGNMENT SUMMARY
+============================================================
+
+Route Assignments:
+--------------------------------------------------
+Vehicle FX194HX    → Driver Martinas 1      (License: CE, Type: heavy)
+Vehicle GA621VG    → Driver Claudio         (License: CE, Type: heavy)
+Vehicle GA625VG    → Driver Massimo         (License: B, Type: standard)
+Vehicle GA646VG    → Driver Fabio Paglianiti (License: B, Type: standard)
+Vehicle GA647VG    → Driver Vece            (License: B, Type: standard)
+Vehicle GC002LX    → Driver Sorin           (License: CE, Type: heavy)
+Vehicle GC069LX    → Driver Emanuele        (License: CE, Type: heavy)
+Vehicle GC079LX    → Driver Catali          (License: CE, Type: heavy)
+Vehicle GC086LX    → Driver Modou           (License: CE, Type: heavy)
+Vehicle GE026FZ    → Driver Daniela         (License: B, Type: standard)
+Vehicle GE027FZ    → Driver Giorgi          (License: B, Type: standard)
+Vehicle GE030FZ    → Driver Nicola          (License: CE, Type: heavy)
+Vehicle GE031FZ    → Driver Aimad           (License: B, Type: standard)
+Vehicle GS451PC    → Driver Dumitru         (License: B, Type: standard)
+Vehicle GA622VG    → Driver Dani            (License: B, Type: standard)
+Vehicle GA633VG    → Driver Arifei          (License: CE, Type: heavy)
+Vehicle GW877CW    → Driver Angelo D'amato  (License: B, Type: standard)
+Vehicle XA359KW    → Driver Mohamed         (License: CE, Type: heavy)
+Vehicle XA356KW    → Driver Raluca          (License: CE, Type: heavy)
+Vehicle XA819VA    → Driver  Alin           (License: CE, Type: heavy)
+Vehicle XA346KW    → Driver Martinas 2      (License: CE, Type: heavy)
+Vehicle XA345KW    → Driver Anisoara        (License: CE, Type: heavy)
+
+Enhanced Assignment Statistics:
+  Total routes: 22
+  Heavy vehicle routes assigned: 13
+  Light vehicle routes assigned: 9
+  Total drivers available: 55
+  Drivers assigned: 22
+  Drivers unassigned: 33
+
+Unassigned Drivers:
+  Tidian (License: B, Default: FX192HX)
+  Stefan (License: B, Default: GA620VG)
+  Sergio (License: B, Default: GA630VG)
+  Ottavio (License: B, Default: GA637VG)
+  Eugenio (License: B, Default: GA649VG)
+  Giancarlo Zan. (License: B, Default: GC070LX)
+  Autista1 (License: B, Default: GG355FV)
+  Cristian (License: B, Default: GP339JH)
+  Autista2 (License: B, Default: GP340JH)
+  Buhan (License: CE, Default: GP507LA)
+✅ Final summary generated successfully!
+

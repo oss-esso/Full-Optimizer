@@ -525,14 +525,47 @@ def validate_assignments(routes: List[Route]) -> Dict[str, List[str]]:
 
 
 def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
-    """Print a summary of driver assignments."""
+    """Print a summary of driver assignments with daily work/drive time breakdown."""
     print("\n" + "="*60)
     print("ENHANCED DRIVER ASSIGNMENT SUMMARY")
     print("="*60)
     
+    def format_minutes_to_hhmm(minutes):
+        """Convert minutes to HH:MM format."""
+        hours = int(minutes // 60)
+        mins = int(minutes % 60)
+        return f"{hours:02d}:{mins:02d}"
+    
+    def check_route_feasibility(route):
+        """Check if a route is feasible and return reason if not."""
+        try:
+            from second_level import is_feasible
+            feasible, reason = is_feasible(route, debug_feasibility=True, return_reason=True)
+            return feasible, reason
+        except ImportError:
+            return True, "Feasibility check unavailable"
+    
+    def ensure_hos_data_for_route(route):
+        """Ensure HoS data is calculated for the route, even if it's violated."""
+        if not hasattr(route, 'hos_daily_summary') or not route.hos_daily_summary:
+            try:
+                from second_level import is_feasible
+                # Force HoS calculation by running is_feasible
+                print(f"DEBUG: Running HoS calculation for route {route.vehicle.id}")
+                is_feasible(route, debug_feasibility=True, return_reason=True)
+                if hasattr(route, 'hos_daily_summary') and route.hos_daily_summary:
+                    print(f"DEBUG: HoS data successfully calculated for route {route.vehicle.id}")
+                else:
+                    print(f"DEBUG: HoS data still missing for route {route.vehicle.id}")
+            except ImportError:
+                print(f"DEBUG: Cannot import is_feasible for route {route.vehicle.id}")
+        else:
+            print(f"DEBUG: Route {route.vehicle.id} already has HoS data")
+    
     assigned_drivers = set()
     heavy_routes_assigned = 0
     light_routes_assigned = 0
+    violated_routes_count = 0
     
     print("\nRoute Assignments:")
     print("-" * 50)
@@ -543,9 +576,63 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                 heavy_routes_assigned += 1
             else:
                 light_routes_assigned += 1
+            
+            # Ensure HoS data is calculated for this route
+            ensure_hos_data_for_route(route)
+            
+            # Check feasibility for violation indicator
+            feasible, reason = check_route_feasibility(route)
+            if not feasible:
+                violated_routes_count += 1
+                violation_indicator = f" ❌ VIOLATION: {reason}"
+            else:
+                violation_indicator = ""
                 
             print(f"Vehicle {route.vehicle.id:10} → Driver {route.driver.name:15} "
-                  f"(License: {route.driver.license}, Type: {route.vehicle.vehicle_type})")
+                  f"(License: {route.driver.license}, Type: {route.vehicle.vehicle_type}){violation_indicator}")
+            
+            # Display daily HoS breakdown if available (for ALL routes)
+            if hasattr(route, 'hos_daily_summary') and route.hos_daily_summary:
+                total_weekly_drive = 0
+                total_weekly_work = 0
+                driver_cost_per_hour = getattr(route.driver, 'cost_per_hour', 0) if route.driver else 0
+                
+                for day, daily_data in sorted(route.hos_daily_summary.items()):
+                    work_time = daily_data['work']
+                    drive_time = daily_data['drive']
+                    breaks_time = work_time - drive_time
+                    violations = daily_data.get('violations', [])
+                    
+                    # Calculate daily salary
+                    daily_salary = (work_time / 60) * driver_cost_per_hour
+                    
+                    # Accumulate weekly totals
+                    total_weekly_drive += drive_time
+                    total_weekly_work += work_time
+                    
+                    # Format the daily breakdown with violation indicators
+                    if violations:
+                        violation_text = " ⚠️ (HOS VIOLATION)"
+                    else:
+                        violation_text = ""
+                    
+                    print(f"    - Day {day}: Drive: {format_minutes_to_hhmm(drive_time)}, "
+                          f"Breaks: {format_minutes_to_hhmm(breaks_time)}, "
+                          f"Salary: €{daily_salary:.2f}{violation_text}")
+                
+                # Weekly HoS breakdown
+                total_weekly_breaks = total_weekly_work - total_weekly_drive
+                total_weekly_salary = (total_weekly_work / 60) * driver_cost_per_hour
+                
+                # Add theoretical indicator for violated routes
+                theoretical_text = " (THEORETICAL)" if not feasible else ""
+                
+                print(f"    📊 Weekly Summary{theoretical_text}: Drive: {format_minutes_to_hhmm(total_weekly_drive)}, "
+                      f"Breaks: {format_minutes_to_hhmm(total_weekly_breaks)}, "
+                      f"Total Salary: €{total_weekly_salary:.2f}")
+            else:
+                # No HoS data available
+                print(f"    - HoS data not available for this route")
         else:
             print(f"Vehicle {route.vehicle.id:10} → UNASSIGNED "
                   f"(Type: {route.vehicle.vehicle_type})")
@@ -554,6 +641,8 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
     assigned_count = len(assigned_drivers)
     print(f"\nEnhanced Assignment Statistics:")
     print(f"  Total routes: {len(routes)}")
+    print(f"  Feasible routes: {len(routes) - violated_routes_count}")
+    print(f"  Violated/Infeasible routes: {violated_routes_count}")
     print(f"  Heavy vehicle routes assigned: {heavy_routes_assigned}")
     print(f"  Light vehicle routes assigned: {light_routes_assigned}")
     print(f"  Total drivers available: {len(drivers)}")

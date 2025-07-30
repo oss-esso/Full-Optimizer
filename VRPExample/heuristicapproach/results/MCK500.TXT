@@ -7,29 +7,9 @@ DEBUG: Validation summary called with runtime=79.67575669288635
    • Total available vehicles: 55
    • Vehicles with routes: 19
    • Vehicles idle: 36
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GA621VG
-DEBUG FEASIBILITY: Route has 14 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=577.7m, Work=757.7m
    VEHICLE: GA621VG:
       Feasible: False
       Reason: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=577.7m, Work=757.7m
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
       This may indicate OSRM routing issues or unusual road conditions.
        Route duration: 2 day(s) (2d 16m) (would violate HoS if attempted without proper rests)
        Total waiting time: 1d 3h 53m
@@ -37,8 +17,6 @@ DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=577.7m
           1. DEPOT-ASTI (Order: depot_start_order_GA621VG) - Cumulative: 0m [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
           2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 39) - Cumulative: 1d (+6m travel, +23h 48m wait) [Day 2, 00:00 -> Day 2, 18:00]
              Load: +218.0kg, +1.9m³ → Total: 218.0kg, 1.9m³
              Waiting: (23h 48m at DEPOT-ASTI before departure)
@@ -53,8 +31,6 @@ DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=577.7m
           5. VIA ENRICO MATTEI, MESERO (MI), ITALY (Order: 4) - Cumulative: 1d 11h 18m (+2h 48m) [Day 2, 00:00 -> Day 3, 18:00]
              Load: -171.0kg, -2.1m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
           6. VIA OBERDAN, TORNACO (NO), ITALY (Order: 40) - Cumulative: 1d 12h 47m (+58m) [Day 2, 00:00 -> Day 2, 18:00]
              Load: +2000.0kg, +5.0m³ → Total: 2000.0kg, 5.0m³
              Status: (On time)
@@ -71,8 +47,6 @@ DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=577.7m
           10. VIA TONALE, ALBANO SANT'ALESSANDRO (BG), ITALY (Order: 30) - Cumulative: 2d 18h 40m (+8h 41m) [Day 3, 00:00 -> Day 3, 18:00]    
              Load: +300.0kg, +1.4m³ → Total: 300.0kg, 1.4m³
              Status: (LATE by 40m)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
           11. STRADA PROVINCIALE 9, MONALE (AT), ITALY (Order: 30) - Cumulative: 2d 22h 48m (+3h 37m) [Day 3, 00:00 -> Day 4, 18:00]
              Load: -300.0kg, -1.4m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
@@ -85,11 +59,6 @@ DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=577.7m
           14. DEPOT-ASTI (Order: depot_return_order_GA621VG) - Cumulative: 3d 8h 50m (+2h 39m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GA625VG
-DEBUG FEASIBILITY: Route has 8 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=916.7m, Work=1096.7m
    VEHICLE: GA625VG:
       Feasible: False
       Reason: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=916.7m, Work=1096.7m
@@ -121,11 +90,6 @@ DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=916.7m
           8. DEPOT-ASTI (Order: depot_return_order_GA625VG) - Cumulative: 1d 19h 16m (+1h 4m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GA646VG
-DEBUG FEASIBILITY: Route has 8 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
    VEHICLE: GA646VG:
       Feasible: True
        Route duration: 0 day(s) (13h 45m) (would violate HoS if attempted without proper rests)
@@ -156,11 +120,6 @@ DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
           8. DEPOT-ASTI (Order: depot_return_order_GA646VG) - Cumulative: 1d 13h 36m (+3h 10m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GA647VG
-DEBUG FEASIBILITY: Route has 8 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=1042.9m, Work=1102.9m
    VEHICLE: GA647VG:
       Feasible: False
       Reason: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=1042.9m, Work=1102.9m
@@ -192,27 +151,14 @@ DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=1042.9
           8. DEPOT-ASTI (Order: depot_return_order_GA647VG) - Cumulative: 2d 2h 17m (+4h 54m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GC002LX
-DEBUG FEASIBILITY: Route has 6 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
    VEHICLE: GC002LX:
       Feasible: True
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
        Route duration: 0 day(s) (8h 10m)
        Total waiting time: 23h 48m
        Task sequence (6 tasks) - Real-time monitoring:
           1. DEPOT-ASTI (Order: depot_start_order_GC002LX) - Cumulative: 0m [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
           2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 35) - Cumulative: 1d (+6m travel, +23h 48m wait) [Day 2, 00:00 -> Day 2, 18:00]
              Load: +150.0kg, +1.9m³ → Total: 150.0kg, 1.9m³
              Waiting: (23h 48m at DEPOT-ASTI before departure)
@@ -229,11 +175,6 @@ DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
           6. DEPOT-ASTI (Order: depot_return_order_GC002LX) - Cumulative: 1d 7h 58m (+1h 15m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GC069LX
-DEBUG FEASIBILITY: Route has 4 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: Time window violation at task TASK_14_27: Service start Day 3, 22:41 is after latest Day 3, 18:00
    VEHICLE: GC069LX:
       Feasible: False
       Reason: Time window violation at task TASK_14_27: Service start Day 3, 22:41 is after latest Day 3, 18:00
@@ -253,27 +194,14 @@ DEBUG FEASIBILITY: Time window violation at task TASK_14_27: Service start Day 3
           4. DEPOT-ASTI (Order: depot_return_order_GC069LX) - Cumulative: 3d 13h 22m (+14h 11m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GC079LX
-DEBUG FEASIBILITY: Route has 4 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
    VEHICLE: GC079LX:
       Feasible: True
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
        Route duration: 0 day(s) (3h 29m)
        Total waiting time: 23h 48m
        Task sequence (4 tasks) - Real-time monitoring:
           1. DEPOT-ASTI (Order: depot_start_order_GC079LX) - Cumulative: 0m [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
           2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 17) - Cumulative: 1d (+6m travel, +23h 48m wait) [Day 2, 00:00 -> Day 2, 18:00]
              Load: +1000.0kg, +3.0m³ → Total: 1000.0kg, 3.0m³
              Waiting: (23h 48m at DEPOT-ASTI before departure)
@@ -284,11 +212,6 @@ DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
           4. DEPOT-ASTI (Order: depot_return_order_GC079LX) - Cumulative: 1d 3h 17m (+1h 7m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GC086LX
-DEBUG FEASIBILITY: Route has 6 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: Time window violation at task TASK_18_34: Service start Day 2, 12:04 is after latest Day 1, 18:00
    VEHICLE: GC086LX:
       Feasible: False
       Reason: Time window violation at task TASK_18_34: Service start Day 2, 12:04 is after latest Day 1, 18:00
@@ -315,11 +238,6 @@ DEBUG FEASIBILITY: Time window violation at task TASK_18_34: Service start Day 2
           6. DEPOT-ASTI (Order: depot_return_order_GC086LX) - Cumulative: 1d 23h 56m (+5h 1m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GE026FZ
-DEBUG FEASIBILITY: Route has 4 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
    VEHICLE: GE026FZ:
       Feasible: True
        Route duration: 0 day(s) (6h 22m)
@@ -338,11 +256,6 @@ DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
           4. DEPOT-ASTI (Order: depot_return_order_GE026FZ) - Cumulative: 1d 3h 54m (+1h 57m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GE027FZ
-DEBUG FEASIBILITY: Route has 10 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: Time window violation at task TASK_20_38: Service start Day 2, 14:02 is after latest Day 2, 12:00
    VEHICLE: GE027FZ:
       Feasible: False
       Reason: Time window violation at task TASK_20_38: Service start Day 2, 14:02 is after latest Day 2, 12:00
@@ -380,11 +293,6 @@ DEBUG FEASIBILITY: Time window violation at task TASK_20_38: Service start Day 2
           10. DEPOT-ASTI (Order: depot_return_order_GE027FZ) - Cumulative: 1d 22h 22m (+3h 22m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GE030FZ
-DEBUG FEASIBILITY: Route has 8 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: Time window violation at task TASK_24_48: Service start Day 2, 07:54 is after latest Day 1, 18:00
    VEHICLE: GE030FZ:
       Feasible: False
       Reason: Time window violation at task TASK_24_48: Service start Day 2, 07:54 is after latest Day 1, 18:00
@@ -416,27 +324,14 @@ DEBUG FEASIBILITY: Time window violation at task TASK_24_48: Service start Day 2
           8. DEPOT-ASTI (Order: depot_return_order_GE030FZ) - Cumulative: 2d 3h 45m (+9h 36m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GE031FZ
-DEBUG FEASIBILITY: Route has 4 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
    VEHICLE: GE031FZ:
       Feasible: True
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
        Route duration: 0 day(s) (8h 58m)
        Total waiting time: 21h 20m
        Task sequence (4 tasks) - Real-time monitoring:
           1. DEPOT-ASTI (Order: depot_start_order_GE031FZ) - Cumulative: 0m [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
           2. STRADA PROVINCIALE 9, MONALE (AT), ITALY (Order: 29) - Cumulative: 1d (+2h 34m travel, +21h 20m wait) [Day 2, 00:00 -> Day 2, 18:00]
              Load: +300.0kg, +1.4m³ → Total: 300.0kg, 1.4m³
              Waiting: (21h 20m at DEPOT-ASTI before departure)
@@ -447,11 +342,6 @@ DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
           4. DEPOT-ASTI (Order: depot_return_order_GE031FZ) - Cumulative: 1d 6h 19m (+2h 32m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GA622VG
-DEBUG FEASIBILITY: Route has 4 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
    VEHICLE: GA622VG:
       Feasible: True
        Route duration: 0 day(s) (10h)
@@ -470,28 +360,15 @@ DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
           4. DEPOT-ASTI (Order: depot_return_order_GA622VG) - Cumulative: 1d 6h 58m (+2h 53m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: Checking route feasibility for vehicle GA633VG
-DEBUG FEASIBILITY: Route has 8 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
-DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=540.9m, Work=725.9m
    VEHICLE: GA633VG:
       Feasible: False
       Reason: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=540.9m, Work=725.9m
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
        Route duration: 0 day(s) (12h 5m) (would violate HoS if attempted without proper rests)
        Total waiting time: 23h 48m
        Task sequence (8 tasks) - Real-time monitoring:
           1. DEPOT-ASTI (Order: depot_start_order_GA633VG) - Cumulative: 0m [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-  ⚠️  WARNING: Travel time discrepancy exceeds 200.0% threshold!
-      This may indicate OSRM routing issues or unusual road conditions.
           2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 33) - Cumulative: 1d (+6m travel, +23h 48m wait) [Day 2, 00:00 -> Day 2, 18:00]
              Load: +500.0kg, +1.9m³ → Total: 500.0kg, 1.9m³
              Waiting: (23h 48m at DEPOT-ASTI before departure)
@@ -514,11 +391,6 @@ DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 2: Drive=540.9m
           8. DEPOT-ASTI (Order: depot_return_order_GA633VG) - Cumulative: 1d 11h 54m (+1h 52m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle XA359KW
-DEBUG FEASIBILITY: Route has 4 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 4: Drive=740.3m, Work=800.3m
    VEHICLE: XA359KW:
       Feasible: False
       Reason: HoS constraint violated (LEGAL LIMITS) on day 4: Drive=740.3m, Work=800.3m
@@ -538,11 +410,6 @@ DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 4: Drive=740.3m
           4. DEPOT-ASTI (Order: depot_return_order_XA359KW) - Cumulative: 3d 22h 28m (+10h 19m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle XA356KW
-DEBUG FEASIBILITY: Route has 4 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
    VEHICLE: XA356KW:
       Feasible: True
        Route duration: 0 day(s) (9h 54m)
@@ -561,11 +428,6 @@ DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
           4. DEPOT-ASTI (Order: depot_return_order_XA356KW) - Cumulative: 2d 7h 55m (+3h 25m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle XA819VA
-DEBUG FEASIBILITY: Route has 6 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: Time window violation at task TASK_12_22: Service start Day 2, 07:56 is after latest Day 2, 07:00
    VEHICLE: XA819VA:
       Feasible: False
       Reason: Time window violation at task TASK_12_22: Service start Day 2, 07:56 is after latest Day 2, 07:00
@@ -591,11 +453,6 @@ DEBUG FEASIBILITY: Time window violation at task TASK_12_22: Service start Day 2
           6. DEPOT-ASTI (Order: depot_return_order_XA819VA) - Cumulative: 1d 17h 59m (+4h 22m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle XA346KW
-DEBUG FEASIBILITY: Route has 4 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
    VEHICLE: XA346KW:
       Feasible: True
        Route duration: 0 day(s) (8h 42m)
@@ -615,11 +472,6 @@ DEBUG FEASIBILITY: ✅ Time window and HoS validation passed
           4. DEPOT-ASTI (Order: depot_return_order_XA346KW) - Cumulative: 1d 11h 58m (+3h 28m) [No window -> No window]
              Load: +0.0kg, +0.0m³ → Total: 0.0kg, 0.0m³
              Status: (On time)
-DEBUG FEASIBILITY: Checking route feasibility for vehicle XA345KW
-DEBUG FEASIBILITY: Route has 4 tasks
-DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot
-DEBUG FEASIBILITY: ✅ Capacity validation passed
-DEBUG FEASIBILITY: HoS constraint violated (LEGAL LIMITS) on day 3: Drive=640.0m, Work=700.0m
    VEHICLE: XA345KW:
       Feasible: False
       Reason: HoS constraint violated (LEGAL LIMITS) on day 3: Drive=640.0m, Work=700.0m

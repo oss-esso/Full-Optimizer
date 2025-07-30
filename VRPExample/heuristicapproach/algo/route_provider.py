@@ -522,9 +522,9 @@ def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
                     #print(f"  OSRM: {osrm_time:.1f}m | Haversine: {haversine_time:.1f}m | Diff: {percentage_diff:.1f}%")
                     
                     # Warning for significant discrepancies
-                    if percentage_diff > CROSS_VALIDATION_THRESHOLD:
-                        print(f"  ⚠️  WARNING: Travel time discrepancy exceeds {CROSS_VALIDATION_THRESHOLD}% threshold!")
-                        print(f"      This may indicate OSRM routing issues or unusual road conditions.")
+                    #if percentage_diff > CROSS_VALIDATION_THRESHOLD:
+                    #    print(f"  ⚠️  WARNING: Travel time discrepancy exceeds {CROSS_VALIDATION_THRESHOLD}% threshold!")
+                    #    print(f"      This may indicate OSRM routing issues or unusual road conditions.")
             
             return osrm_time
             

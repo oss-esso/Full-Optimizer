@@ -261,6 +261,7 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
     except ImportError:
         feasible, reason = True, "(Feasibility check unavailable)"
 
+    time.sleep(1)  # Add 1-second delay
     print(f"   VEHICLE: {vehicle_id}:")
     print(f"      Feasible: {feasible}")
     if not feasible:
@@ -406,27 +407,27 @@ def configure_algorithm_parameters() -> dict:
         'initialization_method': 'best_insertion',
         'vehicle_penalty_per_vehicle': 0.0,  # Further reduced from 10.0 - make vehicles very cheap
         'unassigned_order_base_penalty': 50000.0,  # Dramatically reduced from 500000.0 - much more lenient
-        'time_window_violation_penalty': 500.0, # Significantly increased to enforce time windows
+        'time_window_violation_penalty': 500000.0, # Significantly increased to enforce time windows
         'capacity_violation_penalty': 100.0,  # Reduced from 250.0 - very tolerant of capacity violations
         'distance_violation_penalty': 50.0,  # Reduced from 100.0 - moderate penalty for distance violations
         'Lo': 1000.0,  # Reduced from 1500.0 - smaller initial threshold
         'wk_ID': 60.0,  # Reduced from 80.0 - less strict on distance improvements
         'wk_IE': 60.0,  # Reduced from 80.0 - less strict on exchanges
-        'wk_IF': 30.0,  # Reduced from 40.0 - less strict on feasibility
+        'wk_IF': 40.0,  # Reduced from 40.0 - less strict on feasibility
         'wk_IH': 30.0,  # Reduced from 40.0 - less strict on relocations
         'wk_IJ': 10.0,  # Reduced from 15.0 - less strict on swaps
         'M': 5000.0,  # Reduced from 8000.0 - smaller penalty multiplier
-        'P_task': 50000.0,  # Reduced from 75000.0 - less penalty for task violations
-        'P_fleet': 50000.0,  # Reduced from 75000.0 - less penalty for fleet violations
-        'max_neighbors_to_evaluate': 200,  # Increased from 150 - explore more neighbors
-        'best_k_insertions': 30,  # Increased from 25 - try more insertion positions
+        'P_task': 500000.0,  # Reduced from 75000.0 - less penalty for task violations
+        'P_fleet': 50000000.0,  # Reduced from 75000.0 - less penalty for fleet violations
+        'max_neighbors_to_evaluate': 500,  # Increased from 150 - explore more neighbors
+        'best_k_insertions': 50,  # Increased from 25 - try more insertion positions
         'enable_delta_evaluation': True,
-        'max_neighbors_per_iteration': 300,  # Increased from 250 - even less VND limits
+        'max_neighbors_per_iteration': 500,  # Increased from 250 - even less VND limits
         # Cluster-aware initialization parameters for much more lenient assignment
-        'cluster_tolerance_factor': 2.0,  # Increased from 1.5 - Allow 100% more tolerance in clustering
-        'initial_assignment_relaxation': 0.5,  # Reduced from 0.8 - Relax constraints by 50% during initialization
+        'cluster_tolerance_factor': 1.0,  # Increased from 1.5 - Allow 100% more tolerance in clustering
+        'initial_assignment_relaxation': 0.8,  # Reduced from 0.8 - Relax constraints by 50% during initialization
         'capacity_buffer_factor': 1.5,  # Increased from 1.2 - Allow 50% capacity buffer during initial assignment
-        'time_window_buffer_minutes': 60,  # Increased from 30 - Allow 60 minutes buffer for time windows
+        'time_window_buffer_minutes': 30,  # Increased from 30 - Allow 60 minutes buffer for time windows
         'max_assignment_attempts': 10,  # Keep at 10 - Try multiple times to assign difficult orders
         # New ultra-lenient parameters
         'force_assignment_mode': True,  # New: Force assignment even with minor violations
@@ -440,7 +441,7 @@ def configure_algorithm_parameters() -> dict:
         'initialization_method': 'regret_k',  # New: Use regret-k insertion heuristic ('best_insertion', 'cluster_aware', or 'regret_k')
         'regret_k_value': 3,  # New: k value for regret calculation (2 or 3 is common)
         'enable_destroy_and_repair': True,  # New: Enable destroy and repair for large unassigned orders
-        'max_destroy_attempts': 5,  # New: Maximum number of destroy-repair attempts for difficult orders
+        'max_destroy_attempts': 10,  # New: Maximum number of destroy-repair attempts for difficult orders
         'debug_regret': True,  # New: Enable debug output for regret-k initialization
         'debug_destroy_repair': True,  # New: Enable debug output for destroy and repair operations
     }
