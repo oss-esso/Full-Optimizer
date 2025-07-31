@@ -1461,27 +1461,59 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                     return False, reason
                 return False
         except Exception as e:
+            # HoS check failed with exception - treat as infeasible for safety
+            reason = f"HoS check failed with error: {e}"
             if debug_feasibility:
-                #print(f"            DEBUG FEASIBILITY: HoS check failed with error: {e}")
+                #print(f"            DEBUG FEASIBILITY: {reason}")
                 pass
-            # For robustness, allow route to pass but log the error
-            pass
+            if return_reason:
+                return False, reason
+            return False
     
-    # H7: Hard time windows check - RE-ENABLED with enhanced validation
-    for task in sorted_tasks:
+    # H7: Hard time windows check - Enhanced with arrival time simulation
+    try:
+        from route_provider import calculate_travel_time_between_tasks
+    except ImportError:
+        # Fallback if route_provider is not available
+        def calculate_travel_time_between_tasks(task1, task2, vehicle):
+            return 0  # Simplified fallback
+    
+    current_time = 0  # Start at planning time 0
+    
+    for i, task in enumerate(sorted_tasks):
+        # Calculate travel time from previous task (if any)
+        if i > 0:
+            prev_task = sorted_tasks[i-1]
+            travel_time = calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
+            current_time += travel_time
+        
+        # Current time is now the arrival time at this task
+        arrival_time = current_time
+        
+        # Check hard time window constraints
         if hasattr(task, 'earliest_time') and hasattr(task, 'latest_time'):
             if not getattr(task, 'soft_time_window', False):  # Only check hard time windows
-                # This is simplified - proper implementation would track arrival times
-                # But we now have basic time window constraint validation
-                if task.earliest_time is not None and task.latest_time is not None:
-                    if task.earliest_time > task.latest_time:
-                        reason = f"Invalid time window for task {task.id}: earliest ({task.earliest_time}) > latest ({task.latest_time})"
-                        if debug_feasibility:
-                            #print(f"            DEBUG FEASIBILITY: {reason}")
-                            pass
-                        if return_reason:
-                            return False, reason
-                        return False
+                # Check for lateness - this makes the route infeasible
+                if task.latest_time is not None and arrival_time > task.latest_time:
+                    reason = f"Late arrival at task {task.id}: arrived at {arrival_time:.1f}, latest allowed {task.latest_time}"
+                    if debug_feasibility:
+                        #print(f"            DEBUG FEASIBILITY: {reason}")
+                        pass
+                    if return_reason:
+                        return False, reason
+                    return False
+                
+                # Check for early arrival - vehicle must wait
+                if task.earliest_time is not None and arrival_time < task.earliest_time:
+                    wait_time = task.earliest_time - arrival_time
+                    current_time = task.earliest_time  # Update current time to earliest allowed time
+                    if debug_feasibility:
+                        #print(f"            DEBUG FEASIBILITY: Early arrival at task {task.id}, waiting {wait_time:.1f} minutes")
+                        pass
+        
+        # Add service time to current time
+        service_time = getattr(task, 'service_time', 0)
+        current_time += service_time
             
     # H8: Driver regulations check (already done in _check_hos_multiday)
     # H9: Route ending position check
@@ -1870,18 +1902,6 @@ def _enforce_lifo_sequencing(route: 'Route') -> 'Route':
     return new_route
 
 
-def _check_hos_multiday(route: 'Route', debug_feasibility: bool = False) -> bool:
-    """
-    Enhanced Hours of Service check with multi-day support for debugging.
-    """
-    # HoS exemption: Skip HoS checks for vehicles without regulations (like furgoni)
-    if hasattr(route.vehicle, 'regulations') and not route.vehicle.regulations:
-        return True  # Vehicles without regulations are exempt from HoS constraints
-    
-    # For now, simplified check - implement full logic as needed
-    return True  # Placeholder - always passes for now
-
-
 def _sort_tasks_chronologically(tasks: List) -> List:
     """
     Sort tasks in strict chronological order: yesterday's tasks, then today's, then tomorrow's.
@@ -1964,33 +1984,60 @@ def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_task
         driver_state.work_today += service_time
         current_time += service_time
         
-        # If there's a next task, calculate travel time using Haversine
+        # If there's a next task, calculate travel time using proper route provider
         if i < len(sorted_tasks) - 1:
             next_task = sorted_tasks[i + 1]
-            travel_time = calculate_travel_time_haversine(
-                current_task.lat, current_task.lon,
-                next_task.lat, next_task.lon
-            ) / 60.0  # Convert to hours for HoS calculations
             
-            # Check driving time limits
+            # Use consistent travel time calculation (OSRM-based)
+            try:
+                from route_provider import calculate_travel_time_between_tasks
+                travel_time = calculate_travel_time_between_tasks(current_task, next_task, route.vehicle)
+                # travel_time is already in minutes - no conversion needed
+            except ImportError:
+                # Fallback to haversine if route provider not available
+                travel_time = calculate_travel_time_haversine(
+                    current_task.lat, current_task.lon,
+                    next_task.lat, next_task.lon
+                )
+                # calculate_travel_time_haversine returns minutes, so no conversion needed
+            
+            # Check driving time limits BEFORE attempting the journey
             max_drive_per_day = _get_max_drive_per_day(extensions_used_this_week)
             if driver_state.drive_today + travel_time > max_drive_per_day:
                 return False  # Would exceed daily driving limit
             
-            # Check if break is needed before travel
-            if driver_state.drive_since_break + travel_time > driver_state.MAX_DRIVE_WITHOUT_BREAK:
-                # Need a break
-                if driver_state.drive_since_break > 0:  # Only if we've been driving
-                    current_time += 45  # 45-minute break
-                    driver_state.take_break(45)
-            
-            # Add travel time
-            driver_state.drive_since_break += travel_time
-            driver_state.work_since_break += travel_time
-            driver_state.drive_today += travel_time
-            driver_state.work_today += travel_time
-            driver_state.drive_this_week += travel_time
-            current_time += travel_time
+            # CORRECTED BREAK LOGIC: Simulate partial driving with breaks
+            remaining_travel = travel_time
+            while remaining_travel > 0:
+                # Calculate how much we can drive before needing a break
+                remaining_drive_before_break = driver_state.MAX_DRIVE_WITHOUT_BREAK - driver_state.drive_since_break
+                
+                if remaining_travel <= remaining_drive_before_break:
+                    # Can complete the remaining travel without a break
+                    driver_state.drive_since_break += remaining_travel
+                    driver_state.work_since_break += remaining_travel
+                    driver_state.drive_today += remaining_travel
+                    driver_state.work_today += remaining_travel
+                    driver_state.drive_this_week += remaining_travel
+                    current_time += remaining_travel
+                    remaining_travel = 0
+                else:
+                    # Need to take a break during the journey
+                    if remaining_drive_before_break > 0:
+                        # Drive until we need a break
+                        driver_state.drive_since_break += remaining_drive_before_break
+                        driver_state.work_since_break += remaining_drive_before_break
+                        driver_state.drive_today += remaining_drive_before_break
+                        driver_state.work_today += remaining_drive_before_break
+                        driver_state.drive_this_week += remaining_drive_before_break
+                        current_time += remaining_drive_before_break
+                        remaining_travel -= remaining_drive_before_break
+                    
+                    # Take mandatory 45-minute break
+                    break_time = 45  # minutes
+                    current_time += break_time
+                    driver_state.work_today += break_time  # Breaks count as on-duty time
+                    driver_state.take_break(break_time)  # Resets drive_since_break to 0
         
         # Check for soft time window compliance (if applicable)
         if hasattr(current_task, 'soft_time_window') and current_task.soft_time_window:

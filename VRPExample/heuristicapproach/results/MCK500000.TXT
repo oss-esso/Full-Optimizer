@@ -1,18 +1,3 @@
-  Convergence reached: No improvement for 15.5s
-🏁 L1 optimization completed after 3 iterations
-🏁 Final score: 1831546.85
-✅ Heuristic completed successfully!
-   • Runtime: 54.28 seconds
-   • Solution type: Solution
-
-🚀 Applying smart force assignment...
-
-🔧 ENHANCED SMART FORCE ASSIGNMENT (BIG ORDERS FIRST)
-============================================================
-✅ No unassigned orders found!
-✅ Force assignment completed: 0 additional orders assigned
-DEBUG: About to call validation summary...
-
 ================================================================================
 📊 PHASE 1: HEURISTIC SOLVER VALIDATION RESULTS
 ================================================================================
