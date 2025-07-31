@@ -1593,15 +1593,6 @@ def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bo
         # Check for lateness
         if task.latest_time and service_start_time > task.latest_time:
             reason = f"Time window violation at task {task.id}: Service start {format_absolute_minutes(service_start_time)} is after latest {format_absolute_minutes(task.latest_time)}"
-            
-            # Store HoS data before returning (for violated routes)
-            if current_day not in daily_hos_breakdown:
-                daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
-            daily_hos_breakdown[current_day]['drive'] = daily_driving_time
-            daily_hos_breakdown[current_day]['work'] = daily_work_time
-            daily_hos_breakdown[current_day]['violations'].append(reason)
-            route.hos_daily_summary = daily_hos_breakdown
-            
             if debug_feasibility:
                 #print(f"DEBUG FEASIBILITY: {reason}")
                 pass
@@ -1628,15 +1619,23 @@ def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bo
         # Per regulations, waiting time does not contribute to driving or work time.
         daily_work_time += travel_time + service_time
 
+        # Store the current day's data in daily breakdown (update continuously for violation cases)
+        if current_day not in daily_hos_breakdown:
+            daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
+        daily_hos_breakdown[current_day]['drive'] = daily_driving_time
+        daily_hos_breakdown[current_day]['work'] = daily_work_time
+        
+        # Store the daily HoS breakdown on the route BEFORE checking violations
+        # This ensures data is preserved even when violations are detected
+        route.hos_daily_summary = daily_hos_breakdown
+
         if daily_driving_time > route.vehicle.max_driving_time or daily_work_time > route.vehicle.max_work_time:
             reason = f"HoS constraint violated (LEGAL LIMITS) on day {current_day}: Drive={daily_driving_time:.1f}m, Work={daily_work_time:.1f}m"
             
             # Store violation in daily breakdown
-            if current_day not in daily_hos_breakdown:
-                daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
-            daily_hos_breakdown[current_day]['drive'] = daily_driving_time
-            daily_hos_breakdown[current_day]['work'] = daily_work_time
             daily_hos_breakdown[current_day]['violations'].append(reason)
+            # Update the route's HoS data with violation information
+            route.hos_daily_summary = daily_hos_breakdown
             
             if debug_feasibility:
                 #print(f"DEBUG FEASIBILITY: {reason}")
