@@ -204,7 +204,7 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
             best_neighbor_score = float('-inf')
             neighbors_evaluated = 0
             
-            for neighbor in neighborhood_func(center_solution, orders):
+            for neighbor in neighborhood_func(center_solution, orders, vehicles):
                 neighbors_evaluated += 1
                 total_neighbors_this_vnd += 1
                 
@@ -349,7 +349,63 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 )
                 route.tasks.append(return_task)
     
-    return best_solution
+    # FINAL VALIDATION: Strictly enforce HoS compliance on all routes
+    print("🔍 Performing final HoS validation on all routes...")
+    final_solution = _validate_and_filter_solution(best_solution)
+    
+    return final_solution
+
+
+def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
+    """
+    Perform final strict validation on all routes and remove any that violate HoS constraints.
+    
+    This ensures that the final solution only contains routes that pass strict HoS validation,
+    regardless of whether they were created during initialization (when checks are bypassed).
+    """
+    try:
+        from second_level import is_feasible
+    except ImportError:
+        try:
+            from .second_level import is_feasible
+        except ImportError:
+            print("Warning: Could not import is_feasible function for final validation")
+            return solution
+    
+    validated_routes = []
+    removed_routes = 0
+    
+    print(f"Validating {len(solution.routes)} routes...")
+    
+    for i, route in enumerate(solution.routes):
+        print(f"Route {i}: type={type(route)}, value={route}")
+        if hasattr(route, 'tasks') and route.tasks:  # Only validate non-empty routes with tasks
+            # Force strict HoS validation (no initialization bypass)
+            if is_feasible(route, debug_feasibility=False, return_reason=False):
+                validated_routes.append(route)
+            else:
+                removed_routes += 1
+                print(f"⚠️  Route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed due to HoS violation")
+                
+                # Add orders from removed route back to unassigned
+                for task in route.tasks:
+                    if hasattr(task, 'order_id') and task.order_id:
+                        if not hasattr(solution, 'unassigned_orders'):
+                            solution.unassigned_orders = set()
+                        solution.unassigned_orders.add(task.order_id)
+        else:
+            print(f"Skipping route {i} - no tasks or invalid type")
+            validated_routes.append(route)  # Keep empty routes
+    
+    # Update solution with validated routes
+    solution.routes = validated_routes
+    
+    if removed_routes > 0:
+        print(f"🔧 Final validation complete: {removed_routes} routes removed due to HoS violations")
+    else:
+        print("✅ Final validation complete: All routes pass HoS constraints")
+    
+    return solution
 
 
 def get_move_attributes(from_solution: 'Solution', to_solution: 'Solution') -> tuple:
@@ -959,7 +1015,7 @@ def _is_feasible_insertion(route: 'Route', task_to_insert, position: int) -> boo
 # Placeholder implementations for neighborhood functions and utilities
 # These will be implemented in future tasks
 
-def unassigned_order_insertion_neighborhood(solution: 'Solution', orders: List['Order']) -> Iterator['Solution']:
+def unassigned_order_insertion_neighborhood(solution: 'Solution', orders: List['Order'], vehicles: List['Vehicle']) -> Iterator['Solution']:
     """
     Generate neighborhood by attempting to insert unassigned orders into existing routes or idle vehicles.
     
@@ -1012,17 +1068,35 @@ def unassigned_order_insertion_neighborhood(solution: 'Solution', orders: List['
                 yield new_solution
     
     # Strategy 2: Try assigning to idle vehicles
-    all_vehicles = set()
-    used_vehicles = set(solution.routes.keys())
+    used_vehicle_ids = set(solution.routes.keys())
+    idle_vehicles = [v for v in vehicles if v.id not in used_vehicle_ids]
     
-    # We need access to the full vehicle list - this is a limitation of the current architecture
-    # For now, we'll skip idle vehicle assignment and rely on existing route insertion
-    # TODO: Pass vehicle list to neighborhood functions or store in solution
+    print(f"🔍 Found {len(idle_vehicles)} idle vehicles for unassigned order insertion")
     
+    for unassigned_order in unassigned_orders:
+        for idle_vehicle in idle_vehicles:
+            # Create a new empty route for the idle vehicle
+            from epdt_data_structures import Route
+            empty_route = Route(vehicle=idle_vehicle)
+            
+            # Try L2 insertion into the empty route
+            from second_level import l2_heuristic
+            new_route = l2_heuristic(empty_route, unassigned_order, debug_assignment=False)
+            
+            if new_route is not None and new_route.tasks:
+                # Create new solution with the new route for the idle vehicle
+                new_solution = solution.copy()
+                new_solution.routes[idle_vehicle.id] = new_route
+                
+                # Remove from unassigned if solution tracks them
+                if hasattr(new_solution, 'unassigned_orders') and unassigned_order.id in new_solution.unassigned_orders:
+                    new_solution.unassigned_orders.remove(unassigned_order.id)
+                
+                print(f"✅ Successfully assigned unassigned order {unassigned_order.id} to idle vehicle {idle_vehicle.id}")
+                yield new_solution
+
     return
-
-
-def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Order']) -> Iterator['Solution']:
+def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Order'], vehicles: List['Vehicle']) -> Iterator['Solution']:
     """
     Generate neighborhood by relocating a single order from one route to another.
     
@@ -1087,9 +1161,45 @@ def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Ord
                     if optimized_route:
                         new_solution.routes[to_vehicle_id] = optimized_route
                         yield new_solution
+        
+        # Strategy 2: Try relocating orders to idle vehicles  
+        used_vehicle_ids = set(solution.routes.keys())
+        idle_vehicles = [v for v in vehicles if v.id not in used_vehicle_ids]
+        
+        if idle_vehicles:
+            print(f"🔍 Found {len(idle_vehicles)} idle vehicles for order relocation")
+            
+            # For each order in the current route
+            for order_id, tasks in orders_in_route.items():
+                for idle_vehicle in idle_vehicles:
+                    # Create a new solution with order moved to idle vehicle
+                    new_solution = copy.deepcopy(solution)
+                    
+                    # Remove tasks from source route
+                    source_route = new_solution.routes[from_vehicle_id]
+                    for task in tasks:
+                        try:
+                            position = source_route.tasks.index(task)
+                            source_route.remove_task(position)
+                        except (ValueError, IndexError):
+                            if task in source_route.tasks:
+                                source_route.tasks.remove(task)
+                    
+                    # Create new route for idle vehicle
+                    from epdt_data_structures import Route
+                    empty_route = Route(vehicle=idle_vehicle)
+                    
+                    # Get the order object and use L2 heuristic to insert
+                    order = next((o for o in orders if o.id == order_id), None)
+                    if order:
+                        optimized_route = l2_heuristic(empty_route, order)
+                        if optimized_route and optimized_route.tasks:
+                            new_solution.routes[idle_vehicle.id] = optimized_route
+                            print(f"✅ Successfully relocated order {order_id} to idle vehicle {idle_vehicle.id}")
+                            yield new_solution
 
 
-def two_orders_swap_neighborhood(solution: 'Solution', orders: List['Order']) -> Iterator['Solution']:
+def two_orders_swap_neighborhood(solution: 'Solution', orders: List['Order'], vehicles: List['Vehicle']) -> Iterator['Solution']:
     """
     Generate neighborhood by swapping two orders between different routes.
     
@@ -1180,7 +1290,7 @@ def two_orders_swap_neighborhood(solution: 'Solution', orders: List['Order']) ->
                             yield new_solution
 
 
-def multiple_order_relocation_neighborhood(solution: 'Solution', orders: List['Order'], max_orders: int = 3) -> Iterator['Solution']:
+def multiple_order_relocation_neighborhood(solution: 'Solution', orders: List['Order'], vehicles: List['Vehicle'], max_orders: int = 3) -> Iterator['Solution']:
     """
     Generate neighborhood by relocating multiple orders from one route to another (mR).
     
@@ -1259,7 +1369,7 @@ def multiple_order_relocation_neighborhood(solution: 'Solution', orders: List['O
                         yield new_solution
 
 
-def two_opt_routes_neighborhood(solution: 'Solution', orders: List['Order']) -> Iterator['Solution']:
+def two_opt_routes_neighborhood(solution: 'Solution', orders: List['Order'], vehicles: List['Vehicle']) -> Iterator['Solution']:
     """
     Generate neighborhood by applying 2-opt optimization within routes (2C).
     
