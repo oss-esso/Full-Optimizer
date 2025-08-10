@@ -909,36 +909,37 @@ This guide provides detailed instructions for a coding agent on how to parse the
 *   The final "ENHANCED DRIVER ASSIGNMENT SUMMARY" should now correctly display the detailed daily breakdown of drive and work times for every single route, without the "HoS data not available" message.
 
 
-## 32. Correct and Refine HoS Simulation and Feasibility Logic
+**Test Case Specifications:**
 
-**Objective:** Fix the core HoS simulation to correctly identify infeasible routes based on strict validation and accurately model different types of waiting time.
+1.  **`test_timeline_short_route_is_feasible`**
+    *   **Requirement:** 32.1, 32.2. A simple route should produce a timeline with no rests and pass validation.
+    *   **Input:** A route with 2 hours of total drive and work time.
+    *   **Expected Output:** The generated timeline contains no 'REST' events. `is_feasible` returns `True`.
 
-- **Problem:** The current HoS simulation in `_check_hos_multiday` is flawed. It attempts to "fix" routes that violate HoS by simulating the addition of mandatory rests, rather than flagging the route as infeasible. This leads to incorrect `Feasible: True` statuses for routes that require more driving or work time than legally allowed in a single stretch. Furthermore, the handling of waiting time is ambiguous.
+2.  **`test_timeline_inserts_45min_break`**
+    *   **Requirement:** 32.1.b. The simulator must insert a 45-minute break when required.
+    *   **Input:** A route with 5 hours of continuous driving.
+    *   **Expected Output:** The timeline contains exactly one 'REST' event of 45 minutes, inserted after no more than 4.5 hours of driving.
 
-- **Goal:** Refactor the HoS simulation to be a strict validator that correctly accounts for all time components as per European regulations.
+3.  **`test_timeline_inserts_daily_rest`**
+    *   **Requirement:** 32.1.b. The simulator must insert an 11-hour daily rest when required.
+    *   **Input:** A route with 12 hours of work/driving in a 24-hour period.
+    *   **Expected Output:** The timeline contains an 11-hour 'REST' event.
 
-### Implementation Plan:
+4.  **`test_timeline_infeasible_due_to_break`**
+    *   **Requirement:** 32.2. The validator must fail a timeline if a rest causes a time window violation.
+    *   **Input:** A route where a task's time window is right after 4.5 hours of driving. The 45-minute break will make the arrival late.
+    *   **Expected Output:** `is_feasible` returns `(False, "Time window violation...")`.
 
-1.  **Make `_check_hos_multiday` a Strict Validator:**
-    *   **File:** `algo/second_level.py`
-    *   **Function:** `_check_hos_multiday`
-    *   **Action:** Modify the logic within the `while travel_time_remaining > 0:` loop.
-    *   **Logic:**
-        *   The function should **not** simulate the addition of rests (e.g., `rest_duration = 45`, `sim_state.reset_daily()`).
-        *   Instead, if the simulation determines that a break or rest *would be required* to continue (i.e., `drive_since_break` or `drive_today`/`work_today` exceed their limits), the function must immediately `return False, total_rest_cost`.
-        *   This ensures that `is_feasible` receives a correct assessment: the route, as sequenced, is not legally possible without modification.
+5.  **`test_customer_wait_time_is_work`**
+    *   **Requirement:** 32.1.a. Waiting time at a customer location must count as work.
+    *   **Input:** A route where the driver arrives 1 hour before a task's `earliest_start_time`.
+    *   **Expected Output:** The timeline contains a 'WAIT' or 'WORK' event for that hour, and the `work_today` counter reflects this time.
 
-2.  **Clarify and Implement Correct Waiting Time Logic:**
-    *   **File:** `algo/second_level.py`
-    *   **Function:** `_check_hos_multiday` (or a new helper function for time simulation).
-    *   **Action:** Implement logic that correctly simulates the passage of time and its impact on HoS counters.
-    *   **Logic:**
-        *   **Waiting at Depot (for a late start):** If a vehicle waits at the depot before starting its first task to meet a time window (e.g., `earliest_time` on Day 2), this waiting period should **not** count towards the driver's `work_today` or `drive_today`. The driver's shift has not officially started. The simulation's `current_time` should simply be advanced.
-        *   **Waiting at a Customer Location (e.g., to meet an `earliest_time` window):** This time **must** be added to the `work_today` counter. As per regulations, this is a "period of availability" and counts as work, not rest.
-        *   **Time Window Penalties:** The `calculate_z2_score` function should continue to apply soft penalties for lateness at tasks with soft time windows, allowing the optimizer to make trade-offs.
+6.  **`test_depot_wait_time_is_not_work`**
+    *   **Requirement:** The simulation must correctly handle multi-day scenarios where a driver is idle before the first task.
+    *   **Input:** A route where the first task is on Day 2.
+    *   **Expected Output:** The time between the start of the planning horizon and the departure for the first task does not contribute to any HoS work/drive counters.
 
-3.  **Testing the Fix:**
-    *   **Action:** Re-run the `tests/comprehensive_integration_test.py`.
-    *   **Expected Outcome:**
-        *   The "Feasible" status in the initial route validation summary should now correctly show `False` for routes that were previously showing violations only in the final summary (e.g., `GC002LX`).
-        *   The red and yellow violation warnings should now be consistent across all parts of the output.
+**Incident Logging:** If any test fails, the LLM agent must analyze the generated timeline against the expected output and provide a summary of the discrepancy before attempting a fix. This ensures a structured debugging process.
+

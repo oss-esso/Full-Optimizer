@@ -13,12 +13,48 @@ Key improvements:
 5. Better testing capabilities
 """
 
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Tuple, Optional, Dict, Any, TYPE_CHECKING
 import copy
 from dataclasses import dataclass
 
 # Import only the data structures we need to avoid circular imports
-from algo.epdt_data_structures import DriverState, HoSEvent
+from epdt_data_structures import DriverState, HoSEvent
+
+if TYPE_CHECKING:
+    from epdt_data_structures import Route
+
+
+@dataclass
+class SimulatedEvent:
+    """
+    Represents a single event in the timeline simulation for HoS compliance.
+    
+    This is used by the build_compliant_timeline function to create a detailed
+    timeline of all events including travel, work, waits, and mandatory rests.
+    """
+    event_type: str  # 'DRIVE', 'WORK', 'WAIT', 'REST'
+    start_time: float  # Minutes from start of planning period
+    end_time: float  # Minutes from start of planning period
+    duration: float  # Duration in minutes
+    description: str  # Human-readable description
+    location: Optional[str] = None  # Location where event occurs
+    task_id: Optional[str] = None  # Associated task ID if applicable
+    rest_type: Optional[str] = None  # Type of rest: '45min_break', '11h_daily', '45h_weekly'
+    cost: float = 0.0  # Cost associated with this event
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert event to dictionary for logging/export."""
+        return {
+            'event_type': self.event_type,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'duration': self.duration,
+            'description': self.description,
+            'location': self.location,
+            'task_id': self.task_id,
+            'rest_type': self.rest_type,
+            'cost': self.cost
+        }
 
 
 @dataclass
@@ -559,6 +595,376 @@ def validate_route_hos_feasibility(route, driver_state: DriverState = None) -> H
         violations=violations,
         events=events
     )
+
+
+def build_compliant_timeline(route: 'Route') -> Tuple[List[SimulatedEvent], float]:
+    """
+    Build a legally compliant timeline by simulating a route and inserting all mandatory rests.
+    
+    This is the core of the new two-stage HoS simulation engine. It creates a detailed
+    timeline of all events including travel, work, waits, and mandatory rests without
+    making any feasibility judgments about time windows.
+    
+    Args:
+        route: The route to simulate
+        
+    Returns:
+        Tuple of (timeline_events, total_rest_cost)
+        - timeline_events: List of SimulatedEvent objects representing the complete timeline
+        - total_rest_cost: Total cost of all inserted rests
+    """
+    if not route.tasks or len(route.tasks) < 2:
+        return [], 0.0
+    
+    # Initialize simulation state
+    timeline = []
+    total_rest_cost = 0.0
+    driver_cost_per_minute = (route.vehicle.cost_per_hour / 60.0) if route.vehicle else (25.0 / 60.0)
+    
+    # Initialize driver state - use route's driver state if available, otherwise create new
+    if hasattr(route, 'driver_state') and route.driver_state:
+        driver_state = copy.deepcopy(route.driver_state)
+    else:
+        driver_state = DriverState()
+    
+    # B license drivers are exempt from HoS regulations
+    if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
+        # For B license drivers, just create basic timeline without HoS constraints
+        current_time = 0.0
+        for i in range(len(route.tasks) - 1):
+            start_task = route.tasks[i]
+            end_task = route.tasks[i + 1]
+            
+            # Service time at start task
+            if start_task.service_time > 0:
+                timeline.append(SimulatedEvent(
+                    event_type='WORK',
+                    start_time=current_time,
+                    end_time=current_time + start_task.service_time,
+                    duration=start_task.service_time,
+                    description=f"Service at {start_task.id}",
+                    location=getattr(start_task, 'location', None),
+                    task_id=start_task.id
+                ))
+                current_time += start_task.service_time
+            
+            # Travel time to next task
+            travel_time = _calculate_travel_time_for_simulation(start_task, end_task, route.vehicle)
+            if travel_time > 0:
+                timeline.append(SimulatedEvent(
+                    event_type='DRIVE',
+                    start_time=current_time,
+                    end_time=current_time + travel_time,
+                    duration=travel_time,
+                    description=f"Drive from {start_task.id} to {end_task.id}",
+                    task_id=f"{start_task.id}->{end_task.id}"
+                ))
+                current_time += travel_time
+                
+        return timeline, 0.0
+    
+    # For CE license drivers, perform full HoS simulation
+    current_time = 0.0
+    current_day = getattr(route.tasks[0], 'day', 0) if route.tasks else 0
+    
+    # --- START: NEW LOGIC TO INSERT ---
+    # Correctly initialize current_time by handling the initial depot wait.
+    if len(route.tasks) > 1:
+        first_real_task = route.tasks[1] # tasks[0] is the depot start
+        
+        # Use 'earliest_start_time' if available, fall back to 'earliest_time'
+        task_start_time = getattr(first_real_task, 'earliest_start_time', getattr(first_real_task, 'earliest_time', 0))
+
+        if task_start_time and task_start_time > 0:
+            # Calculate travel time from depot to the first real task
+            travel_to_first_task = _calculate_travel_time_for_simulation(route.tasks[0], first_real_task, route.vehicle)
+            
+            # The driver must depart to arrive on time
+            required_departure_time = task_start_time - travel_to_first_task
+            
+            if required_departure_time > current_time:
+                wait_duration = required_departure_time - current_time
+                
+                # This is a non-working, unpaid wait at the depot
+                timeline.append(SimulatedEvent(
+                    event_type='WAIT',
+                    start_time=current_time,
+                    end_time=required_departure_time,
+                    duration=wait_duration,
+                    description="Initial wait at depot before departure",
+                    location=getattr(route.tasks[0], 'location', 'Depot'),
+                    task_id=route.tasks[0].id,
+                    cost=0.0 # Depot wait has no cost
+                ))
+                
+                # Advance the simulation clock to the required departure time
+                current_time = required_departure_time
+    # --- END: NEW LOGIC TO INSERT ---
+    
+    for i in range(len(route.tasks) - 1):
+        start_task = route.tasks[i]
+        end_task = route.tasks[i + 1]
+        
+        # Check for day transition
+        task_day = getattr(start_task, 'day', 0)
+        if task_day != current_day:
+            # New day: insert mandatory daily rest
+            if driver_state.work_today > 0:  # If work was done previous day
+                rest_duration = HoSRegulations.MIN_DAILY_REST  # 11 hours
+                rest_cost = rest_duration * driver_cost_per_minute
+                
+                timeline.append(SimulatedEvent(
+                    event_type='REST',
+                    start_time=current_time,
+                    end_time=current_time + rest_duration,
+                    duration=rest_duration,
+                    description="Mandatory 11-hour daily rest",
+                    rest_type='11h_daily',
+                    cost=rest_cost
+                ))
+                
+                current_time += rest_duration
+                total_rest_cost += rest_cost
+                driver_state.reset_daily()
+                
+            current_day = task_day
+        
+        # Simulate waiting time if needed
+        earliest_start = getattr(start_task, 'earliest_start_time', None) or getattr(start_task, 'earliest_time', None)
+        
+        if (earliest_start is not None and current_time < earliest_start):
+            
+            wait_duration = earliest_start - current_time
+            
+            # Determine if this is depot waiting or customer waiting
+            is_depot_waiting = (hasattr(start_task, 'is_depot_start') and start_task.is_depot_start()) or \
+                              (hasattr(start_task, 'task_type') and 'depot' in str(start_task.task_type).lower())
+            
+            if not is_depot_waiting:
+                # Customer waiting - check if it can count as a break
+                rest_applied = False
+                remaining_wait = wait_duration
+                wait_start_time = current_time
+                
+                # For long waits (11+ hours), always use as daily rest if driver has done significant work
+                if wait_duration >= HoSRegulations.MIN_DAILY_REST and driver_state.work_today > 0:
+                    # Use wait time as 11-hour daily rest
+                    rest_duration = HoSRegulations.MIN_DAILY_REST  # Only take 11 hours, not the full wait
+                    timeline.append(SimulatedEvent(
+                        event_type='REST',
+                        start_time=current_time,
+                        end_time=current_time + rest_duration,
+                        duration=rest_duration,
+                        description=f"Daily rest during wait at {start_task.id}",
+                        rest_type='11h_daily',
+                        location=getattr(start_task, 'location', None),
+                        task_id=start_task.id,
+                        cost=rest_duration * driver_cost_per_minute
+                    ))
+                    
+                    driver_state.reset_daily()
+                    current_time += rest_duration
+                    remaining_wait -= rest_duration
+                    total_rest_cost += rest_duration * driver_cost_per_minute
+                    rest_applied = True
+                
+                # For moderate waits (45+ minutes), use as break if driver needs a driving break
+                elif (wait_duration >= HoSRegulations.MIN_BREAK_DURATION and 
+                      driver_state.drive_since_break > 0):
+                    # Use wait time as 45-minute break
+                    rest_duration = HoSRegulations.MIN_BREAK_DURATION  # Only take 45 minutes, not the full wait
+                    timeline.append(SimulatedEvent(
+                        event_type='REST',
+                        start_time=current_time,
+                        end_time=current_time + rest_duration,
+                        duration=rest_duration,
+                        description=f"45-minute break during wait at {start_task.id}",
+                        rest_type='45min_break',
+                        location=getattr(start_task, 'location', None),
+                        task_id=start_task.id,
+                        cost=rest_duration * driver_cost_per_minute
+                    ))
+                    
+                    driver_state.drive_since_break = 0.0
+                    current_time += rest_duration
+                    remaining_wait -= rest_duration
+                    total_rest_cost += rest_duration * driver_cost_per_minute
+                    rest_applied = True
+                
+                # If there's remaining wait time after rest, count it as regular wait (not work time)
+                if remaining_wait > 0:
+                    timeline.append(SimulatedEvent(
+                        event_type='WAIT',
+                        start_time=current_time,
+                        end_time=earliest_start,
+                        duration=remaining_wait,
+                        description=f"Wait at customer location {start_task.id}",
+                        location=getattr(start_task, 'location', None),
+                        task_id=start_task.id
+                    ))
+                    # Note: Only short waits (under 45 minutes) count as work time
+                    if not rest_applied and wait_duration < HoSRegulations.MIN_BREAK_DURATION:
+                        driver_state.work_today += remaining_wait
+                        driver_state.total_work_this_week += remaining_wait
+                
+                # If no rest was applied and wait is short, count as work time
+                elif not rest_applied:
+                    timeline.append(SimulatedEvent(
+                        event_type='WAIT',
+                        start_time=current_time,
+                        end_time=earliest_start,
+                        duration=wait_duration,
+                        description=f"Wait at customer location {start_task.id}",
+                        location=getattr(start_task, 'location', None),
+                        task_id=start_task.id
+                    ))
+                    
+                    driver_state.work_today += wait_duration
+                    driver_state.total_work_this_week += wait_duration
+            else:
+                # Depot waiting - driver shift hasn't started yet
+                timeline.append(SimulatedEvent(
+                    event_type='WAIT',
+                    start_time=current_time,
+                    end_time=earliest_start,
+                    duration=wait_duration,
+                    description=f"Wait at depot before shift start",
+                    location=getattr(start_task, 'location', None),
+                    task_id=start_task.id
+                ))
+            
+            current_time = earliest_start
+        
+        # Simulate service time at start task
+        if start_task.service_time > 0:
+            timeline.append(SimulatedEvent(
+                event_type='WORK',
+                start_time=current_time,
+                end_time=current_time + start_task.service_time,
+                duration=start_task.service_time,
+                description=f"Service at {start_task.id}",
+                location=getattr(start_task, 'location', None),
+                task_id=start_task.id
+            ))
+            
+            driver_state.work_today += start_task.service_time
+            driver_state.total_work_this_week += start_task.service_time
+            current_time += start_task.service_time
+        
+        # Simulate travel time with potential interruptions for mandatory rests
+        travel_time = _calculate_travel_time_for_simulation(start_task, end_task, route.vehicle)
+        travel_time_remaining = travel_time
+        
+        while travel_time_remaining > 0:
+            # Calculate maximum time the driver can legally drive before needing a break
+            max_drive_before_break = HoSRegulations.MAX_DRIVE_WITHOUT_BREAK - driver_state.drive_since_break
+            max_drive_before_daily_limit = HoSRegulations.MAX_DRIVE_PER_DAY - driver_state.drive_today
+            max_work_before_daily_limit = HoSRegulations.MAX_WORK_PER_DAY - driver_state.work_today
+            
+            drivable_time = min(max_drive_before_break, max_drive_before_daily_limit, 
+                              max_work_before_daily_limit, travel_time_remaining)
+            
+            if drivable_time > 0:
+                # Simulate driving for the calculated time
+                timeline.append(SimulatedEvent(
+                    event_type='DRIVE',
+                    start_time=current_time,
+                    end_time=current_time + drivable_time,
+                    duration=drivable_time,
+                    description=f"Drive from {start_task.id} to {end_task.id}",
+                    task_id=f"{start_task.id}->{end_task.id}"
+                ))
+                
+                driver_state.drive_since_break += drivable_time
+                driver_state.drive_today += drivable_time
+                driver_state.work_today += drivable_time
+                driver_state.drive_this_week += drivable_time
+                driver_state.total_work_this_week += drivable_time
+                
+                current_time += drivable_time
+                travel_time_remaining -= drivable_time
+            
+            # If travel is not complete, a rest is mandatory
+            if travel_time_remaining > 0:
+                rest_duration = 0.0
+                rest_type = None
+                rest_description = ""
+                
+                # Determine type of rest needed
+                if driver_state.drive_since_break >= HoSRegulations.MAX_DRIVE_WITHOUT_BREAK:
+                    # 45-minute break required
+                    rest_duration = HoSRegulations.MIN_BREAK_DURATION
+                    rest_type = '45min_break'
+                    rest_description = "Mandatory 45-minute driving break"
+                elif (driver_state.drive_today >= HoSRegulations.MAX_DRIVE_PER_DAY or 
+                      driver_state.work_today >= HoSRegulations.MAX_WORK_PER_DAY):
+                    # Daily rest required
+                    rest_duration = HoSRegulations.MIN_DAILY_REST
+                    rest_type = '11h_daily'
+                    rest_description = "Mandatory 11-hour daily rest"
+                elif driver_state.drive_this_week >= HoSRegulations.MAX_DRIVE_PER_WEEK:
+                    # Weekly rest required
+                    rest_duration = HoSRegulations.MIN_WEEKLY_REST
+                    rest_type = '45h_weekly'
+                    rest_description = "Mandatory 45-hour weekly rest"
+                else:
+                    # Shouldn't happen, but handle gracefully
+                    rest_duration = HoSRegulations.MIN_BREAK_DURATION
+                    rest_type = '45min_break'
+                    rest_description = "Mandatory break (fallback)"
+                
+                rest_cost = rest_duration * driver_cost_per_minute
+                
+                timeline.append(SimulatedEvent(
+                    event_type='REST',
+                    start_time=current_time,
+                    end_time=current_time + rest_duration,
+                    duration=rest_duration,
+                    description=rest_description,
+                    rest_type=rest_type,
+                    cost=rest_cost
+                ))
+                
+                current_time += rest_duration
+                total_rest_cost += rest_cost
+                
+                # Reset HoS counters as appropriate
+                if rest_type == '45min_break':
+                    driver_state.drive_since_break = 0.0
+                    # work_since_break would also reset but we don't track it in this simple version
+                elif rest_type == '11h_daily':
+                    driver_state.reset_daily()
+                elif rest_type == '45h_weekly':
+                    # Reset weekly counters
+                    driver_state.drive_this_week = 0.0
+                    driver_state.total_work_this_week = 0.0
+                    driver_state.reset_daily()
+    
+    return timeline, total_rest_cost
+
+
+def _calculate_travel_time_for_simulation(task1, task2, vehicle) -> float:
+    """
+    Calculate travel time between two tasks for simulation purposes.
+    
+    This is a helper function that uses the same logic as the main routing system
+    to ensure consistency in travel time calculations.
+    
+    Args:
+        task1: Starting task
+        task2: Ending task
+        vehicle: Vehicle object for speed calculation
+        
+    Returns:
+        Travel time in minutes
+    """
+    try:
+        # Try to use the route provider if available
+        from route_provider import calculate_travel_time_between_tasks
+        return calculate_travel_time_between_tasks(task1, task2, vehicle)
+    except ImportError:
+        # Fallback to the same calculation used in hos_simulation.py
+        return calculate_travel_time_between_tasks(task1, task2, vehicle)
 
 
 # Backward compatibility functions for existing code
