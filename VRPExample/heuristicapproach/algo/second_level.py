@@ -519,6 +519,132 @@ def _calculate_realistic_driver_costs(route: 'Route') -> tuple[float, float]:
     return break_cost, total_downtime
 
 
+def _estimate_hos_cost_with_breaks(route: 'Route', driver_state: 'DriverState', sorted_tasks: List) -> float:
+    """
+    Estimate the total HoS cost including the cost of mandatory breaks.
+    Unlike _check_hos_multiday, this function doesn't reject routes outright but estimates
+    the cost of required rests to complete the route legally.
+    
+    This is used for cost evaluation during optimization, while _check_hos_multiday
+    is used for strict feasibility checking.
+    
+    Args:
+        route: The route being evaluated
+        driver_state: Current driver state
+        sorted_tasks: Tasks sorted chronologically
+        
+    Returns:
+        Total estimated cost including mandatory breaks
+    """
+    if not sorted_tasks or len(sorted_tasks) < 2:
+        return 0.0
+
+    total_rest_cost = 0.0
+    driver_cost_per_minute = (route.vehicle.cost_per_hour / 60.0) if route.vehicle else (25.0 / 60.0)
+    sim_state = driver_state.copy()
+    
+    # B license drivers are exempt from HoS regulations
+    if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
+        return 0.0
+    
+    current_time = 0
+    current_day = getattr(sorted_tasks[0], 'day', 0)
+    
+    # Process each task in chronological order
+    for i in range(len(sorted_tasks) - 1):
+        start_task = sorted_tasks[i]
+        end_task = sorted_tasks[i+1]
+
+        # 1. Simulate Service Time at the start_task
+        service_time = start_task.service_time
+        if service_time > 0:
+            # If service time would exceed daily limit, add mandatory rest cost
+            if sim_state.work_today + service_time > sim_state.MAX_WORK_PER_DAY:
+                daily_rest_cost = 11 * 60 * driver_cost_per_minute  # 11-hour daily rest
+                total_rest_cost += daily_rest_cost
+                sim_state.reset_daily()
+            
+            sim_state.work_today += service_time
+            sim_state.work_this_week += service_time
+        
+        # Check for day transition
+        task_day = getattr(start_task, 'day', 0)
+        if task_day != current_day:
+            if sim_state.work_today > 0:
+                rest_time = 11 * 60  # 11 hours in minutes
+                total_rest_cost += rest_time * driver_cost_per_minute
+                current_time += rest_time
+                sim_state.reset_daily()
+            current_day = task_day
+        
+        # Calculate travel time
+        try:
+            from route_provider import calculate_travel_time_between_tasks
+            travel_time = calculate_travel_time_between_tasks(start_task, end_task, route.vehicle)
+        except ImportError:
+            travel_time = calculate_travel_time_haversine(
+                start_task.lat, start_task.lon,
+                end_task.lat, end_task.lon
+            )
+        
+        travel_time_remaining = travel_time
+        while travel_time_remaining > 0:
+            max_drive_before_break = sim_state.MAX_DRIVE_WITHOUT_BREAK - sim_state.drive_since_break
+            max_drive_before_daily_limit = sim_state.MAX_DRIVE_PER_DAY - sim_state.drive_today
+            max_work_before_daily_limit = sim_state.MAX_WORK_PER_DAY - sim_state.work_today
+
+            drivable_time = min(max_drive_before_break, max_drive_before_daily_limit, max_work_before_daily_limit, travel_time_remaining)
+
+            # Simulate driving for the calculated time
+            sim_state.drive_since_break += drivable_time
+            sim_state.drive_today += drivable_time
+            sim_state.work_today += drivable_time
+            sim_state.drive_this_week += drivable_time
+            sim_state.work_this_week += drivable_time
+            travel_time_remaining -= drivable_time
+
+            # If travel is not complete, add the cost of required rest
+            if travel_time_remaining > 0:
+                # A) 4.5-hour driving break required
+                if sim_state.drive_since_break >= sim_state.MAX_DRIVE_WITHOUT_BREAK:
+                    rest_duration = 45  # 45-minute break
+                    total_rest_cost += rest_duration * driver_cost_per_minute
+                    sim_state.work_today += rest_duration
+                    sim_state.work_this_week += rest_duration
+                    sim_state.drive_since_break = 0
+                    continue
+
+                # B) Daily or Weekly limit reached
+                if sim_state.drive_today >= sim_state.MAX_DRIVE_PER_DAY or sim_state.work_today >= sim_state.MAX_WORK_PER_DAY:
+                    if sim_state.work_this_week >= sim_state.MAX_WORK_PER_WEEK:
+                        rest_duration = 45 * 60  # 45-hour weekly rest
+                        total_rest_cost += rest_duration * driver_cost_per_minute
+                        sim_state.reset_weekly()
+                    else:
+                        rest_duration = 11 * 60  # 11-hour daily rest
+                        total_rest_cost += rest_duration * driver_cost_per_minute
+                        sim_state.work_this_week += rest_duration
+                        sim_state.reset_daily()
+        
+        # Handle waiting time costs
+        if (hasattr(start_task, 'earliest_time') and 
+            start_task.earliest_time is not None and 
+            current_time < start_task.earliest_time):
+            wait_time = start_task.earliest_time - current_time
+            current_time = start_task.earliest_time
+            
+            is_depot_waiting = (hasattr(start_task, 'is_depot_start') and start_task.is_depot_start()) or \
+                              (hasattr(start_task, 'task_type') and 'depot' in str(start_task.task_type).lower())
+            
+            if not is_depot_waiting:
+                # Customer waiting counts as work time and cost
+                sim_state.work_today += wait_time
+                sim_state.work_this_week += wait_time
+                total_rest_cost += wait_time * driver_cost_per_minute
+    
+    return total_rest_cost
+
+
 def calculate_z2_score(route: 'Route') -> float:
     """ 
     Enhanced Z2 score calculation with multi-day support, prospective cost calculation,
@@ -534,17 +660,13 @@ def calculate_z2_score(route: 'Route') -> float:
     
     Note: JIT compilation removed for better compatibility across different execution contexts.
     """
-    # Call the comprehensive HoS simulation first
-    sorted_tasks = _enforce_pickup_first_sequencing(route.tasks)
-    hos_feasible, hos_cost = _check_hos_multiday(route, DriverState(), sorted_tasks)
-
-    # If the route is not feasible, return a massive penalty
-    if not hos_feasible:
-        return 1_000_000_000.0
-
     # Check if score is already cached
     if hasattr(route, '_z2_score'):
         return route._z2_score
+    
+    # Use HoS cost estimation instead of strict feasibility check
+    sorted_tasks = _enforce_pickup_first_sequencing(route.tasks)
+    hos_cost = _estimate_hos_cost_with_breaks(route, DriverState(), sorted_tasks)
     
     # Initialize cost components
     travel_cost = 0.0  # C(r)
@@ -559,7 +681,7 @@ def calculate_z2_score(route: 'Route') -> float:
     # Enhanced driver break costs calculation
     driver_cost, _ = _calculate_realistic_driver_costs(route)
 
-    # Add the HoS downtime cost to the total route cost
+    # Add the HoS cost (including estimated breaks) to the total route cost
     driver_cost += hos_cost
 
     # Multi-day cost simulation with weight violation tracking
@@ -1936,29 +2058,21 @@ def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_task
             sim_state.work_this_week += drivable_time
             travel_time_remaining -= drivable_time
 
-            # If travel is not complete, a rest is required
+            # If travel is not complete, a rest would be required - this makes the route infeasible
             if travel_time_remaining > 0:
-                # A) 4.5-hour driving break
+                # A) 4.5-hour driving break would be required
                 if sim_state.drive_since_break >= sim_state.MAX_DRIVE_WITHOUT_BREAK:
-                    rest_duration = 45
-                    total_rest_cost += rest_duration * driver_cost_per_minute
-                    sim_state.work_today += rest_duration
-                    sim_state.work_this_week += rest_duration
-                    sim_state.drive_since_break = 0
-                    continue # Continue the while loop for the remaining travel time
+                    # Route is infeasible - cannot complete travel without mandatory break
+                    return False, total_rest_cost
 
-                # B) Daily or Weekly limit reached
+                # B) Daily or Weekly limit would be reached
                 if sim_state.drive_today >= sim_state.MAX_DRIVE_PER_DAY or sim_state.work_today >= sim_state.MAX_WORK_PER_DAY:
-                    # Check for weekly rest first
-                    if sim_state.total_work_this_week >= sim_state.MAX_WORK_PER_WEEK:
-                        rest_duration = 45 * 60 # 45-hour regular weekly rest
-                        total_rest_cost += rest_duration * driver_cost_per_minute
-                        sim_state.reset_weekly() # Assumes a method that resets all counters
-                    else: # Otherwise, take a daily rest
-                        rest_duration = 11 * 60 # 11-hour daily rest
-                        total_rest_cost += rest_duration * driver_cost_per_minute
-                        sim_state.total_work_this_week += rest_duration # Time passes for weekly work limit
-                        sim_state.reset_daily() # Assumes method resets daily counters
+                    # Route is infeasible - cannot complete travel without mandatory rest
+                    return False, total_rest_cost
+                
+                if sim_state.work_this_week >= sim_state.MAX_WORK_PER_WEEK:
+                    # Route is infeasible - weekly limit exceeded
+                    return False, total_rest_cost
         
         # Check for soft time window compliance (if applicable) - using start_task
         if hasattr(start_task, 'soft_time_window') and start_task.soft_time_window:
@@ -1973,16 +2087,26 @@ def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_task
             # Hard time window violation
             return False, total_rest_cost
         
-        # Handle waiting for earliest time
+        # Handle waiting for earliest time with correct HoS accounting
         if (hasattr(start_task, 'earliest_time') and 
             start_task.earliest_time is not None and 
             current_time < start_task.earliest_time):
             wait_time = start_task.earliest_time - current_time
             current_time = start_task.earliest_time
-            sim_state.work_today += wait_time
-            sim_state.work_since_break += wait_time
-            sim_state.time_in_daily_period += wait_time
-            sim_state.time_since_weekly_rest += wait_time
+            
+            # Determine if this is depot waiting or customer waiting
+            is_depot_waiting = (hasattr(start_task, 'is_depot_start') and start_task.is_depot_start()) or \
+                              (hasattr(start_task, 'task_type') and 'depot' in str(start_task.task_type).lower())
+            
+            if not is_depot_waiting:
+                # Customer waiting counts as work time per European regulations
+                sim_state.work_today += wait_time
+                sim_state.work_this_week += wait_time
+                
+                # Check if waiting time would cause HoS violation
+                if sim_state.work_today > sim_state.MAX_WORK_PER_DAY:
+                    return False, total_rest_cost
+            # Depot waiting does not count toward work time - driver shift hasn't started
     
     return True, total_rest_cost
 

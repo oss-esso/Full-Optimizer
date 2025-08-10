@@ -907,3 +907,38 @@ This guide provides detailed instructions for a coding agent on how to parse the
 
 *   Run `tests/comprehensive_integration_test.py`.
 *   The final "ENHANCED DRIVER ASSIGNMENT SUMMARY" should now correctly display the detailed daily breakdown of drive and work times for every single route, without the "HoS data not available" message.
+
+
+## 32. Correct and Refine HoS Simulation and Feasibility Logic
+
+**Objective:** Fix the core HoS simulation to correctly identify infeasible routes based on strict validation and accurately model different types of waiting time.
+
+- **Problem:** The current HoS simulation in `_check_hos_multiday` is flawed. It attempts to "fix" routes that violate HoS by simulating the addition of mandatory rests, rather than flagging the route as infeasible. This leads to incorrect `Feasible: True` statuses for routes that require more driving or work time than legally allowed in a single stretch. Furthermore, the handling of waiting time is ambiguous.
+
+- **Goal:** Refactor the HoS simulation to be a strict validator that correctly accounts for all time components as per European regulations.
+
+### Implementation Plan:
+
+1.  **Make `_check_hos_multiday` a Strict Validator:**
+    *   **File:** `algo/second_level.py`
+    *   **Function:** `_check_hos_multiday`
+    *   **Action:** Modify the logic within the `while travel_time_remaining > 0:` loop.
+    *   **Logic:**
+        *   The function should **not** simulate the addition of rests (e.g., `rest_duration = 45`, `sim_state.reset_daily()`).
+        *   Instead, if the simulation determines that a break or rest *would be required* to continue (i.e., `drive_since_break` or `drive_today`/`work_today` exceed their limits), the function must immediately `return False, total_rest_cost`.
+        *   This ensures that `is_feasible` receives a correct assessment: the route, as sequenced, is not legally possible without modification.
+
+2.  **Clarify and Implement Correct Waiting Time Logic:**
+    *   **File:** `algo/second_level.py`
+    *   **Function:** `_check_hos_multiday` (or a new helper function for time simulation).
+    *   **Action:** Implement logic that correctly simulates the passage of time and its impact on HoS counters.
+    *   **Logic:**
+        *   **Waiting at Depot (for a late start):** If a vehicle waits at the depot before starting its first task to meet a time window (e.g., `earliest_time` on Day 2), this waiting period should **not** count towards the driver's `work_today` or `drive_today`. The driver's shift has not officially started. The simulation's `current_time` should simply be advanced.
+        *   **Waiting at a Customer Location (e.g., to meet an `earliest_time` window):** This time **must** be added to the `work_today` counter. As per regulations, this is a "period of availability" and counts as work, not rest.
+        *   **Time Window Penalties:** The `calculate_z2_score` function should continue to apply soft penalties for lateness at tasks with soft time windows, allowing the optimizer to make trade-offs.
+
+3.  **Testing the Fix:**
+    *   **Action:** Re-run the `tests/comprehensive_integration_test.py`.
+    *   **Expected Outcome:**
+        *   The "Feasible" status in the initial route validation summary should now correctly show `False` for routes that were previously showing violations only in the final summary (e.g., `GC002LX`).
+        *   The red and yellow violation warnings should now be consistent across all parts of the output.
