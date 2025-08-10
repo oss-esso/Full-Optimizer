@@ -77,6 +77,7 @@ class DriverState:
     # Additional comprehensive state variables for advanced HoS simulation
     time_in_daily_period: float = 0.0   # Time elapsed since end of last daily rest (max 24h)
     work_this_week: float = 0.0          # Accumulated working time from Monday 00:00
+    total_work_this_week: float = 0.0    # Alias for work_this_week for compatibility
     time_since_weekly_rest: float = 0.0  # Time elapsed since last weekly rest ended (max 144h)
     
     # Extension tracking
@@ -99,6 +100,7 @@ class DriverState:
     MAX_DRIVE_PER_DAY = 9 * 60                 # 9 hours (extendable to 10)
     MAX_WORK_PER_DAY = 13 * 60                 # 13 hours (extendable to 14)
     MAX_DRIVE_PER_WEEK = 56 * 60               # 56 hours
+    MAX_WORK_PER_WEEK = 60 * 60                # 60 hours
     MAX_DRIVE_TWO_WEEKS = 90 * 60              # 90 hours in any two consecutive weeks
     MIN_DAILY_REST = 11 * 60                   # 11 hours (reducible to 9)
     MIN_WEEKLY_REST = 45 * 60                  # 45 hours
@@ -303,6 +305,24 @@ class DriverState:
         self.drive_today = 0
         self.work_today = 0
         
+    def reset_daily(self):
+        """Reset daily counters for new day."""
+        self.drive_since_break = 0
+        self.work_since_break = 0
+        self.drive_today = 0
+        self.work_today = 0
+        
+    def reset_weekly(self):
+        """Reset weekly counters for new week."""
+        self.drive_this_week = 0
+        self.work_this_week = 0
+        self.total_work_this_week = 0
+        self.daily_driving_extensions_used = 0
+        self.daily_work_extensions_used = 0
+        self.reduced_rest_used = 0
+        self.daily_rest_reductions_used = 0
+        self.time_since_weekly_rest = 0.0
+        
     def take_weekly_rest(self, rest_duration: float = None, current_time: float = None, location: str = None):
         """
         Enhanced weekly rest handling with event tracking.
@@ -402,142 +422,16 @@ class DriverState:
             }
         }
     
+    def copy(self) -> 'DriverState':
+        """Create a deep copy of this driver state."""
+        import copy
+        return copy.deepcopy(self)
+    
     def export_events_to_dict(self) -> List[Dict[str, Any]]:
         """Export all events to a list of dictionaries for external reporting."""
         return [event.to_dict() for event in self.hos_events]
 
 
-@dataclass
-class DriverState:
-    """
-    Enhanced class to track driver's hours of service state according to European regulations.
-    
-    European HoS Regulations:
-    - After 4.5 hours of driving, a 45-minute break is mandatory (can be split into 15 + 30 mins)
-    - Maximum 9 hours of driving per day (extendable to 10 hours twice a week)
-    - Maximum 13 hours of work per day (extendable to 14 hours twice a week)  
-    - Minimum 11 hours of daily rest (can be reduced to 9 hours under certain conditions)
-    - Maximum 56 hours driving in a week (90 hours in any two consecutive weeks)
-    """
-    
-    # Current state counters
-    drive_since_break: float = 0.0      # Accumulated driving time since last break
-    work_since_break: float = 0.0       # Accumulated working time since last break
-    drive_today: float = 0.0             # Total driving time in current 24-hour period
-    work_today: float = 0.0              # Total duty time in current 24-hour period
-    drive_this_week: float = 0.0         # Driving time this week
-    drive_last_week: float = 0.0         # Driving time last week
-    
-    # Additional comprehensive state variables for advanced HoS simulation
-    time_in_daily_period: float = 0.0   # Time elapsed since end of last daily rest (max 24h)
-    work_this_week: float = 0.0          # Accumulated working time from Monday 00:00
-    time_since_weekly_rest: float = 0.0  # Time elapsed since last weekly rest ended (max 144h)
-    
-    # Extension tracking
-    daily_driving_extensions_used: int = 0      # Extensions to 10 hours used this week
-    daily_work_extensions_used: int = 0         # Extensions to 14 hours used this week
-    reduced_rest_used: int = 0                  # Reduced rest periods used this week
-    daily_rest_reductions_used: int = 0         # Count of 9h daily rests between weekly rests (max 3)
-    is_weekly_rest_reduction_taken: bool = False  # Flag if reduced weekly rest taken in last two weeks
-    
-    # Regulation limits in minutes (European HoS)
-    MAX_DRIVE_WITHOUT_BREAK = 4.5 * 60         # 4.5 hours
-    MAX_WORK_WITHOUT_BREAK = 6 * 60            # 6 hours
-    MAX_DRIVE_PER_DAY = 9 * 60                 # 9 hours (extendable to 10)
-    MAX_WORK_PER_DAY = 13 * 60                 # 13 hours (extendable to 14)
-    MAX_DRIVE_PER_WEEK = 56 * 60               # 56 hours
-    MAX_DRIVE_TWO_WEEKS = 90 * 60              # 90 hours in any two consecutive weeks
-    MIN_DAILY_REST = 11 * 60                   # 11 hours (reducible to 9)
-    MIN_WEEKLY_REST = 45 * 60                  # 45 hours
-    
-    def can_drive(self, duration: float) -> bool:
-        """Check if driver can drive for the specified duration without violating HoS."""
-        # Check break requirements
-        if self.drive_since_break + duration > self.MAX_DRIVE_WITHOUT_BREAK:
-            return False
-            
-        # Check daily limits (considering extensions)
-        max_daily = self.get_current_max_daily_drive()
-        if self.drive_today + duration > max_daily:
-            return False
-            
-        # Check weekly limits
-        if self.drive_this_week + duration > self.MAX_DRIVE_PER_WEEK:
-            return False
-            
-        # Check two-week limits
-        if self.drive_this_week + self.drive_last_week + duration > self.MAX_DRIVE_TWO_WEEKS:
-            return False
-            
-        return True
-    
-    def can_work(self, duration: float) -> bool:
-        """Check if driver can work for the specified duration without violating HoS."""
-        # Check work time since last break
-        if self.work_since_break + duration > self.MAX_WORK_WITHOUT_BREAK:
-            return False
-            
-        # Check daily work limits (considering extensions)
-        max_daily_work = self.get_current_max_daily_work()
-        if self.work_today + duration > max_daily_work:
-            return False
-            
-        return True
-    
-    def get_current_max_daily_drive(self) -> float:
-        """Get current maximum daily driving time considering extensions."""
-        if self.daily_driving_extensions_used < 2:
-            return 10 * 60  # Can extend to 10 hours
-        return self.MAX_DRIVE_PER_DAY  # 9 hours
-        
-    def get_current_max_daily_work(self) -> float:
-        """Get current maximum daily work time considering extensions."""
-        if self.daily_work_extensions_used < 2:
-            return 14 * 60  # Can extend to 14 hours
-        return self.MAX_WORK_PER_DAY  # 13 hours
-
-    def take_break(self, break_duration: float):
-        """Reset counters after taking a break."""
-        if break_duration >= 45:  # 45-minute break resets driving
-            self.drive_since_break = 0
-            if break_duration >= 45:  # Also resets work counter
-                self.work_since_break = 0
-        elif break_duration >= 15:  # Partial break (split break system)
-            # European regulations allow split breaks (15 + 30 minutes)
-            self.drive_since_break = max(0, self.drive_since_break - break_duration * 0.5)
-        
-    def take_daily_rest(self, rest_duration: float = None):
-        """Reset daily counters after taking a daily rest."""
-        if rest_duration is None:
-            rest_duration = self.MIN_DAILY_REST
-            
-        # Check if this was an extension day
-        if self.drive_today > self.MAX_DRIVE_PER_DAY:
-            self.daily_driving_extensions_used += 1
-        if self.work_today > self.MAX_WORK_PER_DAY:
-            self.daily_work_extensions_used += 1
-            
-        # Track reduced rest usage
-        if rest_duration < self.MIN_DAILY_REST:
-            self.reduced_rest_used += 1
-            
-        # Reset daily counters
-        self.drive_since_break = 0
-        self.work_since_break = 0
-        self.drive_today = 0
-        self.work_today = 0
-        
-    def take_weekly_rest(self):
-        """Reset weekly counters after taking a weekly rest."""
-        self.drive_last_week = self.drive_this_week
-        self.drive_this_week = 0
-        
-        # Reset weekly extension counters
-        self.daily_driving_extensions_used = 0
-        self.daily_work_extensions_used = 0
-        self.reduced_rest_used = 0
-        
-        self.take_daily_rest()
 
 
 @dataclass
@@ -1255,23 +1149,6 @@ class EPDTParameters:
     @classmethod
     def load_from_json(cls, file_path: str = "config/epdt_params.json"):
         """Load parameters from a JSON file."""
-        try:
-            with open(file_path, 'r') as f:
-                params_from_json = json.load(f)
-            
-            # Create a new instance with the loaded parameters
-            return cls(**params_from_json)
-        except FileNotFoundError:
-            print(f"Warning: Configuration file not found at {file_path}. Using default parameters.")
-            return cls()
-        except json.JSONDecodeError:
-            print(f"Warning: Could not decode JSON from {file_path}. Using default parameters.")
-            return cls()
-
-    @classmethod
-    def load_from_json(cls, file_path: str = "config/epdt_params.json"):
-        """Load parameters from a JSON file."""
-        import json
         try:
             with open(file_path, 'r') as f:
                 params_from_json = json.load(f)

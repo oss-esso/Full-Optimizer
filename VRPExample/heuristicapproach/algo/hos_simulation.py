@@ -18,22 +18,7 @@ import copy
 from dataclasses import dataclass
 
 # Import only the data structures we need to avoid circular imports
-try:
-    from epdt_data_structures import DriverState, HoSEvent
-except ImportError:
-    # Fallback for testing or standalone use
-    print("Warning: Could not import data structures. Using local definitions.")
-    from typing import List as HoSEventList
-    
-    @dataclass
-    class DriverState:
-        # Minimal definition for standalone use
-        drive_since_break: float = 0.0
-        work_since_break: float = 0.0
-        drive_today: float = 0.0
-        work_today: float = 0.0
-        drive_this_week: float = 0.0
-        drive_last_week: float = 0.0
+from algo.epdt_data_structures import DriverState, HoSEvent
 
 
 @dataclass
@@ -358,6 +343,8 @@ def simulate_hos_advanced(route, driver_state: DriverState, sorted_tasks: List) 
     This function addresses the feedback about making HoS simulation more modular
     by breaking down the logic into smaller, testable functions.
     
+    Note: Drivers with B licenses are exempt from HoS regulations.
+    
     Args:
         route: Route object containing vehicle and tasks
         driver_state: Current driver state (will be modified)
@@ -368,6 +355,18 @@ def simulate_hos_advanced(route, driver_state: DriverState, sorted_tasks: List) 
     """
     if not sorted_tasks:
         return True, 0.0
+    
+    # B license drivers are exempt from HoS regulations
+    if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
+        # Calculate simple total duration without HoS constraints
+        total_duration = 0.0
+        for i, task in enumerate(sorted_tasks):
+            total_duration += getattr(task, 'service_time', 0)
+            if i < len(sorted_tasks) - 1:
+                next_task = sorted_tasks[i + 1]
+                travel_time = calculate_travel_time_between_tasks(task, next_task, route.vehicle)
+                total_duration += travel_time
+        return True, total_duration
     
     # Initialize tracking variables
     current_time = 0.0
@@ -484,6 +483,8 @@ def validate_route_hos_feasibility(route, driver_state: DriverState = None) -> H
     This function provides a complete analysis of route feasibility including
     detailed event tracking and violation reporting.
     
+    Note: Drivers with B licenses are exempt from HoS regulations.
+    
     Args:
         route: Route object to validate
         driver_state: Optional driver state (creates new if None)
@@ -491,6 +492,27 @@ def validate_route_hos_feasibility(route, driver_state: DriverState = None) -> H
     Returns:
         HoSSimulationResult with detailed analysis
     """
+    # B license drivers are exempt from HoS regulations
+    if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
+        # Calculate simple metrics without HoS constraints
+        sorted_tasks = sort_tasks_chronologically(route.tasks)
+        total_duration = sum(getattr(task, 'service_time', 0) for task in sorted_tasks)
+        if len(sorted_tasks) > 1:
+            for i in range(len(sorted_tasks) - 1):
+                travel_time = calculate_travel_time_between_tasks(sorted_tasks[i], sorted_tasks[i+1], route.vehicle)
+                total_duration += travel_time
+        
+        return HoSSimulationResult(
+            is_feasible=True,
+            total_duration=total_duration,
+            driving_time=total_duration - sum(getattr(task, 'service_time', 0) for task in sorted_tasks),
+            working_time=total_duration,
+            break_time=0.0,
+            rest_time=0.0,
+            events=[],
+            violations=[],
+            reason="B license - exempt from HoS regulations"
+        )
     # Use provided driver state or route's driver state or create new
     if driver_state is None:
         if hasattr(route, 'driver') and route.driver and route.driver.hos_state:

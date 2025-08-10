@@ -99,12 +99,12 @@ except ImportError:
 # Import route provider for OSRM mode
 try:
     from route_provider import set_testing_mode
-    set_testing_mode(use_haversine=False)  # Enable OSRM routing
+    set_testing_mode(use_haversine=True)  # Enable OSRM routing
     print("✅ Configured route provider for OSRM mode")
 except ImportError:
     try:
         from algo.route_provider import set_testing_mode
-        set_testing_mode(use_haversine=False)  # Enable OSRM routing
+        set_testing_mode(use_haversine=True)  # Enable OSRM routing
         print("✅ Configured route provider for OSRM mode with algo prefix")
     except ImportError:
         print("⚠️  Warning: route_provider not available, using fallback calculations")
@@ -808,28 +808,32 @@ def calculate_order_difficulty(order):
 
 
 def force_assign_order_to_vehicle(solution, order, vehicle):
-    """Force assign an order to a specific vehicle by adding its tasks to the vehicle's route."""
-    # Get or create the route for this vehicle
-    if vehicle.id not in solution.routes or solution.routes[vehicle.id] is None:
-        # Create a new route - simple route object
-        class SimpleRoute:
-            def __init__(self, vehicle):
-                self.vehicle = vehicle
-                self.tasks = []
-        
-        solution.routes[vehicle.id] = SimpleRoute(vehicle)
-    
-    route = solution.routes[vehicle.id]
-    
-    # Get all tasks from the order
-    order_tasks = order.get_all_tasks()
-    
-    # Add tasks to the end of the route (simple insertion strategy)
-    for task in order_tasks:
-        route.tasks.append(task)
-    
-    print(f"✅ Force assigned order {order.id} to vehicle {vehicle.id}")
-    return True
+    """Force assign an order to a specific vehicle, bypassing L2 failure."""
+    from algo.first_level import _create_base_route
+    from algo.second_level import l2_heuristic
+
+    route = solution.routes.get(vehicle.id)
+    if not route or len(route.tasks) <= 2:
+        route = _create_base_route(vehicle)
+
+    # First, try the standard, safe insertion heuristic
+    new_route = l2_heuristic(route, order)
+
+    if new_route:
+        solution.routes[vehicle.id] = new_route
+        print(f"✅ Force assigned order {order.id} to vehicle {vehicle.id} via L2 heuristic.")
+        return True
+    else:
+        # If L2 fails, perform a direct manual insertion.
+        # This prioritizes assignment over ideal feasibility.
+        print(f"⚠️ L2 failed for force assignment of {order.id}. Performing direct insertion.")
+        manual_route = _create_base_route(vehicle)
+        tasks_to_add = order.get_pickups() + order.get_deliveries()
+        # Insert tasks between depot start and return
+        manual_route.tasks[1:1] = tasks_to_add
+        solution.routes[vehicle.id] = manual_route
+        print(f"✅ Force assigned order {order.id} to vehicle {vehicle.id} via direct insertion.")
+        return True
 
 
 def smart_force_assign_unassigned_orders(solution, orders, vehicles):

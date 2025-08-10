@@ -544,7 +544,17 @@ def _insert_order_into_vehicle(order: 'Order', vehicle: 'Vehicle', solution: 'So
     """Attempt to insert an order into a specific vehicle's route."""
     route = solution.routes.get(vehicle.id)
     if not route:
-        return False
+        # Create a new route using the factory if one doesn't exist
+        try:
+            from first_level import _create_base_route
+            route = _create_base_route(vehicle)
+            solution.add_route(vehicle.id, route)
+            if debug:
+                print(f"    Created new route for vehicle {vehicle.id} using factory")
+        except ImportError:
+            if debug:
+                print(f"    Could not import _create_base_route factory")
+            return False
     
     try:
         # Get order tasks
@@ -552,9 +562,18 @@ def _insert_order_into_vehicle(order: 'Order', vehicle: 'Vehicle', solution: 'So
         if not order_tasks:
             return False
         
-        # Simple insertion: add all tasks at the end of the route
-        for task in order_tasks:
-            route.tasks.append(task)
+        # Smart insertion: insert tasks between depot tasks, not at the end
+        # Route structure should be: [DEPOT_START, customer_tasks..., DEPOT_RETURN]
+        if len(route.tasks) >= 2:
+            # Route has depot structure, insert before DEPOT_RETURN
+            insert_position = len(route.tasks) - 1  # Before last task (DEPOT_RETURN)
+        else:
+            # Route is malformed or empty, append to end
+            insert_position = len(route.tasks)
+        
+        # Insert all order tasks at the calculated position
+        for i, task in enumerate(order_tasks):
+            route.tasks.insert(insert_position + i, task)
         
         # Validate the insertion using lenient feasibility check
         try:
@@ -562,8 +581,8 @@ def _insert_order_into_vehicle(order: 'Order', vehicle: 'Vehicle', solution: 'So
             if is_feasible_for_insertion(route, debug_insertion=debug):
                 return True
             else:
-                # Remove tasks if not feasible
-                for task in order_tasks:
+                # Remove tasks if not feasible (in reverse order to maintain indices)
+                for task in reversed(order_tasks):
                     if task in route.tasks:
                         route.tasks.remove(task)
                 return False

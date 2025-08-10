@@ -543,22 +543,123 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
             feasible, reason = is_feasible(route, debug_feasibility=True, return_reason=True)
             return feasible, reason
         except ImportError:
-            return True, "Feasibility check unavailable"
+            try:
+                from algo.second_level import is_feasible
+                feasible, reason = is_feasible(route, debug_feasibility=True, return_reason=True)
+                return feasible, reason
+            except ImportError:
+                return True, "Feasibility check unavailable"
     
     def ensure_hos_data_for_route(route):
         """Ensure HoS data is calculated for the route, even if it's violated."""
         if not hasattr(route, 'hos_daily_summary') or not route.hos_daily_summary:
             try:
-                from second_level import is_feasible
-                # Force HoS calculation by running is_feasible
+                from second_level import _simulate_hos_advanced, _sort_tasks_chronologically, DriverState
+                # Force HoS calculation by running _simulate_hos_advanced
                 print(f"DEBUG: Running HoS calculation for route {route.vehicle.id}")
-                is_feasible(route, debug_feasibility=True, return_reason=True)
-                if hasattr(route, 'hos_daily_summary') and route.hos_daily_summary:
-                    print(f"DEBUG: HoS data successfully calculated for route {route.vehicle.id}")
+                
+                # Create driver state
+                if route.driver and hasattr(route.driver, 'hos_state') and route.driver.hos_state:
+                    driver_state = route.driver.hos_state
                 else:
-                    print(f"DEBUG: HoS data still missing for route {route.vehicle.id}")
+                    driver_state = DriverState()
+                
+                # Sort tasks chronologically
+                sorted_tasks = _sort_tasks_chronologically(route.tasks)
+                
+                # Run the HoS simulation
+                is_feasible, total_duration = _simulate_hos_advanced(route, driver_state, sorted_tasks)
+                
+                # Create a simplified daily summary structure
+                # Since the advanced simulation doesn't provide daily breakdown,
+                # we'll create a basic summary for display purposes
+                if route.tasks:
+                    # Calculate basic daily data
+                    total_service_time = sum(getattr(task, 'service_time', 0) for task in route.tasks)
+                    
+                    # Estimate drive time (this is approximate)
+                    total_drive_time = max(0, total_duration - total_service_time)
+                    
+                    # Create a single-day summary (most routes are single-day)
+                    route.hos_daily_summary = {
+                        1: {  # Day 1
+                            'work': total_duration,
+                            'drive': total_drive_time,
+                            'violations': [] if is_feasible else ['HoS constraints violated']
+                        }
+                    }
+                    
+                    print(f"DEBUG: HoS data successfully calculated for route {route.vehicle.id}")
+                    print(f"DEBUG: Total duration: {total_duration:.2f} min, Drive: {total_drive_time:.2f} min")
+                else:
+                    # Empty route
+                    route.hos_daily_summary = {
+                        1: {
+                            'work': 0,
+                            'drive': 0,
+                            'violations': []
+                        }
+                    }
+                    print(f"DEBUG: Empty route {route.vehicle.id}, created default HoS data")
+                    
             except ImportError:
-                print(f"DEBUG: Cannot import is_feasible for route {route.vehicle.id}")
+                try:
+                    from algo.second_level import _simulate_hos_advanced, _sort_tasks_chronologically, DriverState
+                    # Force HoS calculation by running _simulate_hos_advanced
+                    print(f"DEBUG: Running HoS calculation for route {route.vehicle.id}")
+                    
+                    # Create driver state
+                    if route.driver and hasattr(route.driver, 'hos_state') and route.driver.hos_state:
+                        driver_state = route.driver.hos_state
+                    else:
+                        driver_state = DriverState()
+                    
+                    # Sort tasks chronologically
+                    sorted_tasks = _sort_tasks_chronologically(route.tasks)
+                    
+                    # Run the HoS simulation
+                    is_feasible, total_duration = _simulate_hos_advanced(route, driver_state, sorted_tasks)
+                    
+                    # Create a simplified daily summary structure
+                    if route.tasks:
+                        # Calculate basic daily data
+                        total_service_time = sum(getattr(task, 'service_time', 0) for task in route.tasks)
+                        
+                        # Estimate drive time (this is approximate)
+                        total_drive_time = max(0, total_duration - total_service_time)
+                        
+                        # Create a single-day summary (most routes are single-day)
+                        route.hos_daily_summary = {
+                            1: {  # Day 1
+                                'work': total_duration,
+                                'drive': total_drive_time,
+                                'violations': [] if is_feasible else ['HoS constraints violated']
+                            }
+                        }
+                        
+                        print(f"DEBUG: HoS data successfully calculated for route {route.vehicle.id}")
+                        print(f"DEBUG: Total duration: {total_duration:.2f} min, Drive: {total_drive_time:.2f} min")
+                    else:
+                        # Empty route
+                        route.hos_daily_summary = {
+                            1: {
+                                'work': 0,
+                                'drive': 0,
+                                'violations': []
+                            }
+                        }
+                        print(f"DEBUG: Empty route {route.vehicle.id}, created default HoS data")
+                        
+                except ImportError:
+                    print(f"DEBUG: Cannot import _simulate_hos_advanced for route {route.vehicle.id}")
+                    # Create fallback HoS data structure
+                    route.hos_daily_summary = {
+                        1: {
+                            'work': 0,
+                            'drive': 0,
+                            'violations': ['HoS calculation unavailable']
+                        }
+                    }
         else:
             print(f"DEBUG: Route {route.vehicle.id} already has HoS data")
     

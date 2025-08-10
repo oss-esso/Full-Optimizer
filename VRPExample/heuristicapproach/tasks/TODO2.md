@@ -266,7 +266,6 @@ This document outlines the necessary steps to integrate the advanced, realistic 
     *   **Implementation:**
         1.  Introduce a `max_neighbors_to_evaluate` parameter. The neighborhood functions will stop generating new neighbors after this limit is reached.
         2.  Implement a "best `k` insertions" strategy for the `best_insertion_initializer`. Instead of trying to insert an order into every possible position, only evaluate the `k` most promising positions (e.g., based on Euclidean distance as a cheap proxy).
-tions" strategy for the `best_insertion_initializer`. Instead of trying to insert an order into every possible position, only evaluate the `k` most promising positions (e.g., based on Euclidean distance as a cheap proxy).
 
 
 ## 20. Advanced Order Insertion Strategies for Large Orders
@@ -319,7 +318,7 @@ tions" strategy for the `best_insertion_initializer`. Instead of trying to inser
 - [ ] **Details:**
     -   Add a new parameter `initialization_method` that can be set to `'best_insertion'` or `'regret_k'`.
     -   Add a boolean parameter `enable_destroy_and_repair` to control whether the new operator is used.
-- [ ] **Action:** Create a new test file `tests/test_large_order_assignment.py` that specifically loads a scenario with known difficult orders and asserts that the new heuristics can successfully assign them where the old one failed.tions" strategy for the `best_insertion_initializer`. Instead of trying to insert an order into every possible position, only evaluate the `k` most promising positions (e.g., based on Euclidean distance as a cheap proxy).
+- [ ] **Action:** Create a new test file `tests/test_large_order_assignment.py` that specifically loads a scenario with known difficult orders and asserts that the new heuristics can successfully assign them where the old one failed.
 
 
 ## 21. Validate Travel Time Calculations and Depot Operations
@@ -630,3 +629,281 @@ This guide provides detailed instructions for a coding agent on how to parse the
             4.  Run the heuristic.
             5.  **Assertion:** The final solution should be feasible and use multiple vehicles. If it produces an infeasible route on a single vehicle or leaves orders unassigned, the issue is confirmed.
 
+## 28. Refactor Duplicated Code
+
+**Objective:** Eliminate duplicated class and function definitions to improve code quality, maintainability, and stability.
+
+- [ ] **Problem:** The codebase contains multiple, conflicting definitions for critical data structures (`DriverState`, `EPDTParameters`) and core logic (`is_feasible`). This leads to unpredictable behavior and makes the code difficult to maintain.
+- [ ] **Goal:** Consolidate all duplicated code into a single, authoritative source.
+
+### Implementation Plan:
+
+1.  **Fix `DriverState` Duplication:**
+    *   **File to Keep:** `algo/epdt_data_structures.py`.
+    *   **Version to Keep:** The **first, more detailed definition** of `DriverState` (starting on line 54) should be the only one.
+    *   **Action:**
+        1.  In `algo/epdt_data_structures.py`, delete the second, simpler definition of `DriverState` (the one starting around line 423).
+        2.  In `algo/hos_simulation.py`, delete its local `DriverState` definition.
+        3.  In `algo/hos_simulation.py`, add the import: `from algo.epdt_data_structures import DriverState`.
+
+2.  **Fix `EPDTParameters` Duplication:**
+    *   **File:** `algo/epdt_data_structures.py`.
+    *   **Action:** This class is defined twice in the same file. Delete the second definition entirely.
+
+3.  **Fix `is_feasible` Duplication:**
+    *   **Authoritative Version:** The main implementation in `algo/second_level.py` (the one starting around line 1187) should be the only one.
+    *   **Action:**
+        1.  In `algo/second_level.py`, delete the duplicate definition of `is_feasible` (the one starting around line 1596).
+        2.  In `algo/epdt_data_structures.py`, delete the placeholder `is_feasible` method from the `Route` class. The `Route` class should call the authoritative version from `second_level.py` (which it already does).
+
+### Testing the Fix:
+
+*   After refactoring, run the `tests/comprehensive_integration_test.py`. The test should run without import errors and produce a valid solution, confirming that all parts of the code now use the same, correct definitions.
+
+## 29. Implement Comprehensive Hours of Service (HoS) Simulation
+
+**Objective:** Implement a comprehensive, stateful HoS simulation that correctly models all required rest periods (short breaks, daily rests, and weekly rests) to produce fully compliant and realistic routes.
+
+**Guiding Principle:** This plan focuses on **modifying and enhancing the existing code in small, precise steps** rather than replacing the entire function, making it easier for an LLM agent to execute.
+
+### Part 1: Step-by-Step Refactoring of `_check_hos_multiday`
+
+**Goal:** Incrementally upgrade the existing HoS check to handle complex, multi-stop rest logic and to calculate the associated costs.
+
+1.  **Navigate to the File:**
+    *   Open `algo/second_level.py`.
+
+2.  **Locate the Target Function:**
+    *   Find the function `_check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_tasks: List) -> bool`.
+
+3.  **Step 1: Modify Function Signature and Initialize State**
+    *   **Action:** Modify the function definition line. Change the return type annotation from `-> bool` to `-> tuple[bool, float]`.
+    *   **Action:** Immediately after the function definition line, insert the following code to handle empty routes and initialize cost-tracking variables:
+    ```python
+    if not sorted_tasks or len(sorted_tasks) < 2:
+        return True, 0.0
+
+    total_rest_cost = 0.0
+    driver_cost_per_minute = (route.vehicle.cost_per_hour / 60.0) if route.vehicle else (25.0 / 60.0)
+    sim_state = driver_state.copy()
+    ```
+
+4.  **Step 2: Add Service Time Simulation**
+    *   **Action:** Inside the main `for i in range(len(sorted_tasks) - 1):` loop, as the very first lines, insert this block to simulate the service time at the current task:
+    ```python
+    # Placed at the start of the for loop
+    start_task = sorted_tasks[i]
+    end_task = sorted_tasks[i+1]
+
+    # 1. Simulate Service Time at the start_task
+    service_time = start_task.service_time
+    if service_time > 0:
+        if sim_state.work_today + service_time > sim_state.MAX_WORK_PER_DAY:
+            return False, total_rest_cost # Infeasible
+        sim_state.work_today += service_time
+        sim_state.total_work_this_week += service_time
+    ```
+
+5.  **Step 3: Introduce Interruptible Travel Loop**
+    *   **Action:** Find the line inside the `for` loop where `travel_time` is calculated. Immediately after it, insert these two lines to start the `while` loop:
+    ```python
+    travel_time_remaining = travel_time
+    while travel_time_remaining > 0:
+    ```
+    *   **Action:** Indent all of the code that comes *after* the `travel_time` calculation (the logic that simulates driving) so that it is now *inside* the `while` loop.
+
+6.  **Step 4: Implement Detailed Rest Logic**
+    *   **Action:** Inside the `while` loop, replace the simple driver state updates with the more detailed logic below. This new code calculates the maximum time the driver can legally drive and then simulates what happens if a rest is required.
+    ```python
+    # This block replaces the old state update logic inside the new while loop
+    max_drive_before_break = sim_state.MAX_DRIVE_WITHOUT_BREAK - sim_state.drive_since_break
+    max_drive_before_daily_limit = sim_state.MAX_DRIVE_PER_DAY - sim_state.drive_today
+    max_work_before_daily_limit = sim_state.MAX_WORK_PER_DAY - sim_state.work_today
+
+    drivable_time = min(max_drive_before_break, max_drive_before_daily_limit, max_work_before_daily_limit, travel_time_remaining)
+
+    # Simulate driving for the calculated time
+    sim_state.drive_since_break += drivable_time
+    sim_state.drive_today += drivable_time
+    sim_state.work_today += drivable_time
+    sim_state.drive_this_week += drivable_time
+    sim_state.total_work_this_week += drivable_time
+    travel_time_remaining -= drivable_time
+
+    # If travel is not complete, a rest is required
+    if travel_time_remaining > 0:
+        # A) 4.5-hour driving break
+        if sim_state.drive_since_break >= sim_state.MAX_DRIVE_WITHOUT_BREAK:
+            rest_duration = 45
+            total_rest_cost += rest_duration * driver_cost_per_minute
+            sim_state.work_today += rest_duration
+            sim_state.total_work_this_week += rest_duration
+            sim_state.drive_since_break = 0
+            continue # Continue the while loop for the remaining travel time
+
+        # B) Daily or Weekly limit reached
+        if sim_state.drive_today >= sim_state.MAX_DRIVE_PER_DAY or sim_state.work_today >= sim_state.MAX_WORK_PER_DAY:
+            # Check for weekly rest first
+            if sim_state.total_work_this_week >= sim_state.MAX_WORK_PER_WEEK:
+                rest_duration = 45 * 60 # 45-hour regular weekly rest
+                total_rest_cost += rest_duration * driver_cost_per_minute
+                sim_state.reset_weekly() # Assumes a method that resets all counters
+            else: # Otherwise, take a daily rest
+                rest_duration = 11 * 60 # 11-hour daily rest
+                total_rest_cost += rest_duration * driver_cost_per_minute
+                sim_state.total_work_this_week += rest_duration # Time passes for weekly work limit
+                sim_state.reset_daily() # Assumes method resets daily counters
+    ```
+
+7.  **Step 5: Update All Return Statements**
+    *   **Action:** Search for every `return` statement in the function and ensure it returns a tuple consistent with the new signature. For example:
+        *   `return False` becomes `return False, total_rest_cost`
+        *   `return True` becomes `return True, total_rest_cost`
+
+### Part 2: Integrate the Refactored HoS Function
+
+1.  **Navigate to `algo/second_level.py`**.
+2.  **Update `is_feasible`** to correctly unpack the tuple from `_check_hos_multiday` and use the boolean result.
+3.  **Update `calculate_z2_score`** to call `_check_hos_multiday`, use the boolean for a hard penalty, and add the `hos_cost` to the route's total cost.
+
+### Testing the Fix
+
+1.  Create a targeted test `tests/test_full_hos_simulation.py` for a multi-day route.
+2.  Run the main `tests/comprehensive_integration_test.py` and verify zero HoS violations.
+
+## 30. Optimize Regret-k Initializer Performance
+
+**Objective:** Fix the significant performance regression in the `regret_k_initializer` to ensure it runs in a reasonable amount of time.
+
+- [ ] **Problem:** The `regret_k_initializer` has become extremely slow. Its current implementation uses a highly inefficient, brute-force method of six nested loops to find the best insertion position for each order. This inefficiency is magnified by the recent, more accurate (and computationally more expensive) Hours of Service checks.
+- [ ] **Goal:** Refactor the initializer to use the much more efficient `l2_heuristic` to find insertion costs, drastically reducing the function's runtime without sacrificing solution quality.
+
+### Implementation Plan:
+
+1.  **Navigate to the File:**
+    *   Open `algo/first_level.py`.
+
+2.  **Locate the Target Function:**
+    *   Find the function `regret_k_initializer(...)`.
+
+3.  **Refactor the Cost Calculation Logic:**
+    *   **Action:** Inside the `while unassigned_orders:` loop, you will replace the entire block that calculates insertion costs.
+    *   **REPLACE THE FOLLOWING CODE BLOCK:**
+        ```python
+        # Step 1: Calculate insertion costs for all unassigned orders
+        for order in unassigned_orders:
+            insertion_costs = []
+            
+            # Try inserting this order into every vehicle's route
+            for vehicle in vehicles:
+                current_route = solution.routes[vehicle.id]
+                
+                # Get all possible insertion positions for this order
+                order_tasks = order.get_all_tasks()
+                if not order_tasks:
+                    continue
+                
+                # Find best insertion cost for this vehicle
+                best_vehicle_cost = float('inf')
+                best_vehicle_insertion = None
+                
+                # Try all possible insertion patterns (pickup positions + delivery positions)
+                for pickup_task in order.get_pickups():
+                    for delivery_task in order.get_deliveries():
+                        # Try different insertion positions
+                        for pickup_pos in range(len(current_route.tasks) + 1):
+                            for delivery_pos in range(pickup_pos + 1, len(current_route.tasks) + 2):
+                                # Create test route
+                                test_route = current_route.copy()
+                                
+                                # Insert pickup first, then delivery
+                                test_route.insert_task_without_reordering(pickup_pos, pickup_task)
+                                test_route.insert_task_without_reordering(delivery_pos, delivery_task)
+                                # ... (The rest of the original inefficient logic) ...
+        ```
+    *   **WITH THIS NEW, EFFICIENT CODE BLOCK:**
+        ```python
+        # Step 1: Calculate insertion costs using the efficient L2 heuristic
+        order_costs = {} # Re-initialize here for clarity
+        for order in unassigned_orders:
+            insertion_costs = []
+            # Try inserting this order into every vehicle's route
+            for vehicle in vehicles:
+                current_route = solution.routes[vehicle.id]
+                
+                # Use l2_heuristic to find the best possible insertion for this order
+                # This is far more efficient than brute-forcing every position
+                new_route = l2_heuristic(current_route, order)
+
+                if new_route:
+                    # The insertion is feasible. Calculate the cost increase.
+                    try:
+                        from algo.second_level import calculate_z2_score
+                        cost_increase = calculate_z2_score(new_route) - calculate_z2_score(current_route)
+                        insertion_costs.append({
+                            'cost': cost_increase,
+                            'order': order,
+                            'vehicle_id': vehicle.id,
+                            'route': new_route # Store the resulting route
+                        })
+                    except ImportError as e:
+                        print(f"Warning: Error evaluating insertion for {order.id}: {e}")
+            
+            if insertion_costs:
+                # Sort the costs for this order to find the best and k-th best
+                insertion_costs.sort(key=lambda x: x['cost'])
+                order_costs[order.id] = insertion_costs
+        ```
+    *   **Note:** The subsequent part of the `while` loop (that calculates the regret and selects the best order) should be adjusted to work with the new `order_costs` structure, which now also contains the pre-computed `route`.
+
+### Testing the Fix:
+
+*   In `tests/comprehensive_integration_test.py`, ensure the `initialization_method` parameter is set to `'regret_k'`.
+*   Run the test.
+*   Observe the console output for the "Regret-k initialization" step. The time taken for this step should be dramatically lower than before.
+*   Verify that the final solution quality (e.g., number of assigned orders) has not been negatively impacted.
+
+## 31. Fix Missing HoS Data in Final Summary
+
+**Objective:** Ensure the final driver assignment summary correctly calculates and displays the detailed daily HoS breakdown for every route.
+
+- [ ] **Problem:** The final summary in `tests/comprehensive_integration_test.py` shows "HoS data not available" for most routes. This is because the summary printing function, `print_assignment_summary`, assumes the HoS data has been pre-calculated and attached to the `Route` object, but it is not being called on the final set of routes.
+- [ ] **Goal:** Modify the test script to explicitly run the feasibility and HoS simulation for each route before it is printed in the final summary.
+
+### Implementation Plan:
+
+1.  **Navigate to the File:**
+    *   Open `tests/comprehensive_integration_test.py`.
+
+2.  **Create a Helper Function:**
+    *   **Action:** To avoid code duplication, create a new helper function within this test script called `ensure_hos_data_is_calculated(route)`.
+    *   **Logic:** This function will take a `route` object, call the `is_feasible` function from `algo.second_level` on it, and attach the results. This ensures the `hos_daily_summary` and other feasibility data are present on the route object.
+    ```python
+    def ensure_hos_data_is_calculated(route):
+        """
+        Helper function to run the feasibility check and ensure HoS data is on the route object.
+        """
+        if not hasattr(route, 'is_feasible_cached') or route._is_feasible_cached is None:
+             try:
+                from algo.second_level import is_feasible
+                # Calling is_feasible will calculate and cache the results on the route object
+                is_feasible(route, debug_feasibility=False, return_reason=True)
+             except ImportError:
+                print("Warning: Could not import is_feasible to calculate HoS data for summary.")
+
+    ```
+
+3.  **Update `print_assignment_summary`:**
+    *   **Action:** In the `print_assignment_summary` function, inside the loop that iterates through the routes, call your new helper function for each route *before* printing its details.
+    *   **Example:**
+        ```python
+        # Inside print_assignment_summary loop
+        for route in active_routes_list:
+            ensure_hos_data_is_calculated(route) # Add this call
+            # ... existing logic to print driver, vehicle, and now the HoS data ...
+        ```
+
+### Testing the Fix:
+
+*   Run `tests/comprehensive_integration_test.py`.
+*   The final "ENHANCED DRIVER ASSIGNMENT SUMMARY" should now correctly display the detailed daily breakdown of drive and work times for every single route, without the "HoS data not available" message.

@@ -35,12 +35,12 @@ except ImportError:
     NUMBA_AVAILABLE = False
 
 if TYPE_CHECKING:
-    from .epdt_data_structures import Route, Order, Vehicle, Solution
+    from .epdt_data_structures import Route, Order, Vehicle, Solution, Task, TaskType
 else:
     try:
-        from .epdt_data_structures import Route, Order, Vehicle, Solution
+        from .epdt_data_structures import Route, Order, Vehicle, Solution, Task, TaskType
     except ImportError:
-        from epdt_data_structures import Route, Order, Vehicle, Solution
+        from epdt_data_structures import Route, Order, Vehicle, Solution, Task, TaskType
 
 try:
     from second_level import l2_heuristic
@@ -52,6 +52,98 @@ except ImportError:
         l2_heuristic = None
 
 # Removed problematic circular imports - these modules will be imported locally where needed
+
+def _create_base_route(vehicle: 'Vehicle') -> 'Route':
+    """
+    Creates a new, structurally valid route for a vehicle, pre-populated
+    with DEPOT_START and DEPOT_RETURN tasks.
+    
+    This ensures all routes are valid from inception and prevents the need
+    to add depot tasks later in the process, which was causing issues with
+    neighborhood operators and route exploration.
+    """
+    route = Route(vehicle=vehicle)
+    depot_location_id = "DEPOT-ASTI"
+    depot_lat, depot_lon = 44.9009, 8.2057
+
+    start_task = Task(
+        id=f"depot_start_order_{vehicle.id}",
+        location_id=depot_location_id,
+        task_type=TaskType.DEPOT_START,
+        order_id=f"depot_start_order_{vehicle.id}",
+        lat=depot_lat,
+        lon=depot_lon,
+        service_time=0.0,
+        demand=0.0,
+        volume=0.0
+    )
+    route.tasks.append(start_task)
+
+    return_task = Task(
+        id=f"depot_return_order_{vehicle.id}",
+        location_id=depot_location_id,
+        task_type=TaskType.DEPOT_RETURN,
+        order_id=f"depot_return_order_{vehicle.id}",
+        lat=depot_lat,
+        lon=depot_lon,
+        service_time=0.0,
+        demand=0.0,
+        volume=0.0
+    )
+    route.tasks.append(return_task)
+    return route
+
+def _add_depot_tasks_to_route(route: 'Route'):
+    """
+    Ensures a route has depot start and return tasks, adding them if missing.
+    This is a defensive function to fix routes that were created incorrectly.
+    """
+    if not hasattr(route, 'tasks') or not route.tasks:
+        # Don't add depot tasks to a completely empty route.
+        # It will be filtered out later anyway.
+        return
+
+    # Defensive check: if route already has them, do nothing
+    if route.tasks[0].is_depot_start() and route.tasks[-1].is_depot_return():
+        return
+
+    try:
+        from .epdt_data_structures import Task, TaskType
+    except ImportError:
+        from epdt_data_structures import Task, TaskType
+
+    depot_location_id = "DEPOT-ASTI"
+    depot_lat, depot_lon = 44.9009, 8.2057
+
+    # Check for and add start task
+    if not route.tasks[0].is_depot_start():
+        start_task = Task(
+            id=f"depot_start_order_{route.vehicle.id}",
+            location_id=depot_location_id,
+            task_type=TaskType.DEPOT_START,
+            order_id=f"depot_start_order_{route.vehicle.id}",
+            lat=depot_lat,
+            lon=depot_lon,
+            service_time=0.0,
+            demand=0.0,
+            volume=0.0
+        )
+        route.tasks.insert(0, start_task)
+
+    # Check for and add return task
+    if not route.tasks[-1].is_depot_return():
+        return_task = Task(
+            id=f"depot_return_order_{route.vehicle.id}",
+            location_id=depot_location_id,
+            task_type=TaskType.DEPOT_RETURN,
+            order_id=f"depot_return_order_{route.vehicle.id}",
+            lat=depot_lat,
+            lon=depot_lon,
+            service_time=0.0,
+            demand=0.0,
+            volume=0.0
+        )
+        route.tasks.append(return_task)
 
 def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict) -> 'Solution':
     """
@@ -311,43 +403,26 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         for vehicle_id, route in best_solution.routes.items():
             route.ensure_pickup_first_ordering()
     
-    # Final check: Ensure all active routes have depot start/end tasks
-    depot_location_id = "DEPOT-ASTI"
-    depot_lat, depot_lon = 44.9009, 8.2057
-    
-    from epdt_data_structures import Task, TaskType
-    
+    # FINAL DEPOT TASK FINALIZATION: Ensure all routes have proper depot start/end tasks
+    print("🏗️  Performing final depot task finalization on all routes...")
+    depot_tasks_added = 0
     for vehicle_id, route in best_solution.routes.items():
-        if route.tasks:  # Only for routes that are not empty
-            # Check for depot start
+        if hasattr(route, 'tasks') and route.tasks:  # Only process routes with tasks
+            # Check if route needs depot tasks
+            needs_depot = False
             if not route.tasks[0].is_depot_start():
-                start_task = Task(
-                    id=f"depot_start_order_{vehicle_id}",
-                    location_id=depot_location_id,
-                    task_type=TaskType.DEPOT_START,
-                    order_id=f"depot_start_order_{vehicle_id}",
-                    lat=depot_lat,
-                    lon=depot_lon,
-                    service_time=5.0,
-                    demand=0.0,
-                    volume=0.0
-                )
-                route.tasks.insert(0, start_task)
+                needs_depot = True
+            elif not route.tasks[-1].is_depot_return():
+                needs_depot = True
             
-            # Check for depot return
-            if not route.tasks[-1].is_depot_return():
-                return_task = Task(
-                    id=f"depot_return_order_{vehicle_id}",
-                    location_id=depot_location_id,
-                    task_type=TaskType.DEPOT_RETURN,
-                    order_id=f"depot_return_order_{vehicle_id}",
-                    lat=depot_lat,
-                    lon=depot_lon,
-                    service_time=5.0,
-                    demand=0.0,
-                    volume=0.0
-                )
-                route.tasks.append(return_task)
+            if needs_depot:
+                _add_depot_tasks_to_route(route)
+                depot_tasks_added += 1
+    
+    if depot_tasks_added > 0:
+        print(f"🏗️  Added depot tasks to {depot_tasks_added} routes")
+    else:
+        print(f"✅ All routes already have proper depot structure")
     
     # FINAL VALIDATION: Strictly enforce HoS compliance on all routes
     print("🔍 Performing final HoS validation on all routes...")
@@ -372,36 +447,44 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
             print("Warning: Could not import is_feasible function for final validation")
             return solution
     
-    validated_routes = []
-    removed_routes = 0
+    validated_routes = {}
+    removed_routes_count = 0
     
     print(f"Validating {len(solution.routes)} routes...")
     
-    for i, route in enumerate(solution.routes):
-        print(f"Route {i}: type={type(route)}, value={route}")
-        if hasattr(route, 'tasks') and route.tasks:  # Only validate non-empty routes with tasks
+    for vehicle_id, route in solution.routes.items():
+        if hasattr(route, 'tasks') and route.tasks:  # Only validate routes with tasks
+            # Check if route has only depot tasks (should be filtered out)
+            if len(route.tasks) <= 2:
+                # Route has only depot tasks (or is truly empty), filter it out
+                removed_routes_count += 1
+                print(f"🧹 Empty route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed (only depot tasks)")
+                continue
+            
+            # Route has customer tasks, validate for HoS compliance
             # Force strict HoS validation (no initialization bypass)
             if is_feasible(route, debug_feasibility=False, return_reason=False):
-                validated_routes.append(route)
+                validated_routes[vehicle_id] = route
             else:
-                removed_routes += 1
+                removed_routes_count += 1
                 print(f"⚠️  Route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed due to HoS violation")
                 
                 # Add orders from removed route back to unassigned
                 for task in route.tasks:
-                    if hasattr(task, 'order_id') and task.order_id:
+                    if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
                         if not hasattr(solution, 'unassigned_orders'):
                             solution.unassigned_orders = set()
                         solution.unassigned_orders.add(task.order_id)
         else:
-            print(f"Skipping route {i} - no tasks or invalid type")
-            validated_routes.append(route)  # Keep empty routes
-    
+            # Route has no tasks at all, filter it out
+            removed_routes_count += 1
+            print(f"🧹 Completely empty route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed")
+
     # Update solution with validated routes
     solution.routes = validated_routes
     
-    if removed_routes > 0:
-        print(f"🔧 Final validation complete: {removed_routes} routes removed due to HoS violations")
+    if removed_routes_count > 0:
+        print(f"🔧 Final validation complete: {removed_routes_count} routes removed due to HoS violations")
     else:
         print("✅ Final validation complete: All routes pass HoS constraints")
     
@@ -440,11 +523,17 @@ def get_move_attributes(from_solution: 'Solution', to_solution: 'Solution') -> t
     if len(changed_orders) == 1:
         # Single order relocation (1R)
         order_id, from_vehicle, to_vehicle = changed_orders[0]
+        # Handle None values for unassigned orders
+        from_vehicle = from_vehicle if from_vehicle is not None else 'unassigned'
+        to_vehicle = to_vehicle if to_vehicle is not None else 'unassigned'
         return ('relocation', order_id, from_vehicle, to_vehicle)
     elif len(changed_orders) == 2:
         # Two orders swap (2S)
         order1_id, from_vehicle1, to_vehicle1 = changed_orders[0]
         order2_id, from_vehicle2, to_vehicle2 = changed_orders[1]
+        # Handle None values for unassigned orders
+        from_vehicle1 = from_vehicle1 if from_vehicle1 is not None else 'unassigned'
+        from_vehicle2 = from_vehicle2 if from_vehicle2 is not None else 'unassigned'
         # Normalize the order for consistent tabu representation
         if order1_id < order2_id:
             return ('swap', order1_id, from_vehicle1, order2_id, from_vehicle2)
@@ -453,7 +542,10 @@ def get_move_attributes(from_solution: 'Solution', to_solution: 'Solution') -> t
     elif len(changed_orders) > 2:
         # Multiple order relocation (mR) or complex move
         order_ids = [order_id for order_id, _, _ in changed_orders]
-        source_vehicles = [from_vehicle for _, from_vehicle, _ in changed_orders]
+        source_vehicles = [from_vehicle for _, from_vehicle, _ in changed_orders if from_vehicle is not None]
+        # Handle case where source_vehicles might be empty due to None filtering
+        if not source_vehicles:
+            source_vehicles = ['unassigned']
         return ('multi_relocation', tuple(sorted(order_ids)), tuple(sorted(source_vehicles)))
     else:
         # No changes detected (shouldn't happen in normal operation)
@@ -516,7 +608,7 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
     # Initialize routes with vehicle initial states and yesterday's tasks
     for vehicle in vehicles:
         # Create initial route for this vehicle
-        initial_route = Route(vehicle=vehicle)
+        initial_route = _create_base_route(vehicle)
         
         # Handle vehicle initial state and open routes
         if hasattr(vehicle, 'initial_state') and vehicle.initial_state:
@@ -614,7 +706,7 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
                 
                 # Create empty route if it doesn't exist
                 if current_route is None:
-                    current_route = Route(vehicle=vehicle)
+                    current_route = _create_base_route(vehicle)
                 
                 if debug_assignment:
                     print(f"    DEBUG L1: Trying vehicle {vehicle.id} (current route has {len(current_route.tasks)} tasks)")
@@ -699,7 +791,7 @@ def round_robin_insertion_with_priority_initializer(orders: List['Order'], vehic
     # Initialize routes with vehicle initial states and yesterday's tasks
     for vehicle in vehicles:
         # Create initial route for this vehicle
-        initial_route = Route(vehicle=vehicle)
+        initial_route = _create_base_route(vehicle)
         
         # Handle vehicle initial state and open routes
         if hasattr(vehicle, 'initial_state') and vehicle.initial_state:
@@ -778,7 +870,7 @@ def round_robin_insertion_with_priority_initializer(orders: List['Order'], vehic
             
             # Create empty route if it doesn't exist
             if current_route is None:
-                current_route = Route(vehicle=current_vehicle)
+                current_route = _create_base_route(current_vehicle)
             
             # Try to insert order using L2 heuristic
             new_route = l2_heuristic(current_route, order)
@@ -1067,9 +1159,13 @@ def unassigned_order_insertion_neighborhood(solution: 'Solution', orders: List['
                 
                 yield new_solution
     
-    # Strategy 2: Try assigning to idle vehicles
+    # Strategy 2: Try assigning to idle or empty vehicles
     used_vehicle_ids = set(solution.routes.keys())
-    idle_vehicles = [v for v in vehicles if v.id not in used_vehicle_ids]
+    idle_vehicles = []
+    for v in vehicles:
+        route = solution.routes.get(v.id)
+        if not route or len(route.tasks) <= 2:
+            idle_vehicles.append(v)
     
     print(f"🔍 Found {len(idle_vehicles)} idle vehicles for unassigned order insertion")
     
@@ -1077,7 +1173,7 @@ def unassigned_order_insertion_neighborhood(solution: 'Solution', orders: List['
         for idle_vehicle in idle_vehicles:
             # Create a new empty route for the idle vehicle
             from epdt_data_structures import Route
-            empty_route = Route(vehicle=idle_vehicle)
+            empty_route = _create_base_route(idle_vehicle)
             
             # Try L2 insertion into the empty route
             from second_level import l2_heuristic
@@ -1162,9 +1258,13 @@ def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Ord
                         new_solution.routes[to_vehicle_id] = optimized_route
                         yield new_solution
         
-        # Strategy 2: Try relocating orders to idle vehicles  
+        # Strategy 2: Try relocating orders to idle or empty vehicles  
         used_vehicle_ids = set(solution.routes.keys())
-        idle_vehicles = [v for v in vehicles if v.id not in used_vehicle_ids]
+        idle_vehicles = []
+        for v in vehicles:
+            route = solution.routes.get(v.id)
+            if not route or len(route.tasks) <= 2:
+                idle_vehicles.append(v)
         
         if idle_vehicles:
             print(f"🔍 Found {len(idle_vehicles)} idle vehicles for order relocation")
@@ -1187,7 +1287,7 @@ def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Ord
                     
                     # Create new route for idle vehicle
                     from epdt_data_structures import Route
-                    empty_route = Route(vehicle=idle_vehicle)
+                    empty_route = _create_base_route(idle_vehicle)
                     
                     # Get the order object and use L2 heuristic to insert
                     order = next((o for o in orders if o.id == order_id), None)
@@ -1729,7 +1829,7 @@ def cluster_aware_initializer(orders: List['Order'], vehicles: List['Vehicle'], 
             print(f"  DEBUG L1: Building route for {vehicle.id} with {len(assigned_orders)} orders")
         
         # Create base route
-        current_route = Route(vehicle=vehicle)
+        current_route = _create_base_route(vehicle)
         
         # Use enhanced multi-order insertion strategy
         final_route = build_clustered_route(current_route, assigned_orders, debug_assignment)
@@ -1783,32 +1883,16 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
     # Start with an empty route and add depot start task
     current_route = route.copy()
     
-    # Add depot start task if we have any actual cargo tasks
-    if all_pickups or all_deliveries:
-        # Get depot information from vehicle
-        depot_location_id = getattr(route.vehicle, 'depot_id', 'main_depot')
-        depot_lat = getattr(route.vehicle, 'depot_lat', 44.9009)  # Default Asti coordinates (Via del Lavoro 38)
-        depot_lon = getattr(route.vehicle, 'depot_lon', 8.2057)
-        
-        # Import Task class for creating depot tasks
-        from epdt_data_structures import Task
-        
-        # Create and add depot start task at the beginning
-        depot_start_task = Task.create_depot_start_task(
-            vehicle_id=route.vehicle.id,
-            depot_location_id=depot_location_id,
-            depot_lat=depot_lat,
-            depot_lon=depot_lon
-        )
-        current_route.insert_task_without_reordering(0, depot_start_task)
-    
     # Phase 1: Insert all pickups in a cluster
     for pickup in all_pickups:
         best_cost = float('inf')
         best_route = None
         
         # Try inserting at each position using relaxed feasibility check
-        for pos in range(len(current_route.tasks) + 1):
+        # Skip position 0 (before depot start) and last position (after depot return)
+        depot_start_positions = 1 if current_route.tasks and current_route.tasks[0].is_depot_start() else 0
+        depot_return_offset = 1 if current_route.tasks and current_route.tasks[-1].is_depot_return() else 0
+        for pos in range(depot_start_positions, len(current_route.tasks) - depot_return_offset + 1):
             test_route = current_route.copy()
             test_route.insert_task_without_reordering(pos, pickup)
             
@@ -1844,7 +1928,11 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
         # Insert delivery after its pickup
         start_pos = (pickup_pos + 1) if pickup_pos is not None else len(all_pickups)
         
-        for pos in range(start_pos, len(current_route.tasks) + 1):
+        # Respect depot boundaries for delivery insertion
+        depot_return_offset = 1 if current_route.tasks and current_route.tasks[-1].is_depot_return() else 0
+        max_pos = len(current_route.tasks) - depot_return_offset
+        
+        for pos in range(start_pos, max_pos + 1):
             test_route = current_route.copy()
             test_route.insert_task_without_reordering(pos, delivery)
             
@@ -1863,22 +1951,6 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
             if debug_assignment:
                 print(f"    DEBUG L1: Failed to insert delivery {delivery.id}")
             return None
-    
-    # Add depot return task at the end if we have any actual cargo tasks
-    if all_pickups or all_deliveries:
-        # Get depot information from vehicle (same as start)
-        depot_location_id = getattr(route.vehicle, 'depot_id', 'main_depot')
-        depot_lat = getattr(route.vehicle, 'depot_lat', 44.9009)  # Default Asti coordinates (Via del Lavoro 38)
-        depot_lon = getattr(route.vehicle, 'depot_lon', 8.2057)
-        
-        # Create and add depot return task at the end
-        depot_return_task = Task.create_depot_return_task(
-            vehicle_id=route.vehicle.id,
-            depot_location_id=depot_location_id,
-            depot_lat=depot_lat,
-            depot_lon=depot_lon
-        )
-        current_route.insert_task_without_reordering(len(current_route.tasks), depot_return_task)
     
     if debug_assignment:
         print(f"    DEBUG L1: Successfully built clustered route with {len(current_route.tasks)} tasks")
@@ -1914,7 +1986,7 @@ def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], param
     
     # Initialize empty routes for all vehicles
     for vehicle in vehicles:
-        solution.add_route(vehicle.id, Route(vehicle=vehicle))
+        solution.add_route(vehicle.id, _create_base_route(vehicle))
     
     # Main regret-k loop
     iteration = 0
@@ -1928,11 +2000,11 @@ def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], param
         best_insertion = None
         order_costs = {}  # Use order.id as key instead of order object
         
-        # Step 1: Calculate insertion costs for all unassigned orders
+        # Step 1: Calculate insertion costs for all unassigned orders (optimized with L2 heuristic)
         for order in unassigned_orders:
             insertion_costs = []
             
-            # Try inserting this order into every vehicle's route
+            # Try inserting this order into every vehicle's route using L2 heuristic
             for vehicle in vehicles:
                 current_route = solution.routes[vehicle.id]
                 
@@ -1941,50 +2013,29 @@ def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], param
                 if not order_tasks:
                     continue
                 
-                # Find best insertion cost for this vehicle
-                best_vehicle_cost = float('inf')
-                best_vehicle_insertion = None
-                
-                # Try all possible insertion patterns (pickup positions + delivery positions)
-                for pickup_task in order.get_pickups():
-                    for delivery_task in order.get_deliveries():
-                        # Try different insertion positions
-                        for pickup_pos in range(len(current_route.tasks) + 1):
-                            for delivery_pos in range(pickup_pos + 1, len(current_route.tasks) + 2):
-                                # Create test route
-                                test_route = current_route.copy()
-                                
-                                # Insert pickup first, then delivery
-                                test_route.insert_task_without_reordering(pickup_pos, pickup_task)
-                                test_route.insert_task_without_reordering(delivery_pos, delivery_task)
-                                
-                                # Check feasibility with lenient constraints during initialization
-                                try:
-                                    from second_level import is_feasible_for_insertion, calculate_z2_score
-                                    if is_feasible_for_insertion(test_route, debug_insertion=False):
-                                        cost = calculate_z2_score(test_route)
-                                        if cost < best_vehicle_cost:
-                                            best_vehicle_cost = cost
-                                            best_vehicle_insertion = {
-                                                'vehicle': vehicle,
-                                                'route': test_route,
-                                                'cost': cost,
-                                                'pickup_pos': pickup_pos,
-                                                'delivery_pos': delivery_pos,
-                                                'order': order  # Store order reference
-                                            }
-                                except Exception as e:
-                                    if debug_regret:
-                                        print(f"    Warning: Error evaluating insertion for {order.id}: {e}")
-                                    continue
-                
-                # Add this vehicle's best cost to the list
-                if best_vehicle_cost < float('inf'):
-                    insertion_costs.append(best_vehicle_cost)
-                    if best_vehicle_insertion:
+                # Use L2 heuristic to find optimal insertion for this vehicle
+                try:
+                    from second_level import l2_heuristic, calculate_z2_score
+                    optimized_route = l2_heuristic(current_route, order, debug_assignment=False)
+                    
+                    if optimized_route:
+                        cost = calculate_z2_score(optimized_route)
+                        insertion_costs.append(cost)
+                        
+                        # Store the best insertion for this vehicle
                         if order.id not in order_costs:
                             order_costs[order.id] = []
-                        order_costs[order.id].append(best_vehicle_insertion)
+                        order_costs[order.id].append({
+                            'vehicle': vehicle,
+                            'route': optimized_route,
+                            'cost': cost,
+                            'order': order
+                        })
+                        
+                except Exception as e:
+                    if debug_regret:
+                        print(f"    Warning: Error evaluating insertion for {order.id}: {e}")
+                    continue
             
             # Step 2: Calculate regret value for this order
             if len(insertion_costs) >= k:
@@ -2033,33 +2084,63 @@ def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], param
 
 
 def _add_depot_tasks_to_route(route: 'Route'):
-    """Helper function to add depot start and return tasks to a route."""
+    """
+    Helper function to add depot start and return tasks to a route.
+    
+    This function implements defensive programming by:
+    1. Checking if depot tasks already exist before adding
+    2. Handling edge cases (empty routes, None tasks)
+    3. Ensuring proper error handling
+    """
     try:
         from epdt_data_structures import Task
         
+        # Defensive check: ensure route has a tasks list
+        if not hasattr(route, 'tasks') or route.tasks is None:
+            route.tasks = []
+        
         vehicle = route.vehicle
-       
+        if not vehicle:
+            print(f"Warning: Cannot add depot tasks to route without vehicle")
+            return
+            
         depot_location_id = getattr(vehicle, 'depot_id', 'main_depot')
         depot_lat = getattr(vehicle, 'depot_lat', 44.9009)
         depot_lon = getattr(vehicle, 'depot_lon', 8.2057)
         
-        # Add depot start at beginning
-        depot_start = Task.create_depot_start_task(
-            vehicle_id=vehicle.id,
-            depot_location_id=depot_location_id,
-            depot_lat=depot_lat,
-            depot_lon=depot_lon
-        )
-        route.insert_task_without_reordering(0, depot_start)
+        # Defensive check: only add depot start if not already present
+        needs_depot_start = True
+        if route.tasks:
+            first_task = route.tasks[0]
+            if hasattr(first_task, 'is_depot_start') and first_task.is_depot_start():
+                needs_depot_start = False
         
-        # Add depot return at end
-        depot_return = Task.create_depot_return_task(
-            vehicle_id=vehicle.id,
-            depot_location_id=depot_location_id,
-            depot_lat=depot_lat,
-            depot_lon=depot_lon
-        )
-        route.insert_task_without_reordering(len(route.tasks), depot_return)
+        if needs_depot_start:
+            # Add depot start at beginning
+            depot_start = Task.create_depot_start_task(
+                vehicle_id=vehicle.id,
+                depot_location_id=depot_location_id,
+                depot_lat=depot_lat,
+                depot_lon=depot_lon
+            )
+            route.insert_task_without_reordering(0, depot_start)
+        
+        # Defensive check: only add depot return if not already present
+        needs_depot_return = True
+        if route.tasks:
+            last_task = route.tasks[-1]
+            if hasattr(last_task, 'is_depot_return') and last_task.is_depot_return():
+                needs_depot_return = False
+        
+        if needs_depot_return:
+            # Add depot return at end
+            depot_return = Task.create_depot_return_task(
+                vehicle_id=vehicle.id,
+                depot_location_id=depot_location_id,
+                depot_lat=depot_lat,
+                depot_lon=depot_lon
+            )
+            route.insert_task_without_reordering(len(route.tasks), depot_return)
         
     except Exception as e:
         print(f"Warning: Could not add depot tasks to route: {e}")

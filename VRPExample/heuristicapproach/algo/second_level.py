@@ -193,8 +193,9 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
             if debug_assignment:
                 print(f"        DEBUG L2: Inserting delivery-only task {getattr(delivery, 'id', 'unknown')}")
             
-            # Try all positions for delivery-only orders
-            for pos in range(len(current_route.tasks) + 1):
+            # Try all positions for delivery-only orders (between depot tasks)
+            # Range ensures we insert after DEPOT_START (index 0) and before DEPOT_RETURN
+            for pos in range(1, len(current_route.tasks)):
                 test_route = current_route.copy()
                 test_route.insert_task_without_reordering(pos, delivery)
                 
@@ -241,8 +242,9 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
             print(f"        DEBUG L2: Clustering pickup {pickup.id if hasattr(pickup, 'id') else 'unknown'}")
         
         # Try inserting pickup near other pickups (cluster them together)
-        max_positions_to_try = min(len(current_route.tasks) + 1, 20)
-        for pos in range(max_positions_to_try):
+        # Ensure we only insert between depot tasks (not at position 0 or at the end)
+        max_positions_to_try = min(len(current_route.tasks) - 1, 20)  # -1 to exclude end position
+        for pos in range(1, min(1 + max_positions_to_try, len(current_route.tasks))):
             test_route = current_route.copy()
             test_route.insert_task_without_reordering(pos, pickup)
             
@@ -279,11 +281,15 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
         
         # Insert deliveries starting after the pickup cluster
         # This ensures the pattern: depot → pickup1 → pickup2 → pickup3 → delivery1 → delivery2 → delivery3
-        start_pos = pickup_cluster_size
-        max_delivery_positions = min(len(current_route.tasks) + 1 - start_pos, 15)
+        # start_pos accounts for DEPOT_START (position 0) + all pickups
+        start_pos = 1 + pickup_cluster_size  # Skip DEPOT_START + all pickup tasks
+        max_delivery_positions = min(len(current_route.tasks) - start_pos, 15)  # -1 to exclude DEPOT_RETURN position
         
         for pos_offset in range(max_delivery_positions):
             pos = start_pos + pos_offset
+            # Ensure we never insert at the very end (where DEPOT_RETURN should be)
+            if pos >= len(current_route.tasks):
+                break
             test_route = current_route.copy()
             test_route.insert_task_without_reordering(pos, delivery)
             
@@ -317,8 +323,9 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
                     pickup_pos = i
                     break
             
-            start_pos = (pickup_pos + 1) if pickup_pos is not None else 0
-            for pos in range(start_pos, len(current_route.tasks) + 1):
+            start_pos = max(1, (pickup_pos + 1) if pickup_pos is not None else 1)
+            # Ensure we insert between depot tasks, not at the end where DEPOT_RETURN should be
+            for pos in range(start_pos, len(current_route.tasks)):
                 test_route = current_route.copy()
                 test_route.insert_task_without_reordering(pos, delivery)
                 
@@ -369,7 +376,8 @@ def _task_insertion_neighborhood(route: 'Route', order: 'Order') -> Iterator['Ro
     D = order.get_deliveries()
     n = len(route.tasks)
     
-    for i in range(n + 1):
+    # Insert tasks only between depot tasks (not at position 0 or at the end)
+    for i in range(1, n):
         for pickup in P:
             new_route = copy.deepcopy(route)  # Deep copy for proper state management
             new_route.insert_task(i, pickup)
@@ -526,12 +534,17 @@ def calculate_z2_score(route: 'Route') -> float:
     
     Note: JIT compilation removed for better compatibility across different execution contexts.
     """
+    # Call the comprehensive HoS simulation first
+    sorted_tasks = _enforce_pickup_first_sequencing(route.tasks)
+    hos_feasible, hos_cost = _check_hos_multiday(route, DriverState(), sorted_tasks)
+
+    # If the route is not feasible, return a massive penalty
+    if not hos_feasible:
+        return 1_000_000_000.0
+
     # Check if score is already cached
     if hasattr(route, '_z2_score'):
         return route._z2_score
-    
-    # Sort tasks with pickup-first sequencing for proper simulation and comparison
-    sorted_tasks = _enforce_pickup_first_sequencing(route.tasks)
     
     # Initialize cost components
     travel_cost = 0.0  # C(r)
@@ -545,6 +558,9 @@ def calculate_z2_score(route: 'Route') -> float:
 
     # Enhanced driver break costs calculation
     driver_cost, _ = _calculate_realistic_driver_costs(route)
+
+    # Add the HoS downtime cost to the total route cost
+    driver_cost += hos_cost
 
     # Multi-day cost simulation with weight violation tracking
     current_time = 0
@@ -1121,6 +1137,50 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
     if debug_insertion:
         print(f"                DEBUG INSERTION: Route passes basic feasibility checks")
     
+    # Enhanced constraint checking: Add basic time window validation during insertion
+    # This prevents creating routes with obvious time window violations
+    try:
+        # Quick time window feasibility check
+        current_time = 0
+        for i, task in enumerate(sorted_tasks):
+            # Calculate travel time from previous task
+            if i > 0:
+                prev_task = sorted_tasks[i-1]
+                # Use a simplified travel time estimate for insertion checks
+                if (hasattr(task, 'lat') and hasattr(task, 'lon') and 
+                    hasattr(prev_task, 'lat') and hasattr(prev_task, 'lon')):
+                    # Simple distance-based travel time estimate
+                    import math
+                    lat_diff = task.lat - prev_task.lat
+                    lon_diff = task.lon - prev_task.lon
+                    distance = math.sqrt(lat_diff*lat_diff + lon_diff*lon_diff)
+                    travel_time = distance * 100  # Rough estimate: 100 minutes per degree
+                else:
+                    travel_time = 30  # Default travel time
+                
+                current_time += travel_time
+            
+            # Check basic time window constraints
+            if hasattr(task, 'latest_time') and task.latest_time is not None:
+                if current_time > task.latest_time:
+                    if debug_insertion:
+                        print(f"                DEBUG INSERTION: Time window violation predicted at task {task.id}")
+                    return False
+            
+            # Update time with service time and waiting
+            if hasattr(task, 'earliest_time') and task.earliest_time is not None:
+                if current_time < task.earliest_time:
+                    current_time = task.earliest_time  # Wait until earliest time
+            
+            service_time = getattr(task, 'service_time', 0)
+            current_time += service_time
+            
+    except Exception as e:
+        # If time window check fails, be conservative and allow the route
+        if debug_insertion:
+            print(f"                DEBUG INSERTION: Time window check failed: {e}")
+        pass
+    
     return True
 
 
@@ -1434,15 +1494,13 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
     finally:
         del frame
     
-    if is_initialization:
-        # Skip HoS during initialization to allow assignment
-        if debug_feasibility:
-            #print(f"            DEBUG FEASIBILITY: HoS constraint bypassed during initialization")
-            pass
-        pass
-    else:
-        # Apply STRICT LEGAL HoS during optimization - THESE ARE LEGALLY MANDATED
-        try:
+    # Apply STRICT LEGAL HoS validation - THESE ARE LEGALLY MANDATED
+    # No longer bypass HoS during initialization - this was causing violations in final solution
+    try:
+        # B license drivers are exempt from HoS regulations
+        if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
+            pass  # B license drivers are exempt - skip HoS check
+        else:
             driver_state = DriverState()  # Initialize fresh driver state
             
             # DO NOT MODIFY THESE - THEY ARE SET BY EUROPEAN LAW
@@ -1452,7 +1510,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             # driver_state.MAX_WORK_PER_DAY = 13 * 60          # 13 hours (780 minutes)
             # These are the legal defaults and MUST NOT be changed
             
-            if not _check_hos_multiday(route, driver_state, sorted_tasks):
+            hos_feasible, _ = _check_hos_multiday(route, driver_state, sorted_tasks)
+            if not hos_feasible:
                 reason = "HoS constraint violated (LEGAL LIMITS)"
                 if debug_feasibility:
                     #print(f"            DEBUG FEASIBILITY: {reason}")
@@ -1460,15 +1519,15 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                 if return_reason:
                     return False, reason
                 return False
-        except Exception as e:
-            # HoS check failed with exception - treat as infeasible for safety
-            reason = f"HoS check failed with error: {e}"
-            if debug_feasibility:
-                #print(f"            DEBUG FEASIBILITY: {reason}")
-                pass
-            if return_reason:
-                return False, reason
-            return False
+    except Exception as e:
+        # HoS check failed with exception - treat as infeasible for safety
+        reason = f"HoS check failed with error: {e}"
+        if debug_feasibility:
+            #print(f"            DEBUG FEASIBILITY: {reason}")
+            pass
+        if return_reason:
+            return False, reason
+        return False
     
     # H7: Hard time windows check - Enhanced with arrival time simulation
     try:
@@ -1520,7 +1579,15 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
     if hasattr(route, 'preferred_end_position') and sorted_tasks:
         last_task = sorted_tasks[-1]
         if hasattr(last_task, 'location') and last_task.location != route.preferred_end_position:
+            reason = f"Route ending position mismatch: expected {route.preferred_end_position}, got {last_task.location}"
+            if return_reason:
+                return False, reason
             return False
+    
+    # All checks passed - route is feasible
+    if return_reason:
+        return True, "All feasibility checks passed"
+    return True
         
 # Remove the old _check_hos function as it's replaced by _check_hos_multiday
 
@@ -1533,161 +1600,6 @@ def format_absolute_minutes(minutes):
     hour = remaining_minutes // 60
     minute = remaining_minutes % 60
     return f"Day {day}, {hour:02d}:{minute:02d}"
-
-def is_feasible(route: Route, debug_feasibility: bool = False, return_reason: bool = False) -> Union[bool, Tuple[bool, str]]:
-    """
-    Check if a route is feasible considering all constraints, including multi-day operations and HoS.
-    This is the definitive check for a route's validity.
-    """
-    if not route or not route.tasks:
-        return (True, "Empty route") if return_reason else True
-
-    if debug_feasibility:
-        #print(f"DEBUG FEASIBILITY: Checking route feasibility for vehicle {route.vehicle.id}")
-        #print(f"DEBUG FEASIBILITY: Route has {len(route.tasks)} tasks")
-        pass
-
-    # 1. Depot Start/End Validation
-    if not route.tasks[0].is_depot_start() or not route.tasks[-1].is_depot_return():
-        reason = f"Route validation failed: First task ({route.tasks[0].id}) is not a depot start task or last task ({route.tasks[-1].id}) is not a depot return task"
-        if debug_feasibility:
-            #print(f"DEBUG FEASIBILITY: {reason}")
-            pass
-        return (False, reason) if return_reason else False
-    if debug_feasibility:
-        #print("DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot")
-        pass
-
-    # 2. Capacity Validation
-    current_weight = 0
-    current_volume = 0
-    current_pallets = 0
-    for task in route.tasks:
-        current_weight += getattr(task, 'demand', 0)
-        current_volume += getattr(task, 'volume', 0)
-        current_pallets += getattr(task, 'pallets', 0)
-        if (current_weight > route.vehicle.weight_capacity or 
-            current_volume > route.vehicle.volume_capacity or 
-            current_pallets > route.vehicle.pallet_capacity):
-            reason = f"Capacity violation at task {task.id}: W:{current_weight}/{route.vehicle.weight_capacity}, V:{current_volume}/{route.vehicle.volume_capacity}, P:{current_pallets}/{route.vehicle.pallet_capacity}"
-            if debug_feasibility:
-                #print(f"DEBUG FEASIBILITY: {reason}")
-                pass
-            return (False, reason) if return_reason else False
-    if debug_feasibility:
-        #print("DEBUG FEASIBILITY: ✅ Capacity validation passed")
-        pass
-
-    # 3. Time Window and HoS Validation
-    try:
-        from route_provider import calculate_travel_time_between_tasks
-    except ImportError:
-        return (False, "Route provider not available for time calculations") if return_reason else False
-
-    # Initialize time and waiting time tracking
-    completion_time = 0.0  # Tracks the completion time of the last task
-    route.total_wait_time = 0.0
-    daily_driving_time = 0
-    daily_work_time = 0
-    current_day = 1
-    
-    # Initialize daily HoS breakdown storage for enhanced driver summary
-    daily_hos_breakdown = {}  # Will store {day: {'drive': minutes, 'work': minutes, 'violations': []}}
-
-    for i in range(len(route.tasks)):
-        task = route.tasks[i]
-        
-        departure_time = completion_time
-        travel_time = 0
-        wait_time = 0
-
-        if i > 0:
-            prev_task = route.tasks[i-1]
-            travel_time = calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
-            
-            # If the next task has an earliest start time, we might need to wait at the previous location.
-            if task.earliest_time and task.earliest_time > 0:
-                # Required departure time from previous location to arrive exactly at earliest_time
-                required_departure_time = task.earliest_time - travel_time
-                
-                # If we are ready to depart earlier than required, we wait.
-                if completion_time < required_departure_time:
-                    wait_time = required_departure_time - completion_time
-                    route.total_wait_time += wait_time
-        
-        # Departure time from previous task location includes waiting
-        departure_time = completion_time + wait_time
-        
-        # Arrival at current task
-        arrival_time = departure_time + travel_time
-        service_start_time = arrival_time
-
-        # Check for lateness
-        if task.latest_time and service_start_time > task.latest_time:
-            reason = f"Time window violation at task {task.id}: Service start {format_absolute_minutes(service_start_time)} is after latest {format_absolute_minutes(task.latest_time)}"
-            if debug_feasibility:
-                #print(f"DEBUG FEASIBILITY: {reason}")
-                pass
-            return (False, reason) if return_reason else False
-
-        service_time = getattr(task, 'service_time', 0)
-        completion_time = service_start_time + service_time
-
-        # HoS (Hours of Service) checks
-        # This is a simplified check. A full implementation would be more complex.
-        new_day = int(completion_time // 1440) + 1
-        if new_day > current_day:
-            # Store the previous day's data before resetting
-            if current_day not in daily_hos_breakdown:
-                daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
-            daily_hos_breakdown[current_day]['drive'] = daily_driving_time
-            daily_hos_breakdown[current_day]['work'] = daily_work_time
-            
-            daily_driving_time = 0
-            daily_work_time = 0
-            current_day = new_day
-
-        daily_driving_time += travel_time
-        # Per regulations, waiting time does not contribute to driving or work time.
-        daily_work_time += travel_time + service_time
-
-        # Store the current day's data in daily breakdown (update continuously for violation cases)
-        if current_day not in daily_hos_breakdown:
-            daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
-        daily_hos_breakdown[current_day]['drive'] = daily_driving_time
-        daily_hos_breakdown[current_day]['work'] = daily_work_time
-        
-        # Store the daily HoS breakdown on the route BEFORE checking violations
-        # This ensures data is preserved even when violations are detected
-        route.hos_daily_summary = daily_hos_breakdown
-
-        if daily_driving_time > route.vehicle.max_driving_time or daily_work_time > route.vehicle.max_work_time:
-            reason = f"HoS constraint violated (LEGAL LIMITS) on day {current_day}: Drive={daily_driving_time:.1f}m, Work={daily_work_time:.1f}m"
-            
-            # Store violation in daily breakdown
-            daily_hos_breakdown[current_day]['violations'].append(reason)
-            # Update the route's HoS data with violation information
-            route.hos_daily_summary = daily_hos_breakdown
-            
-            if debug_feasibility:
-                #print(f"DEBUG FEASIBILITY: {reason}")
-                pass
-            return (False, reason) if return_reason else False
-
-    # Store the final day's data
-    if current_day not in daily_hos_breakdown:
-        daily_hos_breakdown[current_day] = {'drive': 0.0, 'work': 0.0, 'violations': []}
-    daily_hos_breakdown[current_day]['drive'] = daily_driving_time
-    daily_hos_breakdown[current_day]['work'] = daily_work_time
-    
-    # Store the daily HoS breakdown on the route for later access
-    route.hos_daily_summary = daily_hos_breakdown
-
-    if debug_feasibility:
-        #print("DEBUG FEASIBILITY: ✅ Time window and HoS validation passed")
-        pass
-
-    return (True, "Route is feasible") if return_reason else True
 
 def _enforce_pickup_first_sequencing_basic(tasks: List) -> List:
     """
@@ -1932,15 +1844,17 @@ def _sort_tasks_chronologically(tasks: List) -> List:
     return sorted_tasks
 
 
-def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_tasks: List) -> bool:
+def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_tasks: List) -> tuple[bool, float]:
     """
     Enhanced Hours of Service check with multi-day support and detailed European regulations.
     
-    European HoS Regulations:
+    European HoS Regulations (only apply to CE license drivers):
     - After 4.5 hours of driving, a 45-minute break is mandatory (can be split into 15 + 30 mins)
     - Maximum 9 hours of driving per day (extendable to 10 hours twice a week)
     - Maximum 13 hours of work per day (extendable to 14 hours twice a week)
     - Minimum 11 hours of daily rest (can be reduced to 9 hours under certain conditions)
+    
+    Note: Drivers with B licenses are exempt from HoS regulations and can drive unlimited hours.
     
     Args:
         route: The route being checked
@@ -1948,122 +1862,129 @@ def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_task
         sorted_tasks: Tasks sorted chronologically
         
     Returns:
-        True if route respects HoS regulations, False otherwise
+        Tuple of (is_feasible: bool, hos_cost: float)
     """
-    if not sorted_tasks:
-        return True
+    if not sorted_tasks or len(sorted_tasks) < 2:
+        return True, 0.0
+
+    total_rest_cost = 0.0
+    driver_cost_per_minute = (route.vehicle.cost_per_hour / 60.0) if route.vehicle else (25.0 / 60.0)
+    sim_state = driver_state.copy()
+    
+    # B license drivers are exempt from HoS regulations
+    if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
+        return True, 0.0
     
     current_time = 0
     current_day = getattr(sorted_tasks[0], 'day', 0)
     extensions_used_this_week = {'driving': 0, 'work': 0}  # Track extensions
     
     # Process each task in chronological order
-    for i in range(len(sorted_tasks)):
-        current_task = sorted_tasks[i]
-        task_day = getattr(current_task, 'day', 0)
+    for i in range(len(sorted_tasks) - 1):
+        # Placed at the start of the for loop
+        start_task = sorted_tasks[i]
+        end_task = sorted_tasks[i+1]
+
+        # 1. Simulate Service Time at the start_task
+        service_time = start_task.service_time
+        if service_time > 0:
+            if sim_state.work_today + service_time > sim_state.MAX_WORK_PER_DAY:
+                return False, total_rest_cost # Infeasible
+            sim_state.work_today += service_time
+            sim_state.work_this_week += service_time
         
         # Check for day transition
+        task_day = getattr(start_task, 'day', 0)
         if task_day != current_day:
             # New day: check if sufficient daily rest was taken
-            if driver_state.work_today > 0:  # If work was done previous day
+            if sim_state.work_today > 0:  # If work was done previous day
                 # Minimum 11 hours daily rest required
                 rest_time = 11 * 60  # 11 hours in minutes
-                # Can be reduced to 9 hours up to 3 times per week (not implemented here for simplicity)
+                total_rest_cost += rest_time * driver_cost_per_minute
                 current_time += rest_time
-                driver_state.take_daily_rest()
+                sim_state.reset_daily()  # Reset daily counters
             current_day = task_day
         
-        # Handle service time at current task
-        service_time = getattr(current_task, 'service_time', 0)
+        # Calculate travel time using proper route provider
+        # Use consistent travel time calculation (OSRM-based)
+        try:
+            from route_provider import calculate_travel_time_between_tasks
+            travel_time = calculate_travel_time_between_tasks(start_task, end_task, route.vehicle)
+            # travel_time is already in minutes - no conversion needed
+        except ImportError:
+            # Fallback to haversine if route provider not available
+            travel_time = calculate_travel_time_haversine(
+                start_task.lat, start_task.lon,
+                end_task.lat, end_task.lon
+            )
+            # calculate_travel_time_haversine returns minutes, so no conversion needed
         
-        # Check work time limits before adding service time
-        if driver_state.work_today + service_time > _get_max_work_per_day(extensions_used_this_week):
-            return False  # Would exceed daily work limit
+        travel_time_remaining = travel_time
+        while travel_time_remaining > 0:
+            # This block replaces the old state update logic inside the new while loop
+            max_drive_before_break = sim_state.MAX_DRIVE_WITHOUT_BREAK - sim_state.drive_since_break
+            max_drive_before_daily_limit = sim_state.MAX_DRIVE_PER_DAY - sim_state.drive_today
+            max_work_before_daily_limit = sim_state.MAX_WORK_PER_DAY - sim_state.work_today
+
+            drivable_time = min(max_drive_before_break, max_drive_before_daily_limit, max_work_before_daily_limit, travel_time_remaining)
+
+            # Simulate driving for the calculated time
+            sim_state.drive_since_break += drivable_time
+            sim_state.drive_today += drivable_time
+            sim_state.work_today += drivable_time
+            sim_state.drive_this_week += drivable_time
+            sim_state.work_this_week += drivable_time
+            travel_time_remaining -= drivable_time
+
+            # If travel is not complete, a rest is required
+            if travel_time_remaining > 0:
+                # A) 4.5-hour driving break
+                if sim_state.drive_since_break >= sim_state.MAX_DRIVE_WITHOUT_BREAK:
+                    rest_duration = 45
+                    total_rest_cost += rest_duration * driver_cost_per_minute
+                    sim_state.work_today += rest_duration
+                    sim_state.work_this_week += rest_duration
+                    sim_state.drive_since_break = 0
+                    continue # Continue the while loop for the remaining travel time
+
+                # B) Daily or Weekly limit reached
+                if sim_state.drive_today >= sim_state.MAX_DRIVE_PER_DAY or sim_state.work_today >= sim_state.MAX_WORK_PER_DAY:
+                    # Check for weekly rest first
+                    if sim_state.total_work_this_week >= sim_state.MAX_WORK_PER_WEEK:
+                        rest_duration = 45 * 60 # 45-hour regular weekly rest
+                        total_rest_cost += rest_duration * driver_cost_per_minute
+                        sim_state.reset_weekly() # Assumes a method that resets all counters
+                    else: # Otherwise, take a daily rest
+                        rest_duration = 11 * 60 # 11-hour daily rest
+                        total_rest_cost += rest_duration * driver_cost_per_minute
+                        sim_state.total_work_this_week += rest_duration # Time passes for weekly work limit
+                        sim_state.reset_daily() # Assumes method resets daily counters
         
-        driver_state.work_since_break += service_time
-        driver_state.work_today += service_time
-        current_time += service_time
-        
-        # If there's a next task, calculate travel time using proper route provider
-        if i < len(sorted_tasks) - 1:
-            next_task = sorted_tasks[i + 1]
-            
-            # Use consistent travel time calculation (OSRM-based)
-            try:
-                from route_provider import calculate_travel_time_between_tasks
-                travel_time = calculate_travel_time_between_tasks(current_task, next_task, route.vehicle)
-                # travel_time is already in minutes - no conversion needed
-            except ImportError:
-                # Fallback to haversine if route provider not available
-                travel_time = calculate_travel_time_haversine(
-                    current_task.lat, current_task.lon,
-                    next_task.lat, next_task.lon
-                )
-                # calculate_travel_time_haversine returns minutes, so no conversion needed
-            
-            # Check driving time limits BEFORE attempting the journey
-            max_drive_per_day = _get_max_drive_per_day(extensions_used_this_week)
-            if driver_state.drive_today + travel_time > max_drive_per_day:
-                return False  # Would exceed daily driving limit
-            
-            # CORRECTED BREAK LOGIC: Simulate partial driving with breaks
-            remaining_travel = travel_time
-            while remaining_travel > 0:
-                # Calculate how much we can drive before needing a break
-                remaining_drive_before_break = driver_state.MAX_DRIVE_WITHOUT_BREAK - driver_state.drive_since_break
-                
-                if remaining_travel <= remaining_drive_before_break:
-                    # Can complete the remaining travel without a break
-                    driver_state.drive_since_break += remaining_travel
-                    driver_state.work_since_break += remaining_travel
-                    driver_state.drive_today += remaining_travel
-                    driver_state.work_today += remaining_travel
-                    driver_state.drive_this_week += remaining_travel
-                    current_time += remaining_travel
-                    remaining_travel = 0
-                else:
-                    # Need to take a break during the journey
-                    if remaining_drive_before_break > 0:
-                        # Drive until we need a break
-                        driver_state.drive_since_break += remaining_drive_before_break
-                        driver_state.work_since_break += remaining_drive_before_break
-                        driver_state.drive_today += remaining_drive_before_break
-                        driver_state.work_today += remaining_drive_before_break
-                        driver_state.drive_this_week += remaining_drive_before_break
-                        current_time += remaining_drive_before_break
-                        remaining_travel -= remaining_drive_before_break
-                    
-                    # Take mandatory 45-minute break
-                    break_time = 45  # minutes
-                    current_time += break_time
-                    driver_state.work_today += break_time  # Breaks count as on-duty time
-                    driver_state.take_break(break_time)  # Resets drive_since_break to 0
-        
-        # Check for soft time window compliance (if applicable)
-        if hasattr(current_task, 'soft_time_window') and current_task.soft_time_window:
-            if (hasattr(current_task, 'latest_time') and 
-                current_task.latest_time is not None and 
-                current_time > current_task.latest_time):
+        # Check for soft time window compliance (if applicable) - using start_task
+        if hasattr(start_task, 'soft_time_window') and start_task.soft_time_window:
+            if (hasattr(start_task, 'latest_time') and 
+                start_task.latest_time is not None and 
+                current_time > start_task.latest_time):
                 # Soft time window violation - continue but will be penalized in scoring
                 pass
-        elif (hasattr(current_task, 'latest_time') and 
-              current_task.latest_time is not None and 
-              current_time > current_task.latest_time):
+        elif (hasattr(start_task, 'latest_time') and 
+              start_task.latest_time is not None and 
+              current_time > start_task.latest_time):
             # Hard time window violation
-            return False
+            return False, total_rest_cost
         
         # Handle waiting for earliest time
-        if (hasattr(current_task, 'earliest_time') and 
-            current_task.earliest_time is not None and 
-            current_time < current_task.earliest_time):
-            wait_time = current_task.earliest_time - current_time
-            current_time = current_task.earliest_time
-            driver_state.work_today += wait_time
-            driver_state.work_since_break += wait_time
-            driver_state.time_in_daily_period += wait_time
-            driver_state.time_since_weekly_rest += wait_time
+        if (hasattr(start_task, 'earliest_time') and 
+            start_task.earliest_time is not None and 
+            current_time < start_task.earliest_time):
+            wait_time = start_task.earliest_time - current_time
+            current_time = start_task.earliest_time
+            sim_state.work_today += wait_time
+            sim_state.work_since_break += wait_time
+            sim_state.time_in_daily_period += wait_time
+            sim_state.time_since_weekly_rest += wait_time
     
-    return True
+    return True, total_rest_cost
 
 
 # HoS simulation functions have been moved to hos_simulation.py module
