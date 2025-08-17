@@ -2064,10 +2064,120 @@ def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], param
             if debug_regret:
                 print(f"  ✅ Inserted order {best_order.id} into vehicle {vehicle_id} (regret: {best_regret:.2f}, cost: {best_insertion['cost']:.2f})")
         else:
-            # No feasible insertion found - try force assignment or break
+            # No feasible insertion found - provide detailed diagnostic logging for any unassigned order
             if unassigned_orders:
                 problematic_order = unassigned_orders[0]
-                print(f"⚠️  No feasible insertion found for order {problematic_order.id}, skipping...")
+                print(f"ASSIGNMENT FAILURE: Order {problematic_order.id} cannot be assigned to any vehicle")
+                
+                # Get actual order cargo details using proper methods
+                total_weight = problematic_order.get_total_demand()
+                total_volume = problematic_order.get_total_volume()
+                total_pallets = sum(task.pallets for task in problematic_order.get_all_tasks())
+                
+                print(f"   Order details: Weight={total_weight:.1f}kg, Volume={total_volume:.2f}m³, Pallets={total_pallets}")
+                
+                # Extract time window information from actual tasks
+                pickup_window = "N/A"
+                delivery_window = "N/A"
+                
+                # Get time windows from pickup tasks
+                if problematic_order.pickup_tasks:
+                    pickup_task = problematic_order.pickup_tasks[0]
+                    if pickup_task.earliest_time is not None or pickup_task.latest_time is not None:
+                        earliest = f"{pickup_task.earliest_time:.0f}" if pickup_task.earliest_time is not None else "∞"
+                        latest = f"{pickup_task.latest_time:.0f}" if pickup_task.latest_time is not None else "∞"
+                        pickup_window = f"[{earliest}-{latest}]min"
+                
+                # Get time windows from delivery tasks
+                if problematic_order.delivery_tasks:
+                    delivery_task = problematic_order.delivery_tasks[0]
+                    if delivery_task.earliest_time is not None or delivery_task.latest_time is not None:
+                        earliest = f"{delivery_task.earliest_time:.0f}" if delivery_task.earliest_time is not None else "∞"
+                        latest = f"{delivery_task.latest_time:.0f}" if delivery_task.latest_time is not None else "∞"
+                        delivery_window = f"[{earliest}-{latest}]min"
+                
+                print(f"   Time constraints: Pickup {pickup_window}, Delivery {delivery_window}")
+                print(f"   Priority: {problematic_order.priority}, Mandatory: {problematic_order.is_mandatory}")
+                
+                # Detailed diagnostic for each vehicle
+                print(f"   DIAGNOSTIC BREAKDOWN FOR ALL {len(vehicles)} VEHICLES:")
+                failed_reasons = {'capacity_weight': 0, 'capacity_volume': 0, 'time_window': 0, 'l2_heuristic': 0, 'other': 0}
+                
+                vehicles_shown = 0
+                max_vehicles_to_show = 5  # Show detailed info for first 5 vehicles, count all failures
+                
+                for vehicle in vehicles:
+                    current_route = solution.routes[vehicle.id]
+                    failure_reasons = []
+                    
+                    # Calculate current weight load from route tasks
+                    current_weight = 0
+                    current_volume = 0
+                    if hasattr(current_route, 'tasks') and current_route.tasks:
+                        for task in current_route.tasks:
+                            if hasattr(task, 'demand'):
+                                current_weight += task.demand
+                            if hasattr(task, 'volume'):
+                                current_volume += task.volume
+                    
+                    available_weight = vehicle.weight_capacity - current_weight
+                    available_volume = vehicle.volume_capacity - current_volume
+                    order_weight = problematic_order.get_total_demand()
+                    order_volume = problematic_order.get_total_volume()
+                    
+                    if order_weight > available_weight:
+                        failure_reasons.append(f"Weight exceed: need {order_weight:.1f}kg, available {available_weight:.1f}kg")
+                        failed_reasons['capacity_weight'] += 1
+                    
+                    if order_volume > available_volume:
+                        failure_reasons.append(f"Volume exceed: need {order_volume:.2f}m³, available {available_volume:.2f}m³")
+                        failed_reasons['capacity_volume'] += 1
+                        failed_reasons['capacity_volume'] += 1
+                    
+                    # Check time window compatibility
+                    order_earliest_day = getattr(problematic_order, 'pickup_day', 1)
+                    order_latest_day = getattr(problematic_order, 'delivery_day', 1)
+                    if order_earliest_day > 4 or order_latest_day > 4:  # Beyond 4-day planning horizon
+                        failure_reasons.append(f"Time window: Days {order_earliest_day}-{order_latest_day} beyond planning horizon")
+                        failed_reasons['time_window'] += 1
+                    
+                    # Try L2 heuristic and capture specific failure
+                    l2_failed = False
+                    try:
+                        from second_level import l2_heuristic
+                        order_tasks = problematic_order.get_all_tasks() if hasattr(problematic_order, 'get_all_tasks') else []
+                        if order_tasks:
+                            # Use enhanced diagnostics for the first few vehicles to show detailed L2 analysis
+                            use_enhanced_diagnostics = (vehicles_shown < 2)  # Show detailed L2 analysis for first 2 vehicles
+                            optimized_route = l2_heuristic(current_route, problematic_order, debug_assignment=False, enhanced_diagnostics=use_enhanced_diagnostics)
+                            if not optimized_route:
+                                failure_reasons.append("L2 heuristic rejection (infeasible route)")
+                                failed_reasons['l2_heuristic'] += 1
+                                l2_failed = True
+                    except Exception as e:
+                        failure_reasons.append(f"L2 error: {str(e)[:50]}")
+                        failed_reasons['other'] += 1
+                        l2_failed = True
+                    
+                    # If no specific failures detected but still can't assign, mark as other
+                    if not failure_reasons and not l2_failed:
+                        failure_reasons.append("Unknown constraint violation")
+                        failed_reasons['other'] += 1
+                    
+                    # Show detailed breakdown for first few vehicles only
+                    if vehicles_shown < max_vehicles_to_show and failure_reasons:
+                        vehicle_type = getattr(vehicle, 'vehicle_type', 'unknown')
+                        capacity_info = f"{getattr(vehicle, 'weight_capacity', 'N/A')}kg/{getattr(vehicle, 'volume_capacity', 'N/A')}m³"
+                        print(f"     Vehicle {vehicle.id} ({vehicle_type}, {capacity_info}): {'; '.join(failure_reasons)}")
+                        vehicles_shown += 1
+                    
+                # Show summary for all vehicles
+                total_failures = sum(failed_reasons.values())
+                print(f"   FAILURE SUMMARY (across {len(vehicles)} vehicles): Weight capacity: {failed_reasons['capacity_weight']}, Volume capacity: {failed_reasons['capacity_volume']}, Time windows: {failed_reasons['time_window']}, L2 heuristic: {failed_reasons['l2_heuristic']}, Other: {failed_reasons['other']}")
+                
+                if vehicles_shown < len(vehicles):
+                    print(f"   (Detailed breakdown shown for first {vehicles_shown} vehicles only)")
+                
                 unassigned_orders.remove(problematic_order)
                 # Add to unassigned list in solution
                 if not hasattr(solution, 'unassigned_orders'):

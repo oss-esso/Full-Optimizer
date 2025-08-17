@@ -122,7 +122,7 @@ else:
     except ImportError:
         from epdt_data_structures import Route, Order
 
-def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False) -> Optional['Route']:
+def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False, enhanced_diagnostics: bool = False) -> Optional['Route']:
     """
     Second-Level Heuristic: Finds the best way to insert an order into a route.
     
@@ -134,19 +134,54 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False)
         route: The route to insert the order into
         order: The order to be inserted
         debug_assignment: Whether to print debug information
+        enhanced_diagnostics: Whether to show detailed capacity and constraint analysis
         
     Returns:
         Optimized route with the order inserted, or None if infeasible
     """
     
-    initial_routes: List['Route'] = _generate_initial_task_sequence(route, order, debug_assignment)
+    # Enhanced diagnostic logging for problematic orders
+    show_diagnostics = debug_assignment or enhanced_diagnostics
+    
+    if enhanced_diagnostics:
+        print(f"L2 DIAGNOSTIC: Attempting to insert Order {order.id} into vehicle {route.vehicle.id}")
+        print(f"   Vehicle capacity: {route.vehicle.weight_capacity}kg, {route.vehicle.volume_capacity}m³")
+        
+        # Calculate current route load properly
+        current_weight = 0
+        current_volume = 0
+        if hasattr(route, 'tasks') and route.tasks:
+            for task in route.tasks:
+                if hasattr(task, 'demand'):
+                    current_weight += task.demand
+                if hasattr(task, 'volume'):
+                    current_volume += task.volume
+        
+        # Get order requirements using proper methods
+        order_weight = order.get_total_demand()
+        order_volume = order.get_total_volume()
+        
+        print(f"   Current load: {current_weight}kg, {current_volume:.2f}m³")
+        print(f"   Available capacity: {route.vehicle.weight_capacity - current_weight:.1f}kg, {route.vehicle.volume_capacity - current_volume:.2f}m³")
+        print(f"   Order requirements: {order_weight:.1f}kg, {order_volume:.2f}m³")
+        
+        # Basic capacity check
+        if (order_weight > (route.vehicle.weight_capacity - current_weight) or
+            order_volume > (route.vehicle.volume_capacity - current_volume)):
+            print(f"   CAPACITY FAILURE: Order {order.id} exceeds vehicle capacity")
+    
+    initial_routes: List['Route'] = _generate_initial_task_sequence(route, order, show_diagnostics)
 
-    if debug_assignment:
+    if show_diagnostics:
         print(f"      DEBUG L2: Order {order.id} generated {len(initial_routes)} initial routes")
 
     if not initial_routes:
-        if debug_assignment:
+        if show_diagnostics:
             print(f"      DEBUG L2: Order {order.id} - No feasible initial routes found")
+        
+        if enhanced_diagnostics:
+            print(f"   TASK SEQUENCE FAILURE: Could not generate any feasible initial task sequences for Order {order.id}")
+            
         return None   # Infeasible insertion
     
     best_initial_route = max(initial_routes, key=calculate_z2_score)
@@ -157,11 +192,14 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False)
 
     final_route = local_search_l2(best_initial_route, neighborhoods_to_search, order)
 
-    if debug_assignment:
+    if show_diagnostics:
         if final_route:
             print(f"      DEBUG L2: Order {order.id} - Final route feasible: {final_route.is_feasible()}")
         else:
             print(f"      DEBUG L2: Order {order.id} - Local search failed")
+            
+    if enhanced_diagnostics and not final_route:
+        print(f"   LOCAL SEARCH FAILURE: Order {order.id} failed during local search optimization")
 
     return final_route
 

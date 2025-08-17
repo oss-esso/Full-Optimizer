@@ -440,6 +440,7 @@ def configure_algorithm_parameters() -> dict:
         # Advanced order insertion strategies (TODO 20)
         'initialization_method': 'regret_k',  # New: Use regret-k insertion heuristic ('best_insertion', 'cluster_aware', or 'regret_k')
         'regret_k_value': 3,  # New: k value for regret calculation (2 or 3 is common)
+        'enhanced_logging': True,  # Enhanced: Enable comprehensive diagnostic logging for assignment failures
         'enable_destroy_and_repair': True,  # New: Enable destroy and repair for large unassigned orders
         'max_destroy_attempts': 10,  # New: Maximum number of destroy-repair attempts for difficult orders
         'debug_regret': True,  # New: Enable debug output for regret-k initialization
