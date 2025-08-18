@@ -747,7 +747,7 @@ class Route:
             self.tasks = optimized_sequence
             
             # Debug: print reordering information
-            # print(f"DEBUG: Applied strict pickup-first ordering: {len(pickups)} pickups → {len(deliveries)} deliveries")
+            # print(f"DEBUG: Applied strict pickup-first ordering: {len(pickups)} pickups -> {len(deliveries)} deliveries")
     
     def _validate_order_precedence(self, task_sequence: List) -> bool:
         """

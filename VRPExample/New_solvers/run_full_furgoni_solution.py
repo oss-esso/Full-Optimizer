@@ -685,7 +685,7 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
                         return geometry
                     
         except Exception as e:
-            print(f"    ⚠️ Error getting route geometry {from_id}→{to_id}: {e}")
+            print(f"    ⚠️ Error getting route geometry {from_id}->{to_id}: {e}")
             
         return None
     
@@ -871,13 +871,13 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
                                 'color': color,
                                 'type': 'osrm'
                             })
-                            print(f"    �️ Added OSRM segment: {prev_location_id} → {stop_location_id}")
+                            print(f"    �️ Added OSRM segment: {prev_location_id} -> {stop_location_id}")
                         else:
                             # No OSRM route available - note this but fallback already added above
-                            print(f"    ⚠️ No OSRM route available for {prev_location_id}→{stop_location_id}, using fallback only")
+                            print(f"    ⚠️ No OSRM route available for {prev_location_id}->{stop_location_id}, using fallback only")
                     else:
                         # No OSRM database - fallback already added above
-                        print(f"    📍 Using fallback segment: {prev_location_id} → {stop_location_id} (no OSRM DB)")
+                        print(f"    📍 Using fallback segment: {prev_location_id} -> {stop_location_id} (no OSRM DB)")
                 
                 # Add marker for this stop
                 is_overnight = stop.get('is_overnight', False)
@@ -962,11 +962,11 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
                             'color': color,
                             'type': 'osrm'
                         })
-                        print(f"    🏠 Added OSRM return segment: {prev_location_id} → depot")
+                        print(f"    🏠 Added OSRM return segment: {prev_location_id} -> depot")
                     else:
-                        print(f"    ⚠️ No OSRM route available for return {prev_location_id}→depot, using fallback only")
+                        print(f"    ⚠️ No OSRM route available for return {prev_location_id}->depot, using fallback only")
                 else:
-                    print(f"    🏠 Using fallback return segment: {prev_location_id} → depot (no OSRM DB)")
+                    print(f"    🏠 Using fallback return segment: {prev_location_id} -> depot (no OSRM DB)")
             else:
                 print(f"    ⚠️ DEBUG {vehicle_id}: Skipping return route - already at main depot")
         
@@ -999,10 +999,10 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
                         else:
                             folium_geometry = [[geometry[1], geometry[0]]] if len(geometry) >= 2 else []
                     except (IndexError, TypeError):
-                        print(f"    ⚠️ Skipping invalid geometry for {segment.get('from', 'unknown')} → {segment.get('to', 'unknown')}")
+                        print(f"    ⚠️ Skipping invalid geometry for {segment.get('from', 'unknown')} -> {segment.get('to', 'unknown')}")
                         continue
             else:
-                print(f"    ⚠️ Skipping empty geometry for {segment.get('from', 'unknown')} → {segment.get('to', 'unknown')}")
+                print(f"    ⚠️ Skipping empty geometry for {segment.get('from', 'unknown')} -> {segment.get('to', 'unknown')}")
                 continue
             
             # Count different segment types
@@ -1039,12 +1039,12 @@ def create_interactive_html_map(scenario, solution, sequential_vrp):
                     color=segment['color'],
                     weight=weight,
                     opacity=opacity,
-                    popup=f"Vehicle {vehicle_id}: {segment['from']} → {segment['to']} ({segment_type})",
+                    popup=f"Vehicle {vehicle_id}: {segment['from']} -> {segment['to']} ({segment_type})",
                     **line_style
                 ).add_to(m)
-                print(f"    ✅ Added {segment_type} line: {segment.get('from', 'unknown')} → {segment.get('to', 'unknown')}")
+                print(f"    ✅ Added {segment_type} line: {segment.get('from', 'unknown')} -> {segment.get('to', 'unknown')}")
             except Exception as e:
-                print(f"    ❌ Failed to add line {segment.get('from', 'unknown')} → {segment.get('to', 'unknown')}: {e}")
+                print(f"    ❌ Failed to add line {segment.get('from', 'unknown')} -> {segment.get('to', 'unknown')}: {e}")
                 print(f"        Geometry: {folium_geometry}")
                 continue
         

@@ -263,7 +263,7 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
     
     # Strategy 1: Cluster-based efficient insertion
     # Group pickups first, then deliveries to minimize depot visits
-    # This creates more efficient pickup→pickup→delivery→delivery patterns
+    # This creates more efficient pickup->pickup->delivery->delivery patterns
     
     current_route = route.copy()
     
@@ -306,7 +306,7 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
             return []
     
     # Phase 2: Insert all deliveries after the pickup cluster
-    # This creates the efficient pickup→pickup→delivery→delivery pattern
+    # This creates the efficient pickup->pickup->delivery->delivery pattern
     pickup_cluster_size = len(P)  # Number of pickups we just inserted
     
     for delivery in D:
@@ -318,7 +318,7 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
             print(f"        DEBUG L2: Adding delivery {delivery.id if hasattr(delivery, 'id') else 'unknown'} after pickup cluster")
         
         # Insert deliveries starting after the pickup cluster
-        # This ensures the pattern: depot → pickup1 → pickup2 → pickup3 → delivery1 → delivery2 → delivery3
+        # This ensures the pattern: depot -> pickup1 -> pickup2 -> pickup3 -> delivery1 -> delivery2 -> delivery3
         # start_pos accounts for DEPOT_START (position 0) + all pickups
         start_pos = 1 + pickup_cluster_size  # Skip DEPOT_START + all pickup tasks
         max_delivery_positions = min(len(current_route.tasks) - start_pos, 15)  # -1 to exclude DEPOT_RETURN position
@@ -382,7 +382,7 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
                     print(f"        DEBUG L2: Failed to insert delivery even with fallback")
                 return []
     
-    # Result: efficient pickup→pickup→delivery→delivery pattern
+    # Result: efficient pickup->pickup->delivery->delivery pattern
     # The route now minimizes depot visits and creates logical task clustering
     
     initial_routes.append(current_route)
@@ -881,8 +881,8 @@ def _calculate_inefficiency_penalty(current_task, next_task, vehicle) -> float:
     Calculate distance-based inefficiency penalty for mixed pickup/delivery patterns.
     
     This function discourages inefficient routing patterns like:
-    - Pickup → Depot → Delivery (should be Pickup → Delivery)
-    - Pickup A → Delivery B → Pickup C (mixed orders inefficiently)
+    - Pickup -> Depot -> Delivery (should be Pickup -> Delivery)
+    - Pickup A -> Delivery B -> Pickup C (mixed orders inefficiently)
     - Long distances between related pickup/delivery pairs
     
     Args:
@@ -921,7 +921,7 @@ def _calculate_inefficiency_penalty(current_task, next_task, vehicle) -> float:
     
     if (current_order_id and next_order_id and current_order_id == next_order_id and
         current_task.is_pickup() and next_task.is_delivery()):
-        # This is an efficient pickup → delivery pattern, apply discount
+        # This is an efficient pickup -> delivery pattern, apply discount
         penalty -= 10.0  # Reward efficient patterns
     
     # Pattern 3: Penalty for switching between orders inefficiently
@@ -1472,7 +1472,7 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             return False
         
         if debug_feasibility:
-            #print(f"            DEBUG FEASIBILITY: ✅ Depot validation passed - route starts and ends at depot")
+            #print(f"            DEBUG FEASIBILITY: OK Depot validation passed - route starts and ends at depot")
             pass
     
     # H1: Multi-day chronological simulation setup

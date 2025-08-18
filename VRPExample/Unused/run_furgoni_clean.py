@@ -47,12 +47,12 @@ def main():
     skipped_pairs = []
     kept_requests = []
     excluded_pairs = []  # For summary
-    # 1. Add all depot→delivery pairs
+    # 1. Add all depot->delivery pairs
     for idx, r in enumerate(ride_requests):
         if get_pickup(r) == 'depot' and get_dropoff(r) != 'depot':
             used_pairs.add((get_pickup(r), get_dropoff(r)))
             kept_requests.append(r)
-    # 2. For pickup→depot, only allow the first, skip the rest
+    # 2. For pickup->depot, only allow the first, skip the rest
     depot_pickups = [r for r in ride_requests if get_dropoff(r) == 'depot' and get_pickup(r) != 'depot']
     if depot_pickups:
         first = depot_pickups[0]
@@ -61,7 +61,7 @@ def main():
         for r in depot_pickups[1:]:
             skipped_pairs.append((get_pickup(r), get_dropoff(r), get_demand(r)))
             excluded_pairs.append({'pickup': get_pickup(r), 'dropoff': get_dropoff(r), 'weight': get_demand(r), 'index': ride_requests.index(r)})
-    # 3. For all other unique pairs (not depot→delivery or pickup→depot), keep only the largest demand per dropoff
+    # 3. For all other unique pairs (not depot->delivery or pickup->depot), keep only the largest demand per dropoff
     # Build dropoff->requests dict for non-depot dropoffs
     other_requests = [r for r in ride_requests if get_pickup(r) != 'depot' and get_dropoff(r) != 'depot']
     dropoff_dict = {}
@@ -92,14 +92,14 @@ def main():
     if skipped_pairs:
         print("Skipped ride requests:")
         for pickup, dropoff, weight in skipped_pairs:
-            print(f"  {pickup} → {dropoff} (weight: {weight}kg)")
+            print(f"  {pickup} -> {dropoff} (weight: {weight}kg)")
     print("Used pickup-delivery pairs:")
     for r in kept_requests:
-        print(f"  {get_pickup(r)} → {get_dropoff(r)} (weight: {get_demand(r)}kg)")
+        print(f"  {get_pickup(r)} -> {get_dropoff(r)} (weight: {get_demand(r)}kg)")
     if excluded_pairs:
         print("\nSummary of all excluded pickup-delivery pairs:")
         for pair in excluded_pairs:
-            print(f"  Excluded: {pair['pickup']} → {pair['dropoff']} (weight: {pair['weight']}kg, index: {pair['index']})")
+            print(f"  Excluded: {pair['pickup']} -> {pair['dropoff']} (weight: {pair['weight']}kg, index: {pair['index']})")
 
     result, status, constraints = optimizer.solve(constraint_level="pickup_delivery", verbose=True)
     print("\n=== Furgoni Scenario Result ===")

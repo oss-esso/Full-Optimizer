@@ -502,14 +502,14 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
                         # Both calculations available - show comparison
                         diff_percent = abs(osrm_time - haversine_time) / haversine_time * 100 if haversine_time > 0 else 0
                         warning = " ⚠️" if diff_percent > 50 else ""
-                        print(f"ROUTE_ANALYSIS: {prev_location} → {curr_location}")
+                        print(f"ROUTE_ANALYSIS: {prev_location} -> {curr_location}")
                         print(f"  OSRM: {osrm_time:.1f}m | Haversine: {haversine_time:.1f}m | Diff: {diff_percent:.1f}%{warning}")
                     elif osrm_time is not None:
-                        print(f"ROUTE_ANALYSIS: {prev_location} → {curr_location} - OSRM: {osrm_time:.1f}m")
+                        print(f"ROUTE_ANALYSIS: {prev_location} -> {curr_location} - OSRM: {osrm_time:.1f}m")
                     elif haversine_time is not None:
-                        print(f"ROUTE_ANALYSIS: {prev_location} → {curr_location} - Haversine: {haversine_time:.1f}m")
+                        print(f"ROUTE_ANALYSIS: {prev_location} -> {curr_location} - Haversine: {haversine_time:.1f}m")
                     else:
-                        print(f"ROUTE_ANALYSIS: {prev_location} → {curr_location} - Fallback: 15.0m")
+                        print(f"ROUTE_ANALYSIS: {prev_location} -> {curr_location} - Fallback: 15.0m")
                     
                     
                     # Add travel time
@@ -622,7 +622,7 @@ def print_solution_summary(solution, orders, vehicles, params, runtime_seconds):
                         time_window_info = ""
             
             print(f"         {i+1:2d}. {task_type_icon} {task.location_id} (Order: {task.order_id}){time_info}{time_window_info}")
-            print(f"             Load: {task.demand:+.0f}kg, {task.volume:+.1f}m³ → Total: {current_load_weight:.0f}kg, {current_load_volume:.1f}m³")
+            print(f"             Load: {task.demand:+.0f}kg, {task.volume:+.1f}m³ -> Total: {current_load_weight:.0f}kg, {current_load_volume:.1f}m³")
     
     # Time window violations details
     if violations_count > 0:
@@ -1488,7 +1488,7 @@ def _create_mock_solution(orders, vehicles):
         
         route.tasks.append(depot_return_task)
         
-        print(f"      ✅ Route created: {len(route.tasks)} tasks ({len(all_pickup_tasks)} pickups → {len(all_delivery_tasks)} deliveries → 1 depot return)")
+        print(f"      ✅ Route created: {len(route.tasks)} tasks ({len(all_pickup_tasks)} pickups -> {len(all_delivery_tasks)} deliveries -> 1 depot return)")
     
     # Print assignment summary
     print(f"\n📋 Assignment Summary:")
@@ -1507,7 +1507,7 @@ def _create_mock_solution(orders, vehicles):
             print(f"   🚚 {vehicle.id}: {weight_util:.1f}% weight, {volume_util:.1f}% volume ({orders_count} orders)")
             print(f"      Capacity: {vehicle.weight_capacity:.0f}kg, {vehicle.volume_capacity:.1f}m³")
             print(f"      Load: {load['weight']:.0f}kg, {load['volume']:.1f}m³")
-            print(f"      Pattern: {len(all_pickup_tasks)} pickups → {len(all_delivery_tasks)} deliveries → depot return")
+            print(f"      Pattern: {len(all_pickup_tasks)} pickups -> {len(all_delivery_tasks)} deliveries -> depot return")
     
     # Show details of failed assignments
     if assignment_failures:
@@ -1518,7 +1518,7 @@ def _create_mock_solution(orders, vehicles):
                 print(f"      - {reason}")
     
     print(f"✅ Enhanced mock solution created with {solution.get_total_vehicles_used()} vehicles used")
-    print(f"🎯 Task sequencing: All vehicles follow pickup-phase → delivery-phase pattern")
+    print(f"🎯 Task sequencing: All vehicles follow pickup-phase -> delivery-phase pattern")
     return solution
 
 

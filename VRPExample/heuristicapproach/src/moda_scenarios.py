@@ -200,7 +200,7 @@ def create_furgoni_scenario(average_speed_kmh=70) -> VRPInstance:
         instance.add_location(location)
     
     # Create delivery/pickup requests using MODA depot bay pattern
-    # Separate delivery cargo (depot bays → destinations) from pickup cargo (pickups → depot bays)
+    # Separate delivery cargo (depot bays -> destinations) from pickup cargo (pickups -> depot bays)
     
     # Delivery cargo data: create depot bays for each delivery
     delivery_cargo = [
@@ -249,7 +249,7 @@ def create_furgoni_scenario(average_speed_kmh=70) -> VRPInstance:
         ("capriate_bg", 900),
     ]
     
-    # Pickup cargo data: direct pickup → depot requests
+    # Pickup cargo data: direct pickup -> depot requests
     pickup_cargo = [
         # FURGONE 8 pickups
         ("cormano_mi", 700),
@@ -292,7 +292,7 @@ def create_furgoni_scenario(average_speed_kmh=70) -> VRPInstance:
         depot_requests.append(depot_request)
         request_id += 1
 
-    # Create pickup requests (pickup location → unique depot bay)
+    # Create pickup requests (pickup location -> unique depot bay)
     pickup_requests = []
     pickup_bay_counter = 1
     for pickup_id, cargo_weight in pickup_cargo:
@@ -334,7 +334,7 @@ def create_furgoni_scenario(average_speed_kmh=70) -> VRPInstance:
     print(f"  - Delivery destinations: {len([l for l in instance.locations.values() if not getattr(l, 'is_pickup', False) and l.id != 'depot' and not l.id.startswith('depot_bay') and not l.id.startswith('pickup_bay')])}")
     print(f"  - Field pickup locations: {len([l for l in instance.locations.values() if getattr(l, 'is_pickup', False)])}")
     print(f"  - Vehicles: {len(instance.vehicles)}")
-    print(f"  - Ride requests: {len(instance.ride_requests)} ({len(depot_requests)} depot→delivery + {len(pickup_requests)} pickup→depot)")
+    print(f"  - Ride requests: {len(instance.ride_requests)} ({len(depot_requests)} depot->delivery + {len(pickup_requests)} pickup->depot)")
     print(f"Fleet composition: {len([v for v in instance.vehicles.values() if v.vehicle_type == 'standard'])} light vehicles + {len([v for v in instance.vehicles.values() if v.vehicle_type == 'heavy'])} heavy vehicles")
     
     print(f"\nCapacity utilization:")

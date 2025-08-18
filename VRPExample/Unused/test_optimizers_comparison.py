@@ -264,7 +264,7 @@ def print_comparison_summary(results: Dict, constraint_levels: list):
         elif osm_time > 0:
             faster = "OSM"
         
-        print(f"{level:<20} {orig_time:.2f}s vs {osm_time:.2f}s → {faster}")
+        print(f"{level:<20} {orig_time:.2f}s vs {osm_time:.2f}s -> {faster}")
     
     # Print success rate comparison
     print(f"\n🎯 SUCCESS RATE COMPARISON")

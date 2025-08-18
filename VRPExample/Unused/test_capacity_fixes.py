@@ -15,7 +15,7 @@ def test_capacity_with_fixes():
     print("\n🔧 TESTING CAPACITY CONSTRAINTS WITH FIXES")
     print("=" * 70)
     print("Fixes applied:")
-    print("✅ Removed return-to-depot constraint (no more 0→0 connections)")
+    print("✅ Removed return-to-depot constraint (no more 0->0 connections)")
     print("✅ Added capacity constraint debugging")
     print("✅ Using virtual depot pickup bays")
     

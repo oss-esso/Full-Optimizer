@@ -53,7 +53,7 @@ def main():
     print("=" * 60)
     
     # Test route from Milan to Bologna
-    print("\n🚚 Route: Milan → Bologna")
+    print("\n🚚 Route: Milan -> Bologna")
     milan_lat, milan_lon = 45.4642, 9.1896
     bologna_lat, bologna_lon = 44.4949, 11.3426
     
@@ -83,7 +83,7 @@ def main():
     print("=" * 60)
     
     # Show how service areas integrate with VRP
-    print("\n🔗 Service Area → VRP Location Conversion:")
+    print("\n🔗 Service Area -> VRP Location Conversion:")
     if best_break:
         vrp_location = service_area_to_location(best_break)
         print(f"   🆔 VRP Location ID: {vrp_location.id}")

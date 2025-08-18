@@ -77,7 +77,7 @@ try:
     print(f"\n🎉 TEST 1 PASSED: All assertions successful!")
     print("=" * 60)
     print("✅ _create_base_route function works correctly")
-    print("✅ Route structure is valid (depot start → depot return)")
+    print("✅ Route structure is valid (depot start -> depot return)")
     print("✅ Feasibility check validates the route as feasible")
     
 except ImportError as e:

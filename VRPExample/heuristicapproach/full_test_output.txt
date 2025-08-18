@@ -1,0 +1,1272 @@
+2025-08-18 12:38:38,575 - INFO - Reading scenario from D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..\src\furgoni2.xlsx...
+2025-08-18 12:38:38,948 - INFO - Created 55 vehicles
+2025-08-18 12:38:38,948 - INFO - Creating orders and tasks...
+2025-08-18 12:38:44,016 - ERROR - Last resort postal-only geocoding (Nominatim): 15030, ITALY -> (45.054729, 8.397759)
+2025-08-18 12:38:44,017 - INFO - Created 40 orders from grouped tasks.
+2025-08-18 12:38:44,018 - INFO - Geocoding cache saved with 72 entries
+2025-08-18 12:38:44,018 - INFO - Scenario creation complete: 40 orders, 55 vehicles, 0 drivers
+Traceback (most recent call last):
+  File "D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\comprehensive_integration_test.py", line 1488, in run_precomputation_phase
+    precomputer.precompute_all_routes()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..\utils\precompute_routes.py", line 316, in precompute_all_routes
+    print(f"Average time per pair: {total_time/self.total_pairs:.2f}s")
+                                    ~~~~~~~~~~^~~~~~~~~~~~~~~~~
+ZeroDivisionError: float division by zero
+2025-08-18 12:38:44,021 - INFO - Reading scenario from D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..\src\furgoni2.xlsx...
+2025-08-18 12:38:44,097 - INFO - Created 55 vehicles
+2025-08-18 12:38:44,097 - INFO - Creating orders and tasks...
+2025-08-18 12:38:46,612 - ERROR - Last resort postal-only geocoding (Nominatim): 15030, ITALY -> (45.054729, 8.397759)
+2025-08-18 12:38:46,612 - INFO - Created 40 orders from grouped tasks.
+2025-08-18 12:38:46,613 - INFO - Geocoding cache saved with 72 entries
+2025-08-18 12:38:46,613 - INFO - Scenario creation complete: 40 orders, 55 vehicles, 0 drivers
+=== EPDT Comprehensive Integration Test ===
+Test directory: D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests
+Heuristic root: D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..
+OK: Successfully imported create_scenario_from_excel
+OK: Skipping data_adapter (not needed for direct EPDT scenario loading)
+OK: Successfully imported l1_heuristic
+OK: Successfully imported driver assignment functions
+Route provider mode: Haversine (testing)
+OK: Configured route provider for OSRM mode
+OK: Successfully imported granular_tabu_search (circular dependency fixed)
+OK: Successfully imported destroy_and_repair (circular dependency fixed)
+OK: Successfully imported parallelization (circular dependency fixed)
+OK: Successfully imported RoutePrecomputer for OSRM pre-computation
+Starting EPDT Comprehensive Integration Test...
+Using Excel file: D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..\src\furgoni2.xlsx
+================================================================================
+Phase OSRM ROUTE PRE-COMPUTATION PHASE
+================================================================================
+Enhanced Initializing route pre-computer...
+Database initialized at: D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..\moda_routes.db
+Loading scenario locations from: D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..\src\furgoni2.xlsx
+Loading scenario from Excel file: D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..\src\furgoni2.xlsx
+Loaded scenario with 40 orders, 55 vehicles, and 0 drivers
+Extracted 1 unique locations
+OK: Loaded 1 unique locations
+Total route pairs to pre-compute: 0
+Current cache size: 1659 routes
+
+RECALCULATING Starting route pre-computation...
+Pre-computing routes for 0 location pairs...
+OSRM server: https://router.project-osrm.org
+Cache database: D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..\moda_routes.db
+
+Pre-computation completed!
+Total pairs: 0
+Successfully processed: 0
+Failed: 0
+Cache hits: 0
+Success rate: 0.0%
+ Total time: 0.0s
+Pre-computation failed: float division by zero
+   The optimization will continue with on-demand OSRM calls
+
+================================================================================
+PHASE 1: HEURISTIC SOLVER TEST
+================================================================================
+
+Loading scenario from: D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\..\src\furgoni2.xlsx
+OK: Successfully loaded scenario:
+   • Orders: 40
+   • Vehicles: 55
+OK: EPDT objects ready (no conversion needed)
+
+Configuring algorithm parameters...
+OK: Parameters configured (M1=50, M2=300)
+
+Running l1_heuristic...
+Using Regret-k initialization strategy
+Starting regret-3 initializer with 40 orders and 55 vehicles
+  Regret iteration 1: 40 orders remaining
+    Order 1: best_cost=15037.15, 3th_cost=15037.15, regret=0.00
+    Order 2: best_cost=69989.51, 3th_cost=69989.51, regret=0.00
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 4: best_cost=92925.43, 3th_cost=92925.43, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 6: best_cost=65132.08, 3th_cost=65200.85, regret=68.77
+    Order 7: best_cost=68227.62, 3th_cost=68227.62, regret=0.00
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 13: best_cost=71146.26, 3th_cost=71146.26, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 16: best_cost=65958.54, 3th_cost=66019.91, regret=61.37
+    Order 17: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 27: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 28: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=137470.79, 3th_cost=137470.79, regret=0.00
+    Order 31: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 6 into vehicle GA622VG (regret: 68.77, cost: 65132.08)
+    Order 1: best_cost=15037.15, 3th_cost=15037.15, regret=0.00
+    Order 2: best_cost=69989.51, 3th_cost=69989.51, regret=0.00
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 4: best_cost=92925.43, 3th_cost=92925.43, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=68227.62, 3th_cost=68227.62, regret=0.00
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 13: best_cost=71146.26, 3th_cost=71146.26, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 16: best_cost=65958.54, 3th_cost=66019.91, regret=61.37
+    Order 17: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 27: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 28: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=137470.79, 3th_cost=137470.79, regret=0.00
+    Order 31: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 16 into vehicle GE026FZ (regret: 61.37, cost: 65958.54)
+    Order 1: best_cost=15037.15, 3th_cost=15037.15, regret=0.00
+    Order 2: best_cost=65958.54, 3th_cost=69989.51, regret=4030.97
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 4: best_cost=65958.54, 3th_cost=92925.43, regret=26966.89
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=65958.54, 3th_cost=68227.62, regret=2269.08
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 13: best_cost=65958.54, 3th_cost=71146.26, regret=5187.72
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 17: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=65958.54, 3th_cost=66852.39, regret=893.85
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=65958.54, 3th_cost=70395.35, regret=4436.81
+    Order 27: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 28: best_cost=65958.54, 3th_cost=70395.35, regret=4436.81
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=137470.79, 3th_cost=137470.79, regret=0.00
+    Order 31: best_cost=65958.54, 3th_cost=70395.35, regret=4436.81
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=65958.54, 3th_cost=70395.35, regret=4436.81
+    Order 34: best_cost=65958.54, 3th_cost=70395.35, regret=4436.81
+    Order 35: best_cost=65958.54, 3th_cost=70395.35, regret=4436.81
+    Order 36: best_cost=65958.54, 3th_cost=70395.35, regret=4436.81
+    Order 37: best_cost=65958.54, 3th_cost=69411.58, regret=3453.04
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=65958.54, 3th_cost=70395.35, regret=4436.81
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 4 into vehicle GE026FZ (regret: 26966.89, cost: 65958.54)
+    Order 1: best_cost=15037.15, 3th_cost=15037.15, regret=0.00
+    Order 2: best_cost=69989.51, 3th_cost=69989.51, regret=0.00
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=68227.62, 3th_cost=68227.62, regret=0.00
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 13: best_cost=71146.26, 3th_cost=71146.26, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 17: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 27: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 28: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=137470.79, 3th_cost=137470.79, regret=0.00
+    Order 31: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 1 into vehicle GA621VG (regret: 0.00, cost: 15037.15)
+    Order 2: best_cost=15037.15, 3th_cost=69989.51, regret=54952.36
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=15037.15, 3th_cost=68227.62, regret=53190.47
+    Order 8: best_cost=15037.15, 3th_cost=66213.25, regret=51176.10
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 13: best_cost=15037.15, 3th_cost=71146.26, regret=56109.11
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 17: best_cost=15037.15, 3th_cost=70396.50, regret=55359.35
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=15037.15, 3th_cost=65423.29, regret=50386.13
+    Order 20: best_cost=15037.15, 3th_cost=65566.06, regret=50528.91
+    Order 21: best_cost=15037.15, 3th_cost=66852.39, regret=51815.24
+    Order 22: best_cost=15037.15, 3th_cost=70396.50, regret=55359.35
+    Order 23: best_cost=15037.15, 3th_cost=68060.63, regret=53023.48
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=15037.15, 3th_cost=60547.41, regret=45510.26
+    Order 26: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 27: best_cost=15037.15, 3th_cost=70396.50, regret=55359.35
+    Order 28: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=137470.79, 3th_cost=137470.79, regret=0.00
+    Order 31: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 32: best_cost=15037.15, 3th_cost=70395.67, regret=55358.51
+    Order 33: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 34: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 35: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 36: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 37: best_cost=15037.15, 3th_cost=69411.58, regret=54374.43
+    Order 38: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 39: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 40: best_cost=15037.15, 3th_cost=67378.97, regret=52341.82
+  OK: Inserted order 13 into vehicle GA621VG (regret: 56109.11, cost: 15037.15)
+    Order 2: best_cost=15037.15, 3th_cost=69989.51, regret=54952.36
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=15037.15, 3th_cost=68227.62, regret=53190.47
+    Order 8: best_cost=15037.15, 3th_cost=66213.25, regret=51176.10
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 17: best_cost=15037.15, 3th_cost=70396.50, regret=55359.35
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=15037.15, 3th_cost=65423.29, regret=50386.13
+    Order 20: best_cost=15037.15, 3th_cost=65566.06, regret=50528.91
+    Order 21: best_cost=15037.15, 3th_cost=66852.39, regret=51815.24
+    Order 22: best_cost=15037.15, 3th_cost=70396.50, regret=55359.35
+    Order 23: best_cost=15037.15, 3th_cost=68060.63, regret=53023.48
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=15037.15, 3th_cost=60547.41, regret=45510.26
+    Order 26: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 27: best_cost=15037.15, 3th_cost=70396.50, regret=55359.35
+    Order 28: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=137470.79, 3th_cost=137470.79, regret=0.00
+    Order 31: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 34: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 35: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 36: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 37: best_cost=15037.15, 3th_cost=69411.58, regret=54374.43
+    Order 38: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 39: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 40: best_cost=15037.15, 3th_cost=67378.97, regret=52341.82
+  OK: Inserted order 17 into vehicle GA621VG (regret: 55359.35, cost: 15037.15)
+    Order 2: best_cost=69989.51, 3th_cost=69989.51, regret=0.00
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=15037.15, 3th_cost=68227.62, regret=53190.47
+    Order 8: best_cost=15037.15, 3th_cost=66213.25, regret=51176.10
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=15037.15, 3th_cost=66852.39, regret=51815.24
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 27: best_cost=15037.15, 3th_cost=70396.50, regret=55359.35
+    Order 28: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=137470.79, 3th_cost=137470.79, regret=0.00
+    Order 31: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 34: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 35: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 36: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 39: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 40: best_cost=15037.15, 3th_cost=67378.97, regret=52341.82
+  OK: Inserted order 27 into vehicle GA621VG (regret: 55359.35, cost: 15037.15)
+    Order 2: best_cost=69989.51, 3th_cost=69989.51, regret=0.00
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=68227.62, 3th_cost=68227.62, regret=0.00
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 28: best_cost=15037.15, 3th_cost=70395.35, regret=55358.20
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=137470.79, 3th_cost=137470.79, regret=0.00
+    Order 31: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 28 into vehicle GA621VG (regret: 55358.20, cost: 15037.15)
+    Order 2: best_cost=69989.51, 3th_cost=69989.51, regret=0.00
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=68227.62, 3th_cost=68227.62, regret=0.00
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=137470.79, 3th_cost=137470.79, regret=0.00
+    Order 31: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 2 into vehicle GA625VG (regret: 0.00, cost: 69989.51)
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=68227.62, 3th_cost=68227.62, regret=0.00
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=69989.51, 3th_cost=70395.35, regret=405.84
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 30: best_cost=69989.51, 3th_cost=137470.79, regret=67481.28
+    Order 31: best_cost=69989.51, 3th_cost=70395.35, regret=405.84
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=69989.51, 3th_cost=70395.35, regret=405.84
+    Order 34: best_cost=69989.51, 3th_cost=70395.35, regret=405.84
+    Order 35: best_cost=69989.51, 3th_cost=70395.35, regret=405.84
+    Order 36: best_cost=69989.51, 3th_cost=70395.35, regret=405.84
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=69989.51, 3th_cost=70395.35, regret=405.84
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 30 into vehicle GA625VG (regret: 67481.28, cost: 69989.51)
+  Regret iteration 11: 30 orders remaining
+    Order 3: best_cost=211875.52, 3th_cost=211875.52, regret=0.00
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=68227.62, 3th_cost=68227.62, regret=0.00
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 31: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 3 into vehicle XA359KW (regret: 0.00, cost: 211875.52)
+    Order 5: best_cost=138429.53, 3th_cost=138429.53, regret=0.00
+    Order 7: best_cost=68227.62, 3th_cost=68227.62, regret=0.00
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 31: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 5 into vehicle GC002LX (regret: 0.00, cost: 138429.53)
+    Order 7: best_cost=68227.62, 3th_cost=68227.62, regret=0.00
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 31: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 7 into vehicle GA646VG (regret: 0.00, cost: 68227.62)
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 26: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 31: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 34: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 35: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 36: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 37: best_cost=68227.62, 3th_cost=69411.58, regret=1183.96
+    Order 38: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 39: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 26 into vehicle GA646VG (regret: 2167.73, cost: 68227.62)
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 31: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 34: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 35: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 36: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 37: best_cost=68227.62, 3th_cost=69411.58, regret=1183.96
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 31 into vehicle GA646VG (regret: 2167.73, cost: 68227.62)
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 33: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 34: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 35: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 36: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 37: best_cost=68227.62, 3th_cost=69411.58, regret=1183.96
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=68227.62, 3th_cost=70395.35, regret=2167.73
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 33 into vehicle GA646VG (regret: 2167.73, cost: 68227.62)
+    Order 8: best_cost=66213.25, 3th_cost=66213.25, regret=0.00
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 32: best_cost=70395.67, 3th_cost=70395.67, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 8 into vehicle GC069LX (regret: 0.00, cost: 66213.25)
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66213.25, 3th_cost=66852.39, regret=639.14
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=66213.25, 3th_cost=68060.63, regret=1847.38
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 32: best_cost=66213.25, 3th_cost=70395.67, regret=4182.42
+    Order 34: best_cost=66213.25, 3th_cost=70395.35, regret=4182.10
+    Order 35: best_cost=66213.25, 3th_cost=70395.35, regret=4182.10
+    Order 36: best_cost=66213.25, 3th_cost=70395.35, regret=4182.10
+    Order 37: best_cost=66213.25, 3th_cost=69411.58, regret=3198.33
+    Order 38: best_cost=66213.25, 3th_cost=70395.35, regret=4182.10
+    Order 39: best_cost=66213.25, 3th_cost=70395.35, regret=4182.10
+    Order 40: best_cost=66213.25, 3th_cost=67378.97, regret=1165.72
+  OK: Inserted order 32 into vehicle GC069LX (regret: 4182.42, cost: 66213.25)
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 38: best_cost=66213.25, 3th_cost=70395.35, regret=4182.10
+    Order 39: best_cost=66213.25, 3th_cost=70395.35, regret=4182.10
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 38 into vehicle GC069LX (regret: 4182.10, cost: 66213.25)
+    Order 9: best_cost=139114.74, 3th_cost=139114.74, regret=0.00
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 9 into vehicle XA356KW (regret: 0.00, cost: 139114.74)
+  Regret iteration 21: 20 orders remaining
+    Order 10: best_cost=174975.99, 3th_cost=174975.99, regret=0.00
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 10 into vehicle GC079LX (regret: 0.00, cost: 174975.99)
+    Order 11: best_cost=30.46, 3th_cost=30.46, regret=0.00
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 34: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 35: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 36: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 11 into vehicle GA647VG (regret: 0.00, cost: 30.46)
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=30.46, 3th_cost=65566.06, regret=65535.60
+    Order 21: best_cost=30.46, 3th_cost=66852.39, regret=66821.92
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 34: best_cost=30.46, 3th_cost=70395.35, regret=70364.89
+    Order 35: best_cost=30.46, 3th_cost=70395.35, regret=70364.89
+    Order 36: best_cost=30.46, 3th_cost=70395.35, regret=70364.89
+    Order 37: best_cost=30.46, 3th_cost=69411.58, regret=69381.11
+    Order 39: best_cost=30.46, 3th_cost=70395.35, regret=70364.89
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 34 into vehicle GA647VG (regret: 70364.89, cost: 30.46)
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=30.46, 3th_cost=65566.06, regret=65535.60
+    Order 21: best_cost=30.46, 3th_cost=66852.39, regret=66821.92
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 35: best_cost=30.46, 3th_cost=70395.35, regret=70364.89
+    Order 36: best_cost=30.46, 3th_cost=70395.35, regret=70364.89
+    Order 37: best_cost=30.46, 3th_cost=69411.58, regret=69381.11
+    Order 39: best_cost=30.46, 3th_cost=70395.35, regret=70364.89
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 35 into vehicle GA647VG (regret: 70364.89, cost: 30.46)
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 36: best_cost=30.46, 3th_cost=70395.35, regret=70364.89
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 39: best_cost=30.46, 3th_cost=70395.35, regret=70364.89
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 36 into vehicle GA647VG (regret: 70364.89, cost: 30.46)
+    Order 12: best_cost=65459.11, 3th_cost=65459.11, regret=0.00
+    Order 15: best_cost=67114.74, 3th_cost=67114.74, regret=0.00
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 39: best_cost=70395.35, 3th_cost=70395.35, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 12 into vehicle XA819VA (regret: 0.00, cost: 65459.11)
+    Order 15: best_cost=67114.74, 3th_cost=67120.37, regret=5.63
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 39: best_cost=65459.11, 3th_cost=70395.35, regret=4936.25
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 39 into vehicle XA819VA (regret: 4936.25, cost: 65459.11)
+    Order 15: best_cost=67114.74, 3th_cost=67120.37, regret=5.63
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 15 into vehicle XA346KW (regret: 5.63, cost: 67114.74)
+    Order 18: best_cost=58.39, 3th_cost=58.39, regret=0.00
+    Order 19: best_cost=65423.29, 3th_cost=65423.29, regret=0.00
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.50, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68060.63, regret=0.00
+    Order 24: best_cost=144.43, 3th_cost=144.43, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 37: best_cost=69411.58, 3th_cost=69411.58, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67378.97, regret=0.00
+  OK: Inserted order 18 into vehicle GC086LX (regret: 0.00, cost: 58.39)
+    Order 19: best_cost=58.39, 3th_cost=65423.29, regret=65364.90
+    Order 20: best_cost=58.39, 3th_cost=65566.06, regret=65507.68
+    Order 21: best_cost=58.39, 3th_cost=66852.39, regret=66794.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.82, regret=0.31
+    Order 23: best_cost=58.39, 3th_cost=68060.63, regret=68002.25
+    Order 24: best_cost=58.39, 3th_cost=144.43, regret=86.05
+    Order 25: best_cost=58.39, 3th_cost=60547.41, regret=60489.02
+    Order 29: best_cost=58.39, 3th_cost=65332.70, regret=65274.31
+    Order 37: best_cost=58.39, 3th_cost=69411.58, regret=69353.19
+    Order 40: best_cost=58.39, 3th_cost=67378.97, regret=67320.58
+  OK: Inserted order 37 into vehicle GC086LX (regret: 69353.19, cost: 58.39)
+  Regret iteration 31: 10 orders remaining
+    Order 19: best_cost=65423.29, 3th_cost=65435.86, regret=12.57
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 22: best_cost=70396.50, 3th_cost=70396.82, regret=0.31
+    Order 23: best_cost=68060.63, 3th_cost=68066.70, regret=6.07
+    Order 24: best_cost=144.43, 3th_cost=155.46, regret=11.02
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67386.72, regret=7.75
+  OK: Inserted order 19 into vehicle GE030FZ (regret: 12.57, cost: 65423.29)
+    Order 20: best_cost=65423.29, 3th_cost=65566.06, regret=142.78
+    Order 21: best_cost=65423.29, 3th_cost=66852.39, regret=1429.10
+    Order 22: best_cost=65423.29, 3th_cost=70396.82, regret=4973.53
+    Order 23: best_cost=65423.29, 3th_cost=68066.70, regret=2643.42
+    Order 24: best_cost=144.43, 3th_cost=155.46, regret=11.02
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 40: best_cost=65423.29, 3th_cost=67386.72, regret=1963.43
+  OK: Inserted order 22 into vehicle GE030FZ (regret: 4973.53, cost: 65423.29)
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 23: best_cost=68060.63, 3th_cost=68066.70, regret=6.07
+    Order 24: best_cost=144.43, 3th_cost=155.46, regret=11.02
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 29: best_cost=65332.70, 3th_cost=65332.70, regret=0.00
+    Order 40: best_cost=67378.97, 3th_cost=67386.72, regret=7.75
+  OK: Inserted order 24 into vehicle GA633VG (regret: 11.02, cost: 144.43)
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 23: best_cost=68066.70, 3th_cost=68070.75, regret=4.05
+    Order 25: best_cost=144.43, 3th_cost=60547.41, regret=60402.98
+    Order 29: best_cost=144.43, 3th_cost=65332.70, regret=65188.27
+    Order 40: best_cost=67386.72, 3th_cost=67391.89, regret=5.17
+  OK: Inserted order 29 into vehicle GA633VG (regret: 65188.27, cost: 144.43)
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 23: best_cost=68066.70, 3th_cost=68070.75, regret=4.05
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+    Order 40: best_cost=67386.72, 3th_cost=67391.89, regret=5.17
+  OK: Inserted order 40 into vehicle FX194HX (regret: 5.17, cost: 67386.72)
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 23: best_cost=67386.72, 3th_cost=68070.75, regret=684.03
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+  OK: Inserted order 23 into vehicle FX194HX (regret: 684.03, cost: 67386.72)
+    Order 20: best_cost=65566.06, 3th_cost=65566.06, regret=0.00
+    Order 21: best_cost=66852.39, 3th_cost=66852.39, regret=0.00
+    Order 25: best_cost=60547.41, 3th_cost=60547.41, regret=0.00
+  OK: Inserted order 20 into vehicle GE027FZ (regret: 0.00, cost: 65566.06)
+    Order 21: best_cost=65566.06, 3th_cost=66852.39, regret=1286.32
+    Order 25: best_cost=60547.41, 3th_cost=60577.36, regret=29.95
+  OK: Inserted order 21 into vehicle GE027FZ (regret: 1286.32, cost: 65566.06)
+    Order 25: best_cost=60547.41, 3th_cost=60577.36, regret=29.95
+  OK: Inserted order 25 into vehicle GE031FZ (regret: 29.95, cost: 60547.41)
+Warning:  REGRET-3 SKIP: Order 14 cannot be assigned in current iteration (will retry with alternative methods)
+   Order details: Weight=2800.0kg, Volume=18.20m³, Pallets=0
+   Time constraints: Pickup [3360-3810]min, Delivery [2880-3960]min
+   Priority: 1, Mandatory: True
+   DIAGNOSTIC BREAKDOWN FOR ALL 55 VEHICLES:
+L2 DIAGNOSTIC: Attempting to insert Order 14 into vehicle FX192HX
+   Vehicle capacity: 800.0kg, 21.794799999999995m³
+   Current load: 0.0kg, 0.00m³
+   Available capacity: 800.0kg, 21.79m³
+   Order requirements: 2800.0kg, 18.20m³
+   CAPACITY FAILURE: Order 14 exceeds vehicle capacity
+        DEBUG L2: Starting cluster-based insertion with 1 pickups and 1 deliveries
+        DEBUG L2: Clustering pickup TASK_14_26
+                DEBUG INSERTION: Quick feasibility check for 3 tasks
+                DEBUG INSERTION: Pallet constraint exceeded: 15 > 9
+        DEBUG L2: Pickup cluster position 1, feasible: False
+                DEBUG INSERTION: Quick feasibility check for 3 tasks
+                DEBUG INSERTION: Pallet constraint exceeded: 15 > 9
+        DEBUG L2: Failed to cluster pickup - no feasible positions
+      DEBUG L2: Order 14 generated 0 initial routes
+      DEBUG L2: Order 14 - No feasible initial routes found
+   TASK SEQUENCE FAILURE: Could not generate any feasible initial task sequences for Order 14
+     Vehicle FX192HX (standard, 800.0kg/21.794799999999995m³): Weight exceed: need 2800.0kg, available 800.0kg; L2 heuristic rejection (infeasible route)
+L2 DIAGNOSTIC: Attempting to insert Order 14 into vehicle FX194HX
+   Vehicle capacity: 13500.0kg, 67.13856m³
+   Current load: 0.0kg, 0.00m³
+   Available capacity: 13500.0kg, 67.14m³
+   Order requirements: 2800.0kg, 18.20m³
+        DEBUG L2: Starting cluster-based insertion with 1 pickups and 1 deliveries
+        DEBUG L2: Clustering pickup TASK_14_26
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+        DEBUG L2: Pickup cluster position 1, feasible: False
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+        DEBUG L2: Pickup cluster position 2, feasible: False
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+        DEBUG L2: Pickup cluster position 3, feasible: False
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+        DEBUG L2: Pickup cluster position 4, feasible: False
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+        DEBUG L2: Pickup cluster position 5, feasible: False
+                DEBUG INSERTION: Quick feasibility check for 7 tasks
+                DEBUG INSERTION: Pallet capacity exceeded during route execution: 25 > 23
+        DEBUG L2: Failed to cluster pickup - no feasible positions
+      DEBUG L2: Order 14 generated 0 initial routes
+      DEBUG L2: Order 14 - No feasible initial routes found
+   TASK SEQUENCE FAILURE: Could not generate any feasible initial task sequences for Order 14
+     Vehicle FX194HX (heavy, 13500.0kg/67.13856m³): L2 heuristic rejection (infeasible route)
+     Vehicle GA620VG (standard, 700.0kg/18.169200000000004m³): Weight exceed: need 2800.0kg, available 700.0kg; Volume exceed: need 18.20m³, available 18.17m³; L2 heuristic rejection (infeasible route)
+     Vehicle GA621VG (heavy, 8000.0kg/56.940799999999996m³): L2 heuristic rejection (infeasible route)
+     Vehicle GA625VG (standard, 800.0kg/8.184000000000001m³): Weight exceed: need 2800.0kg, available 800.0kg; Volume exceed: need 18.20m³, available 8.18m³; L2 heuristic rejection (infeasible route)
+   FAILURE SUMMARY (across 55 vehicles): Weight capacity: 41, Volume capacity: 30, Time windows: 0, L2 heuristic: 55, Other: 0
+   (Detailed breakdown shown for first 5 vehicles only)
+OK: Regret-3 initialization completed: 40/40 orders assigned - PERFECT INITIALIZATION!
+Enhanced Applying destroy and repair for 1 unassigned orders
+Starting destroy and repair for large orders
+Found 1 unassigned orders to process
+  • 14: difficulty score 2982.0
+
+Processing difficult order: 14
+    Selected target vehicle: FX194HX (deficit score: 0.0)
+    Removed order 23 (freed: 1841.0kg, 16.22m³)
+    Removed order 40 (freed: 2000.0kg, 5.00m³)
+    Total freed capacity: 3841.0kg, 21.22m³
+                DEBUG INSERTION: Quick feasibility check for 4 tasks
+                DEBUG INSERTION: Route passes basic feasibility checks
+                DEBUG INSERTION: Time window violation predicted at task TASK_14_27
+Failed to insert 14 into FX194HX
+
+Destroy and repair completed: 0/1 large orders assigned
+RECALCULATING Starting L1 main optimization loop with M1=50, M2=300
+RECALCULATING L1 Iteration 1: non_improving=0, score=906684.56
+Debug Starting VND with 6 neighborhoods
+Debug Exploring neighborhood 1/6: unassigned_order_insertion_neighborhood
+Debug Found 37 idle vehicles for unassigned order insertion
+Debug VND completed. improvement_found=True, neighbors_pool_size=16
+Debug Found 36 idle vehicles for unassigned order insertion
+Debug Found 35 idle vehicles for unassigned order insertion
+Debug Found 35 idle vehicles for order relocation
+Debug Found 35 idle vehicles for order relocation
+Debug Found 35 idle vehicles for order relocation
+Debug Found 35 idle vehicles for order relocation
+Debug Found 35 idle vehicles for order relocation
+Debug Found 35 idle vehicles for order relocation
+Debug Found 35 idle vehicles for order relocation
+Debug Found 35 idle vehicles for order relocation
+Running Convergence reached: No improvement for 15.0s
+Complete L1 optimization completed after 4 iterations
+Complete Final score: 1179717.66
+Build  Performing final depot task finalization on all routes...
+OK: All routes already have proper depot structure
+Debug Performing final HoS validation on all routes...
+Validating 55 routes...
+Empty route for vehicle FX192HX removed (only depot tasks)
+Empty route for vehicle FX194HX removed (only depot tasks)
+Empty route for vehicle GA620VG removed (only depot tasks)
+Warning:  Route for vehicle GA621VG removed due to HoS violation
+Empty route for vehicle GA630VG removed (only depot tasks)
+Empty route for vehicle GA637VG removed (only depot tasks)
+Warning:  Route for vehicle GA646VG removed due to HoS violation
+Warning:  Route for vehicle GA647VG removed due to HoS violation
+Empty route for vehicle GA649VG removed (only depot tasks)
+Warning:  Route for vehicle GC069LX removed due to HoS violation
+Empty route for vehicle GC070LX removed (only depot tasks)
+Warning:  Route for vehicle GC086LX removed due to HoS violation
+Warning:  Route for vehicle GE026FZ removed due to HoS violation
+Warning:  Route for vehicle GE027FZ removed due to HoS violation
+Empty route for vehicle GG355FV removed (only depot tasks)
+Empty route for vehicle GP339JH removed (only depot tasks)
+Empty route for vehicle GP340JH removed (only depot tasks)
+Empty route for vehicle GP507LA removed (only depot tasks)
+Empty route for vehicle GS451PC removed (only depot tasks)
+Empty route for vehicle GT715RC removed (only depot tasks)
+Empty route for vehicle GT735RC removed (only depot tasks)
+Empty route for vehicle GA624VG removed (only depot tasks)
+Warning:  Route for vehicle GA633VG removed due to HoS violation
+Empty route for vehicle GA644VG removed (only depot tasks)
+Empty route for vehicle GR124JF removed (only depot tasks)
+Empty route for vehicle GS178CM removed (only depot tasks)
+Empty route for vehicle GS452PC removed (only depot tasks)
+Empty route for vehicle GS453PC removed (only depot tasks)
+Empty route for vehicle GT004SW removed (only depot tasks)
+Empty route for vehicle GT125RB removed (only depot tasks)
+Empty route for vehicle GW855CW removed (only depot tasks)
+Empty route for vehicle GW862CW removed (only depot tasks)
+Empty route for vehicle GW863CW removed (only depot tasks)
+Empty route for vehicle GW865CW removed (only depot tasks)
+Empty route for vehicle GW871CW removed (only depot tasks)
+Empty route for vehicle GW873CW removed (only depot tasks)
+Empty route for vehicle GW877CW removed (only depot tasks)
+Empty route for vehicle GW879CW removed (only depot tasks)
+Empty route for vehicle GW880CW removed (only depot tasks)
+Empty route for vehicle GW882CW removed (only depot tasks)
+Empty route for vehicle GW883CW removed (only depot tasks)
+Empty route for vehicle GW894CW removed (only depot tasks)
+Enhanced Final validation complete: 42 routes removed due to HoS violations
+OK: Heuristic completed successfully!
+   • Runtime: 108.59 seconds
+   • Solution type: Solution
+
+Phase Applying smart force assignment...
+
+ ENHANCED SMART FORCE ASSIGNMENT (BIG ORDERS FIRST)
+============================================================
+Found 25 unassigned orders (sorted by difficulty):
+   • 14: 2800.0kg, 18.20m³, 15pal (difficulty: 171.0)
+   • 17: 1000.0kg, 3.00m³, 12pal (difficulty: 124.0)
+   • 18: 3000.0kg, 5.40m³, 8pal (difficulty: 88.4)
+   • 24: 3980.0kg, 7.20m³, 7pal (difficulty: 81.2)
+   • 32: 457.0kg, 6.72m³, 7pal (difficulty: 77.2)
+   • 8: 1380.0kg, 10.44m³, 6pal (difficulty: 71.8)
+   • 27: 2193.5kg, 3.94m³, 4pal (difficulty: 46.1)
+   • 38: 403.0kg, 4.24m³, 4pal (difficulty: 44.6)
+   • 16: 840.0kg, 4.00m³, 3pal (difficulty: 34.8)
+   • 37: 380.0kg, 2.88m³, 2pal (difficulty: 23.3)
+   • 11: 700.0kg, 1.92m³, 2pal (difficulty: 22.6)
+   • 20: 600.0kg, 1.92m³, 2pal (difficulty: 22.5)
+   • 33: 500.0kg, 1.92m³, 2pal (difficulty: 22.4)
+   • 4: 171.0kg, 2.15m³, 2pal (difficulty: 22.3)
+   • 21: 159.6kg, 1.92m³, 2pal (difficulty: 22.1)
+   • 35: 150.0kg, 1.92m³, 2pal (difficulty: 22.1)
+   • 28: 200.0kg, 1.00m³, 2pal (difficulty: 21.2)
+   • 26: 54.0kg, 0.96m³, 2pal (difficulty: 21.0)
+   • 1: 2000.0kg, 1.54m³, 1pal (difficulty: 13.5)
+   • 34: 133.0kg, 1.92m³, 1pal (difficulty: 12.1)
+   • 29: 300.0kg, 1.44m³, 1pal (difficulty: 11.7)
+   • 13: 19.0kg, 1.50m³, 1pal (difficulty: 11.5)
+   • 36: 174.0kg, 0.96m³, 1pal (difficulty: 11.1)
+   • 7: 150.0kg, 0.96m³, 1pal (difficulty: 11.1)
+   • 31: 100.0kg, 0.96m³, 1pal (difficulty: 11.1)
+
+Running Processing order 14 (difficulty: 171.0)...
+   • Found 9 capable vehicles
+   • OK: Perfect fit! Assigning to: FX194HX (no penalties, load: 0.0)
+Warning: L2 failed for force assignment of 14. Performing direct insertion.
+OK: Force assigned order 14 to vehicle FX194HX via direct insertion.
+
+Running Processing order 17 (difficulty: 124.0)...
+   • Found 8 capable vehicles
+   • OK: Perfect fit! Assigning to: GA621VG (no penalties, load: 0.0)
+OK: Force assigned order 17 to vehicle GA621VG via L2 heuristic.
+
+Running Processing order 18 (difficulty: 88.4)...
+   • Found 9 capable vehicles
+   • OK: Perfect fit! Assigning to: GC069LX (no penalties, load: 0.0)
+OK: Force assigned order 18 to vehicle GC069LX via L2 heuristic.
+
+Running Processing order 24 (difficulty: 81.2)...
+   • Found 8 capable vehicles
+   • OK: Perfect fit! Assigning to: GC086LX (no penalties, load: 0.0)
+OK: Force assigned order 24 to vehicle GC086LX via L2 heuristic.
+
+Running Processing order 32 (difficulty: 77.2)...
+   • Found 40 capable vehicles
+   • OK: Perfect fit! Assigning to: FX192HX (no penalties, load: 0.0)
+OK: Force assigned order 32 to vehicle FX192HX via L2 heuristic.
+
+Running Processing order 8 (difficulty: 71.8)...
+   • Found 9 capable vehicles
+   • OK: Perfect fit! Assigning to: GP507LA (no penalties, load: 0.0)
+OK: Force assigned order 8 to vehicle GP507LA via L2 heuristic.
+
+Running Processing order 27 (difficulty: 46.1)...
+      Note: Allowing weight overflow: 193.5kg (penalty: 19350)
+   • Found 9 capable vehicles
+   • OK: Perfect fit! Assigning to: GA633VG (no penalties, load: 0.0)
+OK: Force assigned order 27 to vehicle GA633VG via L2 heuristic.
+
+Running Processing order 38 (difficulty: 44.6)...
+   • Found 46 capable vehicles
+   • OK: Perfect fit! Assigning to: GA620VG (no penalties, load: 0.0)
+OK: Force assigned order 38 to vehicle GA620VG via L2 heuristic.
+
+Running Processing order 16 (difficulty: 34.8)...
+      Note: Allowing weight overflow: 40.0kg (penalty: 4000)
+      Note: Allowing weight overflow: 40.0kg (penalty: 4000)
+      Note: Allowing weight overflow: 40.0kg (penalty: 4000)
+      Note: Allowing weight overflow: 40.0kg (penalty: 4000)
+      Note: Allowing weight overflow: 40.0kg (penalty: 4000)
+      Note: Allowing weight overflow: 40.0kg (penalty: 4000)
+      Note: Allowing weight overflow: 40.0kg (penalty: 4000)
+      Note: Allowing weight overflow: 40.0kg (penalty: 4000)
+   • Found 19 capable vehicles
+   • OK: Perfect fit! Assigning to: GE026FZ (no penalties, load: 0.0)
+OK: Force assigned order 16 to vehicle GE026FZ via L2 heuristic.
+
+Running Processing order 37 (difficulty: 23.3)...
+      Note: Allowing weight overflow: 37.0kg (penalty: 3700)
+   • Found 46 capable vehicles
+   • OK: Perfect fit! Assigning to: GA630VG (no penalties, load: 0.0)
+OK: Force assigned order 37 to vehicle GA630VG via L2 heuristic.
+
+Running Processing order 11 (difficulty: 22.6)...
+      Note: Allowing weight overflow: 200.0kg (penalty: 20000)
+   • Found 42 capable vehicles
+   • OK: Perfect fit! Assigning to: GA637VG (no penalties, load: 0.0)
+OK: Force assigned order 11 to vehicle GA637VG via L2 heuristic.
+
+Running Processing order 20 (difficulty: 22.5)...
+      Note: Allowing weight overflow: 100.0kg (penalty: 10000)
+   • Found 42 capable vehicles
+   • OK: Perfect fit! Assigning to: GA646VG (no penalties, load: 0.0)
+OK: Force assigned order 20 to vehicle GA646VG via L2 heuristic.
+
+Running Processing order 33 (difficulty: 22.4)...
+      Note: Allowing weight overflow: 60.0kg (penalty: 6000)
+   • Found 42 capable vehicles
+   • OK: Perfect fit! Assigning to: GA647VG (no penalties, load: 0.0)
+OK: Force assigned order 33 to vehicle GA647VG via L2 heuristic.
+
+Running Processing order 4 (difficulty: 22.3)...
+   • Found 46 capable vehicles
+   • OK: Perfect fit! Assigning to: GA649VG (no penalties, load: 0.0)
+OK: Force assigned order 4 to vehicle GA649VG via L2 heuristic.
+
+Running Processing order 21 (difficulty: 22.1)...
+   • Found 46 capable vehicles
+   • OK: Perfect fit! Assigning to: GC070LX (no penalties, load: 0.0)
+OK: Force assigned order 21 to vehicle GC070LX via L2 heuristic.
+
+Running Processing order 35 (difficulty: 22.1)...
+      Note: Allowing weight overflow: 90.0kg (penalty: 9000)
+   • Found 47 capable vehicles
+   • OK: Perfect fit! Assigning to: GE027FZ (no penalties, load: 0.0)
+OK: Force assigned order 35 to vehicle GE027FZ via L2 heuristic.
+
+Running Processing order 28 (difficulty: 21.2)...
+   • Found 47 capable vehicles
+   • OK: Perfect fit! Assigning to: GG355FV (no penalties, load: 0.0)
+OK: Force assigned order 28 to vehicle GG355FV via L2 heuristic.
+
+Running Processing order 26 (difficulty: 21.0)...
+      Note: Allowing weight overflow: 54.0kg (penalty: 5400)
+   • Found 49 capable vehicles
+   • OK: Perfect fit! Assigning to: GP339JH (no penalties, load: 0.0)
+OK: Force assigned order 26 to vehicle GP339JH via L2 heuristic.
+
+Running Processing order 1 (difficulty: 13.5)...
+   • Found 11 capable vehiclesTraceback (most recent call last):
+  File "D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\comprehensive_integration_test.py", line 1540, in main
+    solution, orders, vehicles, runtime = run_phase1_heuristic_test(excel_file)
+                                          ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\comprehensive_integration_test.py", line 1103, in run_phase1_heuristic_test
+    validation_results = print_route_validation_summary(solution, epdt_orders, epdt_vehicles, runtime_seconds)
+  File "D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\comprehensive_integration_test.py", line 522, in print_route_validation_summary
+    print_detailed_route_breakdown(vehicle_id, route, getattr(route, 'vehicle', None))
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Projects\OQI_Project\Full Optimizer\vrpexample\heuristicapproach\tests\comprehensive_integration_test.py", line 370, in print_detailed_route_breakdown
+    print(f"             Load: {weight_sign}{weight_change:.1f}kg, {volume_sign}{volume_change:.1f}m³ \u2192 Total: {current_weight:.1f}kg, {current_volume:.1f}m³")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 34: character maps to <undefined>
+
+   • OK: Perfect fit! Assigning to: XA321KW (no penalties, load: 302.4)
+Warning: L2 failed for force assignment of 1. Performing direct insertion.
+OK: Force assigned order 1 to vehicle XA321KW via direct insertion.
+
+Running Processing order 34 (difficulty: 12.1)...
+      Note: Allowing weight overflow: 73.0kg (penalty: 7300)
+   • Found 49 capable vehicles
+   • OK: Perfect fit! Assigning to: GP340JH (no penalties, load: 0.0)
+OK: Force assigned order 34 to vehicle GP340JH via L2 heuristic.
+
+Running Processing order 29 (difficulty: 11.7)...
+      Note: Allowing weight overflow: 3.0kg (penalty: 300)
+   • Found 47 capable vehicles
+   • OK: Perfect fit! Assigning to: GS451PC (no penalties, load: 0.0)
+OK: Force assigned order 29 to vehicle GS451PC via L2 heuristic.
+
+Running Processing order 13 (difficulty: 11.5)...
+      Note: Allowing weight overflow: 19.0kg (penalty: 1900)
+   • Found 50 capable vehicles
+   • OK: Perfect fit! Assigning to: GT715RC (no penalties, load: 0.0)
+OK: Force assigned order 13 to vehicle GT715RC via L2 heuristic.
+
+Running Processing order 36 (difficulty: 11.1)...
+   • Found 49 capable vehicles
+   • OK: Perfect fit! Assigning to: GT735RC (no penalties, load: 0.0)
+OK: Force assigned order 36 to vehicle GT735RC via L2 heuristic.
+
+Running Processing order 7 (difficulty: 11.1)...
+      Note: Allowing weight overflow: 90.0kg (penalty: 9000)
+   • Found 50 capable vehicles
+   • OK: Perfect fit! Assigning to: GA624VG (no penalties, load: 0.0)
+OK: Force assigned order 7 to vehicle GA624VG via L2 heuristic.
+
+Running Processing order 31 (difficulty: 11.1)...
+      Note: Allowing weight overflow: 40.0kg (penalty: 4000)
+   • Found 50 capable vehicles
+   • OK: Perfect fit! Assigning to: GA644VG (no penalties, load: 0.0)
+OK: Force assigned order 31 to vehicle GA644VG via L2 heuristic.
+
+OK: Enhanced force assignment completed: 25/25 orders assigned
+============================================================
+OK: Force assignment completed: 25 additional orders assigned
+DEBUG: About to call validation summary...
+
+================================================================================
+PHASE 1: HEURISTIC SOLVER VALIDATION RESULTS
+================================================================================
+DEBUG: Validation summary called with runtime=108.58866238594055
+
+and Route Summary:
+   • Total available vehicles: 55
+   • Vehicles with routes: 37
+   • Vehicles idle: 18
+   VEHICLE: GA625VG:
+      Feasible: True
+       Route duration (active travel+service): 0 day(s) (13h 5m) (would violate HoS if attempted without proper rests)
+       Task sequence (4 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GA625VG) - Cumulative: 0m [No window -> No window]
+
+COMPREHENSIVE INTEGRATION TEST FAILED!
+Error: 'charmap' codec can't encode character '\u2192' in position 34: character maps to <undefined>

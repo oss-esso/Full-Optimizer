@@ -84,7 +84,7 @@ class VRPRouteDatabase:
     
     def _get_route_key(self, origin_id: str, dest_id: str) -> str:
         """Generate cache key for a route."""
-        return f"{origin_id}→{dest_id}"
+        return f"{origin_id}->{dest_id}"
     
     def _should_compute_route(self, origin: Dict, destination: Dict, max_distance_km: float = 500) -> bool:
         """
@@ -112,7 +112,7 @@ class VRPRouteDatabase:
         
         # Skip routes that are too long to be practical
         if estimated_km > max_distance_km:
-            logger.debug(f"Skipping long route {origin['id']} → {destination['id']}: {estimated_km:.1f} km")
+            logger.debug(f"Skipping long route {origin['id']} -> {destination['id']}: {estimated_km:.1f} km")
             return False
         
         return True
@@ -196,7 +196,7 @@ class VRPRouteDatabase:
             return None
             
         except Exception as e:
-            logger.warning(f"Error fetching route {origin['id']} → {destination['id']}: {e}")
+            logger.warning(f"Error fetching route {origin['id']} -> {destination['id']}: {e}")
             return None
     
     def _analyze_road_composition(self, route: Dict) -> Dict[str, float]:
@@ -306,14 +306,14 @@ class VRPRouteDatabase:
         routes_to_compute = []
         
         # First pass: identify which routes we actually need to compute
-        logger.info(f"🔍 Analyzing {total_possible_routes} possible routes...")
+        logger.info(f"Debug Analyzing {total_possible_routes} possible routes...")
         
         for i, origin in enumerate(locations):
             for j, destination in enumerate(locations):
                 if i != j and self._should_compute_route(origin, destination, max_distance_km):
                     routes_to_compute.append((i, j, origin, destination))
         
-        logger.info(f"📊 Will compute {len(routes_to_compute)} routes (filtered from {total_possible_routes})")
+        logger.info(f"Analysis Will compute {len(routes_to_compute)} routes (filtered from {total_possible_routes})")
         
         # Second pass: get route data (from cache or OSRM)
         computed_routes = 0
@@ -343,7 +343,7 @@ class VRPRouteDatabase:
         # Save final cache
         self._save_cache()
         
-        logger.info(f"✅ Route computation complete:")
+        logger.info(f"OK Route computation complete:")
         logger.info(f"   • Computed routes: {computed_routes}/{len(routes_to_compute)}")
         logger.info(f"   • Cache hits: {cache_hits}")
         logger.info(f"   • New API calls: {computed_routes - cache_hits}")
@@ -382,12 +382,12 @@ class VRPRouteDatabase:
         self.cache = {}
         if os.path.exists(self.cache_file):
             os.remove(self.cache_file)
-        logger.info("🗑️ Route cache cleared")
+        logger.info("Clear Route cache cleared")
 
 
 def demo_route_database():
     """Demonstrate the route database functionality."""
-    print("🗃️ VRP Route Database Demo")
+    print("Database VRP Route Database Demo")
     print("=" * 40)
     
     # Create test locations (smaller set for demo)
@@ -408,10 +408,10 @@ def demo_route_database():
         print(f"   • {loc['id']}: ({loc['x']}, {loc['y']})")
     
     # Build matrices
-    print(f"\n🚀 Building distance matrices...")
+    print(f"\nPhase Building distance matrices...")
     distance_matrix, time_matrix = route_db.build_distance_matrices(locations, max_distance_km=300)
     
-    print(f"\n📊 Results:")
+    print(f"\nAnalysis Results:")
     print(f"Distance Matrix (km):")
     print(distance_matrix.round(1))
     print(f"\nTime Matrix (minutes):")

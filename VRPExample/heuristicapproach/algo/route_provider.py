@@ -518,7 +518,7 @@ def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
                     task1_location = getattr(task1, 'location_id', f"({task1.lat:.3f},{task1.lon:.3f})")
                     task2_location = getattr(task2, 'location_id', f"({task2.lat:.3f},{task2.lon:.3f})")
                     
-                    #print(f"TRAVEL_TIME_VALIDATION: {task1_location} → {task2_location}")
+                    #print(f"TRAVEL_TIME_VALIDATION: {task1_location} -> {task2_location}")
                     #print(f"  OSRM: {osrm_time:.1f}m | Haversine: {haversine_time:.1f}m | Diff: {percentage_diff:.1f}%")
                     
                     # Warning for significant discrepancies

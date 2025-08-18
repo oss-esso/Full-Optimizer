@@ -166,22 +166,22 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
     initialization_method = params.get('initialization_method', 'cluster_aware')
     
     if initialization_method == 'regret_k':
-        print("🧠 Using Regret-k initialization strategy")
+        print("Using Regret-k initialization strategy")
         initial_solution = regret_k_initializer(orders, vehicles, params)
     else:
-        print("🏗️  Using cluster-aware initialization strategy") 
+        print("Build  Using cluster-aware initialization strategy") 
         initial_solution = cluster_aware_initializer(orders, vehicles, params)
     
     # Check for destroy and repair if enabled and there are unassigned orders
     if params.get('enable_destroy_and_repair', False):
         unassigned_count = len(getattr(initial_solution, 'unassigned_orders', set()))
         if unassigned_count > 0:
-            print(f"🔧 Applying destroy and repair for {unassigned_count} unassigned orders")
+            print(f"Enhanced Applying destroy and repair for {unassigned_count} unassigned orders")
             try:
                 from destroy_and_repair import destroy_and_repair_large_orders
                 initial_solution = destroy_and_repair_large_orders(initial_solution, orders, vehicles, params)
             except ImportError:
-                print("⚠️  Warning: destroy_and_repair module not available")
+                print("Warning:  Warning: destroy_and_repair module not available")
     
     # Do NOT enforce pickup-first ordering - let the initialization patterns stand
     
@@ -199,14 +199,14 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         tabu_list.append(initial_move)
 
     # 3. Main loop
-    print(f"🔄 Starting L1 main optimization loop with M1={params['M1']}, M2={params['M2']}")
+    print(f"RECALCULATING Starting L1 main optimization loop with M1={params['M1']}, M2={params['M2']}")
     while non_improving_iters < params['M1'] and total_iters < params['M2']:
         total_iters += 1
         improvement_found = False
         best_neighbors_pool = []
         
         if total_iters % 10 == 1:  # Print every 10 iterations
-            print(f"🔄 L1 Iteration {total_iters}: non_improving={non_improving_iters}, score={calculate_z1_score(center_solution, params, orders):.2f}")
+            print(f"RECALCULATING L1 Iteration {total_iters}: non_improving={non_improving_iters}, score={calculate_z1_score(center_solution, params, orders):.2f}")
         
         # Intelligent termination with convergence analysis
         import time
@@ -232,7 +232,7 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         # 1. Convergence: No improvement for 15+ seconds
         time_since_improvement = current_time - l1_heuristic._last_improvement_time
         if time_since_improvement > 15:
-            print(f"🎯 Convergence reached: No improvement for {time_since_improvement:.1f}s")
+            print(f"Running Convergence reached: No improvement for {time_since_improvement:.1f}s")
             break
             
         # 2. Quality threshold: Stop if we have good assignment rate and reasonable runtime
@@ -240,17 +240,17 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
             recent_scores = l1_heuristic._score_history[-5:]
             score_variance = max(recent_scores) - min(recent_scores)
             if score_variance < 1.0:  # Very stable scores
-                print(f"✅ Solution stabilized: variance={score_variance:.2f}, time={elapsed_time:.1f}s")
+                print(f"OK: Solution stabilized: variance={score_variance:.2f}, time={elapsed_time:.1f}s")
                 break
         
         # 3. Maximum time limit (60s as safety net, not hard production requirement)
         if elapsed_time > 60:
-            print(f"⏰ Maximum time limit reached: {elapsed_time:.1f} seconds")
+            print(f"Maximum time limit reached: {elapsed_time:.1f} seconds")
             break
             
         # Safety check to prevent infinite loops
         if total_iters > 20:  # Further reduced from 100 for production target
-            print(f"⚠️  L1 reached 20 iterations, stopping for production performance")
+            print(f"Warning:  L1 reached 20 iterations, stopping for production performance")
             break
 
         # 4. VND Loop - Variable Neighborhood Descent
@@ -275,7 +275,7 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                         print("Warning: Could not import granular_tabu_search, skipping granular search")
         
         if total_iters % 50 == 1:  # Less frequent debug for VND
-            print(f"🔍 Starting VND with {len(neighborhoods)} neighborhoods")
+            print(f"Debug Starting VND with {len(neighborhoods)} neighborhoods")
         
         # Track total neighbors evaluated across all neighborhoods in this VND iteration
         total_neighbors_this_vnd = 0
@@ -283,12 +283,12 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         
         for neighborhood_idx, neighborhood_func in enumerate(neighborhoods):
             if total_iters % 50 == 1:
-                print(f"🔍 Exploring neighborhood {neighborhood_idx+1}/{len(neighborhoods)}: {neighborhood_func.__name__}")
+                print(f"Debug Exploring neighborhood {neighborhood_idx+1}/{len(neighborhoods)}: {neighborhood_func.__name__}")
             
             # Check if we've already evaluated too many neighbors in this VND iteration
             if total_neighbors_this_vnd >= max_neighbors_per_iteration:
                 if total_iters % 50 == 1:
-                    print(f"⚠️  VND iteration reached {max_neighbors_per_iteration} neighbors limit, skipping remaining neighborhoods")
+                    print(f"Warning:  VND iteration reached {max_neighbors_per_iteration} neighbors limit, skipping remaining neighborhoods")
                 break
             
             # Explore neighborhood, find best valid neighbor
@@ -304,13 +304,13 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 max_neighbors = params.get('max_neighbors_to_evaluate', 15)
                 if neighbors_evaluated > max_neighbors:
                     if total_iters % 50 == 1:  # Only print occasionally to reduce log noise
-                        print(f"⚠️  Neighborhood {neighborhood_func.__name__} evaluated {max_neighbors}+ neighbors, breaking for sub-30s target")
+                        print(f"Warning:  Neighborhood {neighborhood_func.__name__} evaluated {max_neighbors}+ neighbors, breaking for sub-30s target")
                     break
                 
                 # Also check global VND iteration limit
                 if total_neighbors_this_vnd >= max_neighbors_per_iteration:
                     if total_iters % 50 == 1:
-                        print(f"⚠️  VND iteration reached {max_neighbors_per_iteration} total neighbors, breaking")
+                        print(f"Warning:  VND iteration reached {max_neighbors_per_iteration} total neighbors, breaking")
                     break
                 
                 neighbor_score = calculate_z1_score(neighbor, params, orders)
@@ -330,7 +330,7 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                     current_score = calculate_z1_score(center_solution, params, orders)
                     if params.get('local_search_strategy', 'best_improvement') == 'first_improvement' and neighbor_score > current_score:
                         if total_iters % 50 == 1:
-                            print(f"⚠️  First improvement found, stopping neighborhood search early")
+                            print(f"Warning:  First improvement found, stopping neighborhood search early")
                         break
                         
                 elif not is_tabu:
@@ -357,7 +357,7 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 break # Go back to the first neighborhood (VND restart)
         
         if total_iters % 50 == 1:
-            print(f"🔍 VND completed. improvement_found={improvement_found}, neighbors_pool_size={len(best_neighbors_pool)}")
+            print(f"Debug VND completed. improvement_found={improvement_found}, neighbors_pool_size={len(best_neighbors_pool)}")
         
         # 5. Diversification / Non-improving move
         if not improvement_found:
@@ -393,8 +393,8 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 move_attrs = get_move_attributes(previous_center, center_solution)
                 tabu_list.append(move_attrs)
 
-    print(f"🏁 L1 optimization completed after {total_iters} iterations")
-    print(f"🏁 Final score: {calculate_z1_score(best_solution, params, orders):.2f}")
+    print(f"Complete L1 optimization completed after {total_iters} iterations")
+    print(f"Complete Final score: {calculate_z1_score(best_solution, params, orders):.2f}")
     
     # Final enforcement of pickup-first ordering only if explicitly requested
     # Allow flexible task ordering by default for better efficiency
@@ -404,7 +404,7 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
             route.ensure_pickup_first_ordering()
     
     # FINAL DEPOT TASK FINALIZATION: Ensure all routes have proper depot start/end tasks
-    print("🏗️  Performing final depot task finalization on all routes...")
+    print("Build  Performing final depot task finalization on all routes...")
     depot_tasks_added = 0
     for vehicle_id, route in best_solution.routes.items():
         if hasattr(route, 'tasks') and route.tasks:  # Only process routes with tasks
@@ -420,12 +420,12 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 depot_tasks_added += 1
     
     if depot_tasks_added > 0:
-        print(f"🏗️  Added depot tasks to {depot_tasks_added} routes")
+        print(f"Build  Added depot tasks to {depot_tasks_added} routes")
     else:
-        print(f"✅ All routes already have proper depot structure")
+        print(f"OK: All routes already have proper depot structure")
     
     # FINAL VALIDATION: Strictly enforce HoS compliance on all routes
-    print("🔍 Performing final HoS validation on all routes...")
+    print("Debug Performing final HoS validation on all routes...")
     final_solution = _validate_and_filter_solution(best_solution)
     
     return final_solution
@@ -458,7 +458,7 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
             if len(route.tasks) <= 2:
                 # Route has only depot tasks (or is truly empty), filter it out
                 removed_routes_count += 1
-                print(f"🧹 Empty route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed (only depot tasks)")
+                print(f"Empty route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed (only depot tasks)")
                 continue
             
             # Route has customer tasks, validate for HoS compliance
@@ -467,7 +467,7 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
                 validated_routes[vehicle_id] = route
             else:
                 removed_routes_count += 1
-                print(f"⚠️  Route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed due to HoS violation")
+                print(f"Warning:  Route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed due to HoS violation")
                 
                 # Add orders from removed route back to unassigned
                 for task in route.tasks:
@@ -478,15 +478,15 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
         else:
             # Route has no tasks at all, filter it out
             removed_routes_count += 1
-            print(f"🧹 Completely empty route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed")
+            print(f"Completely empty route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed")
 
     # Update solution with validated routes
     solution.routes = validated_routes
     
     if removed_routes_count > 0:
-        print(f"🔧 Final validation complete: {removed_routes_count} routes removed due to HoS violations")
+        print(f"Enhanced Final validation complete: {removed_routes_count} routes removed due to HoS violations")
     else:
-        print("✅ Final validation complete: All routes pass HoS constraints")
+        print("OK: Final validation complete: All routes pass HoS constraints")
     
     return solution
 
@@ -592,7 +592,7 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
     Returns:
         Initial solution with all orders assigned to vehicles
     """
-    print(f"🏗️  Starting best insertion initializer with {len(orders)} orders and {len(vehicles)} vehicles")
+    print(f"Build  Starting best insertion initializer with {len(orders)} orders and {len(vehicles)} vehicles")
     
     try:
         from .epdt_data_structures import Solution, Route  # Import here to avoid circular imports
@@ -1167,7 +1167,7 @@ def unassigned_order_insertion_neighborhood(solution: 'Solution', orders: List['
         if not route or len(route.tasks) <= 2:
             idle_vehicles.append(v)
     
-    print(f"🔍 Found {len(idle_vehicles)} idle vehicles for unassigned order insertion")
+    print(f"Debug Found {len(idle_vehicles)} idle vehicles for unassigned order insertion")
     
     for unassigned_order in unassigned_orders:
         for idle_vehicle in idle_vehicles:
@@ -1188,7 +1188,8 @@ def unassigned_order_insertion_neighborhood(solution: 'Solution', orders: List['
                 if hasattr(new_solution, 'unassigned_orders') and unassigned_order.id in new_solution.unassigned_orders:
                     new_solution.unassigned_orders.remove(unassigned_order.id)
                 
-                print(f"✅ Successfully assigned unassigned order {unassigned_order.id} to idle vehicle {idle_vehicle.id}")
+                # Log only debug info since this is just a neighbor exploration, not final assignment
+                # print(f"OK: Successfully assigned unassigned order {unassigned_order.id} to idle vehicle {idle_vehicle.id}")
                 yield new_solution
 
     return
@@ -1267,7 +1268,7 @@ def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Ord
                 idle_vehicles.append(v)
         
         if idle_vehicles:
-            print(f"🔍 Found {len(idle_vehicles)} idle vehicles for order relocation")
+            print(f"Debug Found {len(idle_vehicles)} idle vehicles for order relocation")
             
             # For each order in the current route
             for order_id, tasks in orders_in_route.items():
@@ -1295,7 +1296,8 @@ def single_order_relocation_neighborhood(solution: 'Solution', orders: List['Ord
                         optimized_route = l2_heuristic(empty_route, order)
                         if optimized_route and optimized_route.tasks:
                             new_solution.routes[idle_vehicle.id] = optimized_route
-                            print(f"✅ Successfully relocated order {order_id} to idle vehicle {idle_vehicle.id}")
+                            # Removed misleading "Successfully relocated" message during neighborhood exploration
+                            # This function explores potential moves, not final assignments
                             yield new_solution
 
 
@@ -1748,14 +1750,14 @@ def calculate_z1_score(solution: 'Solution', params: dict = None, orders: List['
 
 def cluster_aware_initializer(orders: List['Order'], vehicles: List['Vehicle'], params: dict = None) -> 'Solution':
     """
-    Enhanced initializer that creates efficient pickup→pickup→delivery→delivery patterns.
+    Enhanced initializer that creates efficient pickup->pickup->delivery->delivery patterns.
     
     This initializer addresses the bouncing problem by:
     1. Grouping multiple orders per vehicle based on capacity
     2. Building complete routes with efficient task clustering  
-    3. Creating pickup→pickup→delivery→delivery patterns instead of pickup→delivery→pickup→delivery
+    3. Creating pickup->pickup->delivery->delivery patterns instead of pickup->delivery->pickup->delivery
     """
-    print(f"🏗️  Starting cluster-aware initializer with {len(orders)} orders and {len(vehicles)} vehicles")
+    print(f"Build  Starting cluster-aware initializer with {len(orders)} orders and {len(vehicles)} vehicles")
     
     solution = Solution()
     unassigned_orders = orders.copy()
@@ -1865,7 +1867,7 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
     """
     Build an efficient route with multiple orders using cluster-based insertion.
     
-    This creates depot_start → pickup→pickup→delivery→delivery → depot_return patterns.
+    This creates depot_start -> pickup->pickup->delivery->delivery -> depot_return patterns.
     """
     if debug_assignment:
         print(f"    DEBUG L1: Building clustered route with {len(orders)} orders")
@@ -1979,7 +1981,7 @@ def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], param
     k = params.get('regret_k_value', 3)  # Default k=3 for regret calculation
     debug_regret = params.get('debug_regret', False)
     
-    print(f"🧠 Starting regret-{k} initializer with {len(orders)} orders and {len(vehicles)} vehicles")
+    print(f"Starting regret-{k} initializer with {len(orders)} orders and {len(vehicles)} vehicles")
     
     solution = Solution()
     unassigned_orders = orders.copy()
@@ -2062,12 +2064,12 @@ def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], param
             unassigned_orders.remove(best_order)
             
             if debug_regret:
-                print(f"  ✅ Inserted order {best_order.id} into vehicle {vehicle_id} (regret: {best_regret:.2f}, cost: {best_insertion['cost']:.2f})")
+                print(f"  OK: Inserted order {best_order.id} into vehicle {vehicle_id} (regret: {best_regret:.2f}, cost: {best_insertion['cost']:.2f})")
         else:
-            # No feasible insertion found - provide detailed diagnostic logging for any unassigned order
+            # No feasible insertion found in this iteration - order will be retried or marked for alternative handling
             if unassigned_orders:
                 problematic_order = unassigned_orders[0]
-                print(f"ASSIGNMENT FAILURE: Order {problematic_order.id} cannot be assigned to any vehicle")
+                print(f"Warning:  REGRET-{k} SKIP: Order {problematic_order.id} cannot be assigned in current iteration (will retry with alternative methods)")
                 
                 # Get actual order cargo details using proper methods
                 total_weight = problematic_order.get_total_demand()
@@ -2189,7 +2191,11 @@ def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], param
         if route.tasks and not any('depot' in str(task.id).lower() for task in route.tasks):
             _add_depot_tasks_to_route(route)
     
-    print(f"✅ Regret-{k} initialization completed: {len(orders) - len(unassigned_orders)}/{len(orders)} orders assigned")
+    assigned_count = len(orders) - len(unassigned_orders)
+    if len(unassigned_orders) > 0:
+        print(f"OK: Regret-{k} initialization completed: {assigned_count}/{len(orders)} orders assigned ({len(unassigned_orders)} remain for alternative assignment methods)")
+    else:
+        print(f"OK: Regret-{k} initialization completed: {assigned_count}/{len(orders)} orders assigned - PERFECT INITIALIZATION!")
     return solution
 
 

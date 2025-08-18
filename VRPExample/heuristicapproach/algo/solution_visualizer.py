@@ -175,7 +175,7 @@ class EPDTMapVisualizer:
                         coordinates = geometry['coordinates']
                         street_route = [[coord[1], coord[0]] for coord in coordinates]
                         
-                        logger.info(f"✅ Using cached GeoJSON route geometry {start_node_id}→{end_node_id} ({len(street_route)} points)")
+                        logger.info(f"✅ Using cached GeoJSON route geometry {start_node_id}->{end_node_id} ({len(street_route)} points)")
                         return street_route
                     elif 'encoded' in geometry:
                         # Encoded polyline - decode it!
@@ -183,20 +183,20 @@ class EPDTMapVisualizer:
                         street_route = self._decode_polyline(encoded_polyline)
                         
                         if street_route:
-                            logger.info(f"✅ Using decoded polyline route geometry {start_node_id}→{end_node_id} ({len(street_route)} points)")
+                            logger.info(f"✅ Using decoded polyline route geometry {start_node_id}->{end_node_id} ({len(street_route)} points)")
                             return street_route
                         else:
-                            logger.warning(f"⚠️  Polyline decode failed for {start_node_id}→{end_node_id}, falling back to OSRM")
+                            logger.warning(f"⚠️  Polyline decode failed for {start_node_id}->{end_node_id}, falling back to OSRM")
                 elif isinstance(geometry, list):
                     # Already in [lat, lon] format
-                    logger.info(f"✅ Using cached list route geometry {start_node_id}→{end_node_id} ({len(geometry)} points)")
+                    logger.info(f"✅ Using cached list route geometry {start_node_id}->{end_node_id} ({len(geometry)} points)")
                     return geometry
                     
         except Exception as e:
             logger.warning(f"⚠️  Error getting cached route geometry: {e}")
         
         # Fallback: try OSRM if no cached geometry available
-        logger.info(f"🌐 No cached geometry found, falling back to OSRM for route {getattr(start_task, 'location_id', 'unknown')}→{getattr(end_task, 'location_id', 'unknown')}")
+        logger.info(f"🌐 No cached geometry found, falling back to OSRM for route {getattr(start_task, 'location_id', 'unknown')}->{getattr(end_task, 'location_id', 'unknown')}")
         if not self.has_routing:
             logger.info(f"📏 OSRM not available, using dotted line fallback")
             return self._create_dotted_line(start_coords, end_coords, 5)
@@ -546,7 +546,7 @@ class EPDTMapVisualizer:
                     })()
                     
                     leg_route = self._get_street_route(depot_task, route.tasks[0])
-                    route_segments.append((leg_route, f"Depot → {route.tasks[0].location_id}"))
+                    route_segments.append((leg_route, f"Depot -> {route.tasks[0].location_id}"))
             
             # Add segments between consecutive tasks
             for j in range(len(route.tasks) - 1):
@@ -554,7 +554,7 @@ class EPDTMapVisualizer:
                 next_task = route.tasks[j + 1]
                 
                 leg_route = self._get_street_route(current_task, next_task)
-                route_segments.append((leg_route, f"{current_task.location_id} → {next_task.location_id}"))
+                route_segments.append((leg_route, f"{current_task.location_id} -> {next_task.location_id}"))
             
             # Add route segments to map
             for segment, popup_text in route_segments:

@@ -147,7 +147,7 @@ def test_dry_run():
         n_locations = len(precomputer.locations)
         expected_pairs = n_locations * (n_locations - 1)  # All pairs except self-loops
         
-        print(f"✅ Dry run calculation: {n_locations} locations → {expected_pairs:,} route pairs")
+        print(f"✅ Dry run calculation: {n_locations} locations -> {expected_pairs:,} route pairs")
         
         if expected_pairs > 0:
             print("✅ Dry run functionality working")

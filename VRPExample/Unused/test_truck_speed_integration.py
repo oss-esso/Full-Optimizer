@@ -89,7 +89,7 @@ def test_truck_speed_integration():
                 from_loc = locations[0]
                 to_loc = locations[1]
                 
-                print(f"   Testing route: {from_loc} → {to_loc}")
+                print(f"   Testing route: {from_loc} -> {to_loc}")
                 
                 # Get route details (this will use truck speed adjustments if enabled)
                 route_details = distance_calc.get_route_details(from_loc, to_loc, verbose=True)

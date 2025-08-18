@@ -177,7 +177,7 @@ def test_overnight_osrm_placement():
     print(f"  Malmoe: {malmoe_coords}")
     
     # Test 1: Route from depot to Schonaich
-    print(f"\n🚗 Test 1: Depot → Schonaich")
+    print(f"\n🚗 Test 1: Depot -> Schonaich")
     route_coords = get_osrm_route_geometry(depot_coords, schonaich_coords)
     print(f"  OSRM route has {len(route_coords)} coordinate points")
     
@@ -218,7 +218,7 @@ def test_overnight_osrm_placement():
         print(f"    Position difference: {haversine_distance(straight_overnight[1], straight_overnight[0], osrm_overnight[1], osrm_overnight[0]):.2f}km")
     
     # Test 2: Longer route to show more dramatic differences
-    print(f"\n🚗 Test 2: Schonaich → Malmoe (longer route)")
+    print(f"\n🚗 Test 2: Schonaich -> Malmoe (longer route)")
     route_coords_long = get_osrm_route_geometry(schonaich_coords, malmoe_coords)
     print(f"  OSRM route has {len(route_coords_long)} coordinate points")
     

@@ -233,7 +233,7 @@ def create_interactive_html_map(scenario, result):
                     folium.Marker(
                         location=[mid_lat, mid_lon],
                         icon=folium.Icon(color='darkgray', icon='arrow-right', prefix='fa'),
-                        tooltip=f"{vehicle_id}: Stop {j+1} → {j+2}"
+                        tooltip=f"{vehicle_id}: Stop {j+1} -> {j+2}"
                     ).add_to(m)
     
     # Add a legend

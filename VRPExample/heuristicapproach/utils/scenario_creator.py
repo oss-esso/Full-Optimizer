@@ -556,7 +556,7 @@ def get_coordinates_with_fallback(address: str, cache: Dict[str, Dict[str, float
     # Strategy 1: Try exact address with Nominatim
     coords = try_geocode_single_address(address, cache)
     if coords:
-        logger.info(f"Geocoded successfully with Nominatim: {address} -> ({coords[0]:.6f}, {coords[1]:.6f})")
+        #logger.info(f"Geocoded successfully with Nominatim: {address} -> ({coords[0]:.6f}, {coords[1]:.6f})")
         return coords
     
     # Strategy 2: Try alternative address formats with Nominatim

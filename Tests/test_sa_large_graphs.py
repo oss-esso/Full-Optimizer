@@ -275,7 +275,7 @@ def test_scalability():
             curr = scalability_results[i]
             size_ratio = curr['size'] / prev['size']
             time_ratio = curr['runtime'] / prev['runtime'] if prev['runtime'] > 0 else float('inf')
-            logger.info(f"Size {prev['size']} → {curr['size']}: time ratio = {time_ratio:.2f}x")
+            logger.info(f"Size {prev['size']} -> {curr['size']}: time ratio = {time_ratio:.2f}x")
         
         return True, scalability_results
         

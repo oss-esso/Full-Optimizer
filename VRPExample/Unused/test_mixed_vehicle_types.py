@@ -138,11 +138,11 @@ def test_mixed_vehicle_types():
     
     # Show a few key routes with their times
     key_routes = [
-        (0, 1, "Milano → Torino"),
-        (0, 6, "Milano → Roma"),
-        (0, 7, "Milano → Napoli"),
-        (1, 6, "Torino → Roma"),
-        (6, 7, "Roma → Napoli")
+        (0, 1, "Milano -> Torino"),
+        (0, 6, "Milano -> Roma"),
+        (0, 7, "Milano -> Napoli"),
+        (1, 6, "Torino -> Roma"),
+        (6, 7, "Roma -> Napoli")
     ]
     
     for from_idx, to_idx, route_name in key_routes:

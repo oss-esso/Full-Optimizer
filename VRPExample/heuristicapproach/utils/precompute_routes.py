@@ -85,7 +85,7 @@ class RoutePrecomputer:
         """Initialize the SQLite database with the route cache schema."""
         from osrm_utils import init_route_cache_db
         init_route_cache_db(self.db_path)
-        print(f"📁 Database initialized at: {self.db_path}")
+        print(f"Database initialized at: {self.db_path}")
         
     def load_scenario_from_function(self, scenario_name: str) -> List[LocationInfo]:
         """Load scenario using scenario creation functions."""
@@ -93,20 +93,20 @@ class RoutePrecomputer:
             from moda_scenarios import create_furgoni_scenario
             
             if scenario_name.lower() == 'furgoni':
-                print(f"🔄 Loading scenario: {scenario_name}")
+                print(f"Loading scenario: {scenario_name}")
                 vrp_instance = create_furgoni_scenario()
                 return self._extract_locations_from_vrp_instance(vrp_instance)
             else:
                 raise ValueError(f"Unknown scenario: {scenario_name}")
                 
         except ImportError as e:
-            print(f"❌ Error importing scenario functions: {e}")
+            print(f"Error importing scenario functions: {e}")
             sys.exit(1)
             
     def load_scenario_from_excel(self, excel_path: str) -> List[LocationInfo]:
         """Load scenario from Excel file."""
         try:
-            print(f"📁 Loading scenario from Excel file: {excel_path}")
+            print(f"Loading scenario from Excel file: {excel_path}")
             
             # Import the scenario creator
             import sys
@@ -121,7 +121,7 @@ class RoutePrecomputer:
             
             # Create the scenario
             orders, vehicles, drivers = create_scenario_from_excel(excel_path)
-            print(f"✅ Loaded scenario with {len(orders)} orders, {len(vehicles)} vehicles, and {len(drivers)} drivers")
+            print(f"Loaded scenario with {len(orders)} orders, {len(vehicles)} vehicles, and {len(drivers)} drivers")
             
             # Extract unique locations
             locations = []
@@ -168,12 +168,12 @@ class RoutePrecomputer:
                                 ))
                                 seen_coords.add(coord_key)
             
-            print(f"✅ Extracted {len(locations)} unique locations")
+            print(f"Extracted {len(locations)} unique locations")
             self.locations = locations
             return locations
             
         except Exception as e:
-            print(f"❌ Error loading scenario from Excel: {e}")
+            print(f"Error loading scenario from Excel: {e}")
             import traceback
             traceback.print_exc()
             return []
@@ -183,12 +183,12 @@ class RoutePrecomputer:
         locations = []
         seen_coords = set()
         
-        print(f"🔍 Debug: VRP instance attributes: {dir(vrp_instance)}")
+        print(f"Debug: VRP instance attributes: {dir(vrp_instance)}")
         
         # Extract depot locations
         if hasattr(vrp_instance, 'depot') and vrp_instance.depot:
             depot = vrp_instance.depot
-            print(f"🔍 Debug: Depot attributes: {dir(depot)}")
+            print(f"Debug: Depot attributes: {dir(depot)}")
             if hasattr(depot, 'lat') and hasattr(depot, 'lon') and depot.lat is not None:
                 coord_key = (depot.lat, depot.lon)
                 if coord_key not in seen_coords:
@@ -199,19 +199,19 @@ class RoutePrecomputer:
                         location_type='depot'
                     ))
                     seen_coords.add(coord_key)
-                    print(f"✅ Added depot: {depot.id} at {depot.lat}, {depot.lon}")
+                    print(f"Added depot: {depot.id} at {depot.lat}, {depot.lon}")
         
         # Extract locations from all locations list
         if hasattr(vrp_instance, 'locations'):
-            print(f"🔍 Debug: Found {len(vrp_instance.locations)} locations")
+            print(f"Debug: Found {len(vrp_instance.locations)} locations")
             
             # Debug first few locations
             for i in range(min(3, len(vrp_instance.locations))):
                 location = vrp_instance.locations[i]
-                print(f"🔍 Debug: Location {i} attributes: {dir(location)}")
-                print(f"🔍 Debug: Location {i} id: {getattr(location, 'id', 'NO_ID')}")
-                print(f"🔍 Debug: Location {i} lat: {getattr(location, 'lat', 'NO_LAT')}")
-                print(f"🔍 Debug: Location {i} lon: {getattr(location, 'lon', 'NO_LON')}")
+                print(f"Debug: Location {i} attributes: {dir(location)}")
+                print(f"Debug: Location {i} id: {getattr(location, 'id', 'NO_ID')}")
+                print(f"Debug: Location {i} lat: {getattr(location, 'lat', 'NO_LAT')}")
+                print(f"Debug: Location {i} lon: {getattr(location, 'lon', 'NO_LON')}")
                 
             for location in vrp_instance.locations:
                 if hasattr(location, 'lat') and hasattr(location, 'lon') and location.lat is not None and location.lon is not None:
@@ -237,7 +237,7 @@ class RoutePrecomputer:
                         ))
                         seen_coords.add(coord_key)
         
-        print(f"📍 Extracted {len(locations)} unique locations from scenario")
+        print(f"Extracted {len(locations)} unique locations from scenario")
         return locations
         
     def _is_route_cached(self, start_id: str, end_id: str) -> bool:
@@ -264,13 +264,13 @@ class RoutePrecomputer:
             return route_data is not None
             
         except Exception as e:
-            print(f"❌ OSRM query failed for {start_loc.id} -> {end_loc.id}: {e}")
+            print(f"OSRM query failed for {start_loc.id} -> {end_loc.id}: {e}")
             return False
             
     def precompute_all_routes(self):
         """Pre-compute routes for all unique location pairs."""
         if not self.locations:
-            print("❌ No locations loaded. Load a scenario first.")
+            print("No locations loaded. Load a scenario first.")
             return
             
         # Generate all unique pairs (including both directions)
@@ -281,9 +281,9 @@ class RoutePrecomputer:
                     location_pairs.append((start_loc, end_loc))
                     
         self.total_pairs = len(location_pairs)
-        print(f"🔄 Pre-computing routes for {self.total_pairs} location pairs...")
-        print(f"📡 OSRM server: {self.osrm_url}")
-        print(f"💾 Cache database: {self.db_path}")
+        print(f"Pre-computing routes for {self.total_pairs} location pairs...")
+        print(f"OSRM server: {self.osrm_url}")
+        print(f"Cache database: {self.db_path}")
         
         start_time = time.time()
         
@@ -297,7 +297,7 @@ class RoutePrecomputer:
             elapsed_time = time.time() - start_time
             eta = elapsed_time / ((i + len(batch)) / self.total_pairs) - elapsed_time if i > 0 else 0
             
-            print(f"📊 Progress: {progress_pct:.1f}% | "
+            print(f"Progress: {progress_pct:.1f}% | "
                   f"Processed: {self.processed_pairs} | "
                   f"Failed: {self.failed_pairs} | "
                   f"Cache hits: {self.cache_hits} | "
@@ -306,14 +306,17 @@ class RoutePrecomputer:
         total_time = time.time() - start_time
         success_rate = (self.processed_pairs / self.total_pairs) * 100 if self.total_pairs > 0 else 0
         
-        print(f"\n✅ Pre-computation completed!")
-        print(f"📊 Total pairs: {self.total_pairs}")
-        print(f"✅ Successfully processed: {self.processed_pairs}")
-        print(f"❌ Failed: {self.failed_pairs}")
-        print(f"💾 Cache hits: {self.cache_hits}")
-        print(f"📈 Success rate: {success_rate:.1f}%")
-        print(f"⏱️  Total time: {total_time:.1f}s")
-        print(f"⚡ Average time per pair: {total_time/self.total_pairs:.2f}s")
+        print(f"\nPre-computation completed!")
+        print(f"Total pairs: {self.total_pairs}")
+        print(f"Successfully processed: {self.processed_pairs}")
+        print(f"Failed: {self.failed_pairs}")
+        print(f"Cache hits: {self.cache_hits}")
+        print(f"Success rate: {success_rate:.1f}%")
+        print(f" Total time: {total_time:.1f}s")
+        if self.total_pairs > 0:
+            print(f"Average time per pair: {total_time/self.total_pairs:.2f}s")
+        else:
+            print(f"Average time per pair: N/A (no pairs processed)")
         
     def _process_batch(self, batch: List[Tuple[LocationInfo, LocationInfo]], batch_num: int):
         """Process a batch of location pairs."""
@@ -369,7 +372,7 @@ Examples:
     
     args = parser.parse_args()
     
-    print("🚀 OSRM Route Pre-computation Tool")
+    print("OSRM Route Pre-computation Tool")
     print("=" * 50)
     
     # Initialize pre-computer
@@ -388,15 +391,15 @@ Examples:
             precomputer.locations = precomputer.load_scenario_from_excel(args.excel_file)
             
     except Exception as e:
-        print(f"❌ Error loading scenario: {e}")
+        print(f"Error loading scenario: {e}")
         sys.exit(1)
     
     if not precomputer.locations:
-        print("❌ No locations found in scenario")
+        print("No locations found in scenario")
         sys.exit(1)
         
     # Show summary
-    print(f"📍 Locations found: {len(precomputer.locations)}")
+    print(f"Locations found: {len(precomputer.locations)}")
     location_types = {}
     for loc in precomputer.locations:
         location_types[loc.location_type] = location_types.get(loc.location_type, 0) + 1
@@ -405,30 +408,30 @@ Examples:
         print(f"   - {loc_type}: {count}")
         
     total_pairs = len(precomputer.locations) * (len(precomputer.locations) - 1)
-    print(f"🔗 Total route pairs to pre-compute: {total_pairs:,}")
+    print(f"Total route pairs to pre-compute: {total_pairs:,}")
     
     if args.dry_run:
-        print("🏃 Dry run mode - not actually pre-computing routes")
+        print("Dry run mode - not actually pre-computing routes")
         return
         
     # Confirm before proceeding
     try:
-        confirm = input(f"\n📡 Proceed with pre-computation using {args.osrm_url}? [y/N]: ")
+        confirm = input(f"\nProceed with pre-computation using {args.osrm_url}? [y/N]: ")
         if confirm.lower() not in ['y', 'yes']:
-            print("❌ Pre-computation cancelled")
+            print("Pre-computation cancelled")
             return
     except KeyboardInterrupt:
-        print("\n❌ Pre-computation cancelled")
+        print("\nPre-computation cancelled")
         return
         
     # Run pre-computation
     try:
         precomputer.precompute_all_routes()
     except KeyboardInterrupt:
-        print("\n⚠️  Pre-computation interrupted by user")
-        print(f"📊 Partial results: {precomputer.processed_pairs}/{precomputer.total_pairs} pairs processed")
+        print("\n Pre-computation interrupted by user")
+        print(f"Partial results: {precomputer.processed_pairs}/{precomputer.total_pairs} pairs processed")
     except Exception as e:
-        print(f"\n❌ Pre-computation failed: {e}")
+        print(f"\nPre-computation failed: {e}")
         sys.exit(1)
 
 if __name__ == '__main__':

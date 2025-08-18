@@ -362,7 +362,7 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
         volume_sign = "+" if volume_change >= 0 else ""
         
         print(f"          {i}. {location} ({order_info}) - Cumulative: {cumulative_formatted}{delta_str} {time_window}")
-        print(f"             Load: {weight_sign}{weight_change:.1f}kg, {volume_sign}{volume_change:.1f}m³ → Total: {current_weight:.1f}kg, {current_volume:.1f}m³")
+        print(f"             Load: {weight_sign}{weight_change:.1f}kg, {volume_sign}{volume_change:.1f}m³ -> Total: {current_weight:.1f}kg, {current_volume:.1f}m³")
         
         # Display arrival status with waiting information (as per markdown specification)
         arrival_status = ""
@@ -1179,7 +1179,7 @@ def run_phase2_driver_assignment(excel_path: str, solution, vehicles) -> None:
         for i, route in enumerate(route_objects[:min(len(route_objects), len(drivers))]):
             driver = drivers[i]
             manual_assignments[route.vehicle.id] = driver
-            print(f"   • Vehicle {route.vehicle.id} → Driver {driver.name}")
+            print(f"   • Vehicle {route.vehicle.id} -> Driver {driver.name}")
         
         assignments = manual_assignments
         print(f"✅ Manual assignment demonstration completed: {len(assignments)} assignments")

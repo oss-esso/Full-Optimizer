@@ -254,12 +254,12 @@ class RouteDatabase:
                     heavy_time = self._calculate_truck_adjusted_time(duration_minutes, road_composition, 
                                                                      DEFAULT_TRUCK_SPEED_RATIOS['heavy'])
                     
-                    route_key = f"{from_id or 'unknown'}→{to_id or 'unknown'}"
+                    route_key = f"{from_id or 'unknown'}->{to_id or 'unknown'}"
                     print(f"  🛣️ OSRM: {route_key} = {distance_km:.1f}km, furgone:{standard_time:.1f}min, camion:{heavy_time:.1f}min")
                     print(f"    📍 Road composition: {road_summary}")
                 except ImportError:
                     # Fallback to original format if truck speed ratios not available
-                    route_key = f"{from_id or 'unknown'}→{to_id or 'unknown'}"
+                    route_key = f"{from_id or 'unknown'}->{to_id or 'unknown'}"
                     print(f"  🛣️ OSRM: {route_key} = {distance_km:.1f}km, {duration_minutes:.1f}min")
                     print(f"    📍 Road composition: {road_summary}")
                 
@@ -274,7 +274,7 @@ class RouteDatabase:
                 return None
                 
         except requests.exceptions.Timeout:
-            self.logger.warning(f"OSRM API timeout for route {from_id}→{to_id}")
+            self.logger.warning(f"OSRM API timeout for route {from_id}->{to_id}")
             return None
         except Exception as e:
             self.logger.error(f"OSRM API error: {e}")
@@ -621,7 +621,7 @@ class CachedOSRMDistanceCalculator:
                         
                 except Exception as e:
                     errors += 1
-                    self.logger.warning(f"Route calculation error {loc1['id']}→{loc2['id']}: {e}")
+                    self.logger.warning(f"Route calculation error {loc1['id']}->{loc2['id']}: {e}")
                     
                     # Fallback to Haversine
                     distance_km = self._haversine_distance(loc1, loc2)

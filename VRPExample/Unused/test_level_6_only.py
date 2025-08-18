@@ -191,7 +191,7 @@ def test_simplified_depot_requests():
     
     logger.info(f"Reduced scenario to {len(scenario.ride_requests)} requests:")
     for req in scenario.ride_requests:
-        logger.info(f"  {req.id}: {req.pickup_location} → {req.dropoff_location} ({req.passengers}kg)")
+        logger.info(f"  {req.id}: {req.pickup_location} -> {req.dropoff_location} ({req.passengers}kg)")
     
     optimizer = VRPOptimizerEnhanced()
     
@@ -228,7 +228,7 @@ def test_only_field_requests():
     
     logger.info(f"Field-only scenario with {len(scenario.ride_requests)} requests:")
     for req in scenario.ride_requests[:3]:  # Show first 3
-        logger.info(f"  {req.id}: {req.pickup_location} → {req.dropoff_location} ({req.passengers}kg)")
+        logger.info(f"  {req.id}: {req.pickup_location} -> {req.dropoff_location} ({req.passengers}kg)")
     logger.info(f"  ... and {len(scenario.ride_requests)-3} more")
     
     optimizer = VRPOptimizerEnhanced()
@@ -268,7 +268,7 @@ def test_capacity_feasibility():
         depot_weights.append(weight)
         # Check which vehicles can handle this weight
         capable_vehicles = [i for i, cap in enumerate(vehicle_capacities) if cap >= weight]
-        logger.info(f"  {req.id}: {weight}kg → {req.dropoff_location}")
+        logger.info(f"  {req.id}: {weight}kg -> {req.dropoff_location}")
         logger.info(f"    Can fit in vehicles: {capable_vehicles} (capacities: {[vehicle_capacities[i] for i in capable_vehicles]})")
         
         if not capable_vehicles:
@@ -280,7 +280,7 @@ def test_capacity_feasibility():
         weight = req.passengers
         field_weights.append(weight)
         capable_vehicles = [i for i, cap in enumerate(vehicle_capacities) if cap >= weight]
-        logger.info(f"  {req.id}: {weight}kg from {req.pickup_location} → {req.dropoff_location}")
+        logger.info(f"  {req.id}: {weight}kg from {req.pickup_location} -> {req.dropoff_location}")
         logger.info(f"    Can fit in vehicles: {capable_vehicles}")
     
     # Check if total cargo exceeds fleet capacity

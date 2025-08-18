@@ -153,7 +153,7 @@ def main():
                 print(f"   ❌ Removed: '{address}'")
         
         save_geocoding_cache(cache)
-        print(f"✅ Cache updated: {original_count} → {len(cache)} entries")
+        print(f"✅ Cache updated: {original_count} -> {len(cache)} entries")
         print("   Next time the scenario loads, it will re-geocode Cambiano")
         
     elif choice == "2":

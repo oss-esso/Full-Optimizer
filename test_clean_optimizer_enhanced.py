@@ -66,7 +66,7 @@ def test_enhanced_clean_optimizer():
                 )
                 
                 if result:
-                    print(f"✅ SUCCESS - {level} {hybrid_label}")
+                    print(f"OK SUCCESS - {level} {hybrid_label}")
                     print(f"   Status: {status}")
                     print(f"   Applied constraints: {applied_constraints}")
                     print(f"   Objective value: {result['objective_value']}")

@@ -45,8 +45,8 @@ def compare_distance_calculations():
     depot_to_cormano_euclidean = euclidean_distance(depot, cormano) * 111
     
     print(f"\n📐 Euclidean Distance Calculations (Old Method):")
-    print(f"  - Depot → Malmö: {depot_to_malmoe_euclidean:.1f} km")
-    print(f"  - Depot → Cormano: {depot_to_cormano_euclidean:.1f} km")
+    print(f"  - Depot -> Malmö: {depot_to_malmoe_euclidean:.1f} km")
+    print(f"  - Depot -> Cormano: {depot_to_cormano_euclidean:.1f} km")
     
     # Now test with the OSRM calculator (new method)
     from vrp_optimizer_clean import OSMDistanceCalculator
@@ -72,8 +72,8 @@ def compare_distance_calculations():
     depot_to_cormano_osrm = osm_calculator.get_distance(depot.id, cormano.id) / 1000
     
     print(f"\n🛣️ OSRM Distance Calculations (New Method):")
-    print(f"  - Depot → Malmö: {depot_to_malmoe_osrm:.1f} km")
-    print(f"  - Depot → Cormano: {depot_to_cormano_osrm:.1f} km")
+    print(f"  - Depot -> Malmö: {depot_to_malmoe_osrm:.1f} km")
+    print(f"  - Depot -> Cormano: {depot_to_cormano_osrm:.1f} km")
     
     # Calculate differences
     malmoe_diff = abs(depot_to_malmoe_osrm - depot_to_malmoe_euclidean)
@@ -94,8 +94,8 @@ def compare_distance_calculations():
     depot_to_cormano_time = osm_calculator.get_travel_time(depot.id, cormano.id)
     
     print(f"\n⏰ OSRM Travel Times:")
-    print(f"  - Depot → Malmö: {depot_to_malmoe_time:.1f} minutes")
-    print(f"  - Depot → Cormano: {depot_to_cormano_time:.1f} minutes")
+    print(f"  - Depot -> Malmö: {depot_to_malmoe_time:.1f} minutes")
+    print(f"  - Depot -> Cormano: {depot_to_cormano_time:.1f} minutes")
 
 if __name__ == "__main__":
     compare_distance_calculations()

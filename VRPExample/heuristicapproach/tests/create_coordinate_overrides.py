@@ -105,7 +105,7 @@ def main():
     print(f"\n📋 APPLIED OVERRIDES:")
     for address, coords in overrides.items():
         print(f"   {address}")
-        print(f"   → ({coords['lat']:.6f}, {coords['lon']:.6f})")
+        print(f"   -> ({coords['lat']:.6f}, {coords['lon']:.6f})")
 
 if __name__ == "__main__":
     main()

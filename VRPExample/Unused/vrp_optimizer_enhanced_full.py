@@ -75,7 +75,7 @@ class VRPOptimizerEnhanced:
                 if original_start > 0:
                     location.time_window_start = 0  # Set to 0 for maximum flexibility
                     relaxed_count += 1
-                    logger.info(f"   Relaxed {location_id}: [{original_start}-{location.time_window_end}] → [0-{location.time_window_end}]")
+                    logger.info(f"   Relaxed {location_id}: [{original_start}-{location.time_window_end}] -> [0-{location.time_window_end}]")
         
         if relaxed_count > 0:
             logger.info(f"✅ Relaxed {relaxed_count} time windows to start at 0")
@@ -194,7 +194,7 @@ class VRPOptimizerEnhanced:
                 total_time = int(travel_time + service_time)
                   # Debug logging for first few calls
                 if callback_call_count <= 20:
-                    logger.info(f"   🔍 TIME CALLBACK #{callback_call_count}: {from_node}→{to_node} = {travel_time}min travel + {service_time}min service = {total_time}min")
+                    logger.info(f"   🔍 TIME CALLBACK #{callback_call_count}: {from_node}->{to_node} = {travel_time}min travel + {service_time}min service = {total_time}min")
                     logger.info(f"      to_loc: {to_loc.id} (service_time: {getattr(to_loc, 'service_time', 'N/A')})")
                 
                 return total_time            
@@ -205,7 +205,7 @@ class VRPOptimizerEnhanced:
             # Test the time callback manually to ensure it works
             logger.info("🔍 Testing time callback manually...")
             test_time = time_callback(0, 2)  # From depot_1 to pickup_1
-            logger.info(f"   Manual test: depot_1 → pickup_1 = {test_time}min")
+            logger.info(f"   Manual test: depot_1 -> pickup_1 = {test_time}min")
             
             # Conservative time dimension setup - use the MAXIMUM vehicle time limit for global max
             # Individual vehicle constraints will be applied separately
@@ -285,7 +285,7 @@ class VRPOptimizerEnhanced:
                             time_dimension.CumulVar(index).SetRange(relaxed_start, relaxed_end)
                             time_windows_added += 1
                             if original_start != relaxed_start or original_end != relaxed_end:
-                                logger.info(f"   Applied {location.id}: [{original_start}-{original_end}] → [{relaxed_start}-{relaxed_end}]")
+                                logger.info(f"   Applied {location.id}: [{original_start}-{original_end}] -> [{relaxed_start}-{relaxed_end}]")
                         else:
                             logger.warning(f"Skipping invalid time window for {location.id}: original=[{original_start}-{original_end}], relaxed=[0-{relaxed_end}]")
                 

@@ -424,20 +424,20 @@ class CleanVRPOptimizer:
                 skipped = []
                 if depot_requests:
                     chosen = depot_requests[0]  # Choose first depot bay request
-                    print(f"      → Prioritizing depot pickup: {chosen[1].pickup_location} → {dropoff}")
+                    print(f"      -> Prioritizing depot pickup: {chosen[1].pickup_location} -> {dropoff}")
                     conflict_resolution[dropoff] = [chosen]
                     # All other requests are skipped
                     skipped = [r for r in requests if r != chosen]
                 elif regular_requests:
                     chosen = regular_requests[0]  # Choose first regular pickup
-                    print(f"      → Using first pickup: {chosen[1].pickup_location} → {dropoff}")
+                    print(f"      -> Using first pickup: {chosen[1].pickup_location} -> {dropoff}")
                     conflict_resolution[dropoff] = [chosen]
                     skipped = [r for r in requests if r != chosen]
                 # Print skipped requests for this dropoff
                 if skipped:
                     print(f"      Skipped requests for {dropoff}:")
                     for skip_id, skip_req in skipped:
-                        print(f"        - {skip_req.pickup_location} → {dropoff} (weight: {getattr(skip_req, 'passengers', '?')}kg)")
+                        print(f"        - {skip_req.pickup_location} -> {dropoff} (weight: {getattr(skip_req, 'passengers', '?')}kg)")
                 skipped_requests_by_dropoff[dropoff] = skipped
         
         # Now add the resolved pickup-delivery pairs
@@ -449,7 +449,7 @@ class CleanVRPOptimizer:
             pickup_location = request.pickup_location
             
             # Create unique pair identifier
-            pair_id = f"{pickup_location}→{dropoff_location}"
+            pair_id = f"{pickup_location}->{dropoff_location}"
             if pair_id in processed_pairs:
                 print(f"    ⚠️ Skipping duplicate pair: {pair_id}")
                 continue
@@ -476,7 +476,7 @@ class CleanVRPOptimizer:
             pickup_index = manager.NodeToIndex(pickup_idx)
             dropoff_index = manager.NodeToIndex(dropoff_idx)
             
-            print(f"    Adding pickup-delivery pair: {pickup_location} → {dropoff_location} (weight: {request.passengers}kg)")
+            print(f"    Adding pickup-delivery pair: {pickup_location} -> {dropoff_location} (weight: {request.passengers}kg)")
 
             try:
                 routing.AddPickupAndDelivery(pickup_index, dropoff_index)
@@ -703,7 +703,7 @@ class CleanVRPOptimizer:
                 elif pickup_position >= dropoff_position:
                     violations.append(f"{req_id}: Pickup (pos {pickup_position}) occurs after dropoff (pos {dropoff_position})")
                 else:
-                    print(f"   ✅ {req_id}: Valid - {pickup_vehicle} handles pickup→dropoff (positions {pickup_position}→{dropoff_position})")
+                    print(f"   ✅ {req_id}: Valid - {pickup_vehicle} handles pickup->dropoff (positions {pickup_position}->{dropoff_position})")
         
         if violations:
             print(f"\n🚨 PICKUP-DELIVERY VIOLATIONS:")

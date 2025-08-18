@@ -45,15 +45,15 @@ class OSMDistanceCalculator:
         self.distance_matrix = np.zeros((n, n))
         self.time_matrix = np.zeros((n, n))
         
-        print(f"🗺️ Calculating OSM route matrices for {n} locations...")
+        print(f"Map Calculating OSM route matrices for {n} locations...")
         
         # Try to use OSRM table service for bulk calculation (much faster)
         if self._calculate_bulk_matrix():
-            print("✅ Successfully retrieved OSM route matrix")
+            print("OK Successfully retrieved OSM route matrix")
             return
         
         # Fallback to individual route calculations
-        print("⚠️ Bulk matrix failed, calculating individual routes...")
+        print("Warning: Bulk matrix failed, calculating individual routes...")
         successful_routes = 0
         total_routes = n * (n - 1)  # No self-routes
         
@@ -70,7 +70,7 @@ class OSMDistanceCalculator:
                         time.sleep(0.1)
                         
                     except Exception as e:
-                        self.logger.warning(f"Failed to get route {loc1['id']} → {loc2['id']}: {e}")
+                        self.logger.warning(f"Failed to get route {loc1['id']} -> {loc2['id']}: {e}")
                         # Fallback to Haversine distance
                         distance_km = self._haversine_distance(loc1, loc2)
                         time_minutes = distance_km * 60 / 50  # 50 km/h average speed
@@ -78,7 +78,7 @@ class OSMDistanceCalculator:
                         self.distance_matrix[i, j] = distance_km
                         self.time_matrix[i, j] = time_minutes
         
-        print(f"✅ OSM routing completed: {successful_routes}/{total_routes} routes successful")
+        print(f"OK OSM routing completed: {successful_routes}/{total_routes} routes successful")
     
     def _calculate_bulk_matrix(self) -> bool:
         """Try to calculate matrix using OSRM table service (bulk calculation)."""
@@ -121,7 +121,7 @@ class OSMDistanceCalculator:
                         # Use a conservative average truck speed ratio for bulk calculations
                         avg_truck_ratio = sum(self.truck_speed_ratios.values()) / len(self.truck_speed_ratios)
                         self.time_matrix = self.time_matrix / avg_truck_ratio
-                        print(f"   🚛 Applied average truck speed adjustment factor: {1/avg_truck_ratio:.3f}")
+                        print(f"   Vehicle Applied average truck speed adjustment factor: {1/avg_truck_ratio:.3f}")
                 
                 # Add service times to time matrix
                 for i, loc in enumerate(self.locations):
@@ -142,7 +142,7 @@ class OSMDistanceCalculator:
     def _get_osm_route(self, loc1: Dict, loc2: Dict, verbose: bool = False) -> Tuple[float, float]:
         """Get actual route distance and time between two locations using OSRM."""
         # Create cache key
-        cache_key = f"{loc1['id']}→{loc2['id']}"
+        cache_key = f"{loc1['id']}->{loc2['id']}"
         if cache_key in self.route_cache:
             return self.route_cache[cache_key]
         
@@ -169,7 +169,7 @@ class OSMDistanceCalculator:
         }
         
         if verbose:
-            print(f"🌐 OSM Route Request: {loc1['id']} → {loc2['id']}")
+            print(f"🌐 OSM Route Request: {loc1['id']} -> {loc2['id']}")
             print(f"   From: {from_lat_lon} ({loc1['id']})")
             print(f"   To: {to_lat_lon} ({loc2['id']})")
             print(f"   URL: {url}")
@@ -204,10 +204,10 @@ class OSMDistanceCalculator:
             total_time_minutes = adjusted_duration_minutes + service_time
             
             if verbose:
-                print(f"   ✅ Route found with {route_points} points")
+                print(f"   OK Route found with {route_points} points")
                 print(f"   Distance: {distance_km:.2f} km")
                 if self.use_truck_speeds and 'legs' in route:
-                    print(f"   Car time: {duration_minutes:.1f} min → Truck time: {adjusted_duration_minutes:.1f} min")
+                    print(f"   Car time: {duration_minutes:.1f} min -> Truck time: {adjusted_duration_minutes:.1f} min")
                     print(f"   Truck adjustment factor: {adjusted_duration_minutes/duration_minutes:.3f}")
                 else:
                     print(f"   Duration: {adjusted_duration_minutes:.1f} min")
@@ -485,7 +485,7 @@ class CleanVRPOptimizer:
             truck_speed_ratios = vrp_instance.get_truck_speed_profile()
             use_truck_speeds = vrp_instance.should_use_truck_speeds()
             
-            print(f"🚛 Truck speed profile extracted from scenario:")
+            print(f"Vehicle Truck speed profile extracted from scenario:")
             print(f"   Use truck speeds: {use_truck_speeds}")
             if use_truck_speeds:
                 print(f"   Fleet composition speed ratios:")
@@ -516,9 +516,9 @@ class CleanVRPOptimizer:
             use_truck_speeds=use_truck_speeds
         )
         
-        print(f"🔧 Initialized with OSM routing via: {osrm_url}")
+        print(f"Enhanced Initialized with OSM routing via: {osrm_url}")
         if use_truck_speeds:
-            print(f"🚛 Truck speed adjustments enabled based on scenario vehicle specifications")
+            print(f"Vehicle Truck speed adjustments enabled based on scenario vehicle specifications")
     
     def _convert_vehicles_from_instance(self, instance):
         """Convert VRPInstance vehicles to dict format (no capacity logic, just copy attributes)."""
@@ -554,7 +554,7 @@ class CleanVRPOptimizer:
                         break
         
         if depot_time_window is None:
-            print("    ⚠️ No depot time window found, depot bays will have no time windows")
+            print("    Warning: No depot time window found, depot bays will have no time windows")
           
         # Second pass: convert all locations
         for location in instance.locations.values():
@@ -592,7 +592,7 @@ class CleanVRPOptimizer:
         - "time_windows": VRP with time window constraints
         - "full": All constraints
         """
-        print(f"🚀 Solving VRP with constraint level: {constraint_level}")
+        print(f"Phase Solving VRP with constraint level: {constraint_level}")
         print(f"   Vehicles: {len(self.vehicles)}")
         print(f"   Locations: {len(self.locations)}")
         
@@ -657,7 +657,7 @@ class CleanVRPOptimizer:
             self._add_time_window_constraints(routing, manager)
             applied_constraints.append("time_windows")
         
-        print(f"✅ Constraints applied: {applied_constraints}")
+        print(f"OK Constraints applied: {applied_constraints}")
         
         # Set search parameters
         search_parameters = pywrapcp.DefaultRoutingSearchParameters()
@@ -674,16 +674,16 @@ class CleanVRPOptimizer:
                 routing.AddDisjunction([node], penalty_cost)
                 unassigned_nodes_count += 1
         
-        print(f"🔧 Node-dropping penalties added:")
+        print(f"Enhanced Node-dropping penalties added:")
         print(f"   - Nodes with disjunctions: {unassigned_nodes_count}")
         print(f"   - Penalty cost per unassigned node: {penalty_cost:,}")
         
         # Solve the problem
-        print(f"\n🔍 Solving with OR-Tools...")
+        print(f"\nDebug Solving with OR-Tools...")
         solution = routing.SolveWithParameters(search_parameters)
         
         if solution:
-            print(f"✅ Solution found!")
+            print(f"OK Solution found!")
             solution_data = self._extract_solution(routing, manager, solution, constraint_level)
             solution_data['status'] = 'SUCCESS'
             solution_data['truck_speed_enabled'] = self.distance_calculator.use_truck_speeds
@@ -699,7 +699,7 @@ class CleanVRPOptimizer:
     
     def _analyze_dual_capacity_constraints(self):
         """Analyze dual capacity constraints (weight and volume) for the fleet."""
-        print(f"\n📦 Analyzing Dual Capacity Constraints:")
+        print(f"\nBOX Analyzing Dual Capacity Constraints:")
         print("-" * 50)
         
         # Analyze vehicle capacities and costs
@@ -747,17 +747,17 @@ class CleanVRPOptimizer:
             
             # Determine limiting constraint
             if weight_ratio > volume_ratio:
-                print(f"   🔴 Weight is the limiting constraint ({weight_ratio:.1f}% vs {volume_ratio:.1f}%)")
+                print(f"   RED Weight is the limiting constraint ({weight_ratio:.1f}% vs {volume_ratio:.1f}%)")
             elif volume_ratio > weight_ratio:
-                print(f"   📦 Volume is the limiting constraint ({volume_ratio:.1f}% vs {weight_ratio:.1f}%)")
+                print(f"   BOX Volume is the limiting constraint ({volume_ratio:.1f}% vs {weight_ratio:.1f}%)")
             else:
-                print(f"   ⚖️  Weight and volume constraints are balanced")
+                print(f"   Balance  Weight and volume constraints are balanced")
                 
             # Check if any constraint is exceeded
             if weight_ratio > 100:
-                print(f"   ⚠️  WARNING: Total weight demand exceeds fleet capacity!")
+                print(f"   Warning:  WARNING: Total weight demand exceeds fleet capacity!")
             if volume_ratio > 100:
-                print(f"   ⚠️  WARNING: Total volume demand exceeds fleet capacity!")
+                print(f"   Warning:  WARNING: Total volume demand exceeds fleet capacity!")
                 
         else:
             print(f"   No ride requests to analyze")
@@ -766,10 +766,10 @@ class CleanVRPOptimizer:
     
     def _add_dual_capacity_constraints(self, routing, manager):
         """Add dual capacity constraints for both weight and volume."""
-        print("\n📦 Adding dual capacity constraints (weight and volume)...")
+        print("\nBOX Adding dual capacity constraints (weight and volume)...")
         
         # Weight capacity constraint
-        print("  🔴 Adding weight capacity constraint...")
+        print("  RED Adding weight capacity constraint...")
         def weight_demand_callback(from_index):
             from_node = manager.IndexToNode(from_index)
             location = self.locations[from_node]
@@ -806,7 +806,7 @@ class CleanVRPOptimizer:
         print(f"    Weight capacities: {weight_capacities}")
         
         # Volume capacity constraint
-        print("  📦 Adding volume capacity constraint...")
+        print("  BOX Adding volume capacity constraint...")
         
         # Check if fleet has any volume capacity
         total_fleet_volume_capacity = sum(vehicle.get('volume_capacity', 0.0) for vehicle in self.vehicles)
@@ -851,11 +851,11 @@ class CleanVRPOptimizer:
         )
         print(f"    Volume capacities: {[cap/1000 for cap in volume_capacities]}m³")
         
-        print("✅ Dual capacity constraints added")
+        print("OK Dual capacity constraints added")
     
     def _add_pickup_delivery_constraints(self, routing, manager):
         """Add pickup and delivery constraints using ride requests."""
-        print("\n🔄 Adding pickup-delivery constraints...")
+        print("\nRECALCULATING Adding pickup-delivery constraints...")
         
         pickup_delivery_count = 0
         processed_pairs = set()  # Track processed pairs to avoid duplicates
@@ -900,7 +900,7 @@ class CleanVRPOptimizer:
                         pickup_delivery_count += 1
                         print(f"    Added P-D pair: {pickup_loc} -> {dropoff_loc}")
         
-        print(f"✅ Added {pickup_delivery_count} pickup-delivery constraints")
+        print(f"OK Added {pickup_delivery_count} pickup-delivery constraints")
     
     def _add_time_window_constraints(self, routing, manager):
         """Add time window constraints."""
@@ -940,13 +940,13 @@ class CleanVRPOptimizer:
             index = routing.Start(vehicle_id)
             time_dimension.CumulVar(index).SetRange(0, 1440)  # 24 hours
         
-        print("✅ Time window constraints added")
+        print("OK Time window constraints added")
         
-        print("✅ Time window constraints added")
+        print("OK Time window constraints added")
     
     def _extract_solution(self, routing, manager, solution, constraint_level):
         """Extract solution from OR-Tools and analyze capacity usage per stop."""
-        print(f"\n📊 Extracting solution...")
+        print(f"\nAnalysis Extracting solution...")
         
         solution_data = {
             'routes': [],
@@ -983,14 +983,14 @@ class CleanVRPOptimizer:
                 
                 if weight_dimension and volume_dimension:
                     has_capacity_dimensions = True
-                    print("📦 Found capacity dimensions - will analyze dual capacity usage")
+                    print("BOX Found capacity dimensions - will analyze dual capacity usage")
                 else:
-                    print("📦 Capacity constraints were expected but dimensions not found - using basic extraction")
+                    print("BOX Capacity constraints were expected but dimensions not found - using basic extraction")
             else:
-                print("📦 No capacity constraints applied - using basic solution extraction")
+                print("BOX No capacity constraints applied - using basic solution extraction")
                 
         except Exception as e:
-            print(f"📦 Error checking dimensions: {e} - using basic solution extraction")
+            print(f"BOX Error checking dimensions: {e} - using basic solution extraction")
             weight_dimension = None
             volume_dimension = None
             has_capacity_dimensions = False
@@ -1117,17 +1117,17 @@ class CleanVRPOptimizer:
         
     def _print_basic_solution_summary(self, solution_data):
         """Print basic solution summary without capacity analysis."""
-        print(f"\n📊 Solution Summary:")
+        print(f"\nAnalysis Solution Summary:")
         print("=" * 50)
         
         for route in solution_data['routes']:
-            print(f"\n🚛 Vehicle: {route['vehicle_id']}")
+            print(f"\nVehicle Vehicle: {route['vehicle_id']}")
             print(f"   Route: {route['total_distance']}km, €{route['total_cost']:.2f}")
             print(f"   Stops: {len(route['stops'])}")
             
             if route['stops']:
                 stop_names = [stop['location_id'] for stop in route['stops']]
-                print(f"   Route: {' → '.join(stop_names)}")
+                print(f"   Route: {' -> '.join(stop_names)}")
         
         print(f"\n💰 Total Summary:")
         print(f"   Total distance: {solution_data['total_distance']}km")
@@ -1136,11 +1136,11 @@ class CleanVRPOptimizer:
         
     def _print_capacity_analysis(self, solution_data):
         """Print detailed capacity analysis for each route and stop."""
-        print(f"\n📊 Detailed Capacity Analysis:")
+        print(f"\nAnalysis Detailed Capacity Analysis:")
         print("=" * 80)
         
         for route in solution_data['routes']:
-            print(f"\n🚛 Vehicle: {route['vehicle_id']}")
+            print(f"\nVehicle Vehicle: {route['vehicle_id']}")
             print(f"   Capacity: {route['vehicle_capacity_kg']}kg, {route['vehicle_capacity_m3']}m³")
             print(f"   Cost rate: €{route['vehicle_cost_per_km']:.2f}/km")
             print(f"   Route: {route['total_distance']}km, €{route['total_cost']:.2f}")
@@ -1148,7 +1148,7 @@ class CleanVRPOptimizer:
             if route['stops'] and len(route['stops']) > 0 and 'weight_usage_kg' in route['stops'][0]:
                 print(f"   Stop-by-stop capacity usage:")
                 for i, stop in enumerate(route['stops']):
-                    constraint_icon = "🔴" if stop.get('limiting_constraint') == "weight" else "📦" if stop.get('limiting_constraint') == "volume" else "⚖️"
+                    constraint_icon = "RED" if stop.get('limiting_constraint') == "weight" else "BOX" if stop.get('limiting_constraint') == "volume" else "Balance"
                     print(f"     {i+1}. {stop['location_id']}: "
                           f"{stop.get('weight_usage_kg', 0)}kg ({stop.get('weight_utilization_pct', 0)}%), "
                           f"{stop.get('volume_usage_m3', 0)}m³ ({stop.get('volume_utilization_pct', 0)}%) "
@@ -1168,14 +1168,14 @@ class CleanVRPOptimizer:
                     volume_violations = [s for s in stops_with_capacity if s['volume_utilization_pct'] > 100]
                     
                     if weight_violations:
-                        print(f"   ⚠️  WARNING: Weight capacity exceeded at {len(weight_violations)} stops!")
+                        print(f"   Warning:  WARNING: Weight capacity exceeded at {len(weight_violations)} stops!")
                     if volume_violations:
-                        print(f"   ⚠️  WARNING: Volume capacity exceeded at {len(volume_violations)} stops!")
+                        print(f"   Warning:  WARNING: Volume capacity exceeded at {len(volume_violations)} stops!")
             else:
                 print(f"   Stops: {len(route['stops'])} locations")
                 if route['stops']:
                     stop_names = [stop['location_id'] for stop in route['stops']]
-                    print(f"   Route: {' → '.join(stop_names)}")
+                    print(f"   Route: {' -> '.join(stop_names)}")
         
         # Print total summary
         print(f"\n💰 Solution Summary:")

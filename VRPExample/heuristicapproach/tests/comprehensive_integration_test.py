@@ -47,7 +47,7 @@ print(f"Heuristic root: {heuristic_root}")
 # Import required modules with robust error handling
 try:
     from scenario_creator import create_scenario_from_excel
-    print("OK Successfully imported create_scenario_from_excel")
+    print("OK: Successfully imported create_scenario_from_excel")
 except ImportError as e:
     print(f"ERROR importing scenario_creator: {e}")
     sys.exit(1)
@@ -55,24 +55,24 @@ except ImportError as e:
 try:
     # We'll skip data_adapter if create_scenario_from_excel returns EPDT objects directly
     pass  # Removed data_adapter import since create_scenario_from_excel returns EPDT objects
-    print("✅ Skipping data_adapter (not needed for direct EPDT scenario loading)")
+    print("OK: Skipping data_adapter (not needed for direct EPDT scenario loading)")
 except ImportError:
     try:
         from algo.data_adapter import convert_instance_to_epdt_input, get_default_parameters
-        print("✅ Successfully imported data_adapter functions with algo prefix")
+        print("OK: Successfully imported data_adapter functions with algo prefix")
     except ImportError as e:
-        print(f"⚠️  Warning: data_adapter not available: {e}")
+        print(f"Warning: data_adapter not available: {e}")
         print("   Will use direct EPDT objects from scenario_creator")
 
 try:
     from first_level import l1_heuristic
-    print("✅ Successfully imported l1_heuristic")
+    print("OK: Successfully imported l1_heuristic")
 except ImportError:
     try:
         from algo.first_level import l1_heuristic
-        print("✅ Successfully imported l1_heuristic with algo prefix")
+        print("OK: Successfully imported l1_heuristic with algo prefix")
     except ImportError as e:
-        print(f"❌ Error importing l1_heuristic: {e}")
+        print(f"Error importing l1_heuristic: {e}")
         sys.exit(1)
 
 try:
@@ -82,7 +82,7 @@ try:
         DriverAssignmentConfig,
         print_assignment_summary
     )
-    print("✅ Successfully imported driver assignment functions")
+    print("OK: Successfully imported driver assignment functions")
 except ImportError:
     try:
         from algo.driver_assignment_enhanced import (
@@ -91,61 +91,61 @@ except ImportError:
             DriverAssignmentConfig,
             print_assignment_summary
         )
-        print("✅ Successfully imported driver assignment functions with algo prefix")
+        print("OK: Successfully imported driver assignment functions with algo prefix")
     except ImportError as e:
-        print(f"❌ Error importing driver assignment: {e}")
+        print(f"Error importing driver assignment: {e}")
         sys.exit(1)
 
 # Import route provider for OSRM mode
 try:
     from route_provider import set_testing_mode
     set_testing_mode(use_haversine=True)  # Enable OSRM routing
-    print("✅ Configured route provider for OSRM mode")
+    print("OK: Configured route provider for OSRM mode")
 except ImportError:
     try:
         from algo.route_provider import set_testing_mode
         set_testing_mode(use_haversine=True)  # Enable OSRM routing
-        print("✅ Configured route provider for OSRM mode with algo prefix")
+        print("OK: Configured route provider for OSRM mode with algo prefix")
     except ImportError:
-        print("⚠️  Warning: route_provider not available, using fallback calculations")
+        print("Warning: route_provider not available, using fallback calculations")
 
 # Test import of previously problematic modules (fixed circular dependencies)
 try:
     from granular_tabu_search import granular_multiple_order_relocation_neighborhood
-    print("✅ Successfully imported granular_tabu_search (circular dependency fixed)")
+    print("OK: Successfully imported granular_tabu_search (circular dependency fixed)")
 except ImportError:
     try:
         from algo.granular_tabu_search import granular_multiple_order_relocation_neighborhood
-        print("✅ Successfully imported granular_tabu_search with algo prefix (circular dependency fixed)")
+        print("OK: Successfully imported granular_tabu_search with algo prefix (circular dependency fixed)")
     except ImportError as e:
-        print(f"⚠️  Warning: granular_tabu_search not available: {e}")
+        print(f"Warning: granular_tabu_search not available: {e}")
 
 try:
     from destroy_and_repair import destroy_and_repair
-    print("✅ Successfully imported destroy_and_repair (circular dependency fixed)")
+    print("OK: Successfully imported destroy_and_repair (circular dependency fixed)")
 except ImportError:
     try:
         from algo.destroy_and_repair import destroy_and_repair
-        print("✅ Successfully imported destroy_and_repair with algo prefix (circular dependency fixed)")
+        print("OK: Successfully imported destroy_and_repair with algo prefix (circular dependency fixed)")
     except ImportError as e:
-        print(f"⚠️  Warning: destroy_and_repair not available: {e}")
+        print(f"Warning: destroy_and_repair not available: {e}")
 
 try:
     from parallelization import l1_heuristic_parallel
-    print("✅ Successfully imported parallelization (circular dependency fixed)")
+    print("OK: Successfully imported parallelization (circular dependency fixed)")
 except ImportError:
     try:
         from algo.parallelization import l1_heuristic_parallel
-        print("✅ Successfully imported parallelization with algo prefix (circular dependency fixed)")
+        print("OK: Successfully imported parallelization with algo prefix (circular dependency fixed)")
     except ImportError as e:
-        print(f"⚠️  Warning: parallelization not available: {e}")
+        print(f"Warning: parallelization not available: {e}")
 
 # Import route pre-computation infrastructure
 try:
     from utils.precompute_routes import RoutePrecomputer
-    print("✅ Successfully imported RoutePrecomputer for OSRM pre-computation")
+    print("OK: Successfully imported RoutePrecomputer for OSRM pre-computation")
 except ImportError as e:
-    print(f"⚠️  Warning: RoutePrecomputer not available: {e}")
+    print(f"Warning: RoutePrecomputer not available: {e}")
     RoutePrecomputer = None
 
 
@@ -161,7 +161,7 @@ def calculate_travel_time_with_counter(prev_task, curr_task, vehicle):
     Args:
         prev_task: Previous task in route
         curr_task: Current task in route  
-        vehicle: Vehicle object
+        vehicle: object
         
     Returns:
         Travel time in minutes
@@ -288,12 +288,17 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
     days = int(total_duration_minutes / 1440)
     hos_warning = " (would violate HoS if attempted without proper rests)" if total_duration_minutes > 11 * 60 else ""
 
-    print(f"       Route duration: {days} day(s) ({duration_formatted}){hos_warning}")
+    print(f"       Route duration (active travel+service): {days} day(s) ({duration_formatted}){hos_warning}")
     
     # Display total waiting time if any waiting occurred
     if hasattr(route, 'total_wait_time') and route.total_wait_time > 0:
         wait_time_formatted = format_duration_detailed(route.total_wait_time)
-        print(f"       Total waiting time: {wait_time_formatted}")
+        efficiency_note = ""
+        if route.total_wait_time > 1440:  # > 1 day
+            efficiency_note = " WARNING (INEFFICIENT: suggests poor time window alignment or scheduling)"
+        elif route.total_wait_time > 240:  # > 4 hours  
+            efficiency_note = " WARNING (MODERATE WAIT: could be optimized)"
+        print(f"       Total waiting time: {wait_time_formatted}{efficiency_note}")
     
     print(f"       Task sequence ({len(route.tasks)} tasks) - Real-time monitoring:")
 
@@ -362,7 +367,7 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
         volume_sign = "+" if volume_change >= 0 else ""
         
         print(f"          {i}. {location} ({order_info}) - Cumulative: {cumulative_formatted}{delta_str} {time_window}")
-        print(f"             Load: {weight_sign}{weight_change:.1f}kg, {volume_sign}{volume_change:.1f}m³ → Total: {current_weight:.1f}kg, {current_volume:.1f}m³")
+        print(f"             Load: {weight_sign}{weight_change:.1f}kg, {volume_sign}{volume_change:.1f}m^3 -> Total: {current_weight:.1f}kg, {current_volume:.1f}m^3")
         
         # Display arrival status with waiting information (as per markdown specification)
         arrival_status = ""
@@ -381,7 +386,8 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
         # For previous task, show if there was waiting before departure (as per markdown)
         if i > 1 and wait_time > 0:
             prev_location = get_location_name(route.tasks[i-2])
-            print(f"             Waiting: ({format_duration_detailed(wait_time)} at {prev_location} before departure)")
+            wait_reason = "time window constraint" if wait_time > 1440 else "early arrival"  # > 1 day suggests time window issue
+            print(f"             Waiting: ({format_duration_detailed(wait_time)} at {prev_location} before departure - {wait_reason})")
         
         print(f"             Status: {arrival_status}")
 
@@ -456,11 +462,11 @@ def print_route_validation_summary(solution, orders, vehicles, runtime_seconds=N
     Args:
         solution: Solution object from l1_heuristic
         orders: List of Order objects
-        vehicles: List of Vehicle objects
+        vehicles: List of objects
         runtime_seconds: Optional runtime information for test summary
     """
     print("\n" + "="*80)
-    print("📊 PHASE 1: HEURISTIC SOLVER VALIDATION RESULTS")
+    print("PHASE 1: HEURISTIC SOLVER VALIDATION RESULTS")
     print("="*80)
     
     # Debug: Ensure we reach this function
@@ -476,10 +482,10 @@ def print_route_validation_summary(solution, orders, vehicles, runtime_seconds=N
     total_tasks = 0
     total_distance = 0.0
     
-    print(f"\n🚛 Vehicle and Route Summary:")
-    print(f"   • Total available vehicles: {total_vehicles}")
-    print(f"   • Vehicles with routes: {total_routes}")
-    print(f"   • Vehicles idle: {total_vehicles - total_routes}")
+    print(f"\nand Route Summary:")
+    print(f"   - Total available vehicles: {total_vehicles}")
+    print(f"   - Vehicles with routes: {total_routes}")
+    print(f"   - Vehicles idle: {total_vehicles - total_routes}")
     
     for vehicle_id, route in solution.routes.items():
         if route.tasks:
@@ -521,17 +527,17 @@ def print_route_validation_summary(solution, orders, vehicles, runtime_seconds=N
     assigned_orders_count = len(assigned_orders)
     assignment_rate = (assigned_orders_count / total_orders) * 100 if total_orders > 0 else 0
     
-    print(f"\n📦 Order Assignment Summary:")
-    print(f"   • Orders assigned: {assigned_orders_count}/{total_orders} ({assignment_rate:.1f}%)")
-    print(f"   • Total tasks created: {total_tasks}")
+    print(f"\nOrder Assignment Summary:")
+    print(f"   - Orders assigned: {assigned_orders_count}/{total_orders} ({assignment_rate:.1f}%)")
+    print(f"   - Total tasks created: {total_tasks}")
     
     # Only show detailed analysis if there are unassigned orders
     if unassigned_orders > 0:
-        print(f"   • Unassigned orders: {unassigned_orders}")
+        print(f"   - Unassigned orders: {unassigned_orders}")
         
         try:
             # Detailed analysis of unassigned orders
-            print(f"\n❌ UNASSIGNED ORDERS ANALYSIS:")
+            print(f"\nUNASSIGNED ORDERS ANALYSIS:")
             print(f"   Analyzing {len(unassigned_order_ids)} unassigned orders:")
             
             # Create order lookup map
@@ -567,14 +573,14 @@ def print_route_validation_summary(solution, orders, vehicles, runtime_seconds=N
                         actual_volume = total_volume / 2
                         actual_pallets = total_pallets / 2
                         
-                        print(f"      • Actual cargo weight: {actual_weight:.1f} kg")
-                        print(f"      • Actual cargo volume: {actual_volume:.2f} m³")
-                        print(f"      • Actual cargo pallets: {actual_pallets:.0f}")
-                        print(f"      • Pickup locations: {len(pickup_locations)}")
-                        print(f"      • Delivery locations: {len(delivery_locations)}")
-                        print(f"      • Priority: {getattr(order, 'priority', 'N/A')}")
-                        print(f"      • Is urgent: {getattr(order, 'is_urgent', 'N/A')}")
-                        print(f"      • Is mandatory: True")  # All orders are now mandatory
+                        print(f"      - Actual cargo weight: {actual_weight:.1f} kg")
+                        print(f"      - Actual cargo volume: {actual_volume:.2f} m^3")
+                        print(f"      - Actual cargo pallets: {actual_pallets:.0f}")
+                        print(f"      - Pickup locations: {len(pickup_locations)}")
+                        print(f"      - Delivery locations: {len(delivery_locations)}")
+                        print(f"      - Priority: {getattr(order, 'priority', 'N/A')}")
+                        print(f"      - Is urgent: {getattr(order, 'is_urgent', 'N/A')}")
+                        print(f"      - Is mandatory: True")  # All orders are now mandatory
                         
                         # Time window analysis
                         earliest_pickup = None
@@ -588,61 +594,61 @@ def print_route_validation_summary(solution, orders, vehicles, runtime_seconds=N
                                     latest_delivery = task.latest_time
                         
                         if earliest_pickup is not None or latest_delivery is not None:
-                            print(f"      • Time constraints:")
+                            print(f"      - Time constraints:")
                             if earliest_pickup is not None:
                                 print(f"        - Earliest pickup: {earliest_pickup:.0f} minutes")
                             if latest_delivery is not None:
                                 print(f"        - Latest delivery: {latest_delivery:.0f} minutes")
                     except Exception as e:
-                        print(f"      • Error analyzing order {order_id}: {e}")
+                        print(f"      - Error analyzing order {order_id}: {e}")
             
             if len(unassigned_order_ids) > 10:
                 print(f"\n   ... and {len(unassigned_order_ids) - 10} more unassigned orders")
         
         except Exception as e:
-            print(f"   • Error in unassigned orders analysis: {e}")
+            print(f"   - Error in unassigned orders analysis: {e}")
     
     # Distance summary with error handling
     try:
         if total_distance > 0:
-            print(f"\n🛣️  Route Distance Summary:")
-            print(f"   • Total estimated distance: {total_distance:.1f} km")
-            print(f"   • Average distance per route: {total_distance/total_routes:.1f} km")
+            print(f"\nRoute  Route Distance Summary:")
+            print(f"   - Total estimated distance: {total_distance:.1f} km")
+            print(f"   - Average distance per route: {total_distance/total_routes:.1f} km")
     except Exception as e:
-        print(f"\n🛣️  Route Distance Summary: Error calculating distances: {e}")
+        print(f"\nRoute  Route Distance Summary: Error calculating distances: {e}")
     
     # Solution quality assessment with error handling
     try:
-        print(f"\n⭐ Solution Quality Assessment:")
+        print(f"\nQuality Solution Quality Assessment:")
         if assignment_rate >= 90:
-            print("   📈 Excellent: >90% orders assigned")
+            print("   Excellent: >90% orders assigned")
         elif assignment_rate >= 75:
-            print("   📊 Good: 75-90% orders assigned")
+            print("   Analysis Good: 75-90% orders assigned")
         elif assignment_rate >= 50:
-            print("   📉 Fair: 50-75% orders assigned")
+            print("   Fair: 50-75% orders assigned")
         else:
-            print("   🔴 Poor: <50% orders assigned")
+            print("   Poor: <50% orders assigned")
     except Exception as e:
-        print(f"\n⭐ Solution Quality Assessment: Error calculating quality: {e}")
+        print(f"\nQuality Solution Quality Assessment: Error calculating quality: {e}")
     
     # Test Summary with Haversine call count for OSRM estimation - ALWAYS DISPLAY
     print("DEBUG: About to display Test Summary...")
     try:
-        print(f"\n📊 Test Summary:")
-        print(f"   • Scenario source: furgoni.xlsx")
-        print(f"   • Orders processed: {total_orders}")
-        print(f"   • Vehicles available: {total_vehicles}")
+        print(f"\nAnalysis Test Summary:")
+        print(f"   - Scenario source: furgoni.xlsx")
+        print(f"   - Orders processed: {total_orders}")
+        print(f"   - Vehicles available: {total_vehicles}")
         if runtime_seconds is not None:
-            print(f"   • Total runtime: {runtime_seconds:.2f} seconds")
-        print(f"   • Route calculations: {get_route_calculation_count()}")
-        print(f"   • OSRM calls made: ~{get_route_calculation_count()} (cached results available for future runs)")
+            print(f"   - Total runtime: {runtime_seconds:.2f} seconds")
+        print(f"   - Route calculations: {get_route_calculation_count()}")
+        print(f"   - OSRM calls made: ~{get_route_calculation_count()} (cached results available for future runs)")
         print("DEBUG: Test Summary displayed successfully!")
     except Exception as e:
-        print(f"\n📊 Test Summary: Error displaying summary: {e}")
+        print(f"\nAnalysis Test Summary: Error displaying summary: {e}")
         # Fallback summary even if there are errors
-        print(f"   • Basic info: {len(orders)} orders, {len(vehicles)} vehicles")
+        print(f"   - Basic info: {len(orders)} orders, {len(vehicles)} vehicles")
         if runtime_seconds is not None:
-            print(f"   • Runtime: {runtime_seconds:.2f} seconds")
+            print(f"   - Runtime: {runtime_seconds:.2f} seconds")
     
     return {
         'total_orders': total_orders,
@@ -740,7 +746,7 @@ def can_vehicle_handle_order_with_penalties(vehicle, order, current_load=None):
     - Weight capacity: can exceed vehicle.weight_capacity but with penalty
     
     Args:
-        vehicle: Vehicle object
+        vehicle: object
         order: Order object
         current_load: Optional tuple of (weight, volume, pallets) current load
         
@@ -783,7 +789,7 @@ def can_vehicle_handle_order_with_penalties(vehicle, order, current_load=None):
     if final_weight > vehicle.weight_capacity:
         weight_overflow = final_weight - vehicle.weight_capacity
         penalty_score = weight_overflow * 100.0  # Reduced penalty: 100 per kg overflow (was 1000)
-        print(f"      💡 Allowing weight overflow: {weight_overflow:.1f}kg (penalty: {penalty_score:.0f})")
+        print(f"      Note: Allowing weight overflow: {weight_overflow:.1f}kg (penalty: {penalty_score:.0f})")
     
     return True, penalty_score
 
@@ -822,18 +828,18 @@ def force_assign_order_to_vehicle(solution, order, vehicle):
 
     if new_route:
         solution.routes[vehicle.id] = new_route
-        print(f"✅ Force assigned order {order.id} to vehicle {vehicle.id} via L2 heuristic.")
+        print(f"OK: Force assigned order {order.id} to vehicle {vehicle.id} via L2 heuristic.")
         return True
     else:
         # If L2 fails, perform a direct manual insertion.
         # This prioritizes assignment over ideal feasibility.
-        print(f"⚠️ L2 failed for force assignment of {order.id}. Performing direct insertion.")
+        print(f"Warning: L2 failed for force assignment of {order.id}. Performing direct insertion.")
         manual_route = _create_base_route(vehicle)
         tasks_to_add = order.get_pickups() + order.get_deliveries()
         # Insert tasks between depot start and return
         manual_route.tasks[1:1] = tasks_to_add
         solution.routes[vehicle.id] = manual_route
-        print(f"✅ Force assigned order {order.id} to vehicle {vehicle.id} via direct insertion.")
+        print(f"OK: Force assigned order {order.id} to vehicle {vehicle.id} via direct insertion.")
         return True
 
 
@@ -845,13 +851,13 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
     - Hard constraints for volume and pallets
     - Soft constraints for weight (with penalties)
     """
-    print("\n🔧 ENHANCED SMART FORCE ASSIGNMENT (BIG ORDERS FIRST)")
+    print("\n ENHANCED SMART FORCE ASSIGNMENT (BIG ORDERS FIRST)")
     print("="*60)
     
     unassigned_orders = get_unassigned_orders(solution, orders)
     
     if not unassigned_orders:
-        print("✅ No unassigned orders found!")
+        print("OK: No unassigned orders found!")
         return 0
     
     # Sort orders by difficulty (big orders first)
@@ -863,15 +869,15 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
     # Sort by difficulty descending (most difficult first)
     unassigned_orders_with_difficulty.sort(key=lambda x: x[1], reverse=True)
     
-    print(f"📦 Found {len(unassigned_orders)} unassigned orders (sorted by difficulty):")
+    print(f"Found {len(unassigned_orders)} unassigned orders (sorted by difficulty):")
     for order, difficulty in unassigned_orders_with_difficulty:
         weight, volume, pallets = get_order_requirements(order)
-        print(f"   • {order.id}: {weight:.1f}kg, {volume:.2f}m³, {pallets:.0f}pal (difficulty: {difficulty:.1f})")
+        print(f"   - {order.id}: {weight:.1f}kg, {volume:.2f}m^3, {pallets:.0f}pal (difficulty: {difficulty:.1f})")
     
     force_assigned_count = 0
     
     for order, difficulty in unassigned_orders_with_difficulty:
-        print(f"\n🎯 Processing order {order.id} (difficulty: {difficulty:.1f})...")
+        print(f"\nRunning Processing order {order.id} (difficulty: {difficulty:.1f})...")
         
         # Find capable vehicles for this order with penalty scores
         capable_vehicles = []
@@ -894,31 +900,31 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
             capable_vehicles.sort(key=lambda x: x[3])  # Sort by combined_score
             best_vehicle, penalty_score, current_load, combined_score = capable_vehicles[0]
             
-            print(f"   • Found {len(capable_vehicles)} capable vehicles")
+            print(f"   - Found {len(capable_vehicles)} capable vehicles")
             if penalty_score > 0:
                 weight_overflow = penalty_score / 1000.0  # Convert penalty back to kg
-                print(f"   • ⚠️  SOFT CONSTRAINT: Weight overflow of {weight_overflow:.1f}kg")
-                print(f"   • Assigning to best vehicle: {best_vehicle.id} (penalty: {penalty_score:.0f}, load: {current_load:.1f})")
+                print(f"   - Warning:  SOFT CONSTRAINT: Weight overflow of {weight_overflow:.1f}kg")
+                print(f"   - Assigning to best vehicle: {best_vehicle.id} (penalty: {penalty_score:.0f}, load: {current_load:.1f})")
             else:
-                print(f"   • ✅ Perfect fit! Assigning to: {best_vehicle.id} (no penalties, load: {current_load:.1f})")
+                print(f"   - OK: Perfect fit! Assigning to: {best_vehicle.id} (no penalties, load: {current_load:.1f})")
             
             # Force assign the order
             if force_assign_order_to_vehicle(solution, order, best_vehicle):
                 force_assigned_count += 1
             else:
-                print(f"   • ❌ Failed to assign order {order.id} to vehicle {best_vehicle.id}")
+                print(f"   - Failed to assign order {order.id} to vehicle {best_vehicle.id}")
                 
         else:
-            print(f"   • ❌ No capable vehicles found for order {order.id} (hard constraints violated)")
+            print(f"   - No capable vehicles found for order {order.id} (hard constraints violated)")
             # Log vehicle capacity vs order requirements for debugging
             order_weight, order_volume, order_pallets = get_order_requirements(order)
             max_weight = max(v.weight_capacity for v in vehicles)
             max_volume = max(v.volume_capacity for v in vehicles)
             max_pallets = max(v.pallet_capacity for v in vehicles)
-            print(f"     Order needs: {order_weight:.1f}kg, {order_volume:.2f}m³, {order_pallets:.0f}pal")
-            print(f"     Max available: {max_weight:.1f}kg, {max_volume:.2f}m³, {max_pallets:.0f}pal")
+            print(f"     Order needs: {order_weight:.1f}kg, {order_volume:.2f}m^3, {order_pallets:.0f}pal")
+            print(f"     Max available: {max_weight:.1f}kg, {max_volume:.2f}m^3, {max_pallets:.0f}pal")
     
-    print(f"\n✅ Enhanced force assignment completed: {force_assigned_count}/{len(unassigned_orders)} orders assigned")
+    print(f"\nOK: Enhanced force assignment completed: {force_assigned_count}/{len(unassigned_orders)} orders assigned")
     print("="*60)
     
     return force_assigned_count
@@ -928,7 +934,7 @@ def debug_unassigned_orders(orders, vehicles):
     """
     Debug why specific orders are not getting assigned by checking constraints.
     """
-    print("\n🔍 DEBUGGING UNASSIGNED ORDERS")
+    print("\nDEBUGGING UNASSIGNED ORDERS")
     print("="*60)
     
     # Focus on the two problematic orders
@@ -940,7 +946,7 @@ def debug_unassigned_orders(orders, vehicles):
     for order_id in problematic_orders:
         if order_id in order_map:
             order = order_map[order_id]
-            print(f"\n📦 Analyzing {order_id}:")
+            print(f"\nAnalyzing {order_id}:")
             
             # Calculate actual order requirements
             total_weight = 0
@@ -949,22 +955,22 @@ def debug_unassigned_orders(orders, vehicles):
             
             try:
                 tasks = order.get_all_tasks()
-                print(f"   • Number of tasks: {len(tasks)}")
+                print(f"   - Number of tasks: {len(tasks)}")
                 
                 for task in tasks:
                     total_weight += abs(task.demand)
                     total_volume += abs(task.volume)
                     total_pallets += abs(task.pallets)
-                    print(f"   • Task: {getattr(task, 'task_type', 'unknown')} at {getattr(task, 'location_id', 'unknown')}, demand: {task.demand}kg, volume: {task.volume}m³")
+                    print(f"   - Task: {getattr(task, 'task_type', 'unknown')} at {getattr(task, 'location_id', 'unknown')}, demand: {task.demand}kg, volume: {task.volume}m^3")
                 
                 # Actual requirements (depot bay pairs cancel out)
                 actual_weight = total_weight / 2 if len(tasks) > 1 else total_weight
                 actual_volume = total_volume / 2 if len(tasks) > 1 else total_volume
                 actual_pallets = total_pallets / 2 if len(tasks) > 1 else total_pallets
                 
-                print(f"   • ACTUAL REQUIREMENTS:")
+                print(f"   - ACTUAL REQUIREMENTS:")
                 print(f"     - Weight: {actual_weight:.1f} kg")
-                print(f"     - Volume: {actual_volume:.2f} m³") 
+                print(f"     - Volume: {actual_volume:.2f} m^3") 
                 print(f"     - Pallets: {actual_pallets:.0f}")
                 print(f"     - Priority: {getattr(order, 'priority', 'N/A')}")
                 
@@ -985,16 +991,16 @@ def debug_unassigned_orders(orders, vehicles):
                         if not can_handle_weight:
                             weight_violations.append(f"{vehicle.id}({vehicle.weight_capacity}kg)")
                         if not can_handle_volume:
-                            volume_violations.append(f"{vehicle.id}({vehicle.volume_capacity}m³)")
+                            volume_violations.append(f"{vehicle.id}({vehicle.volume_capacity}m^3)")
                         if not can_handle_pallets:
                             pallet_violations.append(f"{vehicle.id}({vehicle.pallet_capacity}pal)")
                 
-                print(f"   • VEHICLE COMPATIBILITY:")
+                print(f"   - VEHICLE COMPATIBILITY:")
                 print(f"     - Suitable vehicles: {len(suitable_vehicles)}/{len(vehicles)}")
                 if len(suitable_vehicles) > 0:
                     print(f"     - Examples: {suitable_vehicles[:5]}")
                 else:
-                    print(f"     - ❌ NO SUITABLE VEHICLES FOUND!")
+                    print(f"     - NO SUITABLE VEHICLES FOUND!")
                     if weight_violations:
                         print(f"     - Weight violations: {len(weight_violations)} vehicles")
                         print(f"       Examples: {weight_violations[:3]}")
@@ -1006,23 +1012,23 @@ def debug_unassigned_orders(orders, vehicles):
                         print(f"       Examples: {pallet_violations[:3]}")
                         
             except Exception as e:
-                print(f"   • Error analyzing order {order_id}: {e}")
+                print(f"   - Error analyzing order {order_id}: {e}")
                 
         else:
-            print(f"\n❌ Order {order_id} not found in loaded orders")
+            print(f"\nOrder {order_id} not found in loaded orders")
     
-    print("\n🚛 VEHICLE CAPACITY SUMMARY:")
+    print("\nVEHICLE CAPACITY SUMMARY:")
     try:
         if vehicles:
             weights = [v.weight_capacity for v in vehicles]
             volumes = [v.volume_capacity for v in vehicles]
             pallets = [v.pallet_capacity for v in vehicles]
             
-            print(f"   • Weight capacity: {min(weights):.0f} - {max(weights):.0f} kg (avg: {sum(weights)/len(weights):.0f})")
-            print(f"   • Volume capacity: {min(volumes):.1f} - {max(volumes):.1f} m³ (avg: {sum(volumes)/len(volumes):.1f})")
-            print(f"   • Pallet capacity: {min(pallets):.0f} - {max(pallets):.0f} pal (avg: {sum(pallets)/len(pallets):.1f})")
+            print(f"   - Weight capacity: {min(weights):.0f} - {max(weights):.0f} kg (avg: {sum(weights)/len(weights):.0f})")
+            print(f"   - Volume capacity: {min(volumes):.1f} - {max(volumes):.1f} m^3 (avg: {sum(volumes)/len(volumes):.1f})")
+            print(f"   - Pallet capacity: {min(pallets):.0f} - {max(pallets):.0f} pal (avg: {sum(pallets)/len(pallets):.1f})")
     except Exception as e:
-        print(f"   • Error analyzing vehicle capacities: {e}")
+        print(f"   - Error analyzing vehicle capacities: {e}")
         
     print("="*60)
 
@@ -1038,7 +1044,7 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
         Tuple of (solution, orders, vehicles, runtime_seconds)
     """
     print("\n" + "="*80)
-    print("🚀 PHASE 1: HEURISTIC SOLVER TEST")
+    print("PHASE 1: HEURISTIC SOLVER TEST")
     print("="*80)
     
     # Reset Haversine call counter for accurate tracking
@@ -1047,51 +1053,49 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
 
     
     # Step 1: Load scenario from Excel
-    print(f"\n📁 Loading scenario from: {excel_path}")
+    print(f"\nLoading scenario from: {excel_path}")
     try:
         orders, vehicles, drivers = create_scenario_from_excel(excel_path)
-        print(f"✅ Successfully loaded scenario:")
-        print(f"   • Orders: {len(orders)}")
-        print(f"   • Vehicles: {len(vehicles)}")
+        print(f"OK: Successfully loaded scenario:")
+        print(f"   - Orders: {len(orders)}")
+        print(f"   - Vehicles: {len(vehicles)}")
         
-        # Debug unassigned orders before running optimization
-        debug_unassigned_orders(orders, vehicles)
         
         # The scenario_creator already returns EPDT objects, so no conversion needed
         epdt_orders = orders
         epdt_vehicles = vehicles
-        print(f"✅ EPDT objects ready (no conversion needed)")
+        print(f"OK: EPDT objects ready (no conversion needed)")
         
     except Exception as e:
-        print(f"❌ Error loading scenario: {e}")
+        print(f"Error loading scenario: {e}")
         raise
     
     # Step 2: Configure algorithm parameters
-    print(f"\n⚙️  Configuring algorithm parameters...")
+    print(f"\nConfiguring algorithm parameters...")
     params = configure_algorithm_parameters()
-    print(f"✅ Parameters configured (M1={params['M1']}, M2={params['M2']})")
+    print(f"OK: Parameters configured (M1={params['M1']}, M2={params['M2']})")
     
     # Step 3: Run l1_heuristic
-    print(f"\n🧠 Running l1_heuristic...")
+    print(f"\nRunning l1_heuristic...")
     start_time = time.time()
     
     try:
         solution = l1_heuristic(epdt_orders, epdt_vehicles, params)
         runtime_seconds = time.time() - start_time
         
-        print(f"✅ Heuristic completed successfully!")
-        print(f"   • Runtime: {runtime_seconds:.2f} seconds")
-        print(f"   • Solution type: {type(solution).__name__}")
+        print(f"OK: Heuristic completed successfully!")
+        print(f"   - Runtime: {runtime_seconds:.2f} seconds")
+        print(f"   - Solution type: {type(solution).__name__}")
         
         # Step 3.5: Apply force assignment if enabled
         if params.get('enable_force_assignment', False):
-            print(f"\n🚀 Applying smart force assignment...")
+            print(f"\nPhase Applying smart force assignment...")
             force_assigned_count = smart_force_assign_unassigned_orders(solution, epdt_orders, epdt_vehicles)
-            print(f"✅ Force assignment completed: {force_assigned_count} additional orders assigned")
+            print(f"OK: Force assignment completed: {force_assigned_count} additional orders assigned")
         
     except Exception as e:
         runtime_seconds = time.time() - start_time
-        print(f"❌ Heuristic failed after {runtime_seconds:.2f} seconds: {e}")
+        print(f"Heuristic failed after {runtime_seconds:.2f} seconds: {e}")
         raise
     
     # Step 4: Validate and summarize results
@@ -1102,68 +1106,130 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
     return solution, epdt_orders, epdt_vehicles, runtime_seconds
 
 
-def run_phase2_driver_assignment(excel_path: str, solution, vehicles) -> None:
+def run_phase2_driver_assignment(excel_path: str, solution, vehicles, output_config=None, orders=None) -> None:
     """
     Phase 2: Load drivers and assign them to routes.
     
     Args:
         excel_path: Path to the furgoni.xlsx file
         solution: Solution object from Phase 1
-        vehicles: List of Vehicle objects
+        vehicles: List of objects
     """
     print("\n" + "="*80)
-    print("👨‍💼 PHASE 2: DRIVER ASSIGNMENT INTEGRATION")
+    print("Driver PHASE 2: DRIVER ASSIGNMENT INTEGRATION")
     print("="*80)
     
     # Step 1: Load drivers from Excel
-    print(f"\n📁 Loading drivers from: {excel_path}")
+    print(f"\nLoading drivers from: {excel_path}")
     try:
         config = DriverAssignmentConfig()
         drivers = load_drivers_from_excel_enhanced(excel_path, config=config)
-        print(f"✅ Successfully loaded drivers:")
-        print(f"   • Total drivers: {len(drivers)}")
+        print(f"OK: Successfully loaded drivers:")
+        print(f"   - Total drivers: {len(drivers)}")
         
         # Display driver summary
         license_counts = {}
         for driver in drivers:
-            license = getattr(driver, 'license_type', 'Unknown')
+            # Use the correct attribute name 'license'
+            license = getattr(driver, 'license', 'Unknown')
             license_counts[license] = license_counts.get(license, 0) + 1
         
-        print(f"   • License distribution:")
+        print(f"   - License distribution:")
         for license, count in license_counts.items():
             print(f"     - {license}: {count} drivers")
             
     except Exception as e:
-        print(f"❌ Error loading drivers: {e}")
+        print(f"Error loading drivers: {e}")
         raise
     
     # Step 2: Enhanced driver qualifications
-    print(f"\n🔧 Driver qualifications enhanced via license correction logic")
+    print(f"\nEnhanced Driver qualifications enhanced via license correction logic")
     print(f"   (Built into load_drivers_from_excel_enhanced function)")
     
     # Step 3: Extract routes for assignment
-    print(f"\n🛣️  Preparing routes for driver assignment...")
+    print(f"\nRoute  Preparing routes for driver assignment...")
     active_routes = {}
     route_objects = []
+    infeasible_count = 0
     
     for vehicle_id, route in solution.routes.items():
         if route.tasks:  # Only routes with tasks
-            active_routes[vehicle_id] = route
-            route_objects.append(route)  # Pass route objects, not dict
+            # Check feasibility before including route in driver assignment
+            try:
+                from algo.second_level import is_feasible
+                feasible, reason = is_feasible(route, debug_feasibility=True, return_reason=True)
+                
+                if feasible:
+                    active_routes[vehicle_id] = route
+                    route_objects.append(route)
+                else:
+                    infeasible_count += 1
+                    print(f"   Skipping infeasible route for vehicle {vehicle_id}: {reason}")
+                    
+            except ImportError:
+                try:
+                    from second_level import is_feasible
+                    feasible, reason = is_feasible(route, debug_feasibility=True, return_reason=True)
+                    
+                    if feasible:
+                        active_routes[vehicle_id] = route
+                        route_objects.append(route)
+                    else:
+                        infeasible_count += 1
+                        print(f"   Skipping infeasible route for vehicle {vehicle_id}: {reason}")
+                        
+                except ImportError:
+                    # If feasibility check unavailable, include all routes
+                    print(f"   Warning: Feasibility check unavailable - including all routes")
+                    active_routes[vehicle_id] = route
+                    route_objects.append(route)
     
-    print(f"✅ Active routes identified: {len(active_routes)}")
-    print(f"   • Route objects prepared: {len(route_objects)}")
+    print(f"OK: Active routes identified: {len(active_routes)}")
+    print(f"   - Route objects prepared: {len(route_objects)}")
+    if infeasible_count > 0:
+        print(f"   - Infeasible routes skipped: {infeasible_count}")
+        
+    # Update assignments statistics after filtering infeasible routes
+    if infeasible_count > 0:
+        print(f"\nRECALCULATING Recalculating order assignments after filtering infeasible routes...")
+        
+        # Count orders in remaining feasible routes  
+        assigned_orders = set()
+        for route in route_objects:
+            for task in route.tasks:
+                if hasattr(task, 'order_id') and task.order_id:
+                    # Filter out depot and auxiliary tasks
+                    order_id = task.order_id
+                    if not (order_id.startswith('depot_') or 
+                           order_id.startswith('DEPOT_') or
+                           order_id.endswith('_start') or 
+                           order_id.endswith('_return')):
+                        assigned_orders.add(order_id)
+        
+        total_orders = len(orders) if orders else 40  # Fallback to 40 if orders not available
+        unassigned_count = total_orders - len(assigned_orders)
+        unassigned_order_ids = []
+        
+        if orders:
+            all_order_ids = set(getattr(order, 'id', i) for i, order in enumerate(orders, 1))
+            unassigned_order_ids = sorted(all_order_ids - assigned_orders)
+        
+        print(f"   OK: Updated assignment statistics (excluding infeasible routes):")
+        print(f"   - Orders assigned: {len(assigned_orders)}/{total_orders} ({len(assigned_orders)/total_orders*100:.1f}%)")
+        print(f"   - Unassigned orders: {unassigned_count}")
+        if unassigned_order_ids:
+            print(f"   - Unassigned order IDs: {', '.join(map(str, unassigned_order_ids))}")
     
     # Step 4: Run driver assignment
-    print(f"\n🎯 Running driver assignment...")
+    print(f"\nRunning Running driver assignment...")
     try:
         # Pass list of route objects instead of dictionary
         assignments = assign_drivers_to_routes_enhanced(drivers, route_objects, config)
-        print(f"✅ Driver assignment completed!")
-        print(f"   • Active vehicles: {len(route_objects)}")
-        print(f"   • Available drivers: {len(drivers)}")
-        print(f"   • Successful assignments: {len(assignments) if assignments else 0}")
-        print(f"   • Idle drivers: {len(drivers) - len(assignments) if assignments else len(drivers)}")
+        print(f"OK: Driver assignment completed!")
+        print(f"   - Active vehicles: {len(route_objects)}")
+        print(f"   - Available drivers: {len(drivers)}")
+        print(f"   - Successful assignments: {len(assignments) if assignments else 0}")
+        print(f"   - Idle drivers: {len(drivers) - len(assignments) if assignments else len(drivers)}")
         
         # Link drivers to route objects
         if assignments:
@@ -1171,106 +1237,106 @@ def run_phase2_driver_assignment(excel_path: str, solution, vehicles) -> None:
             for vehicle_id, driver_name in assignments.items():
                 if vehicle_id in active_routes and driver_name in driver_map:
                     active_routes[vehicle_id].driver = driver_map[driver_name]
-                    print(f"   🔗 Linked {driver_name} to route {vehicle_id}")
-            print(f"✅ Driver objects properly linked to routes!")
+                    #print(f"   Linked {driver_name} to route {vehicle_id}")
+            print(f"OK: Driver objects properly linked to routes!")
         
     except Exception as e:
-        print(f"⚠️  Driver assignment error: {e}")
-        print(f"   • Falling back to simple manual assignment...")
+        print(f"Warning:  Driver assignment error: {e}")
+        print(f"   - Falling back to simple manual assignment...")
         
         # Create a simple manual assignment for demonstration
-        print(f"\n📋 Creating manual demonstration assignment...")
+        print(f"\nSummary Creating manual demonstration assignment...")
         manual_assignments = {}
         for i, route in enumerate(route_objects[:min(len(route_objects), len(drivers))]):
             driver = drivers[i]
             manual_assignments[route.vehicle.id] = driver
-            print(f"   • Vehicle {route.vehicle.id} → Driver {driver.name}")
+            print(f"   - {route.vehicle.id} -> Driver {driver.name}")
         
         assignments = manual_assignments
-        print(f"✅ Manual assignment demonstration completed: {len(assignments)} assignments")
+        print(f"OK: Manual assignment demonstration completed: {len(assignments)} assignments")
         
         # Actually assign drivers to route objects
         for vehicle_id, driver in assignments.items():
             if vehicle_id in active_routes:
                 active_routes[vehicle_id].driver = driver
-                print(f"   🔗 Linked {driver.name} to route {vehicle_id}")
-        print(f"✅ Driver objects properly linked to routes!")
+                print(f"   Linked {driver.name} to route {vehicle_id}")
+        print(f"OK: Driver objects properly linked to routes!")
     
     # Step 5: Print final comprehensive summary
-    print(f"\n📋 Generating final solution summary...")
+    print(f"\nSummary Generating final solution summary...")
     try:
         # Convert active_routes dict to list for the summary function
         active_routes_list = list(active_routes.values())
         print_assignment_summary(active_routes_list, drivers)
-        print(f"✅ Final summary generated successfully!")
+        print(f"OK: Final summary generated successfully!")
         
     except Exception as e:
-        print(f"⚠️  Standard summary failed: {e}")
+        print(f"Warning:  Standard summary failed: {e}")
         print(f"   Generating simplified summary instead...")
         
         # Create simplified summary
-        print(f"\n🚛 SIMPLIFIED SOLUTION SUMMARY:")
-        print(f"   • Total vehicles used: {len(active_routes)}")
-        print(f"   • Total drivers available: {len(drivers)}")
-        print(f"   • Driver assignments: {len(assignments) if 'assignments' in locals() else 0}")
+        print(f"\nSIMPLIFIED SOLUTION SUMMARY:")
+        print(f"   - Total vehicles used: {len(active_routes)}")
+        print(f"   - Total drivers available: {len(drivers)}")
+        print(f"   - Driver assignments: {len(assignments) if 'assignments' in locals() else 0}")
         
         if 'assignments' in locals() and assignments:
-            print(f"\n👥 Driver-Vehicle Assignments:")
+            print(f"\nDriver-Assignments:")
             for vehicle_id, driver in assignments.items():
                 route = active_routes.get(vehicle_id)
                 tasks_count = len(route.tasks) if route else 0
-                print(f"   • {vehicle_id}: {driver.name} ({tasks_count} tasks)")
+                print(f"   - {vehicle_id}: {driver.name} ({tasks_count} tasks)")
         
-        print(f"✅ Simplified summary completed!")
+        print(f"OK: Simplified summary completed!")
         # Continue even if summary fails
     
     # Step 6: Generate Interactive Map
-    print(f"\n🗺️ Generating interactive solution map...")
-    try:
-        from algo.solution_visualizer import create_interactive_map
-        import os
-        from datetime import datetime
-        
-        # Create results directory with cleaner path
-        test_dir = os.path.dirname(__file__)
-        project_root = os.path.dirname(test_dir)  # Go up from tests to heuristicapproach
-        results_dir = os.path.join(project_root, "results")
-        os.makedirs(results_dir, exist_ok=True)
-        
-        # Create map filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        map_filename = f"comprehensive_solution_map_{timestamp}.html"
-        map_path = os.path.join(results_dir, map_filename)
-        
-        # Generate the interactive map
-        created_map_path = create_interactive_map(solution, map_path)
-        
-        if created_map_path:
-            # Normalize the path for clean display
-            clean_path = os.path.normpath(created_map_path)
-            print(f"🗺️ Interactive map saved to: {clean_path}")
-            print(f"   • Open this file in your browser to view the solution")
-            print(f"   • Shows routes, driver assignments, and task details")
-            
-            # Also provide the absolute path for easy access
-            abs_path = os.path.abspath(clean_path)
-            print(f"   • Full path: {abs_path}")
-        else:
-            print(f"⚠️ Map generation failed")
-            
-    except ImportError as e:
-        print(f"⚠️ Map visualization not available: {e}")
-    except Exception as e:
-        print(f"⚠️ Error generating map: {e}")
-
-    # Step 7: Export Routes to Text Format
-    print(f"\n📝 Exporting routes to text format...")
-    try:
-        route_export_path = f"route_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-        export_routes_to_text(solution, route_export_path)
-        print(f"📝 Routes exported to: {route_export_path}")
-    except Exception as e:
-        print(f"⚠️ Error exporting routes: {e}")
+    #print(f"\nMap Generating interactive solution map...")
+    #try:
+    #    from algo.solution_visualizer import create_interactive_map
+    #    import os
+    #    from datetime import datetime
+    #    
+    #    # Create results directory with cleaner path
+    #    test_dir = os.path.dirname(__file__)
+    #    project_root = os.path.dirname(test_dir)  # Go up from tests to heuristicapproach
+    #    results_dir = os.path.join(project_root, "results")
+    #    os.makedirs(results_dir, exist_ok=True)
+    #    
+    #    # Create map filename with timestamp
+    #    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #    map_filename = f"comprehensive_solution_map_{timestamp}.html"
+    #    map_path = os.path.join(results_dir, map_filename)
+    #    
+    #    # Generate the interactive map
+    #    created_map_path = create_interactive_map(solution, map_path)
+    #    
+    #    if created_map_path:
+    #        # Normalize the path for clean display
+    #        clean_path = os.path.normpath(created_map_path)
+    #        print(f"Map Interactive map saved to: {clean_path}")
+    #        print(f"   - Open this file in your browser to view the solution")
+    #        print(f"   - Shows routes, driver assignments, and task details")
+    #        
+    #        # Also provide the absolute path for easy access
+    #        abs_path = os.path.abspath(clean_path)
+    #        print(f"   - Full path: {abs_path}")
+    #    else:
+    #        print(f"Warning: Map generation failed")
+    #        
+    #except ImportError as e:
+    #    print(f"Warning: Map visualization not available: {e}")
+    #except Exception as e:
+    #    print(f"Warning: Error generating map: {e}")
+#
+    ## Step 7: Export Routes to Text Format
+    #print(f"\nExport Exporting routes to text format...")
+    #try:
+    #    route_export_path = f"route_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    #    export_routes_to_text(solution, route_export_path)
+    #    print(f"Export Routes exported to: {route_export_path}")
+    #except Exception as e:
+    #    print(f"Warning: Error exporting routes: {e}")
 
 
 def export_routes_to_text(solution, file_path: str):
@@ -1308,9 +1374,9 @@ def export_routes_to_text(solution, file_path: str):
                 total_cost += route.total_cost
         
         f.write(f"SUMMARY:\n")
-        f.write(f"  • Total Vehicles Used: {vehicle_count}\n")
-        f.write(f"  • Total Orders Delivered: {total_orders}\n")
-        f.write(f"  • Solution Cost: {total_cost:.2f}\n\n")
+        f.write(f"  - Total Vehicles Used: {vehicle_count}\n")
+        f.write(f"  - Total Orders Delivered: {total_orders}\n")
+        f.write(f"  - Solution Cost: {total_cost:.2f}\n\n")
         
         # Route details
         for route_idx, route in enumerate(routes, 1):
@@ -1319,7 +1385,7 @@ def export_routes_to_text(solution, file_path: str):
                 
             f.write(f"ROUTE {route_idx}:\n")
             
-            # Vehicle info
+            # info
             if hasattr(route, 'vehicle') and route.vehicle:
                 f.write(f"  Vehicle: {route.vehicle.vehicle_id}\n")
                 
@@ -1372,18 +1438,18 @@ def run_precomputation_phase(excel_file: str):
         excel_file: Path to the Excel scenario file
     """
     print("=" * 80)
-    print("🚀 OSRM ROUTE PRE-COMPUTATION PHASE")
+    print("Phase OSRM ROUTE PRE-COMPUTATION PHASE")
     print("=" * 80)
     
     if RoutePrecomputer is None:
-        print("⚠️  RoutePrecomputer not available, skipping pre-computation")
+        print("Warning:  RoutePrecomputer not available, skipping pre-computation")
         print("   The optimization will use on-demand OSRM calls instead")
         print("   (This will be slower but still functional)")
         return
     
     try:
         # Initialize the route pre-computer
-        print("🔧 Initializing route pre-computer...")
+        print("Enhanced Initializing route pre-computer...")
         precomputer = RoutePrecomputer(
             osrm_url="https://router.project-osrm.org",  # Public OSRM server
             batch_size=20,  # Conservative batch size for public server
@@ -1391,16 +1457,16 @@ def run_precomputation_phase(excel_file: str):
         )
         
         # Load scenario locations from Excel
-        print(f"📁 Loading scenario locations from: {excel_file}")
+        print(f"Loading scenario locations from: {excel_file}")
         locations = precomputer.load_scenario_from_excel(excel_file)
         
         if not locations:
-            print("❌ No locations loaded from scenario, skipping pre-computation")
+            print("No locations loaded from scenario, skipping pre-computation")
             return
             
-        print(f"✅ Loaded {len(locations)} unique locations")
+        print(f"OK: Loaded {len(locations)} unique locations")
         unique_pairs = len(locations) * (len(locations) - 1)  # All pairs except self-loops
-        print(f"🔗 Total route pairs to pre-compute: {unique_pairs}")
+        print(f"Total route pairs to pre-compute: {unique_pairs}")
         
         # Check current cache status
         import sqlite3
@@ -1410,13 +1476,13 @@ def run_precomputation_phase(excel_file: str):
             cursor.execute("SELECT COUNT(*) FROM route_cache")
             cache_count_before = cursor.fetchone()[0]
             conn.close()
-            print(f"💾 Current cache size: {cache_count_before} routes")
+            print(f"Current cache size: {cache_count_before} routes")
         except:
             cache_count_before = 0
-            print("💾 Cache database will be created")
+            print("Cache database will be created")
         
         # Run pre-computation
-        print("\n🔄 Starting route pre-computation...")
+        print("\nRECALCULATING Starting route pre-computation...")
         start_time = time.time()
         
         precomputer.precompute_all_routes()
@@ -1435,17 +1501,17 @@ def run_precomputation_phase(excel_file: str):
             cache_count_after = cache_count_before
             new_routes = 0
         
-        print(f"\n✅ Pre-computation completed!")
-        print(f"📊 Summary:")
-        print(f"   • Pre-computation time: {precompute_time:.1f} seconds")
-        print(f"   • Routes in cache before: {cache_count_before}")
-        print(f"   • Routes in cache after: {cache_count_after}")
-        print(f"   • New routes cached: {new_routes}")
-        print(f"   • Cache coverage: {(cache_count_after/unique_pairs)*100:.1f}%")
-        print(f"\n🎯 Expected benefit: Subsequent optimizations should make ~0 OSRM calls!")
+        print(f"\nOK: Pre-computation completed!")
+        print(f"Analysis Summary:")
+        print(f"   - Pre-computation time: {precompute_time:.1f} seconds")
+        print(f"   - Routes in cache before: {cache_count_before}")
+        print(f"   - Routes in cache after: {cache_count_after}")
+        print(f"   - New routes cached: {new_routes}")
+        print(f"   - Cache coverage: {(cache_count_after/unique_pairs)*100:.1f}%")
+        print(f"\nRunning Expected benefit: Subsequent optimizations should make ~0 OSRM calls!")
         
     except Exception as e:
-        print(f"❌ Pre-computation failed: {e}")
+        print(f"Pre-computation failed: {e}")
         print("   The optimization will continue with on-demand OSRM calls")
         import traceback
         traceback.print_exc()
@@ -1461,10 +1527,10 @@ def main():
     excel_file = os.path.join(src_dir, 'furgoni2.xlsx')
     
     if not os.path.exists(excel_file):
-        print(f"❌ Error: Excel file not found at {excel_file}")
+        print(f"Error: Excel file not found at {excel_file}")
         sys.exit(1)
     
-    print(f"📂 Using Excel file: {excel_file}")
+    print(f"Using Excel file: {excel_file}")
     
     try:
         # Run Pre-computation Phase: OSRM Route Pre-computation
@@ -1475,19 +1541,19 @@ def main():
         
         # PHASE 2: Driver Assignment Integration
         # Now that Phase 1 debugging is complete, enable driver assignment
-        run_phase2_driver_assignment(excel_file, solution, vehicles)
+        run_phase2_driver_assignment(excel_file, solution, vehicles, None, orders)
         
         # Final completion message - AFTER all phases and summaries are done
         print("\n" + "="*80)
-        print("🎉 COMPREHENSIVE INTEGRATION TEST COMPLETED!")
+        print("Success COMPREHENSIVE INTEGRATION TEST COMPLETED!")
         print("="*80)
-        print(f"✅ Phase 1: Heuristic solver executed in {runtime:.2f} seconds")
-        print(f"✅ Phase 2: Driver assignment integration completed")
-        print(f"✅ Phase 3: Interactive map visualization generated")
-        print("\n🎯 Complete system integration with optimized constraints and visualization!")
+        print(f"OK: Phase 1: Heuristic solver executed in {runtime:.2f} seconds")
+        print(f"OK: Phase 2: Driver assignment integration completed")
+        print(f"OK: Phase 3: Interactive map visualization generated")
+        print("\nRunning Complete system integration with optimized constraints and visualization!")
         
     except Exception as e:
-        print(f"\n❌ COMPREHENSIVE INTEGRATION TEST FAILED!")
+        print(f"\nCOMPREHENSIVE INTEGRATION TEST FAILED!")
         print(f"Error: {e}")
         import traceback
         traceback.print_exc()

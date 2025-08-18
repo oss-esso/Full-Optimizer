@@ -39,7 +39,7 @@ def debug_depot_pickup_mapping():
         try:
             pickup_idx = location_ids.index(req.pickup_location)
             dropoff_idx = location_ids.index(req.dropoff_location)
-            print(f"  {req.id}: {req.pickup_location}[{pickup_idx}] → {req.dropoff_location}[{dropoff_idx}] ({req.passengers}kg)")
+            print(f"  {req.id}: {req.pickup_location}[{pickup_idx}] -> {req.dropoff_location}[{dropoff_idx}] ({req.passengers}kg)")
         except ValueError as e:
             print(f"  ❌ {req.id}: ERROR - {e}")
             print(f"     Pickup: {req.pickup_location} (exists: {req.pickup_location in location_ids})")
@@ -83,7 +83,7 @@ def debug_depot_pickup_mapping():
     
     for req in depot_requests[:3]:  # Check first 3 depot requests
         dropoff_loc = scenario.locations[req.dropoff_location]
-        print(f"  {req.id}: depot → {req.dropoff_location} ({dropoff_loc.time_window_start}-{dropoff_loc.time_window_end}min)")
+        print(f"  {req.id}: depot -> {req.dropoff_location} ({dropoff_loc.time_window_start}-{dropoff_loc.time_window_end}min)")
         
         if dropoff_loc.time_window_start > depot.time_window_end:
             print(f"    ⚠️  Impossible: dropoff starts after depot closes!")

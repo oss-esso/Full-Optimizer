@@ -118,7 +118,7 @@ def test_road_composition_truck_adjustments():
             for i in range(1, len(test_locations)):  # Skip depot to depot
                 origin = test_locations[0]  # depot
                 destination = test_locations[i]
-                route_name = f"depot → {destination['id']}"
+                route_name = f"depot -> {destination['id']}"
                 
                 print(f"  📍 Route: {route_name}")
                 
@@ -134,7 +134,7 @@ def test_road_composition_truck_adjustments():
                 
                 # If using road composition, show composition details
                 if config['use_road_composition']:
-                    cache_key = f"{origin['id']}→{destination['id']}"
+                    cache_key = f"{origin['id']}->{destination['id']}"
                     if cache_key in calculator.road_composition_cache:
                         composition = calculator.road_composition_cache[cache_key]
                         print(f"    🛣️ Road composition:")

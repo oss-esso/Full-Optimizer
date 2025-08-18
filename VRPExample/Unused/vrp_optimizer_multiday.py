@@ -151,7 +151,7 @@ class CleanVRPOptimizer:
         print(f"  Created {len(night_nodes)} virtual night nodes: {night_nodes}")
         print(f"  Created {len(morning_nodes)} virtual morning nodes: {morning_nodes}")
         print(f"  Total locations: {len(location_list)} (was {num_original})")
-        print(f"  💡 Night→Morning pairs represent sleeping/waking at the same location")
+        print(f"  💡 Night->Morning pairs represent sleeping/waking at the same location")
         
         return location_list, night_nodes, morning_nodes
 
@@ -243,9 +243,9 @@ class CleanVRPOptimizer:
             to_is_morning = to_loc.get('is_morning_node', False)
             
             # Virtual node distance rules for "continue from where you left off":
-            # 1. Any location → night node: 0 distance (sleep where you are)
-            # 2. Night node → morning node: 0 distance (wake up where you slept)
-            # 3. Morning node → any location: 0 distance (already at the location)
+            # 1. Any location -> night node: 0 distance (sleep where you are)
+            # 2. Night node -> morning node: 0 distance (wake up where you slept)
+            # 3. Morning node -> any location: 0 distance (already at the location)
             if to_is_night:
                 return 0  # No distance to "sleep" - stay where you are
             elif from_is_night and to_is_morning:
@@ -561,20 +561,20 @@ class CleanVRPOptimizer:
                 skipped = []
                 if depot_requests:
                     chosen = depot_requests[0]  # Choose first depot bay request
-                    print(f"      → Prioritizing depot pickup: {chosen[1].pickup_location} → {dropoff}")
+                    print(f"      -> Prioritizing depot pickup: {chosen[1].pickup_location} -> {dropoff}")
                     conflict_resolution[dropoff] = [chosen]
                     # All other requests are skipped
                     skipped = [r for r in requests if r != chosen]
                 elif regular_requests:
                     chosen = regular_requests[0]  # Choose first regular pickup
-                    print(f"      → Using first pickup: {chosen[1].pickup_location} → {dropoff}")
+                    print(f"      -> Using first pickup: {chosen[1].pickup_location} -> {dropoff}")
                     conflict_resolution[dropoff] = [chosen]
                     skipped = [r for r in requests if r != chosen]
                 # Print skipped requests for this dropoff
                 if skipped:
                     print(f"      Skipped requests for {dropoff}:")
                     for skip_id, skip_req in skipped:
-                        print(f"        - {skip_req.pickup_location} → {dropoff} (weight: {getattr(skip_req, 'passengers', '?')}kg)")
+                        print(f"        - {skip_req.pickup_location} -> {dropoff} (weight: {getattr(skip_req, 'passengers', '?')}kg)")
                 skipped_requests_by_dropoff[dropoff] = skipped
         
         # Now add the resolved pickup-delivery pairs
@@ -586,7 +586,7 @@ class CleanVRPOptimizer:
             pickup_location = request.pickup_location
             
             # Create unique pair identifier
-            pair_id = f"{pickup_location}→{dropoff_location}"
+            pair_id = f"{pickup_location}->{dropoff_location}"
             if pair_id in processed_pairs:
                 print(f"    ⚠️ Skipping duplicate pair: {pair_id}")
                 continue
@@ -613,7 +613,7 @@ class CleanVRPOptimizer:
             pickup_index = manager.NodeToIndex(pickup_idx)
             dropoff_index = manager.NodeToIndex(dropoff_idx)
             
-            print(f"    Adding pickup-delivery pair: {pickup_location} → {dropoff_location} (weight: {request.passengers}kg)")
+            print(f"    Adding pickup-delivery pair: {pickup_location} -> {dropoff_location} (weight: {request.passengers}kg)")
 
             try:
                 routing.AddPickupAndDelivery(pickup_index, dropoff_index)
@@ -666,9 +666,9 @@ class CleanVRPOptimizer:
             to_is_morning = to_loc.get('is_morning_node', False)
             
             # Virtual node time rules for "continue from where you left off":
-            # 1. Any location → night node: 0 time (instant sleep)
-            # 2. Night node → morning node: 12 hours (overnight stay)
-            # 3. Morning node → any location: 0 time (already at location)
+            # 1. Any location -> night node: 0 time (instant sleep)
+            # 2. Night node -> morning node: 12 hours (overnight stay)
+            # 3. Morning node -> any location: 0 time (already at location)
             if to_is_night:
                 # Going to sleep - no travel time, just service time at current location
                 service_time = from_loc.get('service_time', 0)
@@ -839,7 +839,7 @@ class CleanVRPOptimizer:
                 # Add pickup-delivery constraint to ensure same vehicle handles the pair
                 routing.AddPickupAndDelivery(iidx, i_morning_idx)
                 
-                print(f"      Night {inode} ↔ Morning {morning_nodes[i]} paired directly via constraints")
+                print(f"      Night {inode} <-> Morning {morning_nodes[i]} paired directly via constraints")
         
         # Enforce ordering of morning nodes
         for i in range(len(morning_nodes)):
@@ -982,7 +982,7 @@ class CleanVRPOptimizer:
                 elif pickup_position >= dropoff_position:
                     violations.append(f"{req_id}: Pickup (pos {pickup_position}) occurs after dropoff (pos {dropoff_position})")
                 else:
-                    print(f"   ✅ {req_id}: Valid - {pickup_vehicle} handles pickup→dropoff (positions {pickup_position}→{dropoff_position})")
+                    print(f"   ✅ {req_id}: Valid - {pickup_vehicle} handles pickup->dropoff (positions {pickup_position}->{dropoff_position})")
         
         if violations:
             print(f"\n🚨 PICKUP-DELIVERY VIOLATIONS:")
@@ -1132,10 +1132,10 @@ class CleanVRPOptimizer:
                     
                     # For distance tracking, we need to handle virtual nodes specially
                     # Virtual nodes represent staying at the same location, so:
-                    # - Real → Virtual: distance from real location to where vehicle sleeps (0 if sleeping in place)
-                    # - Virtual → Virtual: 0 distance (night to morning at same location)  
-                    # - Virtual → Real: 0 distance (already at the location after waking up)
-                    # - Real → Real: normal distance calculation
+                    # - Real -> Virtual: distance from real location to where vehicle sleeps (0 if sleeping in place)
+                    # - Virtual -> Virtual: 0 distance (night to morning at same location)  
+                    # - Virtual -> Real: 0 distance (already at the location after waking up)
+                    # - Real -> Real: normal distance calculation
                     
                     if prev_is_virtual and curr_is_virtual:
                         # Virtual to virtual (night to morning) - no distance

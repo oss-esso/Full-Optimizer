@@ -35,7 +35,7 @@ def test_dual_capacity_constraints():
     for weight in test_weights:
         volume = calculate_cargo_volume(weight)
         density = weight / volume if volume > 0 else 0
-        print(f"   {weight:,}kg → {volume:.2f}m³ (density: {density:.0f} kg/m³)")
+        print(f"   {weight:,}kg -> {volume:.2f}m³ (density: {density:.0f} kg/m³)")
     
     # Test scenarios with dual capacity constraints
     scenarios = get_all_scenarios()
@@ -133,7 +133,7 @@ def test_dual_capacity_constraints():
         volume = weight / density
         
         print(f"   {name} ({density} kg/m³):")
-        print(f"      {weight:,}kg → {volume:.1f}m³")
+        print(f"      {weight:,}kg -> {volume:.1f}m³")
         
         # Check which vehicles can handle this cargo
         if weight <= 4000 and volume <= 24.0:

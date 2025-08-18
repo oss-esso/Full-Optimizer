@@ -99,7 +99,7 @@ def debug_single_order():
         for i, task in enumerate(sorted_tasks):
             load_w += task.demand
             load_v += task.volume
-            print(f"   Step {i+1}: {task.task_type.name} {task.demand}kg, {task.volume}m³ → Load: {load_w}kg, {load_v}m³")
+            print(f"   Step {i+1}: {task.task_type.name} {task.demand}kg, {task.volume}m³ -> Load: {load_w}kg, {load_v}m³")
             if load_w > vehicle.weight_capacity:
                 print(f"      ❌ Weight limit exceeded!")
             if load_v > vehicle.volume_capacity:

@@ -177,7 +177,7 @@ def test_assignment_algorithm():
     
     print(f"✓ Assignment completed: {len(assignments)} assignments made")
     for vehicle_id, driver_id in assignments.items():
-        print(f"  Vehicle {vehicle_id} → Driver {driver_id}")
+        print(f"  Vehicle {vehicle_id} -> Driver {driver_id}")
     
     # Validate assignments
     issues = validate_assignments(routes)

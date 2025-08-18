@@ -85,7 +85,7 @@ class HybridTravelCalculator:
                     total_haversine_time += haversine_time
                     total_osrm_time += osrm_time
                     successful_samples += 1
-                    logger.info(f"  Sample {successful_samples}: {haversine_time:.1f}min → {osrm_time:.1f}min (factor: {osrm_time/haversine_time:.2f})")
+                    logger.info(f"  Sample {successful_samples}: {haversine_time:.1f}min -> {osrm_time:.1f}min (factor: {osrm_time/haversine_time:.2f})")
                     
                     # Add small delay to avoid overwhelming OSRM
                     time.sleep(0.2)

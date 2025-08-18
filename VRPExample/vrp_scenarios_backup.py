@@ -304,7 +304,7 @@ def get_all_scenarios() -> Dict[str, VRPInstance]:
     print(f"\n+ Scenarios loaded: {len(scenarios)} total")
     print(f"  - Synthetic test scenarios: {len(scenarios) - realistic_count}")
     print(f"  - MODA realistic scenarios: {realistic_count}")
-    print("  - MODA progression: micro → mini → small → medium → large → first")
+    print("  - MODA progression: micro -> mini -> small -> medium -> large -> first")
     print("  - Note: Other realistic/offline scenarios disabled for focused testing")
     
     return scenarios

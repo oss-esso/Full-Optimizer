@@ -89,9 +89,9 @@ def test_geometry_coverage():
     
     # Test a few route geometries
     test_routes = [
-        ([44.5404, 8.1407], [45.4642, 9.1900], "Genova → Milano"),
-        ([45.4642, 9.1900], [41.9028, 12.4964], "Milano → Roma"),
-        ([41.9028, 12.4964], [44.5404, 8.1407], "Roma → Genova"),
+        ([44.5404, 8.1407], [45.4642, 9.1900], "Genova -> Milano"),
+        ([45.4642, 9.1900], [41.9028, 12.4964], "Milano -> Roma"),
+        ([41.9028, 12.4964], [44.5404, 8.1407], "Roma -> Genova"),
     ]
     
     geometry_count = 0

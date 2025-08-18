@@ -1020,7 +1020,7 @@ class SequentialMultiDayVRP:
                         assignments[vehicle_id].append(customer_idx)
                         
                         distance = cost_matrix[i][j] / 100.0
-                        print(f"    → {customer_info[i]['id']} → {vehicle_id} (cost: {distance:.1f})")
+                        print(f"    -> {customer_info[i]['id']} -> {vehicle_id} (cost: {distance:.1f})")
         else:
             print(f"  ⚠️  Assignment solver failed (status: {status}), using fallback")
             return self._fallback_assignment(active_vehicles, available_customers, unvisited_indices)

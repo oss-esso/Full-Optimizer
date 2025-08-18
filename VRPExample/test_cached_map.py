@@ -136,7 +136,7 @@ def verify_cache_database():
             print(f"\n📍 Sample Routes:")
             for row in cursor.fetchall():
                 geom_status = "✅" if row['has_geometry'] else "❌"
-                print(f"  {geom_status} {row['from_id']} → {row['to_id']}: {row['distance_km']:.1f}km, geometry: {row['geom_size']} chars")
+                print(f"  {geom_status} {row['from_id']} -> {row['to_id']}: {row['distance_km']:.1f}km, geometry: {row['geom_size']} chars")
                 
     except Exception as e:
         print(f"❌ Database verification error: {e}")

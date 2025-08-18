@@ -63,8 +63,8 @@ def test_truck_vs_car_routing():
     depot_to_malmoe_car_time = car_calculator.get_travel_time(depot.id, malmoe.id)
     depot_to_cormano_car_time = car_calculator.get_travel_time(depot.id, cormano.id)
     
-    print(f"  - Depot → Malmö: {depot_to_malmoe_car_time:.1f} minutes")
-    print(f"  - Depot → Cormano: {depot_to_cormano_car_time:.1f} minutes")
+    print(f"  - Depot -> Malmö: {depot_to_malmoe_car_time:.1f} minutes")
+    print(f"  - Depot -> Cormano: {depot_to_cormano_car_time:.1f} minutes")
     
     # Test 2: Standard truck routing
     print(f"\n🚛 Standard Truck Routing:")
@@ -77,8 +77,8 @@ def test_truck_vs_car_routing():
     depot_to_malmoe_truck_time = standard_truck_calculator.get_travel_time(depot.id, malmoe.id)
     depot_to_cormano_truck_time = standard_truck_calculator.get_travel_time(depot.id, cormano.id)
     
-    print(f"  - Depot → Malmö: {depot_to_malmoe_truck_time:.1f} minutes")
-    print(f"  - Depot → Cormano: {depot_to_cormano_truck_time:.1f} minutes")
+    print(f"  - Depot -> Malmö: {depot_to_malmoe_truck_time:.1f} minutes")
+    print(f"  - Depot -> Cormano: {depot_to_cormano_truck_time:.1f} minutes")
     
     # Test 3: Heavy truck routing
     print(f"\n🚚 Heavy Truck Routing:")
@@ -91,8 +91,8 @@ def test_truck_vs_car_routing():
     depot_to_malmoe_heavy_time = heavy_truck_calculator.get_travel_time(depot.id, malmoe.id)
     depot_to_cormano_heavy_time = heavy_truck_calculator.get_travel_time(depot.id, cormano.id)
     
-    print(f"  - Depot → Malmö: {depot_to_malmoe_heavy_time:.1f} minutes")
-    print(f"  - Depot → Cormano: {depot_to_cormano_heavy_time:.1f} minutes")
+    print(f"  - Depot -> Malmö: {depot_to_malmoe_heavy_time:.1f} minutes")
+    print(f"  - Depot -> Cormano: {depot_to_cormano_heavy_time:.1f} minutes")
     
     # Calculate differences
     print(f"\n📊 Travel Time Comparison:")
@@ -103,12 +103,12 @@ def test_truck_vs_car_routing():
     cormano_truck_diff = depot_to_cormano_truck_time - depot_to_cormano_car_time
     cormano_heavy_diff = depot_to_cormano_heavy_time - depot_to_cormano_car_time
     
-    print(f"\n  Depot → Malmö:")
+    print(f"\n  Depot -> Malmö:")
     print(f"    🚗 Car: {depot_to_malmoe_car_time:.1f} min")
     print(f"    🚛 Standard Truck: {depot_to_malmoe_truck_time:.1f} min (+{malmoe_truck_diff:.1f} min)")
     print(f"    🚚 Heavy Truck: {depot_to_malmoe_heavy_time:.1f} min (+{malmoe_heavy_diff:.1f} min)")
     
-    print(f"\n  Depot → Cormano:")
+    print(f"\n  Depot -> Cormano:")
     print(f"    🚗 Car: {depot_to_cormano_car_time:.1f} min")
     print(f"    🚛 Standard Truck: {depot_to_cormano_truck_time:.1f} min (+{cormano_truck_diff:.1f} min)")
     print(f"    🚚 Heavy Truck: {depot_to_cormano_heavy_time:.1f} min (+{cormano_heavy_diff:.1f} min)")

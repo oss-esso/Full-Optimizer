@@ -56,10 +56,10 @@ def create_interactive_vrp_map(scenario, solution, sequential_vrp):
                 geometry = route_db.get_cached_route_geometry(start_coords[0], start_coords[1], 
                                                             end_coords[0], end_coords[1])
                 if geometry:
-                    logger.debug(f"  ✅ Using cached route geometry ({len(geometry)} points) for {start_coords} → {end_coords}")
+                    logger.debug(f"  ✅ Using cached route geometry ({len(geometry)} points) for {start_coords} -> {end_coords}")
                     return geometry
                 else:
-                    logger.info(f"  🔄 No cached geometry found for {start_coords} → {end_coords}, fetching from OSRM API")
+                    logger.info(f"  🔄 No cached geometry found for {start_coords} -> {end_coords}, fetching from OSRM API")
                     
                     # Call OSRM API directly to get the route
                     try:
@@ -838,7 +838,7 @@ def print_comparison_summary(results: Dict, constraint_levels: list):
         elif osm_time > 0:
             faster = "OSM"
         
-        print(f"{level:<20} {orig_time:.2f}s vs {osm_time:.2f}s → {faster}")
+        print(f"{level:<20} {orig_time:.2f}s vs {osm_time:.2f}s -> {faster}")
     
     # Print success rate comparison
     print(f"\n🎯 SUCCESS RATE COMPARISON")
@@ -1080,7 +1080,7 @@ def test_overnight_node_creation():
             loc1_idx, loc1 = sample_locations[0]
             loc2_idx, loc2 = sample_locations[1] if len(sample_locations) > 1 else sample_locations[0]
             
-            print(f"  📍 Route example: {loc1['id']} → {loc2['id']}")
+            print(f"  📍 Route example: {loc1['id']} -> {loc2['id']}")
             
             # Get distance first (same for all vehicles)
             if hasattr(sequential_vrp, 'distance_calculator'):

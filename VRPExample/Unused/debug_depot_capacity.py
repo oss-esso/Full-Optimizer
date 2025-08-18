@@ -31,14 +31,14 @@ def test_depot_capacity_callback():
     logger.info(f"Found {len(depot_requests)} depot requests:")
     total_depot_cargo = 0
     for i, req in enumerate(depot_requests[:5]):  # Show first 5
-        logger.info(f"  {req.id}: {req.pickup_location} → {req.dropoff_location} ({req.passengers}kg)")
+        logger.info(f"  {req.id}: {req.pickup_location} -> {req.dropoff_location} ({req.passengers}kg)")
         total_depot_cargo += req.passengers
     
     logger.info(f"Total depot cargo if all loaded at once: {total_depot_cargo}kg")
     
     logger.info(f"Found {len(field_requests)} field requests:")
     for i, req in enumerate(field_requests[:3]):  # Show first 3
-        logger.info(f"  {req.id}: {req.pickup_location} → {req.dropoff_location} ({req.passengers}kg)")
+        logger.info(f"  {req.id}: {req.pickup_location} -> {req.dropoff_location} ({req.passengers}kg)")
     
     # Check vehicle capacities
     vehicle_capacities = [int(v.capacity) for v in instance.vehicles.values()]

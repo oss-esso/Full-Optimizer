@@ -50,7 +50,7 @@ def test_route_provider_basic():
     milan_coords = (9.18951, 45.46427)  # (lon, lat)
     rome_coords = (12.49637, 41.90278)
     
-    print(f"📍 Testing route: Milan {milan_coords} → Rome {rome_coords}")
+    print(f"📍 Testing route: Milan {milan_coords} -> Rome {rome_coords}")
     
     # Test fetching route details
     route_data = provider.get_route_details(

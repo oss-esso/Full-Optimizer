@@ -889,7 +889,7 @@ def run_cplex_example():
         print(f"5. 🎯 Best Practice: Choose decomposition methods based on problem structure, not just performance")
         
         print(f"\n💡 Why the fallback occurs:")
-        print(f"   - Food production lacks natural two-stage structure (investment → operations)")
+        print(f"   - Food production lacks natural two-stage structure (investment -> operations)")
         print(f"   - All decisions (which foods, how much land) are made simultaneously")
         print(f"   - Better suited for standard LP/MIP rather than Benders decomposition")
         

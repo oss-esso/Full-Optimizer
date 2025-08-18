@@ -86,7 +86,7 @@ def test_distance_calculation_methods():
                 distance = calculate_euclidean_distance(loc1, loc2)
                 euclidean_distances[(i, j)] = distance
                 total_euclidean += distance
-                print(f"  {loc1['id']} → {loc2['id']}: {distance:.2f} km")
+                print(f"  {loc1['id']} -> {loc2['id']}: {distance:.2f} km")
     
     print(f"📊 Total sum of all Euclidean distances: {total_euclidean:.2f} km")
     
@@ -124,7 +124,7 @@ def test_distance_calculation_methods():
                         euclidean_dist = euclidean_distances.get((i, j), 0)
                         ratio = distance / euclidean_dist if euclidean_dist > 0 else 1
                         
-                        print(f"  {test_locations[i]['id']} → {test_locations[j]['id']}:")
+                        print(f"  {test_locations[i]['id']} -> {test_locations[j]['id']}:")
                         print(f"    OSRM: {distance:.2f} km, Euclidean: {euclidean_dist:.2f} km (ratio: {ratio:.2f})")
             
             print(f"📊 Total sum of all OSRM distances: {total_osrm:.2f} km")
@@ -185,7 +185,7 @@ def test_distance_calculation_methods():
                                 day_distance_osrm += osrm_dist
                                 day_distance_euclidean += euclidean_dist
                                 
-                                print(f"    {test_locations[loc1_idx]['id']} → {test_locations[loc2_idx]['id']}: "
+                                print(f"    {test_locations[loc1_idx]['id']} -> {test_locations[loc2_idx]['id']}: "
                                       f"OSRM {osrm_dist:.2f}km, Euclidean {euclidean_dist:.2f}km")
                         
                         print(f"  Day {day} total - OSRM: {day_distance_osrm:.2f}km, Euclidean: {day_distance_euclidean:.2f}km")

@@ -72,7 +72,7 @@ class OSMDistanceCalculator:
                         time.sleep(0.1)
                         
                     except Exception as e:
-                        self.logger.warning(f"Failed to get route {loc1['id']} → {loc2['id']}: {e}")
+                        self.logger.warning(f"Failed to get route {loc1['id']} -> {loc2['id']}: {e}")
                         # Fallback to Haversine distance
                         distance_km = self._haversine_distance(loc1, loc2)
                         time_minutes = distance_km * 60 / 50  # 50 km/h average speed
@@ -144,7 +144,7 @@ class OSMDistanceCalculator:
     def _get_osm_route(self, loc1: Dict, loc2: Dict, verbose: bool = False) -> Tuple[float, float]:
         """Get actual route distance and time between two locations using OSRM."""
         # Create cache key
-        cache_key = f"{loc1['id']}→{loc2['id']}"
+        cache_key = f"{loc1['id']}->{loc2['id']}"
         if cache_key in self.route_cache:
             return self.route_cache[cache_key]
         
@@ -171,7 +171,7 @@ class OSMDistanceCalculator:
         }
         
         if verbose:
-            print(f"🌐 OSM Route Request: {loc1['id']} → {loc2['id']}")
+            print(f"🌐 OSM Route Request: {loc1['id']} -> {loc2['id']}")
             print(f"   From: {from_lat_lon} ({loc1['id']})")
             print(f"   To: {to_lat_lon} ({loc2['id']})")
             print(f"   URL: {url}")
@@ -213,7 +213,7 @@ class OSMDistanceCalculator:
                     print(f"   🚛 Road Type Analysis:")
                     for road_type, data in road_analysis.items():
                         print(f"      {road_type}: {data['percentage']:.1f}% ({data['distance']:.2f}km)")
-                    print(f"   Car time: {duration_minutes:.1f} min → Truck time: {adjusted_duration_minutes:.1f} min")
+                    print(f"   Car time: {duration_minutes:.1f} min -> Truck time: {adjusted_duration_minutes:.1f} min")
                     print(f"   Truck adjustment factor: {adjusted_duration_minutes/duration_minutes:.3f}")
                 else:
                     print(f"   Duration: {adjusted_duration_minutes:.1f} min")
@@ -518,7 +518,7 @@ def demo_osm_route_logging():
             for j, loc2 in enumerate(test_locations):
                 if i != j:  # Skip self-routes
                     route_count += 1
-                    print(f"\n📍 Route #{route_count}: {loc1['id']} → {loc2['id']}")
+                    print(f"\n📍 Route #{route_count}: {loc1['id']} -> {loc2['id']}")
                     
                     # Get detailed route information
                     route_info = calculator.get_route_details(loc1['id'], loc2['id'], verbose=True)

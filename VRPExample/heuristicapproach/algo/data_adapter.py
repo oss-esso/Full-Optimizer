@@ -9,9 +9,9 @@ The main function `convert_instance_to_epdt_input` bridges the gap between:
 - EPDT format: Order, Vehicle, Task, Route, Solution
 
 Transformation Logic:
-1. VRPInstance.ride_requests → List[Order] (with pickup/delivery tasks)  
-2. VRPInstance.vehicles → List[Vehicle] (with EPDT vehicle structure)
-3. VRPInstance.locations → Task location data (coordinates, time windows)
+1. VRPInstance.ride_requests -> List[Order] (with pickup/delivery tasks)  
+2. VRPInstance.vehicles -> List[Vehicle] (with EPDT vehicle structure)
+3. VRPInstance.locations -> Task location data (coordinates, time windows)
 """
 
 import sys

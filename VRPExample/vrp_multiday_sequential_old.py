@@ -80,14 +80,14 @@ class SequentialMultiDayVRP:
                                      vehicle.get('truck_speed_ratios'))
                 self.vehicle_speed_ratios[vehicle_id] = speed_ratios
                 vehicle_type = vehicle.get('vehicle_type', 'unknown')
-                print(f"  🚛 {vehicle_id} ({vehicle_type}): Using specific truck speed ratios")
+                print(f"  Vehicle {vehicle_id} ({vehicle_type}): Using specific truck speed ratios")
             else:
                 self.vehicle_speed_ratios[vehicle_id] = DEFAULT_TRUCK_SPEED_RATIOS['standard']
-                print(f"  🚛 {vehicle_id}: Using default standard truck speed ratios")
+                print(f"  Vehicle {vehicle_id}: Using default standard truck speed ratios")
         
         # Initialize cached OSRM distance calculator without speed adjustments
         # We'll apply vehicle-specific speed adjustments on-demand
-        print(f"🚛 Initializing cached OSRM routing with mixed vehicle types: {use_truck_speeds}")
+        print(f"Vehicle Initializing cached OSRM routing with mixed vehicle types: {use_truck_speeds}")
         self.distance_calculator = CachedOSRMDistanceCalculator(
             locations=self.locations,
             truck_speed_ratios=None,  # Don't apply speed adjustments in matrix
@@ -153,7 +153,7 @@ class SequentialMultiDayVRP:
             
             print(f"    Added overnight option at {customer_location['id']} ({customer_location['x']:.1f}, {customer_location['y']:.1f})")
         
-        print(f"  ✅ Day {day_num}: {len(unvisited_customers)} customers + {len(overnight_node_info)} overnight options = {len(day_locations)} total locations")
+        print(f"  OK Day {day_num}: {len(unvisited_customers)} customers + {len(overnight_node_info)} overnight options = {len(day_locations)} total locations")
         
         return day_locations, overnight_node_info
     
@@ -204,14 +204,14 @@ class SequentialMultiDayVRP:
                 start_pos_idx = vehicle_state['overnight_position']
                 start_location = self.locations[start_pos_idx]
                 current_pos = start_pos_idx
-                print(f"  🚛 {vehicle_id} starting from overnight position:")
+                print(f"  Vehicle {vehicle_id} starting from overnight position:")
                 print(f"    🌙 Starting at {start_location['id']} ({start_location['x']:.1f}, {start_location['y']:.1f}) | Day {day_num}")
             else:
                 # Start from depot
                 depot = day_locations[0]
                 current_pos = 0
                 start_location = depot
-                print(f"  🚛 {vehicle_id} starting route:")
+                print(f"  Vehicle {vehicle_id} starting route:")
                 print(f"    ⏰ 00:00 - Start at {depot['id']} | Current driving time: {current_time:.1f} min")
             
             # Add starting point to route
@@ -285,7 +285,7 @@ class SequentialMultiDayVRP:
                 # Update vehicle state
                 self.vehicle_states[vehicle_id]['remaining_capacity'] -= total_demand
                 
-                print(f"  ✅ {vehicle_id}: {route_distance:.1f} km, {total_demand} demand, {current_time:.1f} min, overnight: False (no work)")
+                print(f"  OK {vehicle_id}: {route_distance:.1f} km, {total_demand} demand, {current_time:.1f} min, overnight: False (no work)")
                 continue  # Skip to next vehicle
             else:
                 # Greedy assignment: keep taking customers until time/capacity constraints are hit
@@ -486,7 +486,7 @@ class SequentialMultiDayVRP:
                                 'arrival_time': current_time
                             })
                             
-                            print(f"      ✅ Visit {customer['id']} (demand: {customer.get('demand', 0)}) - driving time now: {current_time:.1f} min")
+                            print(f"      OK Visit {customer['id']} (demand: {customer.get('demand', 0)}) - driving time now: {current_time:.1f} min")
                             print(f"         Position after visit: ({customer['x']:.1f}, {customer['y']:.1f})")
                             
                             # Mark that we successfully assigned this customer
@@ -498,7 +498,7 @@ class SequentialMultiDayVRP:
                                 # Stop processing more customers - we need to start return journey
                                 break
                             else:
-                                print(f"      ✅ Can complete return trip to depot within time limit")
+                                print(f"      OK Can complete return trip to depot within time limit")
                                 # Continue to next customer (if any)
                                 break  # Move to next customer in the while loop
                         
@@ -619,7 +619,7 @@ class SequentialMultiDayVRP:
                             'arrival_time': current_time
                         })
                         
-                        print(f"      ✅ Visit {customer['id']} (demand: {customer.get('demand', 0)}) - driving time now: {current_time:.1f} min")
+                        print(f"      OK Visit {customer['id']} (demand: {customer.get('demand', 0)}) - driving time now: {current_time:.1f} min")
                         print(f"         Position after visit: ({customer['x']:.1f}, {customer['y']:.1f})")
                         
                         # Mark that we successfully assigned this customer
@@ -631,7 +631,7 @@ class SequentialMultiDayVRP:
                             # Stop processing more customers - we need to start return journey
                             break
                         else:
-                            print(f"      ✅ Can complete return trip to depot within time limit")
+                            print(f"      OK Can complete return trip to depot within time limit")
                             # Continue to next customer (if any)
                             break  # Move to next customer in the while loop
                     
@@ -803,7 +803,7 @@ class SequentialMultiDayVRP:
             # Update vehicle state
             self.vehicle_states[vehicle_id]['remaining_capacity'] -= total_demand
             
-            print(f"  ✅ {vehicle_id}: {route_distance:.1f} km, {total_demand} demand, {current_time:.1f} min, overnight: {vehicle_id in overnight_locations}")
+            print(f"  OK {vehicle_id}: {route_distance:.1f} km, {total_demand} demand, {current_time:.1f} min, overnight: {vehicle_id in overnight_locations}")
         
         # --- REPORT: Travel time from depot to each location ---
         print(f"\n🕒 Travel time from depot to each location (Day {day_num}):")
@@ -967,10 +967,10 @@ class SequentialMultiDayVRP:
             active_vehicles_count = sum(1 for v in self.vehicle_states.values() if v['is_active'])
             
             if not unvisited_customers and active_vehicles_count == 0:
-                print(f"  ✅ All customers visited and all vehicles at depot! Complete at day {day_num - 1}")
+                print(f"  OK All customers visited and all vehicles at depot! Complete at day {day_num - 1}")
                 break
             elif not unvisited_customers and active_vehicles_count > 0:
-                print(f"  🚛 All customers visited, but {active_vehicles_count} vehicles need to return to depot")
+                print(f"  Vehicle All customers visited, but {active_vehicles_count} vehicles need to return to depot")
             elif unvisited_customers:
                 print(f"  📦 {len(unvisited_customers)} customers remaining to visit")
             
@@ -1247,7 +1247,7 @@ class SequentialMultiDayVRP:
             vehicles_still_away = sum(1 for v in self.vehicle_states.values() if v['is_active'])
             
             if not unvisited_customers and vehicles_still_away > 0:
-                print(f"\n  🚛 Need final day to return {vehicles_still_away} vehicles to depot")
+                print(f"\n  Vehicle Need final day to return {vehicles_still_away} vehicles to depot")
         
         print(f"\n🎯 SEQUENTIAL SOLUTION COMPLETE!")
         print(f"   Days solved: {len(self.daily_solutions)}")
@@ -1884,7 +1884,7 @@ def test_sequential_multiday():
     print(f"🕒 Total service time: {sum(loc.get('service_time', 0) for loc in locations)} minutes")
     
     # Test the sequential implementation with cached OSRM routing
-    print(f"\n🚛 Initializing Sequential Multi-Day VRP with cached OSRM routing...")
+    print(f"\nVehicle Initializing Sequential Multi-Day VRP with cached OSRM routing...")
     sequential_vrp = SequentialMultiDayVRP(vehicles, locations, use_truck_speeds=True, db_path="switzerland_routes.db")
     solution = sequential_vrp.solve_sequential_multiday(max_days=7)
     

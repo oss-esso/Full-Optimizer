@@ -120,7 +120,7 @@ def test_furgoni_vs_camion_fleet():
     print(f"Heavy ratios (camion): {DEFAULT_TRUCK_SPEED_RATIOS['heavy']}")
     
     # Test travel time differences for the same route with different vehicles
-    print(f"\n⏱️ Travel Time Comparison (Milano → Bologna):")
+    print(f"\n⏱️ Travel Time Comparison (Milano -> Bologna):")
     
     # Get Milano and Bologna indices
     milano_idx = next(i for i, loc in enumerate(locations) if loc['id'] == 'depot_milano')
@@ -272,7 +272,7 @@ def analyze_speed_ratio_impact():
     vrp = SequentialMultiDayVRP(test_vehicles, locations, use_truck_speeds=True, 
                                db_path="speed_ratio_test.db")
     
-    print(f"📋 Route Analysis: Depot → Bologna → Rome → Depot")
+    print(f"📋 Route Analysis: Depot -> Bologna -> Rome -> Depot")
     print(f"{'Vehicle':<15} {'Total Time':<12} {'Speed Penalty':<15} {'Efficiency':<12}")
     print(f"-" * 55)
     

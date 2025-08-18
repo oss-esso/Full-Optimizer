@@ -225,13 +225,13 @@ def main():
     
     if photon_success:
         print("✅ Photon shows improvement with corrected postal code")
-        print("   → Keep using Photon but correct the postal code in data")
+        print("   -> Keep using Photon but correct the postal code in data")
     elif nominatim_success:
         print("✅ Nominatim provides better results for Cambiano")
-        print("   → Switch scenario_creator.py to use Nominatim instead of Photon")
+        print("   -> Switch scenario_creator.py to use Nominatim instead of Photon")
     else:
         print("⚠️  Both services show issues with Cambiano geocoding")
-        print("   → Consider manual coordinate correction for Cambiano")
+        print("   -> Consider manual coordinate correction for Cambiano")
     
     # Save results
     output_file = "postal_code_test_results.json"

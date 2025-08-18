@@ -75,7 +75,7 @@ try:
                     # Check constraint
                     exceeds = load_pallets > example_vehicle.pallet_capacity
                     status = "❌ EXCEEDS" if exceeds else "✅ OK"
-                    print(f"              Constraint check: {load_pallets} ≤ {example_vehicle.pallet_capacity} → {status}")
+                    print(f"              Constraint check: {load_pallets} ≤ {example_vehicle.pallet_capacity} -> {status}")
                     
                     if exceeds:
                         print(f"   ⚠️  VIOLATION: Route would exceed pallet capacity!")

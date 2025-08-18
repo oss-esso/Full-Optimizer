@@ -98,13 +98,13 @@ def fill_scenario_cache():
             if route_data and route_data.get('cached', False):
                 cache_hits += 1
                 if i % 100 == 0:  # Only log occasionally to avoid spam
-                    print(f"  ✅ Cache hit: {start_loc_id} → {end_loc_id}")
+                    print(f"  ✅ Cache hit: {start_loc_id} -> {end_loc_id}")
             else:
                 # Route is not in cache or had an error, insert it
                 api_calls += 1
                 routes_cached += 1
                 if i % 20 == 0:  # Only log occasionally to avoid spam
-                    print(f"  🌐 API call: {start_loc_id} → {end_loc_id} = "
+                    print(f"  🌐 API call: {start_loc_id} -> {end_loc_id} = "
                           f"{route_data['distance_km']:.1f}km, {route_data['duration_minutes']:.1f}min")
                 
                 # If we've made a batch of API calls, pause briefly to avoid rate limiting
@@ -116,7 +116,7 @@ def fill_scenario_cache():
             
         except Exception as e:
             errors += 1
-            logger.error(f"Error fetching route {start_loc_id} → {end_loc_id}: {e}")
+            logger.error(f"Error fetching route {start_loc_id} -> {end_loc_id}: {e}")
     
     end_time = time.time()
     elapsed = end_time - start_time

@@ -45,7 +45,7 @@ def test_small_enhanced_sequential():
     if hasattr(sequential_vrp, 'route_db') and sequential_vrp.route_db:
         sample_route = sequential_vrp.route_db.get_route_with_composition(locations[0], locations[1])
         if sample_route:
-            print(f"\n📊 Sample route (depot → winterthur):")
+            print(f"\n📊 Sample route (depot -> winterthur):")
             print(f"   Distance: {sample_route['distance_km']:.1f} km")
             print(f"   Car time: {sample_route['car_time_minutes']:.1f} min")
             print(f"   Truck time: {sample_route['truck_time_minutes']:.1f} min")
@@ -88,7 +88,7 @@ def test_comparison():
     print(f"{'Route':<20} {'Composition':<12} {'Simple':<10} {'Difference':<12}")
     print("-" * 55)
     
-    route_names = ['Depot→Basel', 'Depot→Bern', 'Depot→Lucerne', 'Basel→Bern']
+    route_names = ['Depot->Basel', 'Depot->Bern', 'Depot->Lucerne', 'Basel->Bern']
     route_pairs = [(0,1), (0,2), (0,3), (1,2)]
     
     for name, (i,j) in zip(route_names, route_pairs):

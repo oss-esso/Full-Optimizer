@@ -304,7 +304,7 @@ def compare_geocoding_results(address: str):
             for j in range(i+1, len(all_results)):
                 r1, r2 = all_results[i], all_results[j]
                 distance = haversine_distance(r1['lat'], r1['lon'], r2['lat'], r2['lon'])
-                print(f"   {r1['service']} ↔ {r2['service']}: {distance:.2f} km apart")
+                print(f"   {r1['service']} <-> {r2['service']}: {distance:.2f} km apart")
     
     return {
         'address': address,

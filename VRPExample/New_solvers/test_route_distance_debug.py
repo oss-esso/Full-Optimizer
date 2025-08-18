@@ -128,7 +128,7 @@ def debug_route_distances():
                 for j in range(len(test_locations)):
                     if i != j:
                         dist = distance_matrix[i][j] if i < len(distance_matrix) and j < len(distance_matrix[i]) else 0
-                        print(f"  {test_locations[i]['id']} → {test_locations[j]['id']}: {dist:.2f} km")
+                        print(f"  {test_locations[i]['id']} -> {test_locations[j]['id']}: {dist:.2f} km")
             
             # Trace through each daily route and calculate distance manually
             manual_total = 0
@@ -161,9 +161,9 @@ def debug_route_distances():
                         if loc1_idx is not None and loc2_idx is not None:
                             segment_distance = distance_matrix[loc1_idx][loc2_idx]
                             day_manual_distance += segment_distance
-                            print(f"    {test_locations[loc1_idx]['id']} → {test_locations[loc2_idx]['id']}: {segment_distance:.2f} km")
+                            print(f"    {test_locations[loc1_idx]['id']} -> {test_locations[loc2_idx]['id']}: {segment_distance:.2f} km")
                         else:
-                            print(f"    ❌ Could not find indices for {stop1.get('location_id', 'N/A')} → {stop2.get('location_id', 'N/A')}")
+                            print(f"    ❌ Could not find indices for {stop1.get('location_id', 'N/A')} -> {stop2.get('location_id', 'N/A')}")
                     
                     reported_distance = route_data.get('distance', 0)
                     print(f"  Day {day_num} {vehicle_id}: Manual={day_manual_distance:.2f} km, Reported={reported_distance:.2f} km")

@@ -40,8 +40,8 @@ def reduce_requests_by_half(scenario):
                          if loc_id in used_location_ids}
     
     logger.info(f"📉 REDUCED PROBLEM SIZE:")
-    logger.info(f"   Requests: {original_count} → {len(scenario.ride_requests)} ({len(scenario.ride_requests)/original_count*100:.1f}%)")
-    logger.info(f"   Locations: {len(original_locations)} → {len(scenario.locations)} ({len(scenario.locations)/len(original_locations)*100:.1f}%)")
+    logger.info(f"   Requests: {original_count} -> {len(scenario.ride_requests)} ({len(scenario.ride_requests)/original_count*100:.1f}%)")
+    logger.info(f"   Locations: {len(original_locations)} -> {len(scenario.locations)} ({len(scenario.locations)/len(original_locations)*100:.1f}%)")
     logger.info(f"   Vehicles: {len(scenario.vehicles)} (unchanged)")
     
     return scenario
@@ -168,8 +168,8 @@ def test_multiple_levels():
             logger.error(f"{summary['level']}: FAILED - {summary.get('error', 'Unknown')}")
     
     logger.info("\n💡 Expected behavior:")
-    logger.info("   - Level 1: Aggressive stop limits (6 stops/vehicle) → many vehicles, capacity violations")
-    logger.info("   - Level 4: Moderate fixed costs, capacity limits stops naturally → fewer vehicles, no capacity violations")
+    logger.info("   - Level 1: Aggressive stop limits (6 stops/vehicle) -> many vehicles, capacity violations")
+    logger.info("   - Level 4: Moderate fixed costs, capacity limits stops naturally -> fewer vehicles, no capacity violations")
 
 if __name__ == "__main__":
     test_multiple_levels()

@@ -114,7 +114,7 @@ def test_limiting_constraint_identification():
                     icon = "⚖️"
                 
                 print(f"   {icon} {stop['location_id']}: W={stop['weight_utilization_pct']}%, "
-                      f"V={stop['volume_utilization_pct']}% → {stop['limiting_constraint']}")
+                      f"V={stop['volume_utilization_pct']}% -> {stop['limiting_constraint']}")
         
         print(f"\n📈 Limiting Constraint Summary:")
         print(f"   Weight-limited stops: {weight_limiting_count}")

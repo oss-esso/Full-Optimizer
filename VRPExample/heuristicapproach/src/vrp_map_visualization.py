@@ -290,7 +290,7 @@ class VRPMapVisualizer:
                     
                     # Get street route between points
                     leg_route = self._get_street_route(start_coords, end_coords)
-                    all_route_segments.append((leg_route, f"Route: {route[j]} → {route[j+1]}"))
+                    all_route_segments.append((leg_route, f"Route: {route[j]} -> {route[j+1]}"))
             
             # Add route segments to map with unique IDs for highlighting
             for segment, popup_text in all_route_segments:

@@ -322,7 +322,7 @@ def destroy_and_repair_large_orders(solution: 'Solution', orders: List['Order'],
     debug_destroy_repair = params.get('debug_destroy_repair', True)
     max_destroy_attempts = params.get('max_destroy_attempts', 3)
     
-    print(f"🔧 Starting destroy and repair for large orders")
+    print(f"Starting destroy and repair for large orders")
     
     # Step 1: Identify unassigned orders
     assigned_order_ids = set()
@@ -337,10 +337,10 @@ def destroy_and_repair_large_orders(solution: 'Solution', orders: List['Order'],
     unassigned_orders = [order for order in orders if order.id not in assigned_order_ids]
     
     if not unassigned_orders:
-        print("✅ No unassigned orders found")
+        print("No unassigned orders found")
         return solution
     
-    print(f"📦 Found {len(unassigned_orders)} unassigned orders to process")
+    print(f"Found {len(unassigned_orders)} unassigned orders to process")
     
     # Step 2: Sort unassigned orders by difficulty (largest/heaviest first)
     def calculate_order_difficulty(order):
@@ -366,23 +366,23 @@ def destroy_and_repair_large_orders(solution: 'Solution', orders: List['Order'],
     # Step 3: Process each unassigned order
     for attempt, target_order in enumerate(unassigned_orders):
         if attempt >= max_destroy_attempts:
-            print(f"⚠️  Reached maximum destroy attempts ({max_destroy_attempts})")
+            print(f" Reached maximum destroy attempts ({max_destroy_attempts})")
             break
             
-        print(f"\n🎯 Processing difficult order: {target_order.id}")
+        print(f"\nProcessing difficult order: {target_order.id}")
         
         # Step 3a: Find target vehicle that's closest to handling this order
         target_vehicle = _find_best_target_vehicle(target_order, vehicles, improved_solution, debug_destroy_repair)
         
         if target_vehicle is None:
-            print(f"❌ No suitable target vehicle found for {target_order.id}")
+            print(f"No suitable target vehicle found for {target_order.id}")
             continue
         
         # Step 3b: Destroy phase - remove orders from target vehicle
         removed_orders = _destroy_orders_from_vehicle(target_vehicle, improved_solution, target_order, debug_destroy_repair)
         
         if not removed_orders:
-            print(f"⚠️  No orders could be removed from vehicle {target_vehicle.id}")
+            print(f" No orders could be removed from vehicle {target_vehicle.id}")
             continue
         
         # Step 3c: Repair phase - insert target order
@@ -390,16 +390,16 @@ def destroy_and_repair_large_orders(solution: 'Solution', orders: List['Order'],
         
         if success:
             orders_successfully_assigned += 1
-            print(f"✅ Successfully inserted {target_order.id} into {target_vehicle.id}")
+            print(f"Successfully inserted {target_order.id} into {target_vehicle.id}")
             
             # Step 3d: Re-insert removed orders elsewhere
             _reinsert_removed_orders(removed_orders, improved_solution, vehicles, debug_destroy_repair)
         else:
-            print(f"❌ Failed to insert {target_order.id} into {target_vehicle.id}")
+            print(f"Failed to insert {target_order.id} into {target_vehicle.id}")
             # Restore removed orders to original vehicle
             _restore_orders_to_vehicle(removed_orders, target_vehicle, improved_solution)
     
-    print(f"\n🎯 Destroy and repair completed: {orders_successfully_assigned}/{len(unassigned_orders)} large orders assigned")
+    print(f"\nDestroy and repair completed: {orders_successfully_assigned}/{len(unassigned_orders)} large orders assigned")
     return improved_solution
 
 
@@ -413,7 +413,7 @@ def _find_best_target_vehicle(target_order: 'Order', vehicles: List['Vehicle'], 
         order_volume = target_order.get_total_volume()
         order_pallets = getattr(target_order, 'total_pallets', 0)
     except:
-        print(f"⚠️  Could not get requirements for order {target_order.id}")
+        print(f" Could not get requirements for order {target_order.id}")
         return None
     
     for vehicle in vehicles:
@@ -612,13 +612,13 @@ def _reinsert_removed_orders(removed_orders: List, solution: 'Solution', vehicle
                 if success:
                     inserted = True
                     if debug:
-                        print(f"    ✅ Re-inserted {order.id} into {vehicle.id}")
+                        print(f"    Re-inserted {order.id} into {vehicle.id}")
                     break
             except:
                 continue
         
         if not inserted and debug:
-            print(f"    ⚠️  Could not re-insert {order.id}")
+            print(f"     Could not re-insert {order.id}")
 
 
 def _restore_orders_to_vehicle(orders: List, vehicle: 'Vehicle', solution: 'Solution'):

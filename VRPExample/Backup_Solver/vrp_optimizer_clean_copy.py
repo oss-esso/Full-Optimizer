@@ -70,7 +70,7 @@ class OSMDistanceCalculator:
                         time.sleep(0.1)
                         
                     except Exception as e:
-                        self.logger.warning(f"Failed to get route {loc1['id']} → {loc2['id']}: {e}")
+                        self.logger.warning(f"Failed to get route {loc1['id']} -> {loc2['id']}: {e}")
                         # Fallback to Haversine distance
                         distance_km = self._haversine_distance(loc1, loc2)
                         time_minutes = distance_km * 60 / 50  # 50 km/h average speed
@@ -142,7 +142,7 @@ class OSMDistanceCalculator:
     def _get_osm_route(self, loc1: Dict, loc2: Dict, verbose: bool = False) -> Tuple[float, float]:
         """Get actual route distance and time between two locations using OSRM."""
         # Create cache key
-        cache_key = f"{loc1['id']}→{loc2['id']}"
+        cache_key = f"{loc1['id']}->{loc2['id']}"
         if cache_key in self.route_cache:
             return self.route_cache[cache_key]
         
@@ -169,7 +169,7 @@ class OSMDistanceCalculator:
         }
         
         if verbose:
-            print(f"🌐 OSM Route Request: {loc1['id']} → {loc2['id']}")
+            print(f"🌐 OSM Route Request: {loc1['id']} -> {loc2['id']}")
             print(f"   From: {from_lat_lon} ({loc1['id']})")
             print(f"   To: {to_lat_lon} ({loc2['id']})")
             print(f"   URL: {url}")
@@ -207,7 +207,7 @@ class OSMDistanceCalculator:
                 print(f"   ✅ Route found with {route_points} points")
                 print(f"   Distance: {distance_km:.2f} km")
                 if self.use_truck_speeds and 'legs' in route:
-                    print(f"   Car time: {duration_minutes:.1f} min → Truck time: {adjusted_duration_minutes:.1f} min")
+                    print(f"   Car time: {duration_minutes:.1f} min -> Truck time: {adjusted_duration_minutes:.1f} min")
                     print(f"   Truck adjustment factor: {adjusted_duration_minutes/duration_minutes:.3f}")
                 else:
                     print(f"   Duration: {adjusted_duration_minutes:.1f} min")
@@ -1127,7 +1127,7 @@ class CleanVRPOptimizer:
             
             if route['stops']:
                 stop_names = [stop['location_id'] for stop in route['stops']]
-                print(f"   Route: {' → '.join(stop_names)}")
+                print(f"   Route: {' -> '.join(stop_names)}")
         
         print(f"\n💰 Total Summary:")
         print(f"   Total distance: {solution_data['total_distance']}km")
@@ -1175,7 +1175,7 @@ class CleanVRPOptimizer:
                 print(f"   Stops: {len(route['stops'])} locations")
                 if route['stops']:
                     stop_names = [stop['location_id'] for stop in route['stops']]
-                    print(f"   Route: {' → '.join(stop_names)}")
+                    print(f"   Route: {' -> '.join(stop_names)}")
         
         # Print total summary
         print(f"\n💰 Solution Summary:")

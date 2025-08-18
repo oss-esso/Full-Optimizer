@@ -153,8 +153,8 @@ def populate_routes_for_locations(db, locations, max_pairs=None, limit_k=None):
                 new_routes_in_last_minute += 1
                 
                 # Only print detailed info for newly added routes
-                print(f"  ✅ Added route #{routes_added}: {loc1['id']} → {loc2['id']} "
-                      f"({loc1['y']:.4f},{loc1['x']:.4f} → {loc2['y']:.4f},{loc2['x']:.4f})")
+                print(f"  ✅ Added route #{routes_added}: {loc1['id']} -> {loc2['id']} "
+                      f"({loc1['y']:.4f},{loc1['x']:.4f} -> {loc2['y']:.4f},{loc2['x']:.4f})")
                 
                 # Check if geometry exists
                 has_geometry = 'route_geometry' in route_data and route_data['route_geometry'] is not None
@@ -256,9 +256,9 @@ def verify_geometry_data(db):
                     try:
                         geometry = json.loads(sample['route_geometry'])
                         print(f"\n  - Sample route coordinates: "
-                              f"({sample['from_lat']:.6f}, {sample['from_lon']:.6f}) → "
+                              f"({sample['from_lat']:.6f}, {sample['from_lon']:.6f}) -> "
                               f"({sample['to_lat']:.6f}, {sample['to_lon']:.6f})")
-                        print(f"  - Sample location IDs: {sample['from_id']} → {sample['to_id']}")
+                        print(f"  - Sample location IDs: {sample['from_id']} -> {sample['to_id']}")
                         print(f"  - Sample geometry points: {len(geometry)}")
                         
                         # Validate geometry matches the endpoints

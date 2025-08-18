@@ -70,8 +70,8 @@ class TwoOptLocalSearch:
         """
         Perform 2-opt swap on route between positions i and j.
         
-        For route A→B→C→D→E→F→A, swapping (B,E) yields:
-        A→B→E→D→C→F→A (reversing segment C→D→E)
+        For route A->B->C->D->E->F->A, swapping (B,E) yields:
+        A->B->E->D->C->F->A (reversing segment C->D->E)
         
         Args:
             route: Current route

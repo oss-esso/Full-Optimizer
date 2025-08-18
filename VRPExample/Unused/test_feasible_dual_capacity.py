@@ -89,7 +89,7 @@ def test_feasible_dual_capacity():
                 print(f"\n🚛 {route['vehicle_id']} capacity usage:")
                 for stop in route['capacity_usage']:
                     print(f"   {stop['location_id']}: {stop['weight_usage_kg']}kg ({stop['weight_utilization_pct']}%), "
-                          f"{stop['volume_usage_m3']}m³ ({stop['volume_utilization_pct']}%) → {stop['limiting_constraint']}")
+                          f"{stop['volume_usage_m3']}m³ ({stop['volume_utilization_pct']}%) -> {stop['limiting_constraint']}")
         
         return True
     else:

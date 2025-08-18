@@ -64,7 +64,7 @@ def create_html_gps_map():
                 print(f"\n📊 ROUTE SUMMARY:")
                 for vehicle_id, route in result['routes'].items():
                     print(f"   {vehicle_id}: {len(route)} stops")
-                    print(f"     Route: {' → '.join(route[:3])}...{' → '.join(route[-2:])}")
+                    print(f"     Route: {' -> '.join(route[:3])}...{' -> '.join(route[-2:])}")
             
         else:
             print(f"❌ OPTIMIZATION FAILED: {result.get('error', 'Unknown error')}")

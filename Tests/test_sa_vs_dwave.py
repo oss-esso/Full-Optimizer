@@ -698,7 +698,7 @@ def print_results_summary(all_results: List[TestResult]):
     
     # Print summary for each method
     for method_name, results in methods.items():
-        print(f"\n📊 {method_name.upper()} RESULTS")
+        print(f"\nAnalysis {method_name.upper()} RESULTS")
         print("-" * 50)
         
         # Calculate statistics
@@ -706,7 +706,7 @@ def print_results_summary(all_results: List[TestResult]):
         failed_results = [r for r in results if r.status == "Failed"]
         
         print(f"Total Tests: {len(results)}")
-        print(f"✅ Successful: {len(successful_results)} ({len(successful_results)/len(results)*100:.1f}%)")
+        print(f"OK Successful: {len(successful_results)} ({len(successful_results)/len(results)*100:.1f}%)")
         print(f"❌ Failed: {len(failed_results)} ({len(failed_results)/len(results)*100:.1f}%)")
         
         if successful_results:
