@@ -23,6 +23,324 @@ try:
 except ImportError:
     from .epdt_data_structures import Driver, DriverState, Route, Vehicle
 
+# Import travel time calculation function
+try:
+    from second_level import calculate_travel_time_with_counter
+except ImportError:
+    try:
+        from .second_level import calculate_travel_time_with_counter
+    except ImportError:
+        try:
+            from algo.second_level import calculate_travel_time_with_counter
+        except ImportError:
+            def calculate_travel_time_with_counter(task1, task2, vehicle):
+                """Enhanced fallback travel time calculation that matches HoS system."""
+                try:
+                    # Try the same coordinate check as HoS system
+                    if hasattr(task1, 'lat') and hasattr(task1, 'lon') and \
+                       hasattr(task2, 'lat') and hasattr(task2, 'lon'):
+                        # Use the same calculation as HoS system
+                        import math
+                        
+                        lat1_rad = math.radians(task1.lat)
+                        lon1_rad = math.radians(task1.lon)
+                        lat2_rad = math.radians(task2.lat)
+                        lon2_rad = math.radians(task2.lon)
+                        
+                        dlat = lat2_rad - lat1_rad
+                        dlon = lon2_rad - lon1_rad
+                        
+                        a = (math.sin(dlat/2)**2 + 
+                             math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
+                        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                        
+                        R = 6371.0  # Earth's radius in km
+                        distance_km = R * c
+                        
+                        avg_speed_kmh = getattr(vehicle, 'average_speed', 60.0)
+                        travel_time_hours = distance_km / avg_speed_kmh
+                        travel_time_minutes = travel_time_hours * 60.0
+                        
+                        return travel_time_minutes
+                    
+                    # Try alternative coordinate attributes
+                    elif hasattr(task1, 'latitude') and hasattr(task1, 'longitude') and \
+                         hasattr(task2, 'latitude') and hasattr(task2, 'longitude'):
+                        # Use the same calculation with latitude/longitude attributes
+                        import math
+                        
+                        lat1_rad = math.radians(float(task1.latitude))
+                        lon1_rad = math.radians(float(task1.longitude))
+                        lat2_rad = math.radians(float(task2.latitude))
+                        lon2_rad = math.radians(float(task2.longitude))
+                        
+                        dlat = lat2_rad - lat1_rad
+                        dlon = lon2_rad - lon1_rad
+                        
+                        a = (math.sin(dlat/2)**2 + 
+                             math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
+                        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                        
+                        R = 6371.0  # Earth's radius in km
+                        distance_km = R * c
+                        
+                        avg_speed_kmh = getattr(vehicle, 'average_speed', 60.0)
+                        travel_time_hours = distance_km / avg_speed_kmh
+                        travel_time_minutes = travel_time_hours * 60.0
+                        
+                        return travel_time_minutes
+                    else:
+                        # If no coordinates, return same default as HoS system
+                        return 15.0  # Match HoS system default
+                except:
+                    return 30.0  # Conservative fallback
+
+
+def format_duration_detailed(minutes):
+    """Format duration in minutes to DD:HH:MM format."""
+    if minutes <= 0:
+        return "00:00:00"
+    
+    days = int(minutes // 1440)
+    remaining_minutes = int(minutes % 1440)
+    hours = remaining_minutes // 60
+    mins = remaining_minutes % 60
+    
+    return f"{days:02d}:{hours:02d}:{mins:02d}"
+
+
+def get_location_name(task):
+    """Get the location name for a task."""
+    return getattr(getattr(task, 'location', None), 'name', getattr(task, 'location_id', "Unknown"))
+
+
+def get_order_info(task):
+    """Get order information for a task."""
+    return f"Order: {getattr(task, 'order_id', 'N/A')}"
+
+
+def format_absolute_minutes(minutes):
+    """Format absolute minutes to DD:HH:MM format."""
+    if minutes is None:
+        return "No window"
+    
+    days = int(minutes // 1440)
+    remaining_minutes = int(minutes % 1440)
+    hours = remaining_minutes // 60
+    mins = remaining_minutes % 60
+    
+    return f"{days:02d}:{hours:02d}:{mins:02d}"
+
+
+def get_time_window_info(task):
+    """Get time window information for a task."""
+    earliest = getattr(task, 'earliest_time', None)
+    latest = getattr(task, 'latest_time', None)
+    start_str = format_absolute_minutes(earliest)
+    end_str = format_absolute_minutes(latest)
+    return f"[{start_str} -> {end_str}]"
+
+
+def get_load_change(task):
+    """Get load change information for a task."""
+    weight_change = getattr(task, 'demand', 0.0)
+    volume_change = getattr(task, 'volume', 0.0)
+    return weight_change, volume_change
+
+
+def generate_detailed_route_breakdown(route):
+    """Generate detailed route breakdown including tasks, locations, time windows, and integrated HoS timeline."""
+    if not route.tasks:
+        return "    No tasks in route\n"
+    
+    breakdown = []
+    breakdown.append(f"       Task sequence ({len(route.tasks)} tasks) - Real-time monitoring:")
+    
+    # Get HoS timeline if available for integration
+    hos_timeline = []
+    if hasattr(route, 'hos_timeline') and route.hos_timeline:
+        hos_timeline = route.hos_timeline
+    
+    current_weight, current_volume, completion_time = 0, 0, 0
+    timeline_index = 0  # Track position in HoS timeline
+    
+    for i, task in enumerate(route.tasks, 1):
+        # Calculate waiting time at departure
+        departure_time = completion_time
+        travel_time = 0
+        wait_time = 0
+        
+        if i > 1:
+            try:
+                prev_task = route.tasks[i-2]  # Previous task
+                travel_time = calculate_travel_time_with_counter(prev_task, task, route.vehicle)
+                
+                # Calculate waiting time at previous location
+                if task.earliest_time and task.earliest_time > 0:
+                    required_departure_time = task.earliest_time - travel_time
+                    if completion_time < required_departure_time:
+                        wait_time = required_departure_time - completion_time
+                        
+            except:
+                travel_time = 60  # Fallback
+        
+        # Departure time from previous task location includes waiting
+        departure_time = completion_time + wait_time
+        
+        # Arrival at current task
+        arrival_time = departure_time + travel_time
+        service_time = getattr(task, 'service_time', 5.0)
+        completion_time = arrival_time + service_time
+        
+        # Get task details
+        location = get_location_name(task)
+        order_info = get_order_info(task)
+        time_window = get_time_window_info(task)
+        
+        # Calculate load changes
+        weight_change, volume_change = get_load_change(task)
+        current_weight += weight_change
+        current_volume += volume_change
+        
+        # Format cumulative time
+        cumulative_formatted = format_duration_detailed(arrival_time)
+        
+        # Format delta time with breakdown
+        if i == 1:
+            delta_str = ""
+        else:
+            if wait_time > 0:
+                travel_formatted = format_duration_detailed(travel_time)
+                wait_formatted = format_duration_detailed(wait_time)
+                delta_str = f" (+{travel_formatted} travel, +{wait_formatted} wait)"
+            else:
+                travel_formatted = format_duration_detailed(travel_time)
+                delta_str = f" (+{travel_formatted})"
+        
+        # Format load change
+        weight_sign = "+" if weight_change >= 0 else ""
+        volume_sign = "+" if volume_change >= 0 else ""
+        
+        breakdown.append(f"          {i}. {location} ({order_info}) - Cumulative: {cumulative_formatted}{delta_str} {time_window}")
+        breakdown.append(f"             Load: {weight_sign}{weight_change:.1f}kg, {volume_sign}{volume_change:.1f}m^3 -> Total: {current_weight:.1f}kg, {current_volume:.1f}m^3")
+        
+        # Show waiting before departure if applicable
+        if i > 1 and wait_time > 0:
+            prev_location = get_location_name(route.tasks[i-2])
+            wait_reason = "time window constraint" if wait_time > 1440 else "early arrival"
+            breakdown.append(f"             Waiting: ({format_duration_detailed(wait_time)} at {prev_location} before departure - {wait_reason})")
+        
+        # Display arrival status
+        arrival_status = ""
+        if hasattr(task, 'earliest_time') and hasattr(task, 'latest_time'):
+            if task.earliest_time is not None and arrival_time < task.earliest_time:
+                remaining_wait = task.earliest_time - arrival_time
+                arrival_status = f"(Arrived early, would wait {format_duration_detailed(remaining_wait)})"
+            elif task.latest_time is not None and arrival_time > task.latest_time:
+                lateness = arrival_time - task.latest_time
+                arrival_status = f"(LATE by {format_duration_detailed(lateness)})"
+            else:
+                arrival_status = "(On time)"
+        else:
+            arrival_status = "(On time)"
+        
+        # *** INTEGRATION: Add relevant HoS timeline events inline with this task ***
+        # Find the next few HoS events that could relate to this task
+        status_line = f"             Status: {arrival_status}"
+        
+        # Look for relevant HoS events for this task
+        events_added = 0
+        max_events_per_task = 4  # Allow more events per task
+        
+        if hos_timeline and timeline_index < len(hos_timeline):
+            # Find events that belong to this task based on timing
+            task_events = []
+            temp_index = timeline_index
+            
+            # For the first task (depot), show initial events
+            if i == 1:
+                # Show initial wait or any starting events
+                while temp_index < len(hos_timeline) and len(task_events) < max_events_per_task:
+                    event = hos_timeline[temp_index]
+                    if event.event_type in ['WAIT'] and event.start_time < arrival_time + service_time:
+                        task_events.append(event)
+                        temp_index += 1
+                    else:
+                        break
+            else:
+                # For subsequent tasks, assign events chronologically within this task's timeframe
+                task_start_time = departure_time  # When we leave previous location
+                task_end_time = completion_time   # When we finish service at current location
+                
+                while temp_index < len(hos_timeline) and len(task_events) < max_events_per_task:
+                    event = hos_timeline[temp_index]
+                    
+                    # Include events that happen during this task's timeframe
+                    if event.start_time >= task_start_time - 30 and event.start_time <= task_end_time + 30:
+                        # Enhance the event description to show location names instead of task IDs
+                        enhanced_description = event.description
+                        if enhanced_description:
+                            # Get current location name for descriptions
+                            current_location_short = location.split(',')[0] if ',' in location else location
+                            
+                            # Replace task ID references with location names
+                            if hasattr(task, 'id') and task.id in enhanced_description:
+                                enhanced_description = enhanced_description.replace(task.id, current_location_short)
+                            
+                            # For drive events, improve the description format
+                            if event.event_type == 'DRIVE':
+                                if 'Drive from' in enhanced_description and 'to' in enhanced_description:
+                                    enhanced_description = f"Drive to {current_location_short}"
+                                elif 'Drive' in enhanced_description:
+                                    enhanced_description = f"Drive to {current_location_short}"
+                            
+                            # For service events
+                            elif event.event_type in ['WORK', 'SERVICE']:
+                                enhanced_description = f"Service at {current_location_short}"
+                        else:
+                            # Fallback if no description
+                            enhanced_description = event.event_type.lower()
+                        
+                        # Create enhanced event with better description
+                        enhanced_event = type('Event', (), {
+                            'event_type': event.event_type,
+                            'duration': event.duration,
+                            'start_time': event.start_time,
+                            'end_time': event.end_time,
+                            'description': enhanced_description
+                        })()
+                        
+                        task_events.append(enhanced_event)
+                        temp_index += 1
+                    elif event.start_time > task_end_time + 30:
+                        # Event is too far in the future, stop looking
+                        break
+                    else:
+                        # Event is before our timeframe, skip it
+                        temp_index += 1
+            # Update timeline index for next iteration  
+            timeline_index = temp_index
+            
+            # Display the relevant events for this task
+            if task_events:
+                for j, event in enumerate(task_events):
+                    event_index = timeline_index - len(task_events) + j  # Calculate proper event index
+                    if j == 0:
+                        # First event on the same line as status
+                        status_line += f" {event_index}: {event.event_type} - {event.duration:6.1f}min ({event.start_time:6.1f}-{event.end_time:6.1f}) | {event.description}"
+                        events_added += 1
+                    else:
+                        # Additional events on separate lines, properly indented
+                        breakdown.append(f"               {event_index}: {event.event_type} - {event.duration:6.1f}min ({event.start_time:6.1f}-{event.end_time:6.1f}) | {event.description}")
+                        events_added += 1
+        
+        breakdown.append(status_line)
+        
+        # Update completion time for next iteration
+        completion_time = arrival_time + service_time
+    
+    return "\n".join(breakdown) + "\n"
+
 
 @dataclass
 class DriverAssignmentConfig:
@@ -254,20 +572,23 @@ def calculate_enhanced_assignment_cost(driver: EnhancedDriver, route: Route,
     # 3. HoS Feasibility and Cost (ONLY FOR HEAVY TRUCKS)
     if route.vehicle.vehicle_type == 'heavy':
         try:
-            # Import here to avoid circular imports
-            from second_level import _simulate_hos_advanced, _sort_tasks_chronologically
+            # Use the new unified HoS Engine from Section 1
+            from algo.hos_simulation import HoSEngine
             
-            # Create a copy of driver state for simulation
-            driver_state_copy = copy.deepcopy(driver.hos_state)
-            sorted_tasks = _sort_tasks_chronologically(route.tasks)
+            # Create HoS engine and analyze route
+            hos_engine = HoSEngine()
+            analysis_result = hos_engine.analyze_route(route)
             
-            is_feasible, route_duration = _simulate_hos_advanced(route, driver_state_copy, sorted_tasks)
-            if not is_feasible:
+            if not analysis_result.is_feasible:
                 return float('inf')  # Infeasible assignment
             else:
-                base_cost = route_duration * driver.cost_per_hour
+                # Use the driver cost from HoS analysis
+                base_cost = analysis_result.driver_cost
                 cost += base_cost
         except ImportError:
+            # Fallback: Skip HoS analysis if engine not available
+            print(f"Warning: Could not import HoS Engine, skipping HoS analysis for route {route.vehicle.id}")
+            pass
             # Fallback if HoS simulation not available
             route_duration = calculate_route_duration_without_hos(route)
             cost += route_duration * driver.cost_per_hour
@@ -507,19 +828,22 @@ def validate_assignments(routes: List[Route]) -> Dict[str, List[str]]:
         # Check HoS feasibility for heavy vehicles
         if route.vehicle.vehicle_type == 'heavy':
             try:
-                from second_level import _simulate_hos_advanced, _sort_tasks_chronologically
+                # Use the new unified HoS Engine from Section 1
+                from algo.hos_simulation import HoSEngine
                 
-                driver_state_copy = copy.deepcopy(route.driver.hos_state)
-                sorted_tasks = _sort_tasks_chronologically(route.tasks)
+                # Create HoS engine and analyze route
+                hos_engine = HoSEngine()
+                analysis_result = hos_engine.analyze_route(route)
                 
-                is_feasible, _ = _simulate_hos_advanced(route, driver_state_copy, sorted_tasks)
-                if not is_feasible:
+                if not analysis_result.is_feasible:
                     issues['hos_violations'].append(
                         f"Driver {route.driver.name} assigned to route {route.vehicle.id} "
                         f"violates Hours of Service regulations"
                     )
             except ImportError:
-                pass  # Skip HoS check if module not available
+                # Fallback: Skip HoS check if engine not available
+                print(f"Warning: Could not import HoS Engine, skipping HoS analysis for route {route.vehicle.id}")
+                pass
     
     return issues
 
@@ -535,6 +859,56 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
         hours = int(minutes // 60)
         mins = int(minutes % 60)
         return f"{hours:02d}:{mins:02d}"
+    
+    def format_timeline_breakdown(route):
+        """Format detailed timeline breakdown for a route."""
+        breakdown = []
+        
+        # First add the detailed route breakdown with tasks, locations, time windows
+        try:
+            from second_level import is_feasible
+            feasible, reason = is_feasible(route, debug_feasibility=True, return_reason=True)
+        except ImportError:
+            feasible, reason = True, "(Feasibility check unavailable)"
+        
+        # Route feasibility
+        breakdown.append(f"    Route Feasible: {feasible}")
+        if not feasible:
+            breakdown.append(f"    Feasibility Issue: {reason}")
+        
+        # Calculate route duration
+        total_duration_minutes = 0
+        if len(route.tasks) > 1:
+            try:
+                for i in range(1, len(route.tasks)):
+                    prev_task = route.tasks[i-1]
+                    curr_task = route.tasks[i]
+                    travel_time = calculate_travel_time_with_counter(prev_task, curr_task, route.vehicle)
+                    total_duration_minutes += travel_time
+                
+                # Add service times
+                for task in route.tasks:
+                    total_duration_minutes += getattr(task, 'service_time', 0)
+                    
+            except Exception as e:
+                total_duration_minutes = len(route.tasks) * 20  # Fallback estimation
+        
+        # Format route duration in DD:HH:MM
+        duration_formatted = format_duration_detailed(total_duration_minutes)
+        hos_warning = ""
+        if hasattr(route, 'hos_analysis_result') and not route.hos_analysis_result.is_feasible:
+            hos_warning = " (would violate HoS if attempted without proper rests)"
+        
+        breakdown.append(f"    Route duration (active travel+service): {duration_formatted}{hos_warning}")
+        breakdown.append("")  # Add spacing
+        
+        # Add detailed task sequence with integrated HoS timeline
+        breakdown.append(generate_detailed_route_breakdown(route))
+        
+        # SUPPRESS the old duplicate HoS timeline section since it's now integrated above
+        # The HoS events are now shown inline with each task, so we don't need the duplicate
+        
+        return "\n".join(breakdown)
     
     def check_route_feasibility(route):
         """Check if a route is feasible and return reason if not."""
@@ -554,31 +928,29 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
         """Ensure HoS data is calculated for the route, even if it's violated."""
         if not hasattr(route, 'hos_daily_summary') or not route.hos_daily_summary:
             try:
-                from second_level import _simulate_hos_advanced, _sort_tasks_chronologically, DriverState
-                # Force HoS calculation by running _simulate_hos_advanced
+                # Use the new unified HoS Engine from Section 1
+                from algo.hos_simulation import HoSEngine
+                
                 print(f"DEBUG: Running HoS calculation for route {route.vehicle.id}")
                 
-                # Create driver state
-                if route.driver and hasattr(route.driver, 'hos_state') and route.driver.hos_state:
-                    driver_state = route.driver.hos_state
-                else:
-                    driver_state = DriverState()
+                # Create HoS engine and analyze route
+                hos_engine = HoSEngine()
+                analysis_result = hos_engine.analyze_route(route)
                 
-                # Sort tasks chronologically
-                sorted_tasks = _sort_tasks_chronologically(route.tasks)
-                
-                # Run the HoS simulation
-                is_feasible, total_duration = _simulate_hos_advanced(route, driver_state, sorted_tasks)
-                
-                # Create a simplified daily summary structure
-                # Since the advanced simulation doesn't provide daily breakdown,
-                # we'll create a basic summary for display purposes
+                # Create a simplified daily summary structure from HoS analysis result
                 if route.tasks:
-                    # Calculate basic daily data
-                    total_service_time = sum(getattr(task, 'service_time', 0) for task in route.tasks)
+                    # Use ACTUAL driving and working times from HoS analysis (not costs!)
+                    total_drive_time = analysis_result.driving_time  # Direct from HoS analysis in minutes
+                    total_work_time = analysis_result.working_time   # Direct from HoS analysis in minutes  
+                    total_duration = analysis_result.total_duration  # Direct from HoS analysis in minutes
                     
-                    # Estimate drive time (this is approximate)
-                    total_drive_time = max(0, total_duration - total_service_time)
+                    print(f"DEBUG: FIRST PATH - Extracted Values for {route.vehicle.id}:")
+                    print(f"  total_drive_time = {total_drive_time:.2f} min")
+                    print(f"  total_work_time = {total_work_time:.2f} min")
+                    print(f"  total_duration = {total_duration:.2f} min")
+                    
+                    # Get feasibility from analysis result
+                    is_feasible = analysis_result.is_feasible
                     
                     # Fix HOS violation logic for short routes
                     # Routes under 4.5 hours (270 minutes) of driving should not have HOS violations
@@ -597,14 +969,18 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                     # Create a single-day summary (most routes are single-day)
                     route.hos_daily_summary = {
                         1: {  # Day 1
-                            'work': total_duration,
-                            'drive': total_drive_time,
+                            'work': total_work_time,  # Use actual working time
+                            'drive': total_drive_time,  # Use actual driving time
                             'violations': ['HoS constraints violated'] if has_hos_violation else []
                         }
                     }
                     
-                    print(f"DEBUG: HoS data successfully calculated for route {route.vehicle.id}")
-                    print(f"DEBUG: Total elapsed timeline: {total_duration:.2f} min, Drive: {total_drive_time:.2f} min (includes waiting/break times)")
+                    # Store the detailed timeline for breakdown display
+                    route.hos_timeline = analysis_result.timeline
+                    route.hos_analysis_result = analysis_result  # Store full analysis for detailed breakdown
+                    
+                    print(f"DEBUG: FIRST PATH - HoS data successfully calculated for route {route.vehicle.id}")
+                    print(f"DEBUG: FIRST PATH - Total elapsed timeline: {total_duration:.2f} min, Drive: {total_drive_time:.2f} min, Work: {total_work_time:.2f} min")
                 else:
                     # Empty route
                     route.hos_daily_summary = {
@@ -618,55 +994,61 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                     
             except ImportError:
                 try:
-                    from algo.second_level import _simulate_hos_advanced, _sort_tasks_chronologically, DriverState
-                    # Force HoS calculation by running _simulate_hos_advanced
+                    # Use the new unified HoS Engine from Section 1
+                    from algo.hos_simulation import HoSEngine
+                    
                     print(f"DEBUG: Running HoS calculation for route {route.vehicle.id}")
+                    print(f"DEBUG: Route has {len(route.tasks)} tasks")
                     
-                    # Create driver state
-                    if route.driver and hasattr(route.driver, 'hos_state') and route.driver.hos_state:
-                        driver_state = route.driver.hos_state
-                    else:
-                        driver_state = DriverState()
+                    # Create HoS engine and analyze route
+                    hos_engine = HoSEngine()
+                    analysis_result = hos_engine.analyze_route(route)
                     
-                    # Sort tasks chronologically
-                    sorted_tasks = _sort_tasks_chronologically(route.tasks)
-                    
-                    # Run the HoS simulation
-                    is_feasible, total_duration = _simulate_hos_advanced(route, driver_state, sorted_tasks)
+                    print(f"DEBUG: HoS Analysis Completed for {route.vehicle.id}")
+                    print(f"DEBUG: Timeline events: {len(analysis_result.timeline)}")
+                    print(f"DEBUG: Is feasible: {analysis_result.is_feasible}")
                     
                     # Create a simplified daily summary structure
                     if route.tasks:
-                        # Calculate basic daily data
-                        total_service_time = sum(getattr(task, 'service_time', 0) for task in route.tasks)
+                        # Use ACTUAL driving and working times from HoS analysis (not costs!)
+                        total_drive_time = analysis_result.driving_time  # Direct from HoS analysis in minutes
+                        total_work_time = analysis_result.working_time   # Direct from HoS analysis in minutes  
+                        total_duration = analysis_result.total_duration  # Direct from HoS analysis in minutes
                         
-                        # Estimate drive time (this is approximate)
-                        total_drive_time = max(0, total_duration - total_service_time)
+                        print(f"DEBUG: Extracted Values for {route.vehicle.id}:")
+                        print(f"  total_drive_time = {total_drive_time:.2f} min")
+                        print(f"  total_work_time = {total_work_time:.2f} min")
+                        print(f"  total_duration = {total_duration:.2f} min")
                         
                         # Fix HOS violation logic for short routes
                         # Routes under 4.5 hours (270 minutes) of driving should not have HOS violations
                         # as they don't require mandatory breaks under EU regulations
                         has_hos_violation = False
-                        if not is_feasible:
+                        if not analysis_result.is_feasible:
                             # Only mark as violation if drive time is significant (>270 mins = 4.5 hours)
                             # Short routes shouldn't be penalized for HOS violations
                             if total_drive_time > 270:  # 4.5 hours in minutes
                                 has_hos_violation = True
                             else:
                                 # Override feasibility for short routes - they should be feasible
-                                is_feasible = True
                                 print(f"DEBUG: Short route {route.vehicle.id} ({total_drive_time:.1f}min drive) - overriding HOS violation")
+                                has_hos_violation = False  # Override the violation
                         
                         # Create a single-day summary (most routes are single-day)
                         route.hos_daily_summary = {
                             1: {  # Day 1
-                                'work': total_duration,
-                                'drive': total_drive_time,
+                                'work': total_work_time,  # Use actual working time
+                                'drive': total_drive_time,  # Use actual driving time
                                 'violations': ['HoS constraints violated'] if has_hos_violation else []
                             }
                         }
                         
+                        # Store the detailed timeline for breakdown display
+                        route.hos_timeline = analysis_result.timeline
+                        route.hos_analysis_result = analysis_result  # Store full analysis for detailed breakdown
+                        
                         print(f"DEBUG: HoS data successfully calculated for route {route.vehicle.id}")
-                        print(f"DEBUG: Total elapsed timeline: {total_duration:.2f} min, Drive: {total_drive_time:.2f} min (includes waiting/break times)")
+                        print(f"DEBUG: Total elapsed timeline: {total_duration:.2f} min, Drive: {total_drive_time:.2f} min, Work: {total_work_time:.2f} min")
                     else:
                         # Empty route
                         route.hos_daily_summary = {
@@ -679,7 +1061,7 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                         print(f"DEBUG: Empty route {route.vehicle.id}, created default HoS data")
                         
                 except ImportError:
-                    print(f"DEBUG: Cannot import _simulate_hos_advanced for route {route.vehicle.id}")
+                    print(f"DEBUG: Cannot import HoS Engine for route {route.vehicle.id}")
                     # Create fallback HoS data structure
                     route.hos_daily_summary = {
                         1: {
@@ -724,12 +1106,19 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
             if hasattr(route, 'hos_daily_summary') and route.hos_daily_summary:
                 total_weekly_drive = 0
                 total_weekly_work = 0
+                total_weekly_breaks = 0
                 driver_cost_per_hour = getattr(route.driver, 'cost_per_hour', 0) if route.driver else 0
                 
                 for day, daily_data in sorted(route.hos_daily_summary.items()):
                     work_time = daily_data['work']
                     drive_time = daily_data['drive']
-                    breaks_time = work_time - drive_time
+                    
+                    # Get actual break time from HoS analysis instead of wrong calculation
+                    if hasattr(route, 'hos_analysis_result'):
+                        breaks_time = route.hos_analysis_result.break_time + route.hos_analysis_result.rest_time
+                    else:
+                        breaks_time = 0  # No break data available
+                    
                     violations = daily_data.get('violations', [])
                     
                     # Calculate daily salary
@@ -738,6 +1127,7 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                     # Accumulate weekly totals
                     total_weekly_drive += drive_time
                     total_weekly_work += work_time
+                    total_weekly_breaks += breaks_time
                     
                     # Format the daily breakdown with violation indicators
                     if violations:
@@ -750,7 +1140,6 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                           f"Salary: €{daily_salary:.2f}{violation_text}")
                 
                 # Weekly HoS breakdown
-                total_weekly_breaks = total_weekly_work - total_weekly_drive
                 total_weekly_salary = (total_weekly_work / 60) * driver_cost_per_hour
                 
                 # Add theoretical indicator for violated routes
@@ -759,6 +1148,9 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                 print(f"    Analysis Weekly Summary{theoretical_text}: Drive: {format_minutes_to_hhmm(total_weekly_drive)}, "
                       f"Breaks: {format_minutes_to_hhmm(total_weekly_breaks)}, "
                       f"Total Salary: €{total_weekly_salary:.2f}")
+                
+                # Add detailed timeline breakdown
+                print(format_timeline_breakdown(route))
             else:
                 # No HoS data available
                 print(f"    - HoS data not available for this route")

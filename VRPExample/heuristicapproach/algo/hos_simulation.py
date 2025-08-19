@@ -18,10 +18,22 @@ import copy
 from dataclasses import dataclass
 
 # Import only the data structures we need to avoid circular imports
-from epdt_data_structures import DriverState, HoSEvent
+try:
+    from epdt_data_structures import DriverState, HoSEvent
+except ImportError:
+    try:
+        from .epdt_data_structures import DriverState, HoSEvent
+    except ImportError:
+        from algo.epdt_data_structures import DriverState, HoSEvent
 
 if TYPE_CHECKING:
-    from epdt_data_structures import Route
+    try:
+        from epdt_data_structures import Route
+    except ImportError:
+        try:
+            from .epdt_data_structures import Route
+        except ImportError:
+            from algo.epdt_data_structures import Route
 
 
 @dataclass
@@ -70,6 +82,26 @@ class HoSSimulationResult:
     rest_time: float       # Time spent on daily/weekly rests
     violations: List[str]  # List of regulation violations
     events: List[Dict[str, Any]]  # Detailed event log
+
+
+@dataclass
+class HoSAnalysisResult:
+    """
+    Unified result from the single, authoritative HoS Engine containing all HoS analysis.
+    
+    This is the single source of truth for HoS compliance as recommended in TODO3.md Section 1.
+    """
+    is_feasible: bool
+    timeline: List[SimulatedEvent]  # Detailed timeline of all events
+    costs: Dict[str, float]  # Breakdown of costs associated with timeline
+    violations: List[str]  # List of specific violations if not feasible
+    total_duration: float  # Total time including breaks and rests
+    driving_time: float    # Actual driving time
+    working_time: float    # Total working time
+    break_time: float      # Time spent on breaks
+    rest_time: float       # Time spent on daily/weekly rests
+    rest_cost: float       # Total cost of mandatory rests
+    driver_cost: float     # Total driver cost including rest time
 
 
 class HoSRegulations:
@@ -626,16 +658,22 @@ def build_compliant_timeline(route: 'Route') -> Tuple[List[SimulatedEvent], floa
         driver_state = copy.deepcopy(route.driver_state)
     else:
         driver_state = DriverState()
+
+    # Check driver license type for different regulations
+    is_b_license = route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B'
     
-    # B license drivers are exempt from HoS regulations
-    if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
-        # For B license drivers, just create basic timeline without HoS constraints
+    if is_b_license:
+        # B license drivers: Simplified rules - max 15 hours driving, then 9 hours sleep
         current_time = 0.0
+        consecutive_driving = 0.0
+        MAX_B_LICENSE_CONSECUTIVE_DRIVE = 15 * 60  # 15 hours in minutes
+        MIN_B_LICENSE_SLEEP = 9 * 60  # 9 hours sleep
+        
         for i in range(len(route.tasks) - 1):
             start_task = route.tasks[i]
             end_task = route.tasks[i + 1]
             
-            # Service time at start task
+            # Service time at start task (doesn't count as driving time)
             if start_task.service_time > 0:
                 timeline.append(SimulatedEvent(
                     event_type='WORK',
@@ -648,9 +686,32 @@ def build_compliant_timeline(route: 'Route') -> Tuple[List[SimulatedEvent], floa
                 ))
                 current_time += start_task.service_time
             
-            # Travel time to next task
+            # Calculate travel time to next task
             travel_time = _calculate_travel_time_for_simulation(start_task, end_task, route.vehicle)
+            
             if travel_time > 0:
+                # Check if adding this travel would exceed 15-hour consecutive driving limit
+                if consecutive_driving + travel_time > MAX_B_LICENSE_CONSECUTIVE_DRIVE:
+                    # Need 9-hour sleep period
+                    sleep_duration = MIN_B_LICENSE_SLEEP  # 9 hours
+                    driver_cost_per_minute = (route.vehicle.cost_per_hour / 60.0) if route.vehicle else (25.0 / 60.0)
+                    rest_cost = sleep_duration * driver_cost_per_minute
+                    
+                    timeline.append(SimulatedEvent(
+                        event_type='REST',
+                        start_time=current_time,
+                        end_time=current_time + sleep_duration,
+                        duration=sleep_duration,
+                        description="9-hour sleep break (B license: max 15h consecutive driving)",
+                        rest_type='9h_sleep_b',
+                        cost=rest_cost
+                    ))
+                    
+                    current_time += sleep_duration
+                    total_rest_cost += rest_cost
+                    consecutive_driving = 0.0  # Reset consecutive driving counter
+                
+                # Add the driving event
                 timeline.append(SimulatedEvent(
                     event_type='DRIVE',
                     start_time=current_time,
@@ -659,11 +720,13 @@ def build_compliant_timeline(route: 'Route') -> Tuple[List[SimulatedEvent], floa
                     description=f"Drive from {start_task.id} to {end_task.id}",
                     task_id=f"{start_task.id}->{end_task.id}"
                 ))
-                current_time += travel_time
                 
-        return timeline, 0.0
+                current_time += travel_time
+                consecutive_driving += travel_time
+                
+        return timeline, total_rest_cost
     
-    # For CE license drivers, perform full HoS simulation
+    # For CE license drivers, perform full EU HoS simulation
     current_time = 0.0
     current_day = getattr(route.tasks[0], 'day', 0) if route.tasks else 0
     
@@ -958,13 +1021,238 @@ def _calculate_travel_time_for_simulation(task1, task2, vehicle) -> float:
     Returns:
         Travel time in minutes
     """
-    try:
-        # Try to use the route provider if available
-        from route_provider import calculate_travel_time_between_tasks
-        return calculate_travel_time_between_tasks(task1, task2, vehicle)
-    except ImportError:
-        # Fallback to the same calculation used in hos_simulation.py
-        return calculate_travel_time_between_tasks(task1, task2, vehicle)
+    # Use the calculate_travel_time_between_tasks function defined in this module
+    return calculate_travel_time_between_tasks(task1, task2, vehicle)
+
+
+class HoSEngine:
+    """
+    Single, Authoritative Hours of Service Engine
+    
+    This class implements Section 1, Recommendation 1 from TODO3.md:
+    "Create a Single, Authoritative HoS Engine."
+    
+    All HoS logic is unified in this class with one primary function analyze_route()
+    that is the single source of truth for HoS compliance.
+    """
+    
+    def __init__(self):
+        """Initialize the HoS Engine."""
+        self.regulations = HoSRegulations()
+    
+    def analyze_route(self, route: 'Route') -> HoSAnalysisResult:
+        """
+        Single source of truth for HoS analysis.
+        
+        This method performs the complete HoS simulation and returns a comprehensive
+        result containing feasibility, timeline, costs, and violations.
+        
+        Args:
+            route: Route object to analyze
+            
+        Returns:
+            HoSAnalysisResult containing complete HoS analysis
+        """
+        try:
+            # All drivers follow HoS regulations, but with different rules:
+            # B license: max 15h consecutive driving, then 9h sleep
+            # CE license: full EU HoS regulations
+            timeline, rest_cost = build_compliant_timeline(route)
+            
+            # Calculate metrics from timeline
+            driving_time = sum(event.duration for event in timeline if event.event_type == 'DRIVE')
+            working_time = sum(event.duration for event in timeline if event.event_type in ['DRIVE', 'WORK'])
+            break_time = sum(event.duration for event in timeline if event.event_type == 'REST')
+            total_duration = timeline[-1].end_time if timeline else 0.0
+            
+            # Calculate costs
+            driver_cost_per_minute = (route.vehicle.cost_per_hour / 60.0) if route.vehicle else (25.0 / 60.0)
+            driver_cost = working_time * driver_cost_per_minute
+            
+            return HoSAnalysisResult(
+                is_feasible=True,
+                timeline=timeline,
+                costs={'driver_cost': driver_cost, 'rest_cost': rest_cost},
+                violations=[],
+                total_duration=total_duration,
+                driving_time=driving_time,
+                working_time=working_time,
+                break_time=break_time,
+                rest_time=break_time,
+                rest_cost=rest_cost,
+                driver_cost=driver_cost
+            )
+            
+        except Exception as e:
+            # If analysis fails, return infeasible with error details
+            return HoSAnalysisResult(
+                is_feasible=False,
+                timeline=[],
+                costs={},
+                violations=[f"HoS analysis failed with error: {str(e)}"],
+                total_duration=0.0,
+                driving_time=0.0,
+                working_time=0.0,
+                break_time=0.0,
+                rest_time=0.0,
+                rest_cost=0.0,
+                driver_cost=0.0
+            )
+    
+    def _analyze_b_license_route(self, route: 'Route') -> HoSAnalysisResult:
+        """Analyze route for B license driver (exempt from HoS regulations)."""
+        sorted_tasks = sort_tasks_chronologically(route.tasks)
+        
+        # Calculate basic metrics without HoS constraints
+        driving_time = 0.0
+        working_time = 0.0
+        timeline = []
+        current_time = 0.0
+        
+        for i, task in enumerate(sorted_tasks):
+            service_time = getattr(task, 'service_time', 0)
+            working_time += service_time
+            
+            if service_time > 0:
+                timeline.append(SimulatedEvent(
+                    event_type='WORK',
+                    start_time=current_time,
+                    end_time=current_time + service_time,
+                    duration=service_time,
+                    description=f"Service at {task.id}",
+                    location=getattr(task, 'location', None),
+                    task_id=task.id
+                ))
+                current_time += service_time
+            
+            # Add travel time to next task
+            if i < len(sorted_tasks) - 1:
+                next_task = sorted_tasks[i + 1]
+                travel_time = calculate_travel_time_between_tasks(task, next_task, route.vehicle)
+                driving_time += travel_time
+                working_time += travel_time
+                
+                if travel_time > 0:
+                    timeline.append(SimulatedEvent(
+                        event_type='DRIVE',
+                        start_time=current_time,
+                        end_time=current_time + travel_time,
+                        duration=travel_time,
+                        description=f"Drive from {task.id} to {next_task.id}",
+                        task_id=f"{task.id}->{next_task.id}"
+                    ))
+                    current_time += travel_time
+        
+        return HoSAnalysisResult(
+            is_feasible=True,
+            timeline=timeline,
+            costs={'driver_cost': current_time * (route.vehicle.cost_per_hour / 60.0) if route.vehicle else 0.0},
+            violations=[],
+            total_duration=current_time,
+            driving_time=driving_time,
+            working_time=working_time,
+            break_time=0.0,
+            rest_time=0.0,
+            rest_cost=0.0,
+            driver_cost=current_time * (route.vehicle.cost_per_hour / 60.0) if route.vehicle else 0.0
+        )
+    
+    def _analyze_ce_license_route(self, route: 'Route') -> HoSAnalysisResult:
+        """Analyze route for CE license driver with full HoS compliance."""
+        # Build compliant timeline with mandatory rests
+        timeline, rest_cost = build_compliant_timeline(route)
+        
+        # Validate timeline against time window constraints  
+        is_timeline_feasible, failure_reason = self._validate_timeline_feasible(timeline, route)
+        
+        # Calculate detailed costs and metrics
+        costs = self._calculate_timeline_costs(timeline, route)
+        driving_time = costs.get('driving_time', 0.0)
+        working_time = costs.get('working_time', 0.0)
+        break_time = costs.get('break_time', 0.0)
+        rest_time = costs.get('rest_time', 0.0)
+        total_duration = costs.get('total_duration', 0.0)
+        driver_cost = costs.get('driver_cost', 0.0)
+        
+        violations = []
+        if not is_timeline_feasible:
+            violations.append(failure_reason)
+        
+        return HoSAnalysisResult(
+            is_feasible=is_timeline_feasible,
+            timeline=timeline,
+            costs=costs,
+            violations=violations,
+            total_duration=total_duration,
+            driving_time=driving_time,
+            working_time=working_time,
+            break_time=break_time,
+            rest_time=rest_time,
+            rest_cost=rest_cost,
+            driver_cost=driver_cost
+        )
+    
+    def _validate_timeline_feasible(self, timeline: List[SimulatedEvent], route: 'Route') -> Tuple[bool, str]:
+        """
+        Validate a timeline against time window constraints.
+        
+        This consolidates the logic from the old is_timeline_feasible function.
+        """
+        if not timeline:
+            return True, "No timeline to validate"
+        
+        for event in timeline:
+            if event.task_id and not event.task_id.startswith('depot'):
+                # Find the corresponding task
+                task = None
+                for route_task in route.tasks:
+                    if hasattr(route_task, 'id') and route_task.id == event.task_id:
+                        task = route_task
+                        break
+                
+                if task and hasattr(task, 'latest_time') and task.latest_time is not None:
+                    # Check if arrival time violates hard time window
+                    if not getattr(task, 'soft_time_window', False):  # Hard time window
+                        if event.start_time > task.latest_time:
+                            return False, f"Time window violation at task {task.id}: arrival at {event.start_time:.1f} min, but latest allowed is {task.latest_time:.1f} min"
+        
+        return True, "Timeline is feasible"
+    
+    def _calculate_timeline_costs(self, timeline: List[SimulatedEvent], route: 'Route') -> Dict[str, float]:
+        """Calculate detailed costs and metrics from timeline."""
+        costs = {
+            'driving_time': 0.0,
+            'working_time': 0.0,
+            'break_time': 0.0,
+            'rest_time': 0.0,
+            'total_duration': 0.0,
+            'driver_cost': 0.0
+        }
+        
+        if not timeline:
+            return costs
+        
+        # Calculate metrics from timeline
+        total_duration = max(event.end_time for event in timeline) if timeline else 0.0
+        costs['total_duration'] = total_duration
+        
+        for event in timeline:
+            if event.event_type == 'DRIVE':
+                costs['driving_time'] += event.duration
+                costs['working_time'] += event.duration
+            elif event.event_type == 'WORK':
+                costs['working_time'] += event.duration
+            elif event.event_type == 'REST':
+                if event.rest_type in ['45min_break']:
+                    costs['break_time'] += event.duration
+                else:
+                    costs['rest_time'] += event.duration
+        
+        # Calculate total driver cost
+        driver_cost_per_minute = (route.vehicle.cost_per_hour / 60.0) if route.vehicle else (25.0 / 60.0)
+        costs['driver_cost'] = total_duration * driver_cost_per_minute
+        
+        return costs
 
 
 # Backward compatibility functions for existing code

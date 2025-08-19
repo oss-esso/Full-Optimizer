@@ -148,6 +148,23 @@ except ImportError as e:
     print(f"Warning: RoutePrecomputer not available: {e}")
     RoutePrecomputer = None
 
+# Import HoS timeline generation for route breakdown integration
+try:
+    from algo.hos_simulation import build_compliant_timeline, SimulatedEvent
+    print("OK: Successfully imported HoS timeline generation functions")
+    HOS_TIMELINE_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: HoS timeline generation not available: {e}")
+    HOS_TIMELINE_AVAILABLE = False
+
+try:
+    from algo.driver_assignment_enhanced import generate_detailed_route_breakdown
+    print("OK: Successfully imported enhanced route breakdown function")
+    ENHANCED_BREAKDOWN_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Enhanced route breakdown not available: {e}")
+    ENHANCED_BREAKDOWN_AVAILABLE = False
+
 
 # Global counter for tracking route calculations
 # This helps track how many route calculations are made (OSRM calls or cache hits)
@@ -259,7 +276,36 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
         from second_level import is_feasible
         feasible, reason = is_feasible(route, debug_feasibility=True, return_reason=True)
     except ImportError:
-        feasible, reason = True, "(Feasibility check unavailable)"
+        try:
+            from algo.second_level import is_feasible
+            feasible, reason = is_feasible(route, debug_feasibility=True, return_reason=True)
+        except ImportError:
+            feasible, reason = True, "(Feasibility check unavailable)"
+
+    # *** NEW: Generate HoS timeline for this route ***
+    hos_timeline = []
+    print(f"DEBUG: HOS_TIMELINE_AVAILABLE = {HOS_TIMELINE_AVAILABLE}, route.tasks length = {len(route.tasks) if route.tasks else 0}")
+    
+    if HOS_TIMELINE_AVAILABLE and route.tasks:
+        try:
+            print(f"DEBUG: Generating HoS timeline for vehicle {vehicle_id}...")
+            timeline_events, rest_cost = build_compliant_timeline(route)
+            hos_timeline = timeline_events
+            route.hos_timeline = hos_timeline  # Cache for reuse
+            print(f"DEBUG: Generated {len(hos_timeline)} HoS events with {rest_cost:.1f} rest cost")
+            if len(hos_timeline) == 0:
+                print(f"DEBUG: WARNING - Timeline generation returned 0 events for {vehicle_id}")
+        except Exception as e:
+            print(f"DEBUG: HoS timeline generation failed for {vehicle_id}: {e}")
+            import traceback
+            traceback.print_exc()
+            hos_timeline = []
+    else:
+        if not HOS_TIMELINE_AVAILABLE:
+            print(f"DEBUG: HoS timeline not available - HOS_TIMELINE_AVAILABLE = False")
+        if not route.tasks:
+            print(f"DEBUG: HoS timeline skipped - no tasks in route")
+        hos_timeline = []
 
     time.sleep(1)  # Add 1-second delay
     print(f"   VEHICLE: {vehicle_id}:")
@@ -301,6 +347,33 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
         print(f"       Total waiting time: {wait_time_formatted}{efficiency_note}")
     
     print(f"       Task sequence ({len(route.tasks)} tasks) - Real-time monitoring:")
+
+    # *** NEW: Display HoS Timeline Events ***
+    print(f"DEBUG: About to display timeline. hos_timeline length = {len(hos_timeline)}")
+    if hos_timeline and len(hos_timeline) > 0:
+        print(f"       HoS Timeline ({len(hos_timeline)} events) - Regulatory compliance monitoring:")
+        for i, event in enumerate(hos_timeline):
+            try:
+                event_duration_formatted = format_duration_detailed(event.duration)
+                event_start_formatted = format_duration_detailed(event.start_time)
+                event_end_formatted = format_duration_detailed(event.end_time)
+                
+                # Enhanced description with location names
+                enhanced_description = getattr(event, 'description', f"{event.event_type.lower()}")
+                
+                # Format the HoS event display
+                print(f"          {i}: {event.event_type} - {event_duration_formatted} ({event_start_formatted}-{event_end_formatted}) | {enhanced_description}")
+            except Exception as e:
+                print(f"          {i}: ERROR displaying event - {e}")
+        print("")  # Add spacing after HoS timeline
+    else:
+        if not hos_timeline:
+            print(f"       HoS Timeline: Not available (hos_timeline is None or empty list)")
+        elif len(hos_timeline) == 0:
+            print(f"       HoS Timeline: Empty timeline (0 events generated)")
+        else:
+            print(f"       HoS Timeline: Not available (unknown issue)")
+        print("")
 
     current_weight, current_volume, completion_time = 0, 0, 0
 
