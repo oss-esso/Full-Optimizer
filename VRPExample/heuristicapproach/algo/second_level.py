@@ -122,7 +122,7 @@ else:
     except ImportError:
         from epdt_data_structures import Route, Order
 
-def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False, enhanced_diagnostics: bool = False) -> Optional['Route']:
+def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False, enhanced_diagnostics: bool = False, sequencing_strategy: str = 'clustered') -> Optional['Route']:
     """
     Second-Level Heuristic: Finds the best way to insert an order into a route.
     
@@ -135,6 +135,7 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
         order: The order to be inserted
         debug_assignment: Whether to print debug information
         enhanced_diagnostics: Whether to show detailed capacity and constraint analysis
+        sequencing_strategy: Strategy for task sequencing ('clustered' for P-P-D-D or 'interleaved' for P-D-P-D)
         
     Returns:
         Optimized route with the order inserted, or None if infeasible
@@ -142,6 +143,11 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
     
     # Enhanced diagnostic logging for problematic orders
     show_diagnostics = debug_assignment or enhanced_diagnostics
+    
+    # Add verbose logging (Step 3 from guide)
+    verbose = debug_assignment or enhanced_diagnostics
+    if verbose:
+        print(f"    -- L2 Heuristic: Inserting Order {order.id} into Vehicle {route.vehicle.id} --")
     
     if enhanced_diagnostics:
         print(f"L2 DIAGNOSTIC: Attempting to insert Order {order.id} into vehicle {route.vehicle.id}")
@@ -170,7 +176,7 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
             order_volume > (route.vehicle.volume_capacity - current_volume)):
             print(f"   CAPACITY FAILURE: Order {order.id} exceeds vehicle capacity")
     
-    initial_routes: List['Route'] = _generate_initial_task_sequence(route, order, show_diagnostics)
+    initial_routes: List['Route'] = _generate_initial_task_sequence(route, order, show_diagnostics, sequencing_strategy)
 
     if show_diagnostics:
         print(f"      DEBUG L2: Order {order.id} generated {len(initial_routes)} initial routes")
@@ -200,15 +206,31 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
             
     if enhanced_diagnostics and not final_route:
         print(f"   LOCAL SEARCH FAILURE: Order {order.id} failed during local search optimization")
+    
+    # At the end of l2_heuristic, before returning (Step 3 from guide)
+    if verbose:
+        if final_route:
+            print(f"    -- L2 Heuristic Complete: Found best insertion for Order {order.id}. Final Route Score (Z2): {calculate_z2_score(final_route):.2f} --")
+        else:
+            print(f"    -- L2 Heuristic Complete: No feasible insertion found for Order {order.id}. --")
 
     return final_route
 
 
 
-def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assignment: bool = False) -> List['Route']:
+def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assignment: bool = False, sequencing_strategy: str = 'clustered') -> List['Route']:
     """ 
     Generates initial task sequences using a precedence-aware insertion heuristic.
     Ensures pickup tasks are always inserted before delivery tasks for the same order.
+    
+    Args:
+        route: The route to insert tasks into
+        order: The order containing tasks to insert
+        debug_assignment: Whether to print debug information
+        sequencing_strategy: 'clustered' for P-P-D-D pattern or 'interleaved' for P-D-P-D pattern
+        
+    Returns:
+        List of routes with different task sequences attempted
     """
     P = order.get_pickups()
     D = order.get_deliveries()
@@ -261,10 +283,25 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
             print(f"        DEBUG L2: Delivery-only order successfully processed with {len(current_route.tasks)} tasks")
         return initial_routes
     
-    # Strategy 1: Cluster-based efficient insertion
-    # Group pickups first, then deliveries to minimize depot visits
-    # This creates more efficient pickup->pickup->delivery->delivery patterns
-    
+    # Choose strategy based on sequencing_strategy parameter
+    if sequencing_strategy == 'clustered':
+        return _generate_clustered_sequence(route, order, P, D, debug_assignment)
+    elif sequencing_strategy == 'interleaved':
+        return _generate_interleaved_sequence(route, order, P, D, debug_assignment)
+    else:
+        # Default to clustered for unknown strategies
+        if debug_assignment:
+            print(f"        DEBUG L2: Unknown sequencing strategy '{sequencing_strategy}', defaulting to 'clustered'")
+        return _generate_clustered_sequence(route, order, P, D, debug_assignment)
+
+
+def _generate_clustered_sequence(route: 'Route', order: 'Order', P: List, D: List, debug_assignment: bool = False) -> List['Route']:
+    """
+    Strategy 1: Cluster-based efficient insertion
+    Group pickups first, then deliveries to minimize depot visits
+    This creates more efficient pickup->pickup->delivery->delivery patterns
+    """
+    initial_routes = []
     current_route = route.copy()
     
     if debug_assignment:
@@ -286,8 +323,10 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
             test_route = current_route.copy()
             test_route.insert_task_without_reordering(pos, pickup)
             
+            # Add detailed logging from guide (Step 3)
             if debug_assignment:
-                print(f"        DEBUG L2: Pickup cluster position {pos}, feasible: {is_feasible_for_insertion(test_route, debug_insertion=debug_assignment)}")
+                print(f"      - Trying to insert {pickup.id if hasattr(pickup, 'id') else 'unknown'} at position {pos}...")
+                print(f"        Feasible: {is_feasible_for_insertion(test_route, debug_insertion=debug_assignment)}, New Route Score (Z2): {calculate_z2_score(test_route):.2f}")
             
             if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
                 cost = calculate_z2_score(test_route)
@@ -391,7 +430,101 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
         print(f"        DEBUG L2: Successfully created route with {len(current_route.tasks)} tasks")
     
     return initial_routes
+
+
+def _generate_interleaved_sequence(route: 'Route', order: 'Order', P: List, D: List, debug_assignment: bool = False) -> List['Route']:
+    """
+    Strategy 2: Interleaved chronological insertion
+    Attempts to sequence tasks chronologically based on their time windows,
+    while respecting pickup-before-delivery precedence for each pair.
+    This naturally creates P-D-P-D patterns.
+    """
+    initial_routes = []
+    current_route = route.copy()
     
+    if debug_assignment:
+        print(f"        DEBUG L2: Starting interleaved insertion with {len(P)} pickups and {len(D)} deliveries")
+    
+    # Get all tasks and sort by earliest time
+    all_tasks = P + D
+    try:
+        # Sort tasks by their earliest_time attribute
+        all_tasks.sort(key=lambda task: getattr(task, 'earliest_time', 0))
+        if debug_assignment:
+            print(f"        DEBUG L2: Sorted {len(all_tasks)} tasks by earliest time")
+    except:
+        # Fallback if no time windows available
+        if debug_assignment:
+            print(f"        DEBUG L2: No time windows available, using original order")
+    
+    # Track which pickups have been inserted for precedence checking
+    inserted_pickups = set()
+    
+    # Insert tasks in chronological order, respecting precedence
+    for task in all_tasks:
+        # If this is a delivery, check that its corresponding pickup has been inserted
+        if not task.is_pickup():
+            corresponding_pickup_inserted = False
+            # Find if any pickup from the same order has been inserted
+            for pickup in P:
+                if (hasattr(pickup, 'order_id') and hasattr(task, 'order_id') and 
+                    pickup.order_id == task.order_id and pickup.id in inserted_pickups):
+                    corresponding_pickup_inserted = True
+                    break
+            
+            if not corresponding_pickup_inserted:
+                if debug_assignment:
+                    print(f"        DEBUG L2: Skipping delivery {getattr(task, 'id', 'unknown')} - no corresponding pickup inserted yet")
+                continue
+        
+        best_task_cost = float('inf')
+        best_task_route = None
+        best_task_pos = None
+        
+        if debug_assignment:
+            task_type = "pickup" if task.is_pickup() else "delivery"
+            print(f"        DEBUG L2: Interleaved insertion of {task_type} {getattr(task, 'id', 'unknown')}")
+        
+        # Try inserting at all valid positions
+        for pos in range(1, len(current_route.tasks)):
+            test_route = current_route.copy()
+            test_route.insert_task_without_reordering(pos, task)
+            
+            if debug_assignment:
+                print(f"        DEBUG L2: Interleaved position {pos}, feasible: {is_feasible_for_insertion(test_route, debug_insertion=debug_assignment)}")
+            
+            if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
+                cost = calculate_z2_score(test_route)
+                if cost < best_task_cost:
+                    best_task_cost = cost
+                    best_task_route = test_route
+                    best_task_pos = pos
+        
+        if best_task_route:
+            current_route = best_task_route
+            if task.is_pickup():
+                inserted_pickups.add(task.id)
+            if debug_assignment:
+                task_type = "pickup" if task.is_pickup() else "delivery"
+                print(f"        DEBUG L2: Successfully inserted {task_type} at position {best_task_pos}")
+        else:
+            if debug_assignment:
+                task_type = "pickup" if task.is_pickup() else "delivery"
+                print(f"        DEBUG L2: Failed to insert {task_type} - no feasible positions")
+            return []
+    
+    # Verify all tasks were inserted
+    if len(inserted_pickups) == len(P):
+        initial_routes.append(current_route)
+        if debug_assignment:
+            print(f"        DEBUG L2: Successfully created interleaved route with {len(current_route.tasks)} tasks")
+    else:
+        if debug_assignment:
+            print(f"        DEBUG L2: Interleaved insertion incomplete - missing pickups")
+        return []
+    
+    return initial_routes
+
 
 def _task_insertion_neighborhood(route: 'Route', order: 'Order') -> Iterator['Route']:
     """ 

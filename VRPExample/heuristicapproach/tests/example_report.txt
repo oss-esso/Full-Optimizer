@@ -1,0 +1,88 @@
+
+OLD OUTPUT
+
+DEBUG: Running HoS calculation for route GA625VG
+DEBUG: FIRST PATH - Extracted Values for GA625VG:
+  total_drive_time = 1205.98 min
+  total_work_time = 1330.98 min
+  total_duration = 1870.98 min
+DEBUG: FIRST PATH - HoS data successfully calculated for route GA625VG
+DEBUG: FIRST PATH - Total elapsed timeline: 1870.98 min, Drive: 1205.98 min, Work: 1330.98 min
+Vehicle GA625VG    -> Driver Massimo         (License: B, Type: standard)
+    - Day 1: Drive: 20:05, Breaks: 18:00, Salary: EUR554.57
+    Analysis Weekly Summary: Drive: 20:05, Breaks: 18:00, Total Salary: EUR554.57
+    Route Feasible: True
+    Route duration (active travel+service): 00:22:15
+
+       Task sequence (6 tasks) - Real-time monitoring:
+          1. DEPOT-ASTI (Order: depot_start_order_GA625VG) - Cumulative: 00:00:00 [No window -> No window]
+             Load: +0.0kg, +0.0m^3 -> Total: 0.0kg, 0.0m^3
+             Status: (On time)
+          2. VIA FLAMINIA KM 186, GUALDO TADINO (PG), ITALY (Order: 13) - Cumulative: 00:06:52 (+00:06:47) [00:00:00 -> 01:18:00]
+             Load: +50.0kg, +3.0m^3 -> Total: 50.0kg, 3.0m^3
+               1: DRIVE -  408.0min (   5.0- 413.0) | Drive to VIA FLAMINIA KM 186
+               2: WORK -   30.0min ( 413.0- 443.0) | Service at VIA FLAMINIA KM 186
+               3: DRIVE -  425.2min ( 443.0- 868.2) | Drive to VIA FLAMINIA KM 186
+             Status: (On time) 0: WORK -    5.0min (   0.0-   5.0) | Service at VIA FLAMINIA KM 186
+          3. VIA FIRENZE, VARESE (VA), ITALY (Order: 13) - Cumulative: 00:14:28 (+00:07:05) [00:00:00 -> 03:18:00]
+             Load: -50.0kg, -3.0m^3 -> Total: 0.0kg, 0.0m^3
+               5: REST -  540.0min ( 898.2-1438.2) | 9-hour sleep break (B license: max 15h consecutive driving)
+             Status: (On time) 4: WORK -   30.0min ( 868.2- 898.2) | Service at VIA FIRENZE
+          4. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 1) - Cumulative: 00:16:49 (+00:01:51) [00:00:00 -> 01:23:59]
+             Load: +346.0kg, +1.0m^3 -> Total: 346.0kg, 1.0m^3
+             Status: (On time)
+          5. VIA CARABINIERE ANTONIO FOIS, VENTIMIGLIA (IM), ITALY (Order: 1) - Cumulative: 00:19:31 (+00:02:11) [00:00:00 -> 01:18:00]
+             Load: -346.0kg, -1.0m^3 -> Total: 0.0kg, 0.0m^3
+             Status: (On time)
+          6. DEPOT-ASTI (Order: depot_return_order_GA625VG) - Cumulative: 00:22:10 (+00:02:09) [No window -> No window]
+             Load: +0.0kg, +0.0m^3 -> Total: 0.0kg, 0.0m^3
+             Status: (On time)
+
+
+DESIRED OUTPUT
+
+Vehicle: GA625VG (Max m^3, Max kg, Max Pallet)    -> Driver Massimo         (License: B, Type: standard)
+
+DEBUG: FIRST PATH - HoS data successfully calculated for route GA625VG
+DEBUG: FIRST PATH - Total elapsed timeline: 1870.98 min (put in hòurs), Drive: 1205.98 min (put in hòurs), Work: 1330.98 min (put in hòurs)
+
+
+    Analysis Weekly Summary: Drive: 20:05, Breaks: 18:00, Total Salary: EUR554.57
+    Route Feasible: True
+    Route duration (active travel+service): 00:22:15
+
+       Task sequence (6 tasks) - Real-time monitoring:
+      - Day 1 (add date): Drive: 20:05, Breaks: 18:00, Salary: EUR554.57 (this is wròng because it shòuld shòw partial values)
+
+
+          1. DEPOT-ASTI
+             Arrival at 00:00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m^3 -> Total: 0.0kg, 0.0m^3
+             
+            DRIVE to VIA FLAMINIA KM 186, GUALDO TADINO (PG) - 408.0min (tò be fòrmatted hh:mm)
+               1: DRIVE - 4h 30m
+               2: REST  -     45m
+               3: DRIVE -  2h 17m
+
+          2. VIA FLAMINIA KM 186, GUALDO TADINO (PG), ITALY (Order: 13)
+             Arrival at: dd/MM - 06:52  [dd/MM - hh/mm -> dd/MM - hh/mm] - Status: On time
+             WORK 30.0min - Load: +50.0kg, +3.0m^3 (add pallets) -> Total: 50.0kg, 3.0m^3 (add pallets)
+
+            DRIVE to VIA FIRENZE, VARESE (VA) - 452.0min (tò be fòrmatted hh:mm)
+               1: DRIVE -  2h 12m 
+               2: REST  -     45m 
+               3: REST  - 11h 
+               4: DRIVE -  1h 55m 
+
+      - Day 2 (add date): Drive: 20:05, Breaks: 18:00, Salary: EUR554.57 (this is wròng because it shòuld shòw partial values)
+               4: DRIVE -  2h 35m
+               5: REST  -     45m 
+               6: DRIVE -     23m 
+
+          3. VIA FIRENZE, VARESE (VA), ITALY (Order: 13)
+             Arrival at: dd/MM - 06:52  [dd/MM - hh/mm -> dd/MM - hh/mm] - Status: On time
+             WORK 30.0min - Load: -50.0kg, -3.0m^3 (add pallets) -> Total: 0.0kg, 0.0m^3 (add pallets)
+
+            and so on 
+            ...
+            ...

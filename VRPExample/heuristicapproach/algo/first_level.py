@@ -205,6 +205,14 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         improvement_found = False
         best_neighbors_pool = []
         
+        # Add verbose logging (Step 3 from guide)
+        verbose = params.get('verbose_logging', False)
+        if verbose:
+            print(f"\n--- L1 Heuristic: Iteration {total_iters} ---")
+            print(f"  - Center Solution Score (Z1): {calculate_z1_score(center_solution, params, orders):.2f}")
+            print(f"  - Non-improving iterations: {non_improving_iters}/{params['M1']}")
+        
+        
         if total_iters % 10 == 1:  # Print every 10 iterations
             print(f"RECALCULATING L1 Iteration {total_iters}: non_improving={non_improving_iters}, score={calculate_z1_score(center_solution, params, orders):.2f}")
         
@@ -282,8 +290,11 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         max_neighbors_per_iteration = params.get('max_neighbors_per_iteration', 20)
         
         for neighborhood_idx, neighborhood_func in enumerate(neighborhoods):
+            if verbose:
+                print(f"\n  -> Exploring Neighborhood: {neighborhood_func.__name__}")
             if total_iters % 50 == 1:
                 print(f"Debug Exploring neighborhood {neighborhood_idx+1}/{len(neighborhoods)}: {neighborhood_func.__name__}")
+            
             
             # Check if we've already evaluated too many neighbors in this VND iteration
             if total_neighbors_this_vnd >= max_neighbors_per_iteration:
@@ -337,6 +348,10 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                     # Add to pool for diversification if not tabu but not improving
                     best_neighbors_pool.append((neighbor, neighbor_score))
             
+            # After iterating through a neighborhood's neighbors
+            if verbose and best_neighbor_in_N:
+                print(f"    - Best neighbor in this neighborhood has score: {best_neighbor_score:.2f}")
+            
             # Check for improvement
             if best_neighbor_in_N and best_neighbor_score > calculate_z1_score(center_solution, params, orders):
                 # Update tabu list with move attributes
@@ -353,6 +368,10 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                     # Allow flexible task ordering - do not enforce pickup-first ordering here
                     # for vehicle_id, route in best_solution.routes.items():
                     #     route.ensure_pickup_first_ordering()
+                
+                # When an improving move is found and made
+                if verbose:
+                    print(f"  => Improvement found! New center score: {calculate_z1_score(center_solution, params, orders):.2f}. Restarting VND.")
                 
                 break # Go back to the first neighborhood (VND restart)
         
@@ -384,6 +403,10 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 
                 # Update center solution
                 center_solution = selected_neighbor
+                
+                # In the diversification step
+                if verbose:
+                    print(f"  => No improvement. Making diversification move. New center score: {calculate_z1_score(center_solution, params, orders):.2f}")
                 
                 # Allow flexible task ordering during search
                 # for vehicle_id, route in center_solution.routes.items():
@@ -2180,11 +2203,21 @@ def regret_k_initializer(orders: List['Order'], vehicles: List['Vehicle'], param
                 if vehicles_shown < len(vehicles):
                     print(f"   (Detailed breakdown shown for first {vehicles_shown} vehicles only)")
                 
-                unassigned_orders.remove(problematic_order)
-                # Add to unassigned list in solution
-                if not hasattr(solution, 'unassigned_orders'):
-                    solution.unassigned_orders = set()
-                solution.unassigned_orders.add(problematic_order.id)
+                # ADVANCED ORDER HANDLING: Try advanced strategies before giving up
+                print(f"\nATTEMPTING ADVANCED ASSIGNMENT for order {problematic_order.id}...")
+                was_force_assigned = handle_unassigned_order(problematic_order, vehicles, solution)
+                
+                if was_force_assigned:
+                    print(f"ADVANCED SUCCESS: Order {problematic_order.id} assigned using advanced strategies!")
+                    # Remove from unassigned list and continue to next iteration
+                    unassigned_orders.remove(problematic_order)
+                else:
+                    print(f"ADVANCED FAILURE: Order {problematic_order.id} could not be assigned even with advanced strategies.")
+                    # Standard failure handling: add to unassigned list
+                    unassigned_orders.remove(problematic_order)
+                    if not hasattr(solution, 'unassigned_orders'):
+                        solution.unassigned_orders = set()
+                    solution.unassigned_orders.add(problematic_order.id)
     
     # Add depot tasks to all routes with actual orders
     for vehicle_id, route in solution.routes.items():
@@ -2260,3 +2293,929 @@ def _add_depot_tasks_to_route(route: 'Route'):
         
     except Exception as e:
         print(f"Warning: Could not add depot tasks to route: {e}")
+
+
+# ===== ADVANCED ORDER SPLITTING AND SEQUENCING FUNCTIONS =====
+
+def handle_unassigned_order(order, vehicles, solution):
+    """
+    Orchestrates a series of advanced strategies to assign a difficult order.
+    
+    Args:
+        order: The problematic order that failed standard insertion
+        vehicles: List of available vehicles
+        solution: Current solution to modify
+        
+    Returns:
+        bool: True if order was successfully assigned, False otherwise
+    """
+    print(f"Executing advanced assignment for order {order.id}...")
+
+    # Strategy 1: Try different single-vehicle sequencing
+    if try_single_vehicle_strategies(order, vehicles, solution):
+        print(f"SUCCESS: Assigned order {order.id} using a single-vehicle strategy.")
+        return True
+
+    # Strategy 2: Try splitting the order across multiple vehicles
+    print(f"  Single-vehicle strategies failed. Attempting multi-vehicle splitting...")
+    if try_multi_vehicle_splitting_basic(order, vehicles, solution):
+        print(f"SUCCESS: Assigned order {order.id} by splitting across multiple vehicles.")
+        return True
+
+    # Strategy 3: Try vehicle reallocation to free up large capacity vehicles
+    print(f"  Multi-vehicle splitting failed. Attempting vehicle reallocation strategy...")
+    if try_vehicle_reallocation(order, vehicles, solution):
+        print(f"SUCCESS: Assigned order {order.id} using vehicle reallocation.")
+        return True
+
+    print(f"FAILURE: All advanced strategies failed for order {order.id}.")
+    return False
+
+
+def try_single_vehicle_strategies(order, vehicles, solution):
+    """
+    Tries to assign all tasks of an order to a single vehicle using different sequencing.
+    
+    Args:
+        order: Order to assign
+        vehicles: List of available vehicles
+        solution: Current solution to modify
+        
+    Returns:
+        bool: True if successful assignment found, False otherwise
+    """
+    from second_level import l2_heuristic, calculate_z2_score
+    
+    print(f"  Trying single-vehicle strategies for order {order.id}...")
+    
+    # Iterate through all available vehicles
+    for vehicle in vehicles:
+        # Get the current route for this vehicle
+        base_route = solution.routes[vehicle.id]
+        
+        print(f"    Testing vehicle {vehicle.id} (capacity: {vehicle.weight_capacity}kg, {vehicle.volume_capacity}m³)")
+        
+        # Strategy 1.1: Try clustered sequencing (P-P-D-D)
+        print(f"      Trying clustered sequencing (P-P-D-D)...")
+        clustered_route = l2_heuristic(base_route, order, sequencing_strategy='clustered')
+        if clustered_route and clustered_route.is_feasible():
+            solution.routes[vehicle.id] = clustered_route
+            print(f"      SUCCESS: Clustered sequencing worked for vehicle {vehicle.id}")
+            return True
+
+        # Strategy 1.2: Try interleaved sequencing (P-D-P-D)
+        print(f"      Trying interleaved sequencing (P-D-P-D)...")
+        interleaved_route = l2_heuristic(base_route, order, sequencing_strategy='interleaved')
+        if interleaved_route and interleaved_route.is_feasible():
+            solution.routes[vehicle.id] = interleaved_route
+            print(f"      SUCCESS: Interleaved sequencing worked for vehicle {vehicle.id}")
+            return True
+            
+        print(f"      FAILED: Neither sequencing strategy worked for vehicle {vehicle.id}")
+    
+    print(f"  FAILED: No single-vehicle strategy worked for order {order.id}")
+    return False
+
+
+def _create_base_route(vehicle):
+    """
+    Helper function to create a base route for a vehicle.
+    Uses the same pattern as the existing code.
+    
+    Args:
+        vehicle: Vehicle to create route for
+        
+    Returns:
+        Route: Base route with depot tasks
+    """
+    try:
+        from epdt_data_structures import Route
+        route = Route(vehicle)
+        # Add depot tasks if needed
+        _add_depot_tasks_to_route(route)
+        return route
+    except Exception as e:
+        print(f"Warning: Could not create base route for vehicle {vehicle.id}: {e}")
+        # Fallback: create minimal route
+        from epdt_data_structures import Route
+        return Route(vehicle)
+
+
+def try_multi_vehicle_splitting_basic(order, vehicles, solution):
+    """
+    Enhanced multi-vehicle splitting strategy: split by pickup-delivery pairs.
+    
+    Instead of splitting all pickups vs all deliveries, this identifies individual
+    pickup-delivery pairs and splits them across multiple vehicles. This handles
+    cases like Order 25 (96000kg, 4 pairs) and Order 14 (6000kg, 6 pairs).
+    
+    Args:
+        order: Order to split  
+        vehicles: Available vehicles
+        solution: Current solution to modify
+        
+    Returns:
+        bool: True if successful assignment found, False otherwise
+    """
+    from second_level import l2_heuristic
+    from itertools import combinations
+    
+    print(f"  Attempting enhanced multi-vehicle splitting for order {order.id}...")
+    
+    # Get pickups and deliveries
+    pickups = order.get_pickups()
+    deliveries = order.get_deliveries()
+    
+    print(f"    Order has {len(pickups)} pickups and {len(deliveries)} deliveries")
+    
+    if len(pickups) == 0 or len(deliveries) == 0:
+        print(f"    Cannot split order with only pickups or only deliveries")
+        return False
+    
+    # Step 1: Identify pickup-delivery pairs
+    pickup_delivery_pairs = identify_pickup_delivery_pairs(pickups, deliveries)
+    
+    if not pickup_delivery_pairs:
+        print(f"    Could not identify pickup-delivery pairs")
+        return False
+        
+    print(f"    Identified {len(pickup_delivery_pairs)} pickup-delivery pairs")
+    
+    # Step 2: Try different ways to split pairs across vehicles
+    # Start with the most balanced split and work toward more uneven splits
+    
+    num_pairs = len(pickup_delivery_pairs)
+    
+    # PRIORITY ENHANCEMENT: Sort pairs by weight/volume to prioritize larger pairs
+    pickup_delivery_pairs_prioritized = sorted(pickup_delivery_pairs, 
+                                               key=lambda pair: sum(task.demand for task in [pair[0]] if task.is_pickup()), 
+                                               reverse=True)  # Largest pairs first
+    
+    print(f"    Prioritized pairs by weight (largest first):")
+    for i, (pickup, delivery) in enumerate(pickup_delivery_pairs_prioritized):
+        pair_weight = pickup.demand if pickup.is_pickup() else 0
+        print(f"      Pair {i+1}: {pair_weight:.1f}kg from {getattr(pickup, 'location_id', 'unknown')} to {getattr(delivery, 'location_id', 'unknown')}")
+    
+    # Use prioritized pairs for splitting
+    pickup_delivery_pairs = pickup_delivery_pairs_prioritized
+    
+    # Try splitting into different numbers of groups (2 to min(num_pairs, num_vehicles))
+    max_groups = min(num_pairs, len(vehicles), 4)  # Limit to 4 vehicles max for performance
+    
+    for num_groups in range(2, max_groups + 1):
+        print(f"    Trying to split {num_pairs} pairs into {num_groups} groups...")
+        
+        # Generate all ways to partition pairs into num_groups
+        pair_partitions = generate_pair_partitions(pickup_delivery_pairs, num_groups)
+        
+        # Try assigning each partition to vehicles
+        for partition in pair_partitions:
+            if try_assign_pair_partition(partition, vehicles, solution, order.id):
+                print(f"    SUCCESS: Split order into {len(partition)} vehicle assignments")
+                return True
+    
+    print(f"    FAILED: No feasible pair-based split found")
+    return False
+
+
+def identify_pickup_delivery_pairs(pickups, deliveries):
+    """
+    Identify which pickups match with which deliveries to form logical pairs.
+    
+    This handles different pairing strategies:
+    1. Same location pairs (pickup and delivery at same location)
+    2. Route-based pairs (pickup at A, delivery at B)
+    3. Task sequence pairs (based on task numbering or ordering)
+    
+    Returns:
+        List of (pickup, delivery) tuples representing pairs
+    """
+    pairs = []
+    
+    # Strategy 1: Try pairing by location proximity
+    # This works for round-trip scenarios (same pickup/delivery locations)
+    used_delivery_ids = set()  # Use task IDs instead of Task objects
+    
+    for pickup in pickups:
+        best_delivery = None
+        best_distance = float('inf')
+        
+        for delivery in deliveries:
+            if delivery.id in used_delivery_ids:  # Use task ID for comparison
+                continue
+                
+            # Calculate distance between pickup and delivery
+            if hasattr(pickup, 'lat') and hasattr(delivery, 'lat'):
+                distance = calculate_distance(pickup.lat, pickup.lon, delivery.lat, delivery.lon)
+                if distance < best_distance:
+                    best_distance = distance
+                    best_delivery = delivery
+        
+        if best_delivery and best_distance < 50:  # 50km threshold for pairing
+            pairs.append((pickup, best_delivery))
+            used_delivery_ids.add(best_delivery.id)  # Use task ID
+            print(f"      Paired pickup {getattr(pickup, 'id', 'unknown')} with delivery {getattr(best_delivery, 'id', 'unknown')} (distance: {best_distance:.1f}km)")
+    
+    # Strategy 2: If location pairing didn't work well, try sequential pairing
+    if len(pairs) < min(len(pickups), len(deliveries)):
+        print(f"      Location pairing only found {len(pairs)} pairs, trying sequential pairing...")
+        pairs.clear()
+        used_delivery_ids.clear()
+        
+        # Simple sequential pairing: pair pickups[i] with deliveries[i]
+        for i in range(min(len(pickups), len(deliveries))):
+            pairs.append((pickups[i], deliveries[i]))
+            print(f"      Sequentially paired pickup {i} with delivery {i}")
+    
+    return pairs
+
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """Simple Haversine distance calculation"""
+    import math
+    R = 6371  # Earth radius in km
+    
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    
+    a = (math.sin(dlat/2) * math.sin(dlat/2) + 
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * 
+         math.sin(dlon/2) * math.sin(dlon/2))
+    
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    distance = R * c
+    
+    return distance
+
+
+def generate_pair_partitions(pairs, num_groups):
+    """
+    Generate different ways to partition pairs into groups.
+    
+    For efficiency, we limit to reasonable partitioning strategies:
+    1. Balanced partitioning (distribute pairs evenly)
+    2. Sequential partitioning (group consecutive pairs)
+    
+    Args:
+        pairs: List of (pickup, delivery) pairs
+        num_groups: Number of groups to create
+        
+    Returns:
+        List of partitions, where each partition is a list of groups
+    """
+    if num_groups >= len(pairs):
+        # One pair per group
+        return [[[pair] for pair in pairs]]
+    
+    partitions = []
+    
+    # Strategy 1: Balanced distribution
+    # Distribute pairs as evenly as possible across groups
+    pairs_per_group = len(pairs) // num_groups
+    remainder = len(pairs) % num_groups
+    
+    balanced_partition = []
+    start_idx = 0
+    
+    for group_idx in range(num_groups):
+        group_size = pairs_per_group + (1 if group_idx < remainder else 0)
+        group_pairs = pairs[start_idx:start_idx + group_size]
+        if group_pairs:  # Only add non-empty groups
+            balanced_partition.append(group_pairs)
+        start_idx += group_size
+    
+    if balanced_partition:
+        partitions.append(balanced_partition)
+        print(f"      Generated balanced partition: {[len(group) for group in balanced_partition]} pairs per group")
+    
+    return partitions
+
+
+def try_assign_pair_partition(partition, vehicles, solution, order_id):
+    """
+    Try to assign each group of pairs in the partition to different vehicles.
+    
+    Args:
+        partition: List of groups, where each group contains pairs
+        vehicles: Available vehicles  
+        solution: Current solution to modify
+        order_id: Original order ID for tracking
+        
+    Returns:
+        bool: True if successful assignment found
+    """
+    from second_level import l2_heuristic
+    
+    # Find the best vehicle assignment for each group
+    group_assignments = []
+    
+    for group_idx, pair_group in enumerate(partition):
+        print(f"      Finding vehicle for group {group_idx+1} with {len(pair_group)} pairs...")
+        
+        # Create temporary order from this group of pairs
+        temp_order = create_temp_order_from_pair_group(pair_group, f"{order_id}_group{group_idx+1}")
+        
+        if not temp_order:
+            print(f"        Failed to create temporary order for group {group_idx+1}")
+            return False
+        
+        # Calculate requirements for this group using correct Task attributes
+        group_weight = sum(task.demand for task in temp_order.pickup_tasks)  # demand = weight in kg
+        group_volume = sum(task.volume for task in temp_order.pickup_tasks)  # volume = volume in m³
+        group_pallets = sum(task.pallets for task in temp_order.pickup_tasks)  # pallets = number of pallets
+        print(f"        Group {group_idx+1} requirements: {group_weight:.1f}kg, {group_volume:.2f}m³, {group_pallets} pallets")
+        
+        # DEBUG: Add detailed info about the tasks in this group
+        print(f"          DEBUG: Group {group_idx+1} contains {len(temp_order.pickup_tasks)} pickups and {len(temp_order.delivery_tasks)} deliveries")
+        for i, pickup in enumerate(temp_order.pickup_tasks):
+            print(f"            DEBUG: Pickup {i+1}: {pickup.demand:.1f}kg, {pickup.volume:.2f}m³, {pickup.pallets}p at {getattr(pickup, 'location_id', 'unknown')}")
+        for i, delivery in enumerate(temp_order.delivery_tasks):
+            print(f"            DEBUG: Delivery {i+1}: {delivery.demand:.1f}kg, {delivery.volume:.2f}m³, {delivery.pallets}p at {getattr(delivery, 'location_id', 'unknown')}")
+            
+        # DEBUG: Check if any tasks have time window constraints
+        has_time_constraints = any(hasattr(task, 'time_window') and task.time_window for task in temp_order.pickup_tasks + temp_order.delivery_tasks)
+        if has_time_constraints:
+            print(f"          DEBUG: Group {group_idx+1} has time window constraints")
+            for task in temp_order.pickup_tasks + temp_order.delivery_tasks:
+                if hasattr(task, 'time_window') and task.time_window:
+                    print(f"            DEBUG: Task {task.id} window: {task.time_window}")
+        else:
+            print(f"          DEBUG: Group {group_idx+1} has no time window constraints")
+        
+        # Find best vehicle for this group
+        best_vehicle = None
+        best_route = None
+        best_cost = float('inf')
+        tested_vehicles = 0
+        
+        for vehicle in vehicles:
+            # Skip vehicles already assigned in this partition
+            if any(assignment[0].id == vehicle.id for assignment in group_assignments):
+                continue
+                
+            base_route = solution.routes[vehicle.id]
+            tested_vehicles += 1
+            
+            # Quick capacity check before L2 heuristic
+            if (group_weight > vehicle.weight_capacity or 
+                group_volume > vehicle.volume_capacity or
+                group_pallets > vehicle.pallet_capacity):
+                print(f"        Vehicle {vehicle.id}: CAPACITY EXCEEDED - need {group_weight:.1f}kg/{group_volume:.2f}m³/{group_pallets}p, available {vehicle.weight_capacity:.1f}kg/{vehicle.volume_capacity:.2f}m³/{vehicle.pallet_capacity}p")
+                continue
+            
+            # Try assigning this group to this vehicle with enhanced soft time window strategies
+            print(f"          DEBUG: Testing group {group_idx+1} on vehicle {vehicle.id} with soft time window strategies...")
+            
+            best_strategy_route = None
+            best_strategy_cost = float('inf')
+            
+            # STRATEGY 1: Interleaved sequencing (P-D-P-D) - better for tight time windows
+            test_route_interleaved = l2_heuristic(base_route, temp_order, sequencing_strategy='interleaved', enhanced_diagnostics=True)
+            
+            # Check if this route can be made feasible by allowing time window violations
+            if test_route_interleaved:
+                route_acceptable = False
+                if test_route_interleaved.is_feasible():
+                    route_acceptable = True
+                else:
+                    # Check if it's only time window violations that make it infeasible
+                    try:
+                        from second_level import is_feasible
+                        feasibility_result = is_feasible(test_route_interleaved, debug_feasibility=True, return_reason=True, allow_time_window_violations=True)
+                        if feasibility_result[0]:  # Feasible if we ignore time window violations
+                            print(f"            DEBUG: Strategy 1 route is feasible except for time windows - ACCEPTING with penalty")
+                            test_route_interleaved._force_feasible_for_time_violations = True
+                            route_acceptable = True
+                    except Exception as e:
+                        print(f"            DEBUG: Could not check soft feasibility for strategy 1: {e}")
+                
+                if route_acceptable:
+                    from second_level import calculate_z2_score
+                    cost_interleaved = calculate_z2_score(test_route_interleaved)
+                    
+                    # Apply priority boost for large orders (lower cost = higher priority)
+                    if group_weight > 20000:  # Large orders get priority boost
+                        cost_interleaved *= 0.8  # 20% cost reduction for large orders
+                        print(f"            DEBUG: Applied large order priority boost (20% cost reduction)")
+                    
+                    if cost_interleaved < best_strategy_cost:
+                        best_strategy_cost = cost_interleaved
+                        best_strategy_route = test_route_interleaved
+                        print(f"            DEBUG: Strategy 1 (interleaved P-D-P-D) succeeded with cost: {cost_interleaved:.2f}")
+            
+            # STRATEGY 2: Clustered sequencing (P-P-D-D) if strategy 1 failed
+            if not best_strategy_route:
+                test_route_clustered = l2_heuristic(base_route, temp_order, sequencing_strategy='clustered', enhanced_diagnostics=True)
+                
+                if test_route_clustered:
+                    route_acceptable = False
+                    if test_route_clustered.is_feasible():
+                        route_acceptable = True
+                    else:
+                        # Check if it's only time window violations that make it infeasible
+                        try:
+                            from second_level import is_feasible
+                            feasibility_result = is_feasible(test_route_clustered, debug_feasibility=True, return_reason=True, allow_time_window_violations=True)
+                            if feasibility_result[0]:  # Feasible if we ignore time window violations
+                                print(f"            DEBUG: Strategy 2 route is feasible except for time windows - ACCEPTING with penalty")
+                                test_route_clustered._force_feasible_for_time_violations = True
+                                route_acceptable = True
+                        except Exception as e:
+                            print(f"            DEBUG: Could not check soft feasibility for strategy 2: {e}")
+                    
+                    if route_acceptable:
+                        from second_level import calculate_z2_score
+                        cost_clustered = calculate_z2_score(test_route_clustered)
+                        
+                        # Apply priority boost for large orders
+                        if group_weight > 20000:
+                            cost_clustered *= 0.8
+                            print(f"            DEBUG: Applied large order priority boost (20% cost reduction)")
+                        
+                        if cost_clustered < best_strategy_cost:
+                            best_strategy_cost = cost_clustered
+                            best_strategy_route = test_route_clustered
+                            print(f"            DEBUG: Strategy 2 (clustered P-P-D-D) succeeded with cost: {cost_clustered:.2f}")
+            
+            # STRATEGY 3: Standard fallback if both sequencing strategies failed
+            if not best_strategy_route:
+                test_route = l2_heuristic(base_route, temp_order, enhanced_diagnostics=True)
+                
+                if test_route:
+                    route_acceptable = False
+                    if test_route.is_feasible():
+                        route_acceptable = True
+                    else:
+                        # Check if it's only time window violations that make it infeasible
+                        try:
+                            from second_level import is_feasible
+                            feasibility_result = is_feasible(test_route, debug_feasibility=True, return_reason=True, allow_time_window_violations=True)
+                            if feasibility_result[0]:  # Feasible if we ignore time window violations
+                                print(f"            DEBUG: Strategy 3 route is feasible except for time windows - ACCEPTING with penalty")
+                                test_route._force_feasible_for_time_violations = True
+                                route_acceptable = True
+                        except Exception as e:
+                            print(f"            DEBUG: Could not check soft feasibility for strategy 3: {e}")
+                    
+                    if route_acceptable:
+                        from second_level import calculate_z2_score
+                        cost_standard = calculate_z2_score(test_route)
+                        
+                        # Apply priority boost for large orders
+                        if group_weight > 20000:
+                            cost_standard *= 0.8
+                            print(f"            DEBUG: Applied large order priority boost (20% cost reduction)")
+                        
+                        if cost_standard < best_strategy_cost:
+                            best_strategy_cost = cost_standard
+                            best_strategy_route = test_route
+                            print(f"            DEBUG: Strategy 3 (standard) succeeded with cost: {cost_standard:.2f}")
+            
+            # Evaluate the best strategy result
+            final_acceptable = best_strategy_route and (best_strategy_route.is_feasible() or getattr(best_strategy_route, '_force_feasible_for_time_violations', False))
+            
+            if final_acceptable:
+                if best_strategy_cost < best_cost:
+                    best_cost = best_strategy_cost
+                    best_vehicle = vehicle
+                    best_route = best_strategy_route
+                    print(f"        Vehicle {vehicle.id}: FEASIBLE assignment found (cost: {best_strategy_cost:.2f}) with soft time windows")
+            else:
+                print(f"        Vehicle {vehicle.id}: All L2 sequencing strategies rejected or have non-time-window violations")
+                
+                # DEBUG: Add detailed failure analysis
+                if test_route:
+                    print(f"          DEBUG: L2 returned route but is_feasible() = False")
+                    try:
+                        from second_level import is_feasible
+                        feasibility_result = is_feasible(test_route, debug_feasibility=True, return_reason=True)
+                        print(f"          DEBUG: Feasibility failure: {feasibility_result}")
+                    except Exception as e:
+                        print(f"          DEBUG: Could not get feasibility details: {e}")
+                else:
+                    print(f"          DEBUG: L2 heuristic returned None (complete rejection)")
+        
+        print(f"        Tested {tested_vehicles} vehicles for group {group_idx+1}")
+        
+        if best_vehicle and best_route:
+            group_assignments.append((best_vehicle, best_route))
+            print(f"        Group {group_idx+1} assigned to vehicle {best_vehicle.id} (cost: {best_cost:.2f})")
+        else:
+            print(f"        Failed to assign group {group_idx+1} to any vehicle")
+            
+            # NEW: Try vehicle reallocation for this specific pair group
+            print(f"        Attempting vehicle reallocation for individual pair group {group_idx+1}...")
+            if try_vehicle_reallocation_for_pair(temp_order, vehicles, solution):
+                print(f"        SUCCESS: Pair group {group_idx+1} assigned using vehicle reallocation!")
+                # The reallocation function will have modified the solution directly
+                # Add a placeholder assignment to continue the process
+                group_assignments.append(("reallocation_success", None))
+            else:
+                print(f"        FAILED: Vehicle reallocation also failed for pair group {group_idx+1}")
+                return False
+    
+    # If we successfully assigned all groups, apply the assignments
+    if len(group_assignments) == len(partition):
+        for vehicle, route in group_assignments:
+            # Handle reallocation success cases (where assignments are already applied)
+            if vehicle != "reallocation_success":
+                solution.routes[vehicle.id] = route
+        
+        print(f"      Successfully applied all {len(group_assignments)} group assignments")
+        return True
+    
+    return False
+
+
+def create_temp_order_from_pair_group(pair_group, new_order_id):
+    """
+    Create a temporary order from a group of pickup-delivery pairs.
+    
+    Args:
+        pair_group: List of (pickup, delivery) tuples
+        new_order_id: ID for the temporary order
+        
+    Returns:
+        Order: Temporary order containing all pairs, or None if creation fails
+    """
+    try:
+        from epdt_data_structures import Order
+        
+        if not pair_group:
+            return None
+        
+        # Create new order
+        temp_order = Order(id=new_order_id)
+        
+        # Add all pickups and deliveries from the pairs
+        for pickup, delivery in pair_group:
+            temp_order.pickup_tasks.append(pickup)
+            temp_order.delivery_tasks.append(delivery)
+        
+        return temp_order
+        
+    except Exception as e:
+        print(f"    Warning: Could not create temporary order from pair group: {e}")
+        return None
+
+
+def try_vehicle_reallocation(order, vehicles, solution):
+    """
+    Vehicle reallocation strategy: Free up large capacity vehicles by moving their current
+    orders to smaller vehicles, then try to assign the large problematic order to the freed vehicle.
+    
+    This strategy targets scenarios where large vehicles are assigned to small orders while
+    large orders cannot be assigned due to lack of large vehicle capacity.
+    
+    Args:
+        order: Large order that failed assignment
+        vehicles: Available vehicles
+        solution: Current solution to modify
+        
+    Returns:
+        bool: True if successful reallocation and assignment found, False otherwise
+    """
+    from second_level import l2_heuristic
+    
+    print(f"  Attempting vehicle reallocation strategy for order {order.id}...")
+    
+    # Step 1: Calculate the requirements of the problematic order
+    order_weight = sum(task.demand for task in order.pickup_tasks)
+    order_volume = sum(task.volume for task in order.pickup_tasks)
+    order_pallets = sum(task.pallets for task in order.pickup_tasks)
+    
+    print(f"    Order requirements: {order_weight:.1f}kg, {order_volume:.2f}m³, {order_pallets} pallets")
+    
+    # Step 2: Identify large capacity vehicles that could handle this order
+    large_vehicles = []
+    for vehicle in vehicles:
+        if (vehicle.weight_capacity >= order_weight and 
+            vehicle.volume_capacity >= order_volume and
+            vehicle.pallet_capacity >= order_pallets):
+            large_vehicles.append(vehicle)
+    
+    if not large_vehicles:
+        print(f"    No vehicles found with sufficient capacity for order {order.id}")
+        return False
+    
+    print(f"    Found {len(large_vehicles)} vehicles with sufficient capacity")
+    
+    # Step 3: For each large vehicle, check if its current order can be moved elsewhere
+    for large_vehicle in large_vehicles:
+        print(f"    Analyzing vehicle {large_vehicle.id} (capacity: {large_vehicle.weight_capacity}kg, {large_vehicle.volume_capacity:.1f}m³, {large_vehicle.pallet_capacity}p)")
+        
+        current_route = solution.routes[large_vehicle.id]
+        
+        # Skip if vehicle has no customer tasks
+        customer_tasks = [task for task in current_route.tasks if not (task.is_depot_start() or task.is_depot_return())]
+        if not customer_tasks:
+            print(f"      Vehicle {large_vehicle.id} is empty, attempting direct assignment...")
+            # Try direct assignment to empty vehicle
+            base_route = solution.routes[large_vehicle.id]
+            test_route = l2_heuristic(base_route, order)
+            if test_route and test_route.is_feasible():
+                solution.routes[large_vehicle.id] = test_route
+                print(f"      SUCCESS: Direct assignment to empty vehicle {large_vehicle.id}")
+                return True
+            continue
+        
+        # Step 4: Identify the current order on this vehicle
+        current_order_tasks = customer_tasks
+        if not current_order_tasks:
+            continue
+        
+        # Calculate current order requirements
+        current_weight = sum(task.demand for task in current_order_tasks if task.is_pickup())
+        current_volume = sum(task.volume for task in current_order_tasks if task.is_pickup())
+        current_pallets = sum(task.pallets for task in current_order_tasks if task.is_pickup())
+        
+        print(f"      Current assignment: {current_weight:.1f}kg, {current_volume:.2f}m³, {current_pallets} pallets")
+        
+        # Step 5: Try to move current order to a smaller vehicle
+        candidate_vehicles = []
+        for candidate in vehicles:
+            if (candidate.id != large_vehicle.id and 
+                candidate.weight_capacity >= current_weight and
+                candidate.volume_capacity >= current_volume and
+                candidate.pallet_capacity >= current_pallets):
+                candidate_vehicles.append(candidate)
+        
+        if not candidate_vehicles:
+            print(f"      No suitable alternative vehicles found for current order")
+            continue
+        
+        print(f"      Found {len(candidate_vehicles)} candidate vehicles for reallocation")
+        
+        # Step 6: Try reallocation
+        successful_reallocation = False
+        
+        for candidate_vehicle in candidate_vehicles:
+            # Check if candidate vehicle is empty or has space
+            candidate_route = solution.routes[candidate_vehicle.id]
+            candidate_tasks = [task for task in candidate_route.tasks if not (task.is_depot_start() or task.is_depot_return())]
+            
+            if candidate_tasks:
+                print(f"        Candidate vehicle {candidate_vehicle.id} is already occupied, skipping...")
+                continue
+            
+            # Try to assign current order to candidate vehicle
+            # First, create a temporary order from current tasks
+            temp_order = create_temp_order_from_tasks(current_order_tasks, f"temp_order_{large_vehicle.id}")
+            if not temp_order:
+                continue
+            
+            test_route = l2_heuristic(candidate_route, temp_order)
+            if test_route and test_route.is_feasible():
+                print(f"        Current order can be moved to vehicle {candidate_vehicle.id}")
+                
+                # Step 7: Now try to assign the large problematic order to the freed large vehicle
+                # Create empty route for the large vehicle
+                empty_route = _create_base_route(large_vehicle)
+                large_order_route = l2_heuristic(empty_route, order)
+                
+                if large_order_route and large_order_route.is_feasible():
+                    # Success! Apply both assignments
+                    solution.routes[candidate_vehicle.id] = test_route
+                    solution.routes[large_vehicle.id] = large_order_route
+                    
+                    print(f"      SUCCESS: Moved current order to vehicle {candidate_vehicle.id} and assigned large order to vehicle {large_vehicle.id}")
+                    successful_reallocation = True
+                    break
+                else:
+                    print(f"        Large order still cannot be assigned to freed vehicle {large_vehicle.id}")
+        
+        if successful_reallocation:
+            return True
+    
+    print(f"    FAILED: Vehicle reallocation strategy could not assign order {order.id}")
+    return False
+
+
+def try_vehicle_reallocation_for_pair(pair_order, vehicles, solution):
+    """
+    Vehicle reallocation strategy specifically for individual pickup-delivery pairs.
+    
+    This is optimized for smaller orders (individual pairs) that should fit in large
+    vehicles if we can free them up from smaller orders.
+    
+    Args:
+        pair_order: Individual pickup-delivery pair order
+        vehicles: Available vehicles
+        solution: Current solution to modify
+        
+    Returns:
+        bool: True if successful reallocation and assignment found
+    """
+    from second_level import l2_heuristic
+    
+    print(f"    Attempting pair-level vehicle reallocation for order {pair_order.id}...")
+    
+    # Calculate requirements for this pair
+    pair_weight = sum(task.demand for task in pair_order.pickup_tasks)
+    pair_volume = sum(task.volume for task in pair_order.pickup_tasks)
+    pair_pallets = sum(task.pallets for task in pair_order.pickup_tasks)
+    
+    print(f"      Pair requirements: {pair_weight:.1f}kg, {pair_volume:.2f}m³, {pair_pallets} pallets")
+    
+    # Find large vehicles that could handle this pair
+    suitable_vehicles = []
+    for vehicle in vehicles:
+        if (vehicle.weight_capacity >= pair_weight and 
+            vehicle.volume_capacity >= pair_volume and
+            vehicle.pallet_capacity >= pair_pallets):
+            suitable_vehicles.append(vehicle)
+    
+    if not suitable_vehicles:
+        print(f"      No vehicles found with capacity for pair {pair_order.id}")
+        return False
+    
+    print(f"      Found {len(suitable_vehicles)} vehicles with sufficient capacity")
+    
+    # Sort suitable vehicles by capacity (largest first) to prioritize freeing up the biggest vehicles
+    suitable_vehicles.sort(key=lambda v: v.weight_capacity, reverse=True)
+    
+    # Try to free up suitable vehicles by moving their current assignments
+    for target_vehicle in suitable_vehicles:
+        print(f"      Analyzing large vehicle {target_vehicle.id} (capacity: {target_vehicle.weight_capacity}kg)")
+        
+        current_route = solution.routes[target_vehicle.id]
+        customer_tasks = [task for task in current_route.tasks if not (task.is_depot_start() or task.is_depot_return())]
+        
+        if not customer_tasks:
+            print(f"        Vehicle {target_vehicle.id} is empty, attempting direct assignment...")
+            
+            print(f"          DEBUG: Calling L2 heuristic for pair {pair_order.id}")
+            print(f"          DEBUG: Vehicle capacity: {target_vehicle.weight_capacity}kg, {target_vehicle.volume_capacity:.2f}m³, {target_vehicle.pallet_capacity}p")
+            print(f"          DEBUG: Pair requirements: {pair_weight:.1f}kg, {pair_volume:.2f}m³, {pair_pallets}p")
+            print(f"          DEBUG: Base route has {len(current_route.tasks)} tasks: {[task.task_type for task in current_route.tasks]}")
+            
+            # STRATEGY 1: Try with interleaved sequencing (P-D-P-D pattern) + allow time window violations
+            print(f"          DEBUG: Strategy 1 - Trying L2 with interleaved sequencing + soft time windows...")
+            test_route = l2_heuristic(current_route, pair_order, debug_assignment=True, sequencing_strategy='interleaved', enhanced_diagnostics=True)
+            
+            # If route is created but fails feasibility due to time windows, check if it's just time window violations
+            if test_route and not test_route.is_feasible():
+                print(f"          DEBUG: L2 route created but not feasible - checking if it's only time window violations...")
+                try:
+                    from second_level import is_feasible
+                    feasibility_result = is_feasible(test_route, debug_feasibility=True, return_reason=True, allow_time_window_violations=True)
+                    if feasibility_result[0]:  # Feasible if we ignore time window violations
+                        print(f"          DEBUG: Route is feasible except for time windows - ACCEPTING with penalty")
+                        # Override feasibility check - we'll accept this route and let penalties handle it
+                        test_route._force_feasible_for_time_violations = True
+                except Exception as e:
+                    print(f"          DEBUG: Could not check soft feasibility: {e}")
+            
+            if not (test_route and (test_route.is_feasible() or getattr(test_route, '_force_feasible_for_time_violations', False))):
+                # STRATEGY 2: Try with clustered sequencing (P-P-D-D pattern) + allow time window violations
+                print(f"          DEBUG: Strategy 2 - Trying L2 with clustered sequencing + soft time windows...")
+                test_route = l2_heuristic(current_route, pair_order, debug_assignment=True, sequencing_strategy='clustered', enhanced_diagnostics=True)
+                
+                # If route is created but fails feasibility due to time windows, check if it's just time window violations
+                if test_route and not test_route.is_feasible():
+                    print(f"          DEBUG: L2 route created but not feasible - checking if it's only time window violations...")
+                    try:
+                        from second_level import is_feasible
+                        feasibility_result = is_feasible(test_route, debug_feasibility=True, return_reason=True, allow_time_window_violations=True)
+                        if feasibility_result[0]:  # Feasible if we ignore time window violations
+                            print(f"          DEBUG: Route is feasible except for time windows - ACCEPTING with penalty")
+                            # Override feasibility check - we'll accept this route and let penalties handle it
+                            test_route._force_feasible_for_time_violations = True
+                    except Exception as e:
+                        print(f"          DEBUG: Could not check soft feasibility: {e}")
+            
+            if not (test_route and (test_route.is_feasible() or getattr(test_route, '_force_feasible_for_time_violations', False))):
+                # STRATEGY 3: Try standard L2 heuristic + allow time window violations
+                print(f"          DEBUG: Strategy 3 - Trying standard L2 heuristic + soft time windows...")
+                test_route = l2_heuristic(current_route, pair_order, debug_assignment=True, enhanced_diagnostics=True)
+                
+                # If route is created but fails feasibility due to time windows, check if it's just time window violations
+                if test_route and not test_route.is_feasible():
+                    print(f"          DEBUG: L2 route created but not feasible - checking if it's only time window violations...")
+                    try:
+                        from second_level import is_feasible
+                        feasibility_result = is_feasible(test_route, debug_feasibility=True, return_reason=True, allow_time_window_violations=True)
+                        if feasibility_result[0]:  # Feasible if we ignore time window violations
+                            print(f"          DEBUG: Route is feasible except for time windows - ACCEPTING with penalty")
+                            # Override feasibility check - we'll accept this route and let penalties handle it
+                            test_route._force_feasible_for_time_violations = True
+                    except Exception as e:
+                        print(f"          DEBUG: Could not check soft feasibility: {e}")
+            
+            # Final check: Accept route if feasible or if it has only time window violations
+            final_route_acceptable = test_route and (test_route.is_feasible() or getattr(test_route, '_force_feasible_for_time_violations', False))
+            
+            if final_route_acceptable:
+                solution.routes[target_vehicle.id] = test_route
+                print(f"        SUCCESS: Direct assignment to empty vehicle {target_vehicle.id} (with potential time window penalties)")
+                return True
+            else:
+                print(f"          DEBUG: All strategies failed - route cannot be created or has non-time-window constraint violations")
+            continue
+        
+        # Calculate current assignment requirements
+        current_weight = sum(task.demand for task in customer_tasks if task.is_pickup())
+        current_volume = sum(task.volume for task in customer_tasks if task.is_pickup())
+        current_pallets = sum(task.pallets for task in customer_tasks if task.is_pickup())
+        
+        print(f"        Current assignment: {current_weight:.1f}kg, {current_volume:.2f}m³, {current_pallets}p")
+        
+        # Find smaller vehicles that could take the current assignment
+        alternative_vehicles = []
+        for alt_vehicle in vehicles:
+            if (alt_vehicle.id != target_vehicle.id and
+                alt_vehicle.weight_capacity >= current_weight and
+                alt_vehicle.volume_capacity >= current_volume and
+                alt_vehicle.pallet_capacity >= current_pallets):
+                
+                # Check if alternative vehicle is empty
+                alt_route = solution.routes[alt_vehicle.id]
+                alt_customer_tasks = [task for task in alt_route.tasks if not (task.is_depot_start() or task.is_depot_return())]
+                if not alt_customer_tasks:  # Only use empty vehicles
+                    alternative_vehicles.append(alt_vehicle)
+        
+        if not alternative_vehicles:
+            print(f"        No empty alternative vehicles found for current assignment")
+            continue
+        
+        print(f"        Found {len(alternative_vehicles)} empty alternative vehicles")
+        
+        # Try the reallocation
+        for alt_vehicle in alternative_vehicles:
+            print(f"          Testing reallocation to vehicle {alt_vehicle.id} (capacity: {alt_vehicle.weight_capacity}kg)")
+            
+            # Create temporary order from current tasks
+            temp_order = create_temp_order_from_tasks(customer_tasks, f"temp_{target_vehicle.id}_to_{alt_vehicle.id}")
+            if not temp_order:
+                continue
+            
+            # Test if current assignment can move to alternative vehicle
+            alt_route = solution.routes[alt_vehicle.id]
+            test_alt_route = l2_heuristic(alt_route, temp_order)
+            
+            if test_alt_route and test_alt_route.is_feasible():
+                # Test if pair can be assigned to the freed target vehicle
+                empty_target_route = _create_base_route(target_vehicle)
+                test_pair_route = l2_heuristic(empty_target_route, pair_order)
+                
+                if test_pair_route and test_pair_route.is_feasible():
+                    # Success! Apply both assignments
+                    solution.routes[alt_vehicle.id] = test_alt_route
+                    solution.routes[target_vehicle.id] = test_pair_route
+                    
+                    print(f"          SUCCESS: Moved assignment to {alt_vehicle.id}, assigned pair to {target_vehicle.id}")
+                    return True
+                else:
+                    print(f"          Pair still cannot be assigned to freed vehicle {target_vehicle.id}")
+                    
+                    # DEBUG: Add detailed info about why pair assignment failed
+                    if test_pair_route:
+                        print(f"            DEBUG: L2 returned route but is_feasible() = False")
+                        try:
+                            from second_level import is_feasible
+                            feasibility_result = is_feasible(test_pair_route, debug_feasibility=True, return_reason=True)
+                            print(f"            DEBUG: Feasibility failure reason: {feasibility_result}")
+                        except Exception as e:
+                            print(f"            DEBUG: Could not get feasibility details: {e}")
+                    else:
+                        print(f"            DEBUG: L2 heuristic returned None for freed vehicle")
+            else:
+                print(f"          Current assignment cannot be moved to alternative vehicle {alt_vehicle.id}")
+    
+    print(f"      FAILED: Pair-level vehicle reallocation could not assign {pair_order.id}")
+    return False
+
+
+def create_temp_order_from_tasks(tasks, new_order_id):
+    """
+    Helper to create a temporary Order object from a list of tasks.
+    
+    Args:
+        tasks: List of tasks to include in the order
+        new_order_id: ID for the new temporary order
+        
+    Returns:
+        Order: Temporary order containing the tasks, or None if creation fails
+    """
+    try:
+        from epdt_data_structures import Order
+        
+        if not tasks:
+            return None
+        
+        # Create new order with ID as first positional argument (dataclass format)
+        temp_order = Order(id=new_order_id)
+        
+        # Copy task properties
+        for task in tasks:
+            # Create new task with same properties
+            if task.is_pickup():
+                temp_order.pickup_tasks.append(task)
+            else:
+                temp_order.delivery_tasks.append(task)
+        
+        return temp_order
+        
+    except Exception as e:
+        print(f"    Warning: Could not create temporary order from tasks: {e}")
+        return None

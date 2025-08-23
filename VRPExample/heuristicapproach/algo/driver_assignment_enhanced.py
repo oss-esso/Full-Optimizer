@@ -652,6 +652,11 @@ def assign_drivers_to_routes_enhanced(drivers: List[EnhancedDriver],
     if not drivers or not routes:
         return {}
     
+    # Check for verbose logging
+    verbose = getattr(config, 'verbose_logging', False)
+    if verbose:
+        print("\n--- Driver Assignment Process ---")
+    
     # Filter and prioritize routes
     heavy_routes = [r for r in routes if r.vehicle.vehicle_type == 'heavy']
     light_routes = [r for r in routes if r.vehicle.vehicle_type != 'heavy']
@@ -668,9 +673,15 @@ def assign_drivers_to_routes_enhanced(drivers: List[EnhancedDriver],
     
     # Phase 1: Assign CE drivers to heavy trucks first (mandatory requirement)
     ce_drivers = [d for d in drivers if d.license == 'CE' and d.availability_status == "available"]
+    if verbose:
+        print(f"\n- Phase 1: Assigning {len(ce_drivers)} CE drivers to {len(heavy_routes)} heavy routes.")
+        
     for route in heavy_routes:
         if not ce_drivers:
             break
+        if verbose:
+            print(f"  - Evaluating Route: {route.vehicle.id}")
+            
         # Find best available CE driver
         best_driver = None
         best_score = float('inf')
@@ -687,12 +698,19 @@ def assign_drivers_to_routes_enhanced(drivers: List[EnhancedDriver],
             if hasattr(driver, 'default_vehicle_id'):
                 if driver.default_vehicle_id == route.vehicle.id:
                     score -= 30.0  # Default vehicle bonus
+            
+            if verbose:
+                depot_match = hasattr(driver, 'home_depot_id') and hasattr(route.vehicle, 'depot_id') and driver.home_depot_id == route.vehicle.depot_id
+                default_vehicle_match = hasattr(driver, 'default_vehicle_id') and driver.default_vehicle_id == route.vehicle.id
+                print(f"    - Driver {driver.name}: Score = {score:.2f} (Depot match: {depot_match}, Default vehicle: {default_vehicle_match})")
                 
             if score < best_score:
                 best_score = score
                 best_driver = driver
         
         if best_driver:
+            if verbose:
+                print(f"  => Assignment: Route {route.vehicle.id} -> Driver {best_driver.name} (Best Score: {best_score:.2f})")
             assignments[route.vehicle.id] = best_driver.name
             assigned_drivers.add(best_driver.id)
             ce_drivers.remove(best_driver)
@@ -701,9 +719,15 @@ def assign_drivers_to_routes_enhanced(drivers: List[EnhancedDriver],
     remaining_drivers = [d for d in drivers if d.id not in assigned_drivers and d.availability_status == "available"]
     remaining_routes = [r for r in routes if r.vehicle.id not in assignments]
     
+    if verbose:
+        print(f"\n- Phase 2: Assigning {len(remaining_drivers)} remaining drivers to {len(remaining_routes)} remaining routes.")
+    
     for route in remaining_routes:
         if not remaining_drivers:
             break
+        
+        if verbose:
+            print(f"  - Evaluating Route: {route.vehicle.id}")
             
         # Find best available driver
         best_driver = None
@@ -729,17 +753,24 @@ def assign_drivers_to_routes_enhanced(drivers: List[EnhancedDriver],
                 if driver.default_vehicle_id == route.vehicle.id:
                     score -= 30.0  # Default vehicle bonus
                 
+            if verbose:
+                depot_match = hasattr(driver, 'home_depot_id') and hasattr(route.vehicle, 'depot_id') and driver.home_depot_id == route.vehicle.depot_id
+                default_vehicle_match = hasattr(driver, 'default_vehicle_id') and driver.default_vehicle_id == route.vehicle.id
+                print(f"    - Driver {driver.name}: Score = {score:.2f} (Depot match: {depot_match}, Default vehicle: {default_vehicle_match})")
+                
             if score < best_score:
                 best_score = score
                 best_driver = driver
         
         if best_driver:
+            if verbose:
+                print(f"  => Assignment: Route {route.vehicle.id} -> Driver {best_driver.name} (Best Score: {best_score:.2f})")
             assignments[route.vehicle.id] = best_driver.name
             assigned_drivers.add(best_driver.id)
             remaining_drivers.remove(best_driver)
     
     print(f"OK Assignment completed: {len(assignments)} drivers assigned to routes")
-    print(f"   • Unassigned drivers: {len(drivers) - len(assignments)}")
+    print(f"   - Unassigned drivers: {len(drivers) - len(assignments)}")
     
     return assignments
 
@@ -1095,7 +1126,7 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
             feasible, reason = check_route_feasibility(route)
             if not feasible:
                 violated_routes_count += 1
-                violation_indicator = f" ❌ VIOLATION: {reason}"
+                violation_indicator = f" [VIOLATION: {reason}]"
             else:
                 violation_indicator = ""
                 
@@ -1137,7 +1168,7 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                     
                     print(f"    - Day {day}: Drive: {format_minutes_to_hhmm(drive_time)}, "
                           f"Breaks: {format_minutes_to_hhmm(breaks_time)}, "
-                          f"Salary: €{daily_salary:.2f}{violation_text}")
+                          f"Salary: EUR{daily_salary:.2f}{violation_text}")
                 
                 # Weekly HoS breakdown
                 total_weekly_salary = (total_weekly_work / 60) * driver_cost_per_hour
@@ -1147,7 +1178,7 @@ def print_assignment_summary(routes: List[Route], drivers: List[Driver]):
                 
                 print(f"    Analysis Weekly Summary{theoretical_text}: Drive: {format_minutes_to_hhmm(total_weekly_drive)}, "
                       f"Breaks: {format_minutes_to_hhmm(total_weekly_breaks)}, "
-                      f"Total Salary: €{total_weekly_salary:.2f}")
+                      f"Total Salary: EUR{total_weekly_salary:.2f}")
                 
                 # Add detailed timeline breakdown
                 print(format_timeline_breakdown(route))
@@ -1188,6 +1219,6 @@ if __name__ == "__main__":
     
     # Load drivers with enhanced functionality
     drivers = load_drivers_from_excel_enhanced(excel_path)
-    print(f"✓ Loaded {len(drivers)} enhanced drivers")
+    print(f"OK: Loaded {len(drivers)} enhanced drivers")
     
     print("\nEnhanced system ready for production use!")

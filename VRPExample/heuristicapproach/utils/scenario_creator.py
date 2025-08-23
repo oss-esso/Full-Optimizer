@@ -123,6 +123,62 @@ def find_column_in_row(row: pd.Series, possible_columns: List[str]) -> Optional[
             return col
     return None
 
+def parse_date_to_day_number(date_value, base_date=None) -> int:
+    """
+    Parse a date value (dd/mm/yyyy format or datetime object) to a day number.
+    
+    Args:
+        date_value: Date string in dd/mm/yyyy format or datetime object
+        base_date: Base date to calculate from (defaults to first day of scenario)
+        
+    Returns:
+        Day number (1-based) relative to the base date
+    """
+    if pd.isna(date_value):
+        return 1
+    
+    try:
+        # If it's already a datetime object, use it directly
+        if isinstance(date_value, datetime):
+            parsed_date = date_value.date()
+        elif hasattr(date_value, 'date'):  # pandas Timestamp
+            parsed_date = date_value.date()
+        else:
+            # Parse dd/mm/yyyy string format
+            date_str = str(date_value).strip()
+            if '/' in date_str:
+                day, month, year = date_str.split('/')
+                parsed_date = datetime(int(year), int(month), int(day)).date()
+            else:
+                # Fallback: try standard datetime parsing
+                parsed_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        # If no base_date provided, use the parsed date as day 1
+        if base_date is None:
+            return 1
+        
+        # Calculate day difference
+        if isinstance(base_date, str):
+            if '/' in base_date:
+                day, month, year = base_date.split('/')
+                base_parsed = datetime(int(year), int(month), int(day)).date()
+            else:
+                base_parsed = datetime.strptime(base_date, '%Y-%m-%d').date()
+        elif isinstance(base_date, datetime):
+            base_parsed = base_date.date()
+        elif hasattr(base_date, 'date'):
+            base_parsed = base_date.date()
+        else:
+            base_parsed = base_date
+        
+        # Calculate difference in days and return 1-based day number
+        day_diff = (parsed_date - base_parsed).days
+        return max(1, day_diff + 1)
+        
+    except (ValueError, AttributeError, TypeError) as e:
+        logger.warning(f"Could not parse date value '{date_value}': {e}")
+        return 1
+
 def safe_parse_value_with_mapping(row: pd.Series, target_field: str, default_value, value_type=None, boolean_values=None):
     """
     Safely parse a value using column mapping with fallback to direct column names.
@@ -1070,9 +1126,56 @@ def create_task_from_row(row: pd.Series, geocode_cache: Dict[str, Dict[str, floa
         earliest_time = None
         latest_time = None
 
-        # New format: Multi-day with hours
-        earliest_day = safe_parse_value(row, 'EARLIEST DAY', 1, int)
-        latest_day = safe_parse_value(row, 'LATEST DAY', earliest_day, int)
+        # New format: Multi-day with hours - parse dates from dd/mm/yyyy format
+        earliest_day_value = safe_parse_value(row, 'EARLIEST DAY', None, None)
+        latest_day_value = safe_parse_value(row, 'LATEST DAY', earliest_day_value, None)
+        
+        # Parse dates using the new date parsing function
+        # Use earliest_day_value as the base date (becomes day 1)
+        earliest_day = 1  # The earliest day is always day 1
+        
+        # Calculate latest day relative to earliest day
+        if latest_day_value and earliest_day_value:
+            try:
+                # Parse both dates and calculate difference
+                earliest_parsed = None
+                latest_parsed = None
+                
+                # Parse earliest date
+                if isinstance(earliest_day_value, datetime):
+                    earliest_parsed = earliest_day_value.date()
+                elif hasattr(earliest_day_value, 'date'):
+                    earliest_parsed = earliest_day_value.date()
+                else:
+                    date_str = str(earliest_day_value).strip()
+                    if '/' in date_str:
+                        day, month, year = date_str.split('/')
+                        earliest_parsed = datetime(int(year), int(month), int(day)).date()
+                
+                # Parse latest date  
+                if isinstance(latest_day_value, datetime):
+                    latest_parsed = latest_day_value.date()
+                elif hasattr(latest_day_value, 'date'):
+                    latest_parsed = latest_day_value.date()
+                else:
+                    date_str = str(latest_day_value).strip()
+                    if '/' in date_str:
+                        day, month, year = date_str.split('/')
+                        latest_parsed = datetime(int(year), int(month), int(day)).date()
+                
+                # Calculate day difference
+                if earliest_parsed and latest_parsed:
+                    day_diff = (latest_parsed - earliest_parsed).days
+                    latest_day = max(1, day_diff + 1)
+                else:
+                    latest_day = earliest_day
+                    
+            except (ValueError, AttributeError, TypeError) as e:
+                logger.warning(f"Could not parse date values '{earliest_day_value}' -> '{latest_day_value}': {e}")
+                latest_day = earliest_day
+        else:
+            latest_day = earliest_day
+        
         time_start_input = safe_parse_value(row, 'TIME WINDOW START', '00:00', None) # Keep as object
         time_end_input = safe_parse_value(row, 'TIME WINDOW END', '23:59', None)   # Keep as object
 
