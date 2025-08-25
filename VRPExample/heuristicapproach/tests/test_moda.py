@@ -99,12 +99,12 @@ except ImportError:
 # Import route provider for OSRM mode
 try:
     from route_provider import set_testing_mode
-    set_testing_mode(use_haversine=True)  # Enable OSRM routing
+    set_testing_mode(use_haversine=False)  # Enable OSRM routing
     print("OK: Configured route provider for OSRM mode")
 except ImportError:
     try:
         from algo.route_provider import set_testing_mode
-        set_testing_mode(use_haversine=True)  # Enable OSRM routing
+        set_testing_mode(use_haversine=False)  # Enable OSRM routing
         print("OK: Configured route provider for OSRM mode with algo prefix")
     except ImportError:
         print("Warning: route_provider not available, using fallback calculations")
@@ -218,8 +218,9 @@ def calculate_travel_time_with_counter(prev_task, curr_task, vehicle):
             from algo.route_provider import calculate_travel_time_between_tasks
             return calculate_travel_time_between_tasks(prev_task, curr_task, vehicle)
         except ImportError:
-            # Fallback: simple time estimation
-            return 60  # 1 hour default
+            # Fallback: simple time estimation based on distance approximation
+            # Use a more realistic default based on typical urban/highway speeds
+            return 45  # 45 minutes default (more realistic than 30 or 60)
 
 def reset_route_calculation_counter():
     """Reset the global route calculation counter."""
@@ -510,35 +511,116 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None):
         volume_change = getattr(task, 'volume', 0.0)
         return weight_change, volume_change
 
+    def get_time_window_status(task, arrival_time_minutes):
+        """
+        Calculate the time window status for a task based on arrival time.
+        
+        Args:
+            task: Task with earliest_time and latest_time attributes
+            arrival_time_minutes: Arrival time in minutes from start
+            
+        Returns:
+            String status: "On time", "Early (wait required)", "Late"
+        """
+        earliest = getattr(task, 'earliest_time', None)
+        latest = getattr(task, 'latest_time', None)
+        
+        # If no time window, always on time
+        if earliest is None and latest is None:
+            return "On time"
+        
+        # If only latest time (latest delivery), check if late
+        if earliest is None and latest is not None:
+            if arrival_time_minutes > latest:
+                wait_minutes = arrival_time_minutes - latest
+                return f"Late ({_format_time_hhmm(wait_minutes)} overdue)"
+            return "On time"
+        
+        # If only earliest time (earliest pickup), check if early
+        if earliest is not None and latest is None:
+            if arrival_time_minutes < earliest:
+                wait_minutes = earliest - arrival_time_minutes
+                return f"Early (wait {_format_time_hhmm(wait_minutes)})"
+            return "On time"
+        
+        # Both earliest and latest times defined
+        if arrival_time_minutes < earliest:
+            wait_minutes = earliest - arrival_time_minutes
+            return f"Early (wait {_format_time_hhmm(wait_minutes)})"
+        elif arrival_time_minutes > latest:
+            late_minutes = arrival_time_minutes - latest
+            return f"Late ({_format_time_hhmm(late_minutes)} overdue)"
+        else:
+            return "On time"
+
     print(f"\n    SIMPLIFIED CHRONOLOGICAL JOURNEY:")
     print(f"    =====================================")
-    
-    # Print initial depot start
-    print(f"\n          1. DEPOT-ASTI")
-    print(f"             Departure at 23/08 - 00:00 [No window -> No window] - Status: On time")
-    print(f"             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets")
     
     current_weight = 0.0
     current_volume = 0.0
     current_pallets = 0.0
-    cumulative_time = 0.0
     task_num = 2
     
     # Process all tasks except depot start/return
     tasks_to_process = [t for t in route.tasks if not (hasattr(t, 'is_depot_start') and t.is_depot_start()) and not (hasattr(t, 'is_depot_return') and t.is_depot_return())]
     
+    # Calculate optimal start time based on first task's time window
+    optimal_start_time = 0.0  # Default: start at 00:00
+    if tasks_to_process:
+        first_task = tasks_to_process[0]
+        earliest_first_task = getattr(first_task, 'earliest_time', None)
+        
+        if earliest_first_task is not None:
+            # Calculate travel time from depot to first task
+            try:
+                depot_task = route.tasks[0] if route.tasks else None
+                if depot_task:
+                    travel_to_first = calculate_travel_time_with_counter(depot_task, first_task, route.vehicle)
+                else:
+                    travel_to_first = 30.0
+            except:
+                travel_to_first = 30.0
+            
+            # Optimal start time = earliest_first_task - travel_to_first
+            optimal_start_time = max(0.0, earliest_first_task - travel_to_first)
+    
+    # Update cumulative time to start at optimal time
+    cumulative_time = optimal_start_time
+    
+    # Print depot start with optimal time
+    start_date = _format_date_from_minutes(optimal_start_time)
+    start_time = _format_time_hhmm(optimal_start_time % 1440)
+    print(f"\n          1. DEPOT-ASTI")
+    print(f"             Departure at {start_date} - {start_time} [No window -> No window] - Status: On time")
+    print(f"             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets")
+    
     for i, task in enumerate(tasks_to_process):
         # Calculate travel time (simplified)
         if i > 0:
             try:
-                from tests.comprehensive_integration_test import calculate_travel_time_with_counter
                 travel_time = calculate_travel_time_with_counter(tasks_to_process[i-1], task, route.vehicle)
             except:
                 travel_time = 30.0  # Default travel time
         else:
-            travel_time = 30.0  # From depot
+            try:
+                # Calculate travel time from depot to first task
+                depot_task = route.tasks[0] if route.tasks else None
+                if depot_task:
+                    travel_time = calculate_travel_time_with_counter(depot_task, task, route.vehicle)
+                else:
+                    travel_time = 30.0  # Fallback if no depot task
+            except:
+                travel_time = 30.0  # From depot
             
         cumulative_time += travel_time
+        
+        # Check if we need to wait due to time window constraints
+        earliest = getattr(task, 'earliest_time', None)
+        if earliest is not None and cumulative_time < earliest:
+            wait_time = earliest - cumulative_time
+            cumulative_time = earliest  # Wait until earliest allowed time
+        else:
+            wait_time = 0.0
         
         # Service time
         service_time = getattr(task, 'service_time', 5.0)
@@ -559,14 +641,22 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None):
         arrival_str = f"{arrival_date} - {arrival_time}"
         travel_time_str = _format_time_hhmm(travel_time)
         
+        # Calculate time window status (should now be correct after waiting adjustment)
+        status = get_time_window_status(task, cumulative_time)
+        
         print(f"\n            DRIVE to {location} - {travel_time_str}")
+        
+        # Show waiting info if there was a wait
+        if wait_time > 0:
+            wait_time_str = _format_time_hhmm(wait_time)
+            print(f"            WAIT at {location} - {wait_time_str} (until time window opens)")
         
         # Add simulated HoS breakdown for travel segments
         if travel_time > 60:  # Only show breakdown for trips longer than 1 hour
             _print_simulated_hos_breakdown(travel_time)
         
         print(f"\n          {task_num}. {location} (Order: {task.order_id})")
-        print(f"             Arrival at: {arrival_str} {time_window} - Status: On time")
+        print(f"             Arrival at: {arrival_str} {time_window} - Status: {status}")
         print(f"             WORK {_format_time_hhmm(service_time)} - Load: {weight_change:+.1f}kg, {volume_change:+.2f}m3, {pallets_change:+.0f} pallets -> Total: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
         
         cumulative_time += service_time
@@ -574,9 +664,12 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None):
     
     # Final return to depot
     try:
-        from tests.comprehensive_integration_test import calculate_travel_time_with_counter
         if tasks_to_process:
-            final_travel = calculate_travel_time_with_counter(tasks_to_process[-1], route.tasks[0], route.vehicle)  # Back to depot
+            depot_task = route.tasks[-1] if route.tasks else None  # Return to depot (last task should be depot)
+            if depot_task:
+                final_travel = calculate_travel_time_with_counter(tasks_to_process[-1], depot_task, route.vehicle)
+            else:
+                final_travel = 30.0
         else:
             final_travel = 30.0
     except:
@@ -611,62 +704,72 @@ def configure_algorithm_parameters() -> dict:
         Dictionary of algorithm parameters suitable for l1_heuristic
     """
     return {
-        'verbose_logging': True,  # <--- ADD THIS LINE
-        'separate_orders': True,  # ENABLE order splitting for 100% assignment goal
+        'verbose_logging': True,  
+        'separate_orders': False,  # ENABLE order splitting for 100% assignment goal
         'enable_force_assignment': True, # <-- Enable force assignment by default
-        'tabu_tenure': 50,  # Reduced from 100 - allow more flexibility in search
-        'M1': 1000,  # DEEP EXPLORATION: Much more L1 iterations (was 500) 
-        'M2': 5000,  # DEEP EXPLORATION: Much more total iterations (was 2000)
+        'tabu_tenure': 100,  # INCREASED: Allow more thorough exploration (was 50)
+        'M1': 20000,  # MUCH MORE EXPLORATION: More L1 iterations for better solutions (was 1000) 
+        'M2': 10000,  # MUCH MORE EXPLORATION: Much more total iterations (was 5000)
         'exploration_strategy': 'vnd',
         'enable_advanced_neighborhoods': True,
         'enable_granular_search': True,
         'enable_parallelization': False,
         'parallel_strategy': 'PE',
         'local_search_strategy': 'best_improvement',
-        'initialization_method': 'regret_k_balanced',  # Try balanced version that might respect vehicle penalties more
-        'vehicle_penalty_per_vehicle': 25000.0,  # EXTREME ROUTE CONSOLIDATION: Make vehicles very expensive (was 7500.0)
-        'unassigned_order_base_penalty': 150000.0,  # EVEN HIGHER: Make unassigned orders extremely expensive (was 100000.0)
-        'time_window_violation_penalty': 200.0,   # REDUCED: More tolerant to allow consolidation (was 500.0)
-        'capacity_violation_penalty': 2.0,  # REDUCED: More tolerant of capacity to pack routes (was 5.0)
-        'distance_violation_penalty': 10.0,  # REDUCED: Allow longer routes for consolidation (was 25.0)
-        'Lo': 1000.0,  # Reduced from 1500.0 - smaller initial threshold
-        'wk_ID': 60.0,  # Reduced from 80.0 - less strict on distance improvements
-        'wk_IE': 60.0,  # Reduced from 80.0 - less strict on exchanges
-        'wk_IF': 40.0,  # Reduced from 40.0 - less strict on feasibility
-        'wk_IH': 30.0,  # Reduced from 40.0 - less strict on relocations
-        'wk_IJ': 10.0,  # Reduced from 15.0 - less strict on swaps
-        'M': 5000.0,  # Reduced from 8000.0 - smaller penalty multiplier
-        'P_task': 500000.0,  # Reduced from 75000.0 - less penalty for task violations
-        'P_fleet': 50000000.0,  # Reduced from 75000.0 - less penalty for fleet violations
-        'max_neighbors_to_evaluate': 2000,  # DOUBLED: More neighbors to explore (was 1000)
-        'best_k_insertions': 200,  # DOUBLED: Try many more insertion positions (was 100)
+        'initialization_method': 'regret_k_balanced',  # CHANGED: Use advanced cluster-aware initialization
+        'vehicle_penalty_per_vehicle': 250000.0,  # Keep reasonable vehicle cost
+        'unassigned_order_base_penalty': 200000.0,  # INCREASED: Make unassigned orders very expensive (was 150000.0)
+        'time_window_violation_penalty': 50000.0,   # MASSIVELY INCREASED: Severe penalty for time violations (was 200.0)
+        'capacity_violation_penalty': 10.0,  # INCREASED: Higher penalty for capacity violations (was 2.0)
+        'distance_violation_penalty': 25.0,  # INCREASED: Higher penalty for long routes (was 10.0)
+        'Lo': 2000.0,  # INCREASED: Higher threshold for improvements (was 1000.0)
+        'wk_ID': 100.0,  # INCREASED: More strict on distance improvements (was 60.0)
+        'wk_IE': 100.0,  # INCREASED: More strict on exchanges (was 60.0)
+        'wk_IF': 80.0,  # INCREASED: More strict on feasibility (was 40.0)
+        'wk_IH': 60.0,  # INCREASED: More strict on relocations (was 30.0)
+        'wk_IJ': 40.0,  # INCREASED: More strict on swaps (was 10.0)
+        'M': 8000.0,  # INCREASED: Higher penalty multiplier (was 5000.0)
+        'P_task': 1000000.0,  # MASSIVELY INCREASED: Severe penalty for task violations (was 500000.0)
+        'P_fleet': 100000000.0,  # MASSIVELY INCREASED: Severe penalty for fleet violations (was 50000000.0)
+        'max_neighbors_to_evaluate': 5000,  # INCREASED: Much more neighbors to explore (was 2000)
+        'best_k_insertions': 500,  # INCREASED: Try many more insertion positions (was 200)
         'enable_delta_evaluation': True,
-        'max_neighbors_per_iteration': 2000,  # DOUBLED: More neighbors per iteration (was 1000)
-        # Cluster-aware initialization parameters for much more lenient assignment
-        'cluster_tolerance_factor': 1.0,  # Increased from 1.5 - Allow 100% more tolerance in clustering
-        'initial_assignment_relaxation': 0.8,  # Reduced from 0.8 - Relax constraints by 50% during initialization
-        'capacity_buffer_factor': 1.5,  # Increased from 1.2 - Allow 50% capacity buffer during initial assignment
-        'time_window_buffer_minutes': 30,  # Increased from 30 - Allow 60 minutes buffer for time windows
-        'max_assignment_attempts': 20,  # DOUBLED from 10 - Try many more times to assign difficult orders
-        # New ultra-lenient parameters
-        'force_assignment_mode': True,  # New: Force assignment even with minor violations
-        'capacity_overflow_tolerance': 1.3,  # New: Allow 30% capacity overflow during initial assignment
-        'assignment_priority_boost': 2.0,  # New: Boost assignment priority for difficult orders
-        'relaxed_constraints_iteration_limit': 20,  # New: Use relaxed constraints for first 20 iterations
-        # Force assignment strategy for 100% order coverage
-        'enable_force_assignment': True,  # New: Enable smart force assignment of unassigned orders
-        'force_assignment_strategy': 'least_loaded_capable',  # New: Strategy for selecting vehicles for force assignment
-        # Advanced order insertion strategies (TODO 20)
-        'initialization_method': 'cluster_aware',  # Fast geographic clustering base
-        'enable_post_init_consolidation': True,    # NEW: Add consolidation phase for idle vehicles
-        'target_idle_vehicles': 20,                # NEW: Target number of idle vehicles to create
-        'consolidation_distance_penalty': 2.0,    # NEW: Maximum distance increase allowed for consolidation
-        'regret_k_value': 3,  # New: k value for regret calculation (2 or 3 is common)
-        'enhanced_logging': True,  # Enhanced: Enable comprehensive diagnostic logging for assignment failures
-        'enable_destroy_and_repair': True,  # New: Enable destroy and repair for large unassigned orders
-        'max_destroy_attempts': 10,  # New: Maximum number of destroy-repair attempts for difficult orders
-        'debug_regret': True,  # New: Enable debug output for regret-k initialization
-        'debug_destroy_repair': True,  # New: Enable debug output for destroy and repair operations
+        'max_neighbors_per_iteration': 5000,  # INCREASED: Much more neighbors per iteration (was 2000)
+        'max_iterations_without_improvement': 500,  # NEW: Allow 500 iterations without improvement before stopping
+        'convergence_time_limit': 300,  # NEW: Allow up to 5 minutes for convergence (was ~18 seconds)
+        # Cluster-aware initialization parameters for more thorough search
+        'cluster_tolerance_factor': 1.0,  
+        'initial_assignment_relaxation': 0.9,  # INCREASED: Less constraint relaxation initially (was 0.8)
+        'capacity_buffer_factor': 1.2,  # DECREASED: Less capacity buffer to respect constraints (was 1.5)
+        'time_window_buffer_minutes': 15,  # DECREASED: Stricter time window tolerance (was 30)
+        'max_assignment_attempts': 30,  # INCREASED: Try even more times (was 20)
+        # Stricter assignment parameters to avoid violations
+        'force_assignment_mode': False,  # DISABLED: Don't force assignments that create violations
+        'capacity_overflow_tolerance': 1.1,  # DECREASED: Less capacity overflow allowed (was 1.3)
+        'assignment_priority_boost': 3.0,  # INCREASED: Higher priority for proper assignment (was 2.0)
+        'relaxed_constraints_iteration_limit': 10,  # DECREASED: Use strict constraints sooner (was 20)
+        # Enable all optimization techniques for better solutions
+        'enable_force_assignment': False,  # DISABLED: Don't force bad assignments
+        'force_assignment_strategy': 'least_loaded_capable',  
+        'initialization_method': 'cluster_aware',  # Use advanced geographic clustering
+        'enable_post_init_consolidation': True,    # Enable post-initialization consolidation
+        'target_idle_vehicles': 15,                # REDUCED: Keep more vehicles active for better distribution
+        'consolidation_distance_penalty': 8.0,    # INCREASED: More penalty for distance increases (was 5.0)
+        'regret_k_value': 3,  
+        'enhanced_logging': True,  
+        'enable_destroy_and_repair': True,  
+        'max_destroy_attempts': 20,  # INCREASED: More destroy-repair attempts (was 10)
+        'debug_regret': False,  # DISABLED: Reduce output noise
+        'debug_destroy_repair': False,  # DISABLED: Reduce output noise
+        # NEW: Enhanced clustering parameters
+        'cluster_geographic_weight': 0.7,  # NEW: Strong geographic clustering preference
+        'cluster_time_window_weight': 0.3, # NEW: Consider time windows in clustering
+        'max_orders_per_vehicle': 6,      # NEW: Limit orders per vehicle for manageable routes
+        'cluster_capacity_utilization': 0.85, # NEW: Target 85% capacity utilization for clustering
+        # NEW: Add strict time window enforcement
+        'strict_time_window_enforcement': True,
+        'reject_infeasible_solutions': True,
+        'time_window_penalty_per_minute': 1000.0,  # NEW: 1000 penalty per minute of violation
     }
 
 
@@ -2602,7 +2705,7 @@ def main():
     print("Starting EPDT Comprehensive Integration Test...")
     
     # Define path to the Excel file
-    excel_file = os.path.join(src_dir, 'furgoni3_2.xlsx')
+    excel_file = os.path.join(src_dir, 'furgoni_con_prova.xlsx')
     
     if not os.path.exists(excel_file):
         print(f"Error: Excel file not found at {excel_file}")
@@ -2702,3 +2805,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+

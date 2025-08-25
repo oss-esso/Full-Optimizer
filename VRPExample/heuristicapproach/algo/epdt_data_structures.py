@@ -642,6 +642,26 @@ class Order:
     def get_total_volume(self) -> float:
         """Get total cargo volume for this order."""
         return sum(task.volume for task in self.pickup_tasks)
+    
+    def get_total_pallets(self) -> int:
+        """Get total pallet count for this order."""
+        return sum(getattr(task, 'pallets', 0) for task in self.pickup_tasks)
+    
+    # Convenience properties for easier access
+    @property
+    def weight(self) -> float:
+        """Total weight of this order."""
+        return self.get_total_demand()
+    
+    @property  
+    def volume(self) -> float:
+        """Total volume of this order."""
+        return self.get_total_volume()
+    
+    @property
+    def pallets(self) -> int:
+        """Total pallets of this order."""
+        return self.get_total_pallets()
 
 
 @dataclass
