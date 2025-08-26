@@ -315,14 +315,315 @@ def _print_simulated_hos_breakdown(travel_time_minutes: float):
                 segment_num += 1
 
 
-def _format_date_from_minutes(minutes: float) -> str:
+def _format_date_from_minutes(minutes: float, start_date=None) -> str:
     """Formats minutes since start into a dd/MM date format."""
-    # Assume start date is August 23, 2025 (current date)
     import datetime
-    start_date = datetime.date(2025, 8, 23)
+    # Use provided start date or default to current date (August 26, 2025)
+    if start_date is None:
+        start_date = datetime.date(2025, 8, 26)
     days_offset = int(minutes // 1440)  # 1440 minutes per day
     target_date = start_date + datetime.timedelta(days=days_offset)
     return target_date.strftime("%d/%m")
+
+
+def validate_time_window_status(arrival_time_minutes: float, task) -> str:
+    """
+    Validate arrival time against task time window and return status.
+    
+    Args:
+        arrival_time_minutes: Arrival time in minutes from start of planning period
+        task: Task object with earliest_time and latest_time attributes
+        
+    Returns:
+        Status string: "On time", "Early (waiting)", "Late", or "No window"
+    """
+    earliest = getattr(task, 'earliest_time', None)
+    latest = getattr(task, 'latest_time', None)
+    
+    # Handle depot tasks or tasks without time windows
+    if earliest is None and latest is None:
+        return "On time"
+    
+    # If only earliest time is specified
+    if earliest is not None and latest is None:
+        if arrival_time_minutes < earliest:
+            waiting_time = earliest - arrival_time_minutes
+            return f"Early (wait {_format_time_hhmm(waiting_time)})"
+        else:
+            return "On time"
+    
+    # If only latest time is specified
+    if earliest is None and latest is not None:
+        if arrival_time_minutes > latest:
+            delay_time = arrival_time_minutes - latest
+            return f"Late ({_format_time_hhmm(delay_time)})"
+        else:
+            return "On time"
+    
+    # If both earliest and latest times are specified
+    if earliest is not None and latest is not None:
+        if arrival_time_minutes < earliest:
+            waiting_time = earliest - arrival_time_minutes
+            return f"Early (wait {_format_time_hhmm(waiting_time)})"
+        elif arrival_time_minutes > latest:
+            delay_time = arrival_time_minutes - latest
+            return f"Late ({_format_time_hhmm(delay_time)})"
+        else:
+            return "On time"
+    
+    return "On time"
+
+
+def calculate_route_cost_and_profit(vehicle_id: str, route, vehicle=None, orders=None):
+    """
+    Calculate detailed cost and profit breakdown for a route.
+    
+    Costs:
+    - Driver cost: cost_per_hour * hours_worked
+    - Vehicle cost: cost_per_km * total_distance
+    
+    Profit:
+    - Per order: sum over all task pairs (price_per_km * km_between_pickup_and_delivery)
+    - Price per km: 0.8 for furgone (standard), 1.25 for camion (heavy)
+    
+    Args:
+        vehicle_id: Vehicle ID
+        route: Route object
+        vehicle: Vehicle object
+        orders: List of Order objects for profit calculation
+        
+    Returns:
+        Dictionary with cost and profit breakdown
+    """
+    # Default values
+    total_hours = 0.0
+    total_distance = 0.0
+    driver_cost_per_hour = 25.0  # Default driver cost per hour
+    vehicle_cost_per_km = 1.0    # Default vehicle cost per km
+    
+    # Calculate total hours from route timeline or estimate
+    if hasattr(route, 'hos_timeline') and route.hos_timeline:
+        # Use HoS timeline for accurate hours calculation
+        total_hours = route.hos_timeline[-1].end_time / 60.0 if route.hos_timeline else 0.0
+    else:
+        # Estimate from tasks (simplified calculation)
+        if route.tasks:
+            # Estimate: 30 min travel + 5 min service per task
+            estimated_minutes = len([t for t in route.tasks if not (hasattr(t, 'is_depot_start') and t.is_depot_start()) and not (hasattr(t, 'is_depot_return') and t.is_depot_return())]) * 35
+            total_hours = estimated_minutes / 60.0
+    
+    # Get driver cost from route or use default
+    if hasattr(route, 'driver') and route.driver:
+        driver_cost_per_hour = getattr(route.driver, 'cost_per_hour', 25.0)
+    
+    # Get vehicle cost per km
+    if vehicle:
+        vehicle_cost_per_km = getattr(vehicle, 'cost_per_km', 1.0)
+    
+    # Calculate total distance (simplified - using Haversine estimates)
+    total_distance = estimate_route_distance(route)
+    
+    # Calculate costs
+    driver_cost = driver_cost_per_hour * total_hours
+    vehicle_cost = vehicle_cost_per_km * total_distance
+    total_cost = driver_cost + vehicle_cost
+    
+    # Calculate profit per order
+    total_profit = 0.0
+    order_profits = {}
+    
+    if orders and vehicle:
+        # Determine price per km based on vehicle type
+        vehicle_type = getattr(vehicle, 'vehicle_type', 'standard')
+        if vehicle_type == 'heavy':
+            price_per_km = 1.25  # Camion
+        else:
+            price_per_km = 0.8   # Furgone
+        
+        # Calculate profit for each order in the route
+        for task in route.tasks:
+            if hasattr(task, 'order_id') and task.order_id:
+                order_id = task.order_id
+                if order_id not in order_profits:
+                    order_profits[order_id] = calculate_order_profit(order_id, orders, price_per_km)
+                    total_profit += order_profits[order_id]
+    
+    return {
+        'total_hours': total_hours,
+        'total_distance': total_distance,
+        'driver_cost_per_hour': driver_cost_per_hour,
+        'vehicle_cost_per_km': vehicle_cost_per_km,
+        'driver_cost': driver_cost,
+        'vehicle_cost': vehicle_cost,
+        'total_cost': total_cost,
+        'total_profit': total_profit,
+        'order_profits': order_profits,
+        'net_profit': total_profit - total_cost,
+        'price_per_km': price_per_km if 'price_per_km' in locals() else 0.8
+    }
+
+
+def estimate_route_distance(route):
+    """Estimate total distance for a route using simplified calculation."""
+    if not route or not route.tasks or len(route.tasks) < 2:
+        return 0.0
+    
+    total_distance = 0.0
+    try:
+        # Use simplified Haversine distance calculation
+        for i in range(len(route.tasks) - 1):
+            current_task = route.tasks[i]
+            next_task = route.tasks[i + 1]
+            
+            # Get coordinates
+            current_lat = getattr(current_task, 'lat', 44.9009)  # Default to Asti
+            current_lon = getattr(current_task, 'lon', 8.2057)
+            next_lat = getattr(next_task, 'lat', 44.9009)
+            next_lon = getattr(next_task, 'lon', 8.2057)
+            
+            # Calculate Haversine distance
+            distance = haversine_distance(current_lat, current_lon, next_lat, next_lon)
+            total_distance += distance
+            
+    except Exception:
+        # Fallback: estimate based on number of tasks
+        num_customer_tasks = len([t for t in route.tasks if not (hasattr(t, 'is_depot_start') and t.is_depot_start()) and not (hasattr(t, 'is_depot_return') and t.is_depot_return())])
+        total_distance = num_customer_tasks * 50.0  # 50km average per task
+    
+    return total_distance
+
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculate Haversine distance between two points in kilometers."""
+    import math
+    
+    R = 6371.0  # Earth radius in kilometers
+    
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+    
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    
+    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
+    return R * c
+
+
+def calculate_order_profit(order_id, orders, price_per_km):
+    """Calculate profit for a specific order based on pickup-delivery distance."""
+    try:
+        # Find the order
+        order = None
+        for o in orders:
+            if str(o.id) == str(order_id):
+                order = o
+                break
+        
+        if not order:
+            return 0.0
+        
+        # Get pickup and delivery tasks
+        pickup_tasks = []
+        delivery_tasks = []
+        
+        for task in order.get_all_tasks():
+            if task.is_pickup():
+                pickup_tasks.append(task)
+            elif task.is_delivery():
+                delivery_tasks.append(task)
+        
+        if not pickup_tasks or not delivery_tasks:
+            return 0.0
+        
+        # Calculate distance between pickup and delivery locations
+        total_profit = 0.0
+        
+        for pickup in pickup_tasks:
+            for delivery in delivery_tasks:
+                pickup_lat = getattr(pickup, 'lat', 44.9009)
+                pickup_lon = getattr(pickup, 'lon', 8.2057)
+                delivery_lat = getattr(delivery, 'lat', 44.9009)
+                delivery_lon = getattr(delivery, 'lon', 8.2057)
+                
+                distance = haversine_distance(pickup_lat, pickup_lon, delivery_lat, delivery_lon)
+                profit = distance * price_per_km
+                total_profit += profit
+        
+        return total_profit
+        
+    except Exception:
+        return 0.0
+
+
+def print_route_cost_breakdown(vehicle_id: str, route, vehicle=None, orders=None):
+    """Print detailed cost and profit breakdown for a route."""
+    global violation_tracker, profit_tracker
+    
+    breakdown = calculate_route_cost_and_profit(vehicle_id, route, vehicle, orders)
+    
+    print(f"\n       COST & PROFIT BREAKDOWN:")
+    print(f"      ============================")
+    print(f"       Operations:")
+    print(f"         • Total Hours: {breakdown['total_hours']:.1f}h")
+    print(f"         • Total Distance: {breakdown['total_distance']:.1f}km")
+    print(f"         • Vehicle Type: {'Camion (Heavy)' if breakdown['price_per_km'] == 1.25 else 'Furgone (Standard)'}")
+    
+    # Add constraint validation
+    vehicle_caps = get_vehicle_capabilities(vehicle)
+    order_reqs = get_route_order_requirements(orders, route)
+    violations = validate_constraints(vehicle_caps, order_reqs)
+    
+    print(f"       Vehicle Capabilities:")
+    print(f"         • Loader: {'YES' if vehicle_caps['loader'] else 'NO'}")
+    print(f"         • Low Temp: {'YES' if vehicle_caps['low_temp'] else 'NO'}")
+    print(f"         • Hangers: {'YES' if vehicle_caps['hangers'] else 'NO'}")
+    print(f"         • LIFO Required: {'YES' if vehicle_caps['lifo_required'] else 'NO'}")
+    if vehicle_caps['regulations']:
+        print(f"         • Regulations: {', '.join(vehicle_caps['regulations'])}")
+    
+    print(f"       Order Requirements:")
+    print(f"         • Needs Loader: {'YES' if order_reqs['loader'] else 'NO'}")
+    print(f"         • Needs Low Temp: {'YES' if order_reqs['low_temp'] else 'NO'}")
+    print(f"         • Needs Hangers: {'YES' if order_reqs['hangers'] else 'NO'}")
+    if order_reqs['special_requirements']:
+        print(f"         • Special: {', '.join(order_reqs['special_requirements'])}")
+    
+    print(f"       Constraint Validation:")
+    if violations:
+        print(f"         X VIOLATIONS: {', '.join(violations)}")
+        # Track capability violations
+        violation_tracker.add_capability_violations(vehicle_id, violations)
+    else:
+        print(f"         OK All constraints satisfied")
+    
+    # Track route processing and profit
+    violation_tracker.increment_routes_processed()
+    profit_tracker.add_route_profit(vehicle_id, breakdown)
+    
+    print(f"       Costs:")
+    print(f"         • Driver Cost: €{breakdown['driver_cost']:.2f} ({breakdown['driver_cost_per_hour']:.1f}€/h × {breakdown['total_hours']:.1f}h)")
+    print(f"         • Vehicle Cost: €{breakdown['vehicle_cost']:.2f} ({breakdown['vehicle_cost_per_km']:.2f}€/km × {breakdown['total_distance']:.1f}km)")
+    print(f"         • Total Cost: €{breakdown['total_cost']:.2f}")
+    
+    print(f"       Revenue:")
+    print(f"         • Rate: {breakdown['price_per_km']:.2f}€/km")
+    if breakdown['order_profits']:
+        print(f"         • Orders:")
+        for order_id, profit in breakdown['order_profits'].items():
+            print(f"           - Order {order_id}: €{profit:.2f}")
+    print(f"         • Total Revenue: €{breakdown['total_profit']:.2f}")
+    
+    print(f"       Net Result:")
+    net_color = "Y" if breakdown['net_profit'] >= 0 else "N"
+    print(f"         {net_color} Net Profit: €{breakdown['net_profit']:.2f}")
+    
+    if breakdown['total_profit'] > 0:
+        margin = (breakdown['net_profit'] / breakdown['total_profit']) * 100
+        print(f"          Profit Margin: {margin:.1f}%")
 
 
 def _get_pallets_change(task):
@@ -330,7 +631,434 @@ def _get_pallets_change(task):
     return getattr(task, 'pallets', 0.0)
 
 
-def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
+def get_vehicle_capabilities(vehicle):
+    """Extract vehicle capabilities from vehicle object."""
+    capabilities = {
+        'loader': False,
+        'low_temp': False, 
+        'hangers': False,
+        'lifo_required': False,
+        'regulations': []
+    }
+    
+    if not vehicle:
+        return capabilities
+    
+    # Check for loader capability
+    capabilities['loader'] = getattr(vehicle, 'loader', False) or \
+                            getattr(vehicle, 'has_loader', False) or \
+                            ('LOADER' in str(getattr(vehicle, 'capabilities', '')).upper())
+    
+    # Check for low temperature capability  
+    capabilities['low_temp'] = getattr(vehicle, 'low_temp', False) or \
+                              getattr(vehicle, 'has_low_temp', False) or \
+                              ('LOW_TEMP' in str(getattr(vehicle, 'capabilities', '')).upper())
+    
+    # Check for hangers capability
+    capabilities['hangers'] = getattr(vehicle, 'hangers', False) or \
+                             getattr(vehicle, 'has_hangers', False) or \
+                             ('HANGERS' in str(getattr(vehicle, 'capabilities', '')).upper())
+    
+    # Check for LIFO requirement
+    capabilities['lifo_required'] = getattr(vehicle, 'lifo_required', False) or \
+                                   getattr(vehicle, 'requires_lifo', False) or \
+                                   ('LIFO' in str(getattr(vehicle, 'regulations', '')).upper())
+    
+    # Get regulations as list
+    regulations = getattr(vehicle, 'regulations', '')
+    if regulations:
+        capabilities['regulations'] = [reg.strip() for reg in str(regulations).split(',') if reg.strip()]
+    
+    return capabilities
+
+
+def get_route_order_requirements(orders, route):
+    """Extract requirements from all orders in a route."""
+    requirements = {
+        'loader': False,
+        'low_temp': False,
+        'hangers': False,
+        'special_requirements': []
+    }
+    
+    if not orders or not route or not route.tasks:
+        return requirements
+    
+    # Get order IDs from route tasks
+    order_ids = set()
+    for task in route.tasks:
+        if hasattr(task, 'order_id') and task.order_id:
+            order_ids.add(str(task.order_id))
+    
+    # Check requirements for each order
+    for order in orders:
+        if str(order.id) in order_ids:
+            # Check all tasks in the order
+            all_tasks = []
+            if hasattr(order, 'pickup_tasks'):
+                all_tasks.extend(order.pickup_tasks)
+            if hasattr(order, 'delivery_tasks'):
+                all_tasks.extend(order.delivery_tasks)
+            
+            for task in all_tasks:
+                # Check for loader requirement
+                if getattr(task, 'requires_loader', False) or \
+                   ('LOADER' in str(getattr(task, 'required_capabilities', '')).upper()):
+                    requirements['loader'] = True
+                
+                # Check for low temp requirement
+                if getattr(task, 'requires_low_temp', False) or \
+                   ('LOW_TEMP' in str(getattr(task, 'required_capabilities', '')).upper()):
+                    requirements['low_temp'] = True
+                
+                # Check for hangers requirement
+                if getattr(task, 'requires_hangers', False) or \
+                   ('HANGERS' in str(getattr(task, 'required_capabilities', '')).upper()):
+                    requirements['hangers'] = True
+                
+                # Collect special requirements
+                capabilities = getattr(task, 'required_capabilities', '')
+                if capabilities:
+                    reqs = [req.strip() for req in str(capabilities).split(',') if req.strip()]
+                    requirements['special_requirements'].extend(reqs)
+    
+    # Remove duplicates from special requirements
+    requirements['special_requirements'] = list(set(requirements['special_requirements']))
+    
+    return requirements
+
+
+def validate_constraints(vehicle_capabilities, order_requirements):
+    """Check if vehicle capabilities match order requirements."""
+    violations = []
+    
+    # Check loader requirement
+    if order_requirements['loader'] and not vehicle_capabilities['loader']:
+        violations.append("Missing LOADER capability")
+    
+    # Check low temp requirement  
+    if order_requirements['low_temp'] and not vehicle_capabilities['low_temp']:
+        violations.append("Missing LOW_TEMP capability")
+    
+    # Check hangers requirement
+    if order_requirements['hangers'] and not vehicle_capabilities['hangers']:
+        violations.append("Missing HANGERS capability")
+    
+    return violations
+
+
+class ViolationTracker:
+    """Class to track various types of violations across all routes."""
+    
+    def __init__(self):
+        self.reset()
+    
+    def reset(self):
+        """Reset all violation counters."""
+        # Constraint violations
+        self.capability_violations = {
+            'loader': 0,
+            'low_temp': 0,
+            'hangers': 0,
+            'total': 0
+        }
+        
+        # Route violations (from HoS validation)
+        self.route_violations = {
+            'lifo': 0,
+            'pallet_constraint': 0,
+            'weight_constraint': 0,
+            'volume_constraint': 0,
+            'time_window': 0,
+            'hos_violations': 0,
+            'total': 0
+        }
+        
+        # Routes tracking
+        self.routes_processed = 0
+        self.routes_with_violations = 0
+        
+        # Store detailed violations for reporting
+        self.violation_details = []
+    
+    def add_capability_violations(self, vehicle_id, violations):
+        """Add capability violations for a vehicle."""
+        if violations:
+            self.routes_with_violations += 1
+            for violation in violations:
+                if 'LOADER' in violation:
+                    self.capability_violations['loader'] += 1
+                elif 'LOW_TEMP' in violation:
+                    self.capability_violations['low_temp'] += 1
+                elif 'HANGERS' in violation:
+                    self.capability_violations['hangers'] += 1
+                
+                self.capability_violations['total'] += 1
+                self.violation_details.append({
+                    'vehicle_id': vehicle_id,
+                    'type': 'capability',
+                    'violation': violation
+                })
+    
+    def add_route_violation(self, vehicle_id, violation_msg):
+        """Add route violation from HoS validation messages."""
+        if 'LIFO' in violation_msg.upper():
+            self.route_violations['lifo'] += 1
+        elif 'PALLET' in violation_msg.upper():
+            self.route_violations['pallet_constraint'] += 1
+        elif 'WEIGHT' in violation_msg.upper():
+            self.route_violations['weight_constraint'] += 1
+        elif 'VOLUME' in violation_msg.upper():
+            self.route_violations['volume_constraint'] += 1
+        elif 'TIME WINDOW' in violation_msg.upper():
+            self.route_violations['time_window'] += 1
+        elif 'HOS' in violation_msg.upper():
+            self.route_violations['hos_violations'] += 1
+        
+        self.route_violations['total'] += 1
+        self.violation_details.append({
+            'vehicle_id': vehicle_id,
+            'type': 'route',
+            'violation': violation_msg
+        })
+    
+    def increment_routes_processed(self):
+        """Increment the counter of processed routes."""
+        self.routes_processed += 1
+    
+    def get_summary(self):
+        """Get a summary of all violations."""
+        total_violations = self.capability_violations['total'] + self.route_violations['total']
+        
+        return {
+            'routes_processed': self.routes_processed,
+            'routes_with_violations': self.routes_with_violations,
+            'routes_clean': self.routes_processed - self.routes_with_violations,
+            'total_violations': total_violations,
+            'capability_violations': self.capability_violations,
+            'route_violations': self.route_violations,
+            'violation_details': self.violation_details
+        }
+
+
+class ProfitTracker:
+    """Class to track profit and financial metrics across all routes."""
+    
+    def __init__(self):
+        self.reset()
+    
+    def reset(self):
+        """Reset all profit tracking."""
+        self.total_cost = 0.0
+        self.total_revenue = 0.0
+        self.total_profit = 0.0
+        
+        self.driver_costs = 0.0
+        self.vehicle_costs = 0.0
+        
+        self.profitable_routes = 0
+        self.unprofitable_routes = 0
+        self.routes_processed = 0
+        
+        # Store individual route profits for analysis
+        self.route_profits = []
+        
+        # Track best and worst performing routes
+        self.best_route = None
+        self.worst_route = None
+        self.best_profit = float('-inf')
+        self.worst_profit = float('inf')
+    
+    def add_route_profit(self, vehicle_id, breakdown):
+        """Add profit data from a route breakdown."""
+        profit = breakdown.get('net_profit', 0.0)
+        cost = breakdown.get('total_cost', 0.0)
+        revenue = breakdown.get('total_profit', 0.0)  # total_profit is actually revenue
+        driver_cost = breakdown.get('driver_cost', 0.0)
+        vehicle_cost = breakdown.get('vehicle_cost', 0.0)
+        
+        # Update totals
+        self.total_cost += cost
+        self.total_revenue += revenue
+        self.total_profit += profit
+        self.driver_costs += driver_cost
+        self.vehicle_costs += vehicle_cost
+        
+        # Track profitable vs unprofitable
+        if profit >= 0:
+            self.profitable_routes += 1
+        else:
+            self.unprofitable_routes += 1
+        
+        self.routes_processed += 1
+        
+        # Store route profit data
+        route_data = {
+            'vehicle_id': vehicle_id,
+            'profit': profit,
+            'cost': cost,
+            'revenue': revenue,
+            'margin': (profit / revenue * 100) if revenue > 0 else 0
+        }
+        self.route_profits.append(route_data)
+        
+        # Track best and worst routes
+        if profit > self.best_profit:
+            self.best_profit = profit
+            self.best_route = route_data
+        
+        if profit < self.worst_profit:
+            self.worst_profit = profit
+            self.worst_route = route_data
+    
+    def get_summary(self):
+        """Get financial summary."""
+        overall_margin = (self.total_profit / self.total_revenue * 100) if self.total_revenue > 0 else 0
+        avg_profit_per_route = self.total_profit / self.routes_processed if self.routes_processed > 0 else 0
+        
+        return {
+            'routes_processed': self.routes_processed,
+            'total_cost': self.total_cost,
+            'total_revenue': self.total_revenue,
+            'total_profit': self.total_profit,
+            'overall_margin': overall_margin,
+            'driver_costs': self.driver_costs,
+            'vehicle_costs': self.vehicle_costs,
+            'profitable_routes': self.profitable_routes,
+            'unprofitable_routes': self.unprofitable_routes,
+            'avg_profit_per_route': avg_profit_per_route,
+            'best_route': self.best_route,
+            'worst_route': self.worst_route
+        }
+
+
+# Global trackers
+violation_tracker = ViolationTracker()
+profit_tracker = ProfitTracker()
+
+
+def print_comprehensive_final_report():
+    """Print the final comprehensive report with violations and financial summary."""
+    print("\n" + "="*80)
+    print("FINAL COMPREHENSIVE SYSTEM REPORT")
+    print("="*80)
+    
+    # Get summaries
+    violation_summary = violation_tracker.get_summary()
+    profit_summary = profit_tracker.get_summary()
+    
+    # === VIOLATION ANALYSIS ===
+    print("\n" + "+"*60)
+    print("VIOLATION ANALYSIS")
+    print("+"*60)
+    
+    print(f"\nROUTE PROCESSING SUMMARY:")
+    print(f"   • Total Routes Processed: {violation_summary['routes_processed']}")
+    print(f"   • Routes with Violations: {violation_summary['routes_with_violations']}")
+    print(f"   • Clean Routes: {violation_summary['routes_clean']}")
+    
+    if violation_summary['routes_processed'] > 0:
+        violation_rate = (violation_summary['routes_with_violations'] / violation_summary['routes_processed']) * 100
+        print(f"   • Violation Rate: {violation_rate:.1f}%")
+    
+    print(f"\nCAPABILITY VIOLATIONS:")
+    cap_violations = violation_summary['capability_violations']
+    print(f"   • Missing LOADER: {cap_violations['loader']}")
+    print(f"   • Missing LOW_TEMP: {cap_violations['low_temp']}")
+    print(f"   • Missing HANGERS: {cap_violations['hangers']}")
+    print(f"   • Total Capability Violations: {cap_violations['total']}")
+    
+    print(f"\nROUTE CONSTRAINT VIOLATIONS:")
+    route_violations = violation_summary['route_violations']
+    print(f"   • LIFO Violations: {route_violations['lifo']}")
+    print(f"   • Pallet Constraint Violations: {route_violations['pallet_constraint']}")
+    print(f"   • Weight Constraint Violations: {route_violations['weight_constraint']}")
+    print(f"   • Volume Constraint Violations: {route_violations['volume_constraint']}")
+    print(f"   • Time Window Violations: {route_violations['time_window']}")
+    print(f"   • HoS Violations: {route_violations['hos_violations']}")
+    print(f"   • Total Route Violations: {route_violations['total']}")
+    
+    print(f"\nOVERALL VIOLATION SUMMARY:")
+    total_violations = violation_summary['total_violations']
+    print(f"   • Total System Violations: {total_violations}")
+    
+    if total_violations > 0:
+        print(f"   • System Compliance Rate: {((violation_summary['routes_clean']) / violation_summary['routes_processed'] * 100):.1f}%")
+        
+        # Show top violation details
+        print(f"\nTOP VIOLATION DETAILS:")
+        for i, detail in enumerate(violation_summary['violation_details'][:5]):  # Show first 5
+            print(f"   {i+1}. Vehicle {detail['vehicle_id']}: {detail['violation']}")
+            if i >= 4:  # Limit to 5
+                break
+    
+    # === FINANCIAL ANALYSIS ===
+    print("\n" + "+"*60)
+    print("FINANCIAL PERFORMANCE ANALYSIS")
+    print("+"*60)
+    
+    print(f"\nROUTE FINANCIAL SUMMARY:")
+    print(f"   • Total Routes Analyzed: {profit_summary['routes_processed']}")
+    print(f"   • Profitable Routes: {profit_summary['profitable_routes']}")
+    print(f"   • Unprofitable Routes: {profit_summary['unprofitable_routes']}")
+    
+    if profit_summary['routes_processed'] > 0:
+        profitability_rate = (profit_summary['profitable_routes'] / profit_summary['routes_processed']) * 100
+        print(f"   • Profitability Rate: {profitability_rate:.1f}%")
+    
+    print(f"\nFINANCIAL TOTALS:")
+    print(f"   • Total Operating Costs: €{profit_summary['total_cost']:.2f}")
+    print(f"     - Driver Costs: €{profit_summary['driver_costs']:.2f}")
+    print(f"     - Vehicle Costs: €{profit_summary['vehicle_costs']:.2f}")
+    print(f"   • Total Revenue: €{profit_summary['total_revenue']:.2f}")
+    print(f"   • Net Profit: €{profit_summary['total_profit']:.2f}")
+    print(f"   • Overall Margin: {profit_summary['overall_margin']:.1f}%")
+    print(f"   • Average Profit per Route: €{profit_summary['avg_profit_per_route']:.2f}")
+    
+    # Best and worst performing routes
+    if profit_summary['best_route']:
+        print(f"\nPERFORMANCE EXTREMES:")
+        best = profit_summary['best_route']
+        worst = profit_summary['worst_route']
+        print(f"   • Best Route: {best['vehicle_id']} (€{best['profit']:.2f}, {best['margin']:.1f}% margin)")
+        print(f"   • Worst Route: {worst['vehicle_id']} (€{worst['profit']:.2f}, {worst['margin']:.1f}% margin)")
+    
+    # === OPTIMIZATION RECOMMENDATIONS ===
+    print("\n" + "+"*60)
+    print("OPTIMIZATION RECOMMENDATIONS")
+    print("+"*60)
+    
+    recommendations = []
+    
+    # Violation-based recommendations
+    if cap_violations['total'] > 0:
+        recommendations.append(f"• {cap_violations['total']} capability mismatches detected - review vehicle assignments")
+    
+    if route_violations['lifo'] > 0:
+        recommendations.append(f"• {route_violations['lifo']} LIFO violations - optimize loading sequences")
+    
+    if route_violations['pallet_constraint'] > 0:
+        recommendations.append(f"• {route_violations['pallet_constraint']} pallet overloads - redistribute loads")
+    
+    # Financial recommendations  
+    if profit_summary['unprofitable_routes'] > profit_summary['profitable_routes']:
+        recommendations.append("• Majority of routes are unprofitable - review pricing strategy")
+    
+    if profit_summary['overall_margin'] < 10:
+        recommendations.append(f"• Low overall margin ({profit_summary['overall_margin']:.1f}%) - optimize costs or increase pricing")
+    
+    if not recommendations:
+        recommendations.append("• System is performing optimally with good compliance and profitability")
+    
+    for rec in recommendations:
+        print(f"   {rec}")
+    
+    print("\n" + "="*80)
+    print("END OF COMPREHENSIVE SYSTEM REPORT")
+    print("="*80)
+
+
+def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None, orders=None):
     """
     Prints a detailed, chronological journey log for a route, interleaving
     tasks with travel and rest events from the HoS timeline.
@@ -383,7 +1111,7 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
     if not hos_timeline:
         print("    HoS Timeline: Not available. Using simplified chronological view.")
         # Fall back to a simplified chronological view without HoS timeline
-        _print_simplified_chronological_view(vehicle_id, route, vehicle)
+        _print_simplified_chronological_view(vehicle_id, route, vehicle, orders)
         return
 
     # --- 2. Print HoS Debug Info ---
@@ -444,7 +1172,7 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
             arrival_str = f"{arrival_date} - {arrival_time}"
             
             tw_str = get_time_window_info(task)
-            status_str = "On time" # Simplified, full logic can be added
+            status_str = validate_time_window_status(event.start_time, task)
             weight_change, volume_change = get_load_change(task)
             pallets_change = _get_pallets_change(task)
             # You need to track total load correctly here if needed
@@ -465,9 +1193,12 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None):
     # Print final day summary
     if current_day != -1:
         print(f"\n      - Day {current_day + 1} ({_format_date_from_minutes(current_day * 1440)}): Drive: {_format_time_hhmm(daily_drive)}, Breaks: {_format_time_hhmm(daily_breaks)}, Salary: EUR{daily_salary:.2f}")
+    
+    # Add cost and profit breakdown
+    print_route_cost_breakdown(vehicle_id, route, vehicle, orders)
 
 
-def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None):
+def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, orders=None):
     """
     Provides a simplified chronological view when HoS timeline is not available.
     """
@@ -513,9 +1244,10 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None):
     print(f"\n    SIMPLIFIED CHRONOLOGICAL JOURNEY:")
     print(f"    =====================================")
     
-    # Print initial depot start
+    # Print initial depot start - get start date from first task or use default
+    start_date = _format_date_from_minutes(0.0)
     print(f"\n          1. DEPOT-ASTI")
-    print(f"             Departure at 23/08 - 00:00 [No window -> No window] - Status: On time")
+    print(f"             Departure at {start_date} - 00:00 [No window -> No window] - Status: On time")
     print(f"             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets")
     
     current_weight = 0.0
@@ -566,7 +1298,8 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None):
             _print_simulated_hos_breakdown(travel_time)
         
         print(f"\n          {task_num}. {location} (Order: {task.order_id})")
-        print(f"             Arrival at: {arrival_str} {time_window} - Status: On time")
+        task_status = validate_time_window_status(cumulative_time, task)
+        print(f"             Arrival at: {arrival_str} {time_window} - Status: {task_status}")
         print(f"             WORK {_format_time_hhmm(service_time)} - Load: {weight_change:+.1f}kg, {volume_change:+.2f}m3, {pallets_change:+.0f} pallets -> Total: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
         
         cumulative_time += service_time
@@ -600,6 +1333,9 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None):
     
     print(f"\n      Total Journey Time: {_format_time_hhmm(cumulative_time)}")
     print(f"      Total Load Changes: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
+    
+    # Add cost and profit breakdown
+    print_route_cost_breakdown(vehicle_id, route, vehicle, orders)
 
 
 def configure_algorithm_parameters() -> dict:
@@ -845,7 +1581,7 @@ def print_route_validation_summary(solution, orders, vehicles, runtime_seconds=N
                 pass  # Distance calculation not available
             
             # Print detailed route breakdown
-            print_detailed_route_breakdown(vehicle_id, route, getattr(route, 'vehicle', None))
+            print_detailed_route_breakdown(vehicle_id, route, getattr(route, 'vehicle', None), orders)
     
     # Calculate assignment statistics (simple and clear)
     unassigned_order_ids = all_order_ids - assigned_orders
@@ -2137,7 +2873,7 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
     return solution, epdt_orders, epdt_vehicles, runtime_seconds
 
 
-def print_custom_assignment_summary(active_routes, drivers, route_violations=None):
+def print_custom_assignment_summary(active_routes, drivers, route_violations=None, orders=None):
     """
     Custom summary function that uses our simplified chronological journey format.
     """
@@ -2151,11 +2887,14 @@ def print_custom_assignment_summary(active_routes, drivers, route_violations=Non
     for vehicle_id, route in active_routes.items():
         if route and route.tasks:
             # Use our improved print_detailed_route_breakdown function
-            print_detailed_route_breakdown(vehicle_id, route, getattr(route, 'vehicle', None))
+            print_detailed_route_breakdown(vehicle_id, route, getattr(route, 'vehicle', None), orders)
             
             # Add violation warning if present
             if route_violations and vehicle_id in route_violations:
-                print(f"   WARNING: Route violations detected: {route_violations[vehicle_id]}")
+                violation_msg = route_violations[vehicle_id]
+                print(f"   WARNING: Route violations detected: {violation_msg}")
+                # Track route violations
+                violation_tracker.add_route_violation(vehicle_id, violation_msg)
             
             print()  # Add spacing between routes
     
@@ -2257,6 +2996,8 @@ def run_phase2_driver_assignment(excel_path: str, solution, vehicles, output_con
                     infeasible_count += 1
                     route_violations[vehicle_id] = reason
                     print(f"   NOTE: Route for vehicle {vehicle_id} has violations: {reason} (keeping route with warning)")
+                    # Track route violations
+                    violation_tracker.add_route_violation(vehicle_id, reason)
                     
             except ImportError:
                 try:
@@ -2271,6 +3012,8 @@ def run_phase2_driver_assignment(excel_path: str, solution, vehicles, output_con
                         infeasible_count += 1
                         route_violations[vehicle_id] = reason
                         print(f"   NOTE: Route for vehicle {vehicle_id} has violations: {reason} (keeping route with warning)")
+                        # Track route violations  
+                        violation_tracker.add_route_violation(vehicle_id, reason)
                         
                 except ImportError:
                     # If feasibility check unavailable, include all routes
@@ -2336,7 +3079,7 @@ def run_phase2_driver_assignment(excel_path: str, solution, vehicles, output_con
     print(f"\nSummary Generating final solution summary...")
     try:
         # Use our custom summary with simplified chronological journey
-        print_custom_assignment_summary(active_routes, drivers, route_violations)
+        print_custom_assignment_summary(active_routes, drivers, route_violations, orders)
         print(f"OK: Final summary with chronological journey generated successfully!")
         
     except Exception as e:
@@ -2683,6 +3426,9 @@ def main():
             import traceback
             traceback.print_exc()
         
+        # === FINAL COMPREHENSIVE REPORT ===
+        print_comprehensive_final_report()
+        
         # Final completion message - AFTER all phases and summaries are done
         print("\n" + "="*80)
         print("Success COMPREHENSIVE INTEGRATION TEST COMPLETED!")
@@ -2690,6 +3436,7 @@ def main():
         print(f"OK: Phase 1: Heuristic solver executed in {runtime:.2f} seconds")
         print(f"OK: Phase 2: Driver assignment integration completed")
         print(f"OK: Phase 3: Static pricing calculation completed")
+        print(f"OK: Phase 4: Comprehensive violation and financial analysis completed")
         print("\nRunning Complete system integration with optimized constraints, visualization, and pricing!")
         
     except Exception as e:
