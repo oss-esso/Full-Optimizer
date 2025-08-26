@@ -116,7 +116,7 @@ class HoSRegulations:
     MAX_WORK_WITHOUT_BREAK = 6 * 60         # 6 hours  
     MAX_DRIVE_PER_DAY = 9 * 60              # 9 hours (extendable to 10)
     MAX_WORK_PER_DAY = 13 * 60              # 13 hours (extendable to 14)
-    MAX_DRIVE_PER_WEEK = 56 * 60            # 56 hours
+    MAX_DRIVE_PER_WEEK = 45 * 60            # 45 hours (CORRECTED from 56)
     MAX_DRIVE_TWO_WEEKS = 90 * 60           # 90 hours in any two consecutive weeks
     
     # Rest requirements in minutes
@@ -505,8 +505,16 @@ def simulate_hos_advanced(route, driver_state: DriverState, sorted_tasks: List) 
                         'reason': 'Daily driving/work limit reached'
                     })
                 else:
-                    # Just need a break
+                    # Just need a break - ENHANCED LOGIC
+                    # If can_drive returned False but no daily/weekly rest needed, 
+                    # then a break is definitely required
                     break_required, break_duration = check_break_requirement(driver_state, travel_time)
+                    if not break_required:
+                        # Force break if can_drive failed but check_break_requirement didn't catch it
+                        # This handles edge cases in the logic
+                        break_required = True
+                        break_duration = HoSRegulations.MIN_BREAK_DURATION
+                        
                     if break_required:
                         apply_break_to_driver_state(driver_state, break_duration, current_time)
                         current_time += break_duration
@@ -515,7 +523,7 @@ def simulate_hos_advanced(route, driver_state: DriverState, sorted_tasks: List) 
                             'type': 'break',
                             'start_time': current_time - break_duration,
                             'duration': break_duration,
-                            'reason': 'Continuous driving limit reached'
+                            'reason': 'Mandatory break - driving limit reached'
                         })
             
             # Check again if we can drive after rest/break
@@ -1047,6 +1055,9 @@ class HoSEngine:
         This method performs the complete HoS simulation and returns a comprehensive
         result containing feasibility, timeline, costs, and violations.
         
+        As recommended in the technical review, this now includes BOTH HoS compliance
+        AND time window validation in a single, authoritative analysis.
+        
         Args:
             route: Route object to analyze
             
@@ -1059,6 +1070,11 @@ class HoSEngine:
             # CE license: full EU HoS regulations
             timeline, rest_cost = build_compliant_timeline(route)
             
+            # TECHNICAL REVIEW FIX: Immediately validate time windows after timeline is built
+            # This prevents the optimizer from favoring routes that seem good before rest insertion
+            # but become infeasible after mandatory rests are added
+            is_feasible, violations = self._validate_timeline_against_constraints(timeline, route)
+            
             # Calculate metrics from timeline
             driving_time = sum(event.duration for event in timeline if event.event_type == 'DRIVE')
             working_time = sum(event.duration for event in timeline if event.event_type in ['DRIVE', 'WORK'])
@@ -1070,10 +1086,10 @@ class HoSEngine:
             driver_cost = working_time * driver_cost_per_minute
             
             return HoSAnalysisResult(
-                is_feasible=True,
+                is_feasible=is_feasible,  # Now reflects BOTH HoS and time window validation
                 timeline=timeline,
                 costs={'driver_cost': driver_cost, 'rest_cost': rest_cost},
-                violations=[],
+                violations=violations,
                 total_duration=total_duration,
                 driving_time=driving_time,
                 working_time=working_time,
@@ -1191,6 +1207,56 @@ class HoSEngine:
             rest_cost=rest_cost,
             driver_cost=driver_cost
         )
+    
+    def _validate_timeline_against_constraints(self, timeline: List[SimulatedEvent], route: 'Route') -> Tuple[bool, List[str]]:
+        """
+        Validate timeline against ALL business constraints including time windows.
+        
+        This implements the technical review recommendation to validate time windows 
+        immediately after timeline is built, not as a separate step.
+        
+        Args:
+            timeline: Complete timeline with all events including mandatory rests
+            route: Route object containing tasks with time window constraints
+            
+        Returns:
+            Tuple of (is_feasible, list_of_violations)
+        """
+        violations = []
+        
+        if not timeline:
+            return True, []
+        
+        # Build a map of task arrivals from the timeline
+        task_arrivals = {}
+        for event in timeline:
+            if event.event_type in ['WORK'] and event.task_id:
+                task_arrivals[event.task_id] = event.start_time
+        
+        # Validate each task's time window constraints
+        for task in route.tasks:
+            if not hasattr(task, 'id') or task.id not in task_arrivals:
+                continue
+                
+            arrival_time = task_arrivals[task.id]
+            
+            # Check earliest time constraint
+            if hasattr(task, 'earliest_time') and task.earliest_time is not None:
+                if arrival_time < task.earliest_time:
+                    violations.append(f"Task {task.id}: arrives at {arrival_time:.1f}min but earliest allowed is {task.earliest_time:.1f}min")
+            
+            # Check latest time constraint (hard time windows only)
+            if hasattr(task, 'latest_time') and task.latest_time is not None:
+                # Only enforce hard time windows - soft windows allow violations with penalties
+                is_hard_window = not getattr(task, 'soft_time_window', False)
+                if is_hard_window and arrival_time > task.latest_time:
+                    violations.append(f"Task {task.id}: arrives at {arrival_time:.1f}min but latest allowed is {task.latest_time:.1f}min")
+        
+        # Additional HoS regulation validation could be added here
+        # For now, we assume build_compliant_timeline already ensures HoS compliance
+        
+        is_feasible = len(violations) == 0
+        return is_feasible, violations
     
     def _validate_timeline_feasible(self, timeline: List[SimulatedEvent], route: 'Route') -> Tuple[bool, str]:
         """

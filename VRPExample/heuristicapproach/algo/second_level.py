@@ -19,7 +19,7 @@ Architecture Notes:
 
 import math
 from typing import List, Optional, Iterator, Callable, TYPE_CHECKING, Union, Tuple
-from epdt_data_structures import DriverState
+from epdt_data_structures import DriverState, Task
 import copy
 
 # Global counter for tracking distance/travel time calculations
@@ -122,6 +122,491 @@ else:
     except ImportError:
         from epdt_data_structures import Route, Order
 
+
+def check_hard_constraints(route: 'Route', debug: bool = False) -> Tuple[bool, str]:
+    """
+    UNIFIED HARD CONSTRAINT CHECKER
+    
+    This function checks constraints that should NEVER be violated under any circumstances:
+    1. Vehicle capabilities (LOADER, LOW_TEMP, HANGERS) - Legal/equipment requirements
+    2. Pallet capacity - Physical safety limits
+    3. LIFO constraints - Physical loading requirements
+    4. Precedence constraints - Pickup before delivery for each order
+    
+    IMPORTANT: This function validates the existing task order without modifying it.
+    
+    Args:
+        route: Route to validate
+        debug: Whether to print debug information
+        
+    Returns:
+        Tuple[bool, str]: (is_valid, reason_if_invalid)
+    """
+    if not route or not route.tasks:
+        return True, "Empty route is valid"
+        
+    # VALIDATE EXISTING TASK ORDER (don't reorder!)
+    tasks = route.tasks
+    
+    # Check precedence constraints first
+    if not _validate_precedence_constraints(tasks):
+        reason = "HARD CONSTRAINT VIOLATION: Precedence constraints violated (pickup must come before delivery)"
+        if debug:
+            print(f"            HARD CONSTRAINT CHECK: {reason}")
+        return False, reason
+    
+    # HARD CONSTRAINT 1: VEHICLE CAPABILITIES
+    # Check if vehicle has all required capabilities
+    all_required_capabilities = set()
+    for task in tasks:
+        # Check individual capability flags
+        if hasattr(task, 'requires_loader') and task.requires_loader:
+            all_required_capabilities.add('LOADER')
+        if hasattr(task, 'requires_low_temp') and task.requires_low_temp:
+            all_required_capabilities.add('LOW_TEMP')
+        if hasattr(task, 'requires_hangers') and task.requires_hangers:
+            all_required_capabilities.add('HANGERS')
+        
+        # Check required_capabilities string/list (comprehensive check)
+        if hasattr(task, 'required_capabilities') and task.required_capabilities:
+            capabilities_str = str(task.required_capabilities).upper()
+            if 'LOADER' in capabilities_str:
+                all_required_capabilities.add('LOADER')
+            if 'LOW_TEMP' in capabilities_str or 'LOW_TEMPERATURE' in capabilities_str:
+                all_required_capabilities.add('LOW_TEMP')
+            if 'HANGERS' in capabilities_str:
+                all_required_capabilities.add('HANGERS')
+    
+    if all_required_capabilities:
+        # Get vehicle capabilities
+        vehicle_capabilities = set()
+        if hasattr(route.vehicle, 'capabilities'):
+            if isinstance(route.vehicle.capabilities, (list, set)):
+                vehicle_capabilities = set(str(cap).upper() for cap in route.vehicle.capabilities)
+            elif isinstance(route.vehicle.capabilities, str):
+                caps = [cap.strip().upper() for cap in route.vehicle.capabilities.split(',') if cap.strip()]
+                vehicle_capabilities = set(caps)
+        
+        # Also check individual capability flags on vehicle
+        if hasattr(route.vehicle, 'has_loader') and route.vehicle.has_loader:
+            vehicle_capabilities.add('LOADER')
+        if hasattr(route.vehicle, 'has_low_temp') and route.vehicle.has_low_temp:
+            vehicle_capabilities.add('LOW_TEMP')
+        if hasattr(route.vehicle, 'has_hangers') and route.vehicle.has_hangers:
+            vehicle_capabilities.add('HANGERS')
+        
+        if not vehicle_capabilities.issuperset(all_required_capabilities):
+            missing_caps = all_required_capabilities - vehicle_capabilities
+            reason = f"HARD CONSTRAINT VIOLATION: Vehicle {route.vehicle.id} missing capabilities: {', '.join(missing_caps)}"
+            if debug:
+                print(f"            HARD CONSTRAINT CHECK: {reason}")
+            return False, reason
+    
+    # HARD CONSTRAINT 2: PALLET CAPACITY  
+    # This is a physical safety limit that cannot be exceeded
+    max_pallets = route.vehicle.pallet_capacity
+    if max_pallets is not None:
+        current_pallets = 0
+        for task in tasks:
+            current_pallets += getattr(task, 'pallets', 0)  # pallets can be negative for deliveries
+            if current_pallets > max_pallets:
+                reason = f"HARD CONSTRAINT VIOLATION: Pallet capacity exceeded: {current_pallets} > {max_pallets} at task {task.id}"
+                if debug:
+                    print(f"            HARD CONSTRAINT CHECK: {reason}")
+                return False, reason
+    
+    # HARD CONSTRAINT 3: LIFO LOADING CONSTRAINTS
+    # Physical loading constraint that cannot be violated
+    if hasattr(route.vehicle, 'lifo_required') and route.vehicle.lifo_required:
+        lifo_stack = []
+        
+        # Handle delivery-only orders by pre-loading stack
+        delivery_orders = set()
+        pickup_orders = set()
+        
+        for task in tasks:
+            if task.is_delivery():
+                delivery_orders.add(task.order_id)
+            elif task.is_pickup():
+                pickup_orders.add(task.order_id)
+        
+        delivery_only_orders = delivery_orders - pickup_orders
+        if delivery_only_orders:
+            lifo_stack = list(delivery_only_orders)
+        
+        # Check LIFO constraint during execution
+        for task in tasks:
+            if task.is_pickup():
+                lifo_stack.append(task.order_id)
+            elif task.is_delivery():
+                if not lifo_stack:
+                    reason = f"HARD CONSTRAINT VIOLATION: LIFO violation - trying to deliver {task.id} when no cargo loaded"
+                    if debug:
+                        print(f"            HARD CONSTRAINT CHECK: {reason}")
+                    return False, reason
+                if lifo_stack[-1] != task.order_id:
+                    reason = f"HARD CONSTRAINT VIOLATION: LIFO violation - expected {lifo_stack[-1]}, got {task.order_id}"
+                    if debug:
+                        print(f"            HARD CONSTRAINT CHECK: {reason}")
+                    return False, reason
+                lifo_stack.pop()
+        
+        # Final LIFO check
+        if lifo_stack:
+            reason = f"HARD CONSTRAINT VIOLATION: LIFO constraint - undelivered cargo: {lifo_stack}"
+            if debug:
+                print(f"            HARD CONSTRAINT CHECK: {reason}")
+            return False, reason
+    
+    if debug:
+        print(f"            HARD CONSTRAINT CHECK: All hard constraints satisfied for vehicle {route.vehicle.id}")
+    
+    return True, "All hard constraints satisfied"
+
+
+def _validate_precedence_constraints(tasks: List) -> bool:
+    """
+    Validate that pickup comes before delivery for each order.
+    Allows flexible interleaving of multiple orders.
+    """
+    # Group tasks by order
+    orders_tasks = {}
+    
+    for pos, task in enumerate(tasks):
+        order_id = getattr(task, 'order_id', None)
+        task_type = getattr(task, 'task_type', None)
+        
+        if order_id is None or task_type is None:
+            continue
+        
+        # Convert TaskType enum to string if needed
+        if hasattr(task_type, 'value'):
+            task_type = task_type.value
+        
+        if task_type not in ['pickup', 'delivery']:
+            continue
+            
+        if order_id not in orders_tasks:
+            orders_tasks[order_id] = []
+        
+        orders_tasks[order_id].append({'task_type': task_type, 'position': pos})
+    
+    # Check precedence for each order
+    for order_id, order_tasks in orders_tasks.items():
+        pickups = [t for t in order_tasks if t['task_type'] == 'pickup']
+        deliveries = [t for t in order_tasks if t['task_type'] == 'delivery']
+        
+        # Skip if no pickup/delivery pair
+        if not pickups or not deliveries:
+            continue
+        
+        # For simple orders: pickup must come before delivery
+        if len(pickups) == 1 and len(deliveries) == 1:
+            if pickups[0]['position'] >= deliveries[0]['position']:
+                return False
+        
+        # For complex orders: all pickups must come before all deliveries
+        else:
+            max_pickup_pos = max(p['position'] for p in pickups)
+            min_delivery_pos = min(d['position'] for d in deliveries)
+            
+            if max_pickup_pos >= min_delivery_pos:
+                return False
+    
+    return True
+
+
+def generate_valid_task_permutations(tasks: List['Task']) -> List[List['Task']]:
+    """
+    Generate all valid permutations of tasks respecting precedence constraints.
+    A permutation is valid if delivery tasks come after their corresponding pickup tasks.
+    
+    Args:
+        tasks: List of Task objects (mix of pickups and deliveries)
+        
+    Returns:
+        List of valid task sequences
+    """
+    from itertools import permutations
+    
+    valid_sequences = []
+    
+    # Create mapping from pickup to delivery for precedence checking
+    # Use task IDs as keys instead of Task objects to avoid hashability issues
+    pickup_to_delivery = {}
+    deliveries = [t for t in tasks if hasattr(t, 'task_type') and t.task_type.name == 'DELIVERY']
+    pickups = [t for t in tasks if hasattr(t, 'task_type') and t.task_type.name == 'PICKUP']
+    
+    # Map pickups to deliveries based on location or order logic
+    for pickup in pickups:
+        for delivery in deliveries:
+            # Simple mapping based on location proximity or order ID
+            if hasattr(pickup, 'order_id') and hasattr(delivery, 'order_id'):
+                if pickup.order_id == delivery.order_id:
+                    pickup_id = getattr(pickup, 'id', id(pickup))
+                    delivery_id = getattr(delivery, 'id', id(delivery))
+                    pickup_to_delivery[pickup_id] = delivery_id
+                    break
+    
+    # Generate all permutations and filter valid ones
+    for perm in permutations(tasks):
+        if is_valid_task_sequence(perm, pickup_to_delivery):
+            valid_sequences.append(list(perm))
+    
+    return valid_sequences
+
+
+def is_valid_task_sequence(sequence: List['Task'], pickup_to_delivery: dict) -> bool:
+    """
+    Check if a task sequence respects precedence constraints.
+    
+    Args:
+        sequence: Sequence of tasks to validate
+        pickup_to_delivery: Mapping from pickup task IDs to delivery task IDs
+        
+    Returns:
+        True if sequence is valid, False otherwise
+    """
+    # Create position mapping using task IDs
+    task_id_positions = {}
+    for i, task in enumerate(sequence):
+        task_id = getattr(task, 'id', id(task))
+        task_id_positions[task_id] = i
+    
+    for pickup_id, delivery_id in pickup_to_delivery.items():
+        if pickup_id in task_id_positions and delivery_id in task_id_positions:
+            if task_id_positions[pickup_id] >= task_id_positions[delivery_id]:
+                return False  # Delivery before pickup is invalid
+    
+    return True
+
+
+def evaluate_permutation_at_insertion_point(route: 'Route', task_sequence: List['Task'], 
+                                           insertion_point: int, debug: bool = False) -> Optional[dict]:
+    """
+    Evaluate a task sequence at a specific insertion point in the route.
+    
+    Args:
+        route: Current route
+        task_sequence: Sequence of tasks to insert
+        insertion_point: Position where to insert the sequence
+        debug: Whether to print debug information
+        
+    Returns:
+        Dictionary with feasibility, cost, and route info, or None if infeasible
+    """
+    if debug:
+        print(f"      Evaluating sequence at position {insertion_point}")
+    
+    # Create temporary route with sequence inserted
+    temp_route = route.copy()
+    
+    # Insert tasks at the specified position
+    for i, task in enumerate(task_sequence):
+        temp_route.insert_task_without_reordering(insertion_point + i, task)
+    
+    # Check feasibility with real-time load simulation
+    if not is_feasible_with_load_tracking(temp_route, insertion_point, task_sequence, debug):
+        if debug:
+            print(f"      Sequence infeasible at position {insertion_point}")
+        return None
+    
+    # Calculate cost (negative because we want to minimize cost)
+    cost = calculate_z2_score(temp_route)
+    
+    if debug:
+        print(f"      Sequence feasible at position {insertion_point}, cost: {cost:.2f}")
+    
+    return {
+        'feasible': True,
+        'cost': cost,
+        'route': temp_route,
+        'insertion_point': insertion_point
+    }
+
+
+def is_feasible_with_load_tracking(route: 'Route', insertion_point: int, 
+                                 task_sequence: List['Task'], debug: bool = False) -> bool:
+    """
+    Check feasibility using real-time load simulation.
+    
+    Args:
+        route: Route with tasks already inserted
+        insertion_point: Where the sequence was inserted
+        task_sequence: The inserted task sequence
+        debug: Whether to print debug information
+        
+    Returns:
+        True if feasible, False otherwise
+    """
+    if debug:
+        print(f"        Load tracking from insertion point {insertion_point}")
+    
+    # Calculate initial load at insertion point
+    current_load = 0
+    for i in range(insertion_point):
+        if i < len(route.tasks):
+            task = route.tasks[i]
+            if hasattr(task, 'demand'):
+                current_load += task.demand
+    
+    if debug:
+        print(f"        Initial load at insertion: {current_load}")
+    
+    # Simulate load changes through the inserted sequence
+    for i, task in enumerate(task_sequence):
+        if hasattr(task, 'demand'):
+            current_load += task.demand
+        
+        if debug:
+            print(f"        After task {i+1}: load = {current_load}")
+        
+        # Check constraints
+        if current_load < 0:
+            if debug:
+                print(f"        VIOLATION: Negative load {current_load}")
+            return False
+        
+        if hasattr(route.vehicle, 'weight_capacity') and current_load > route.vehicle.weight_capacity:
+            if debug:
+                print(f"        VIOLATION: Exceeds capacity {current_load} > {route.vehicle.weight_capacity}")
+            return False
+    
+    # Check overall route feasibility
+    try:
+        overall_feasible = route.is_feasible() if hasattr(route, 'is_feasible') else True
+        if debug and not overall_feasible:
+            print(f"        VIOLATION: Overall route infeasible")
+        return overall_feasible
+    except Exception as e:
+        if debug:
+            print(f"        ERROR checking feasibility: {e}")
+        return False
+
+
+def calculate_sequence_profit(route: 'Route', order: 'Order', cost: float) -> float:
+    """
+    Calculate profit for a sequence insertion.
+    
+    Args:
+        route: Route with order inserted
+        order: The order being inserted
+        cost: Cost of the route
+        
+    Returns:
+        Profit (revenue - cost)
+    """
+    # Calculate revenue based on order value or distance
+    revenue = 0.0
+    
+    # Simple revenue calculation based on order demands
+    if hasattr(order, 'get_total_demand'):
+        total_demand = order.get_total_demand()
+        # Use price per unit (example: €1.2 per kg)
+        revenue = total_demand * 1.2
+    
+    # Alternative: calculate based on pickup-delivery distances
+    pickups = order.get_pickups()
+    deliveries = order.get_deliveries()
+    
+    if pickups and deliveries:
+        # Calculate distance-based revenue
+        total_distance = 0.0
+        for pickup in pickups:
+            for delivery in deliveries:
+                if hasattr(pickup, 'latitude') and hasattr(delivery, 'latitude'):
+                    distance = haversine_distance(pickup.latitude, pickup.longitude,
+                                                delivery.latitude, delivery.longitude)
+                    total_distance += distance
+        
+        # Price per km based on vehicle type
+        price_per_km = 0.8  # Default for standard vehicles
+        if hasattr(route.vehicle, 'vehicle_type') and 'camion' in str(route.vehicle.vehicle_type).lower():
+            price_per_km = 1.25  # Higher rate for heavy vehicles
+        
+        distance_revenue = total_distance * price_per_km
+        revenue = max(revenue, distance_revenue)
+    
+    profit = revenue - abs(cost)  # Cost is usually negative in Z2 scoring
+    return profit
+
+
+def find_best_sequence_for_complex_order(route: 'Route', order: 'Order', debug: bool = False) -> Optional['Route']:
+    """
+    Find the best sequence for a complex order using advanced sequencing logic.
+    
+    This replaces the aggressive splitting approach with intelligent task sequencing
+    that maximizes profit while respecting all constraints.
+    
+    Args:
+        route: Current vehicle route
+        order: Complex order to be inserted
+        debug: Whether to print debug information
+        
+    Returns:
+        Optimized route with order inserted, or None if infeasible
+    """
+    if debug:
+        print(f"    Advanced Sequencing: Processing complex order {order.id}")
+    
+    # Get all tasks from the order
+    all_tasks = order.get_pickups() + order.get_deliveries()
+    
+    if not all_tasks:
+        if debug:
+            print(f"    No tasks found in order {order.id}")
+        return None
+    
+    if debug:
+        print(f"    Order has {len(order.get_pickups())} pickups and {len(order.get_deliveries())} deliveries")
+    
+    # Step 2: Generate all valid task permutations
+    valid_sequences = generate_valid_task_permutations(all_tasks)
+    
+    if debug:
+        print(f"    Generated {len(valid_sequences)} valid sequences")
+    
+    if not valid_sequences:
+        if debug:
+            print(f"    No valid sequences found for order {order.id}")
+        return None
+    
+    # Step 3: Evaluate each valid permutation at all possible insertion points
+    best_result = None
+    best_profit = float('-inf')
+    
+    for seq_idx, sequence in enumerate(valid_sequences):
+        if debug:
+            print(f"    Evaluating sequence {seq_idx + 1}/{len(valid_sequences)}")
+        
+        # Try all insertion points (after depot start, before depot return)
+        for insertion_point in range(1, len(route.tasks)):
+            result = evaluate_permutation_at_insertion_point(route, sequence, insertion_point, debug)
+            
+            if result and result['feasible']:
+                # Calculate profit for this sequence
+                profit = calculate_sequence_profit(result['route'], order, result['cost'])
+                
+                if debug:
+                    print(f"      Sequence {seq_idx + 1} at position {insertion_point}: profit = {profit:.2f}")
+                
+                if profit > best_profit:
+                    best_profit = profit
+                    best_result = result
+                    if debug:
+                        print(f"      New best sequence found: profit = {profit:.2f}")
+    
+    # Step 4: Return the best sequence
+    if best_result and best_profit > 0:  # Only accept profitable insertions
+        if debug:
+            print(f"    Best sequence selected with profit: {best_profit:.2f}")
+        return best_result['route']
+    else:
+        if debug:
+            print(f"    No profitable sequence found for complex order {order.id}")
+        return None
+
+
 def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False, enhanced_diagnostics: bool = False, sequencing_strategy: str = 'clustered') -> Optional['Route']:
     """
     Second-Level Heuristic: Finds the best way to insert an order into a route.
@@ -176,6 +661,29 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
             order_volume > (route.vehicle.volume_capacity - current_volume)):
             print(f"   CAPACITY FAILURE: Order {order.id} exceeds vehicle capacity")
     
+    # Step 1: Identify Complex Orders and apply advanced sequencing
+    pickups = order.get_pickups()
+    deliveries = order.get_deliveries()
+    is_complex_order = len(pickups) > 1 or len(deliveries) > 1
+    
+    # Always print complex order detection for debugging
+    if is_complex_order:
+        print(f"    *** COMPLEX ORDER DETECTED: Order {order.id} has {len(pickups)} pickups, {len(deliveries)} deliveries ***")
+        
+        # Execute new advanced sequencing logic for complex orders
+        complex_route = find_best_sequence_for_complex_order(route, order, show_diagnostics)
+        if complex_route:
+            print(f"    *** COMPLEX ORDER SUCCESS: Order {order.id} processed successfully ***")
+            return complex_route
+        else:
+            print(f"    *** COMPLEX ORDER FAILED: Order {order.id} - No feasible sequence found ***")
+            return None
+    else:
+        # Simple order - print for debugging
+        if len(pickups) + len(deliveries) > 0:  # Only print if there are tasks
+            print(f"    Simple Order: Order {order.id} has {len(pickups)} pickups, {len(deliveries)} deliveries")
+    
+    # For simple orders, proceed with existing logic
     initial_routes: List['Route'] = _generate_initial_task_sequence(route, order, show_diagnostics, sequencing_strategy)
 
     if show_diagnostics:
@@ -592,228 +1100,10 @@ def _task_swap_neighborhood(route: 'Route', order: 'Order') -> Iterator['Route']
                 yield new_route
 
 
-def _calculate_realistic_driver_costs(route: 'Route') -> tuple[float, float]:
-    """
-    Calculate realistic driver break and rest costs by simulating HOS regulations.
-    Returns (break_cost, total_downtime_minutes)
-    
-    Note: JIT compilation removed for better compatibility across different execution contexts.
-    
-    TODO: Consider integrating with _simulate_hos_advanced() for more accurate
-    multi-day and weekly HoS cost calculation in future enhancements.
-    """
-    if not route.tasks:
-        return 0.0, 0.0
-    
-    # Use driver's HoS state if available, otherwise create a new one
-    if route.driver and route.driver.hos_state:
-        driver = copy.deepcopy(route.driver.hos_state)
-    else:
-        driver = DriverState()
-    current_time = 0
-    total_break_time = 0
-    total_rest_time = 0
-    
-    for i in range(len(route.tasks) - 1):
-        current_task = route.tasks[i]
-        next_task = route.tasks[i + 1]
-        
-        # Handle service time
-        service_time = current_task.service_time
-        driver.work_since_break += service_time
-        driver.work_today += service_time
-        current_time += service_time
-        
-        # Calculate travel time using Haversine-based calculation
-        travel_time = calculate_travel_time_haversine(
-            current_task.lat, current_task.lon,
-            next_task.lat, next_task.lon
-        )
-        
-        # Check if we need breaks/rests before travel
-        remaining_drive_time = min(
-            driver.MAX_DRIVE_WITHOUT_BREAK - driver.drive_since_break,
-            driver.MAX_DRIVE_PER_DAY - driver.drive_today
-        )
-        
-        # Simulate break/rest requirements during travel
-        travel_remaining = travel_time
-        while travel_remaining > remaining_drive_time:
-            # Drive until break is needed
-            driver.drive_since_break += remaining_drive_time
-            driver.work_since_break += remaining_drive_time
-            driver.drive_today += remaining_drive_time
-            driver.work_today += remaining_drive_time
-            driver.drive_this_week += remaining_drive_time
-            
-            current_time += remaining_drive_time
-            travel_remaining -= remaining_drive_time
-            
-            # Take mandatory break
-            current_time += 45  # 45-minute break
-            total_break_time += 45
-            driver.take_break(45)
-            
-            # Check if daily rest is needed
-            if driver.drive_today >= driver.MAX_DRIVE_PER_DAY or driver.work_today >= driver.MAX_WORK_PER_DAY:
-                current_time += 11 * 60  # 11-hour daily rest
-                total_rest_time += 11 * 60
-                driver.take_daily_rest()
-                
-                # Check if weekly rest is needed
-                if driver.drive_this_week + driver.drive_last_week >= driver.MAX_DRIVE_TWO_WEEKS:
-                    current_time += 45 * 60  # 45-hour weekly rest
-                    total_rest_time += 45 * 60
-                    driver.take_weekly_rest()
-            
-            remaining_drive_time = min(
-                driver.MAX_DRIVE_WITHOUT_BREAK - driver.drive_since_break,
-                driver.MAX_DRIVE_PER_DAY - driver.drive_today
-            )
-        
-        # Complete remaining travel
-        driver.drive_since_break += travel_remaining
-        driver.work_since_break += travel_remaining
-        driver.drive_today += travel_remaining
-        driver.work_today += travel_remaining
-        driver.drive_this_week += travel_remaining
-        current_time += travel_remaining
-    
-    # Calculate costs: break time costs hourly rate, rest time costs reduced rate
-    total_downtime = total_break_time + total_rest_time
-    
-    # Use driver's cost per hour if available, otherwise fall back to vehicle cost
-    hourly_cost = route.driver.cost_per_hour if route.driver else route.vehicle.cost_per_hour
-    break_cost = (total_break_time * hourly_cost + 
-                 total_rest_time * hourly_cost * 0.3)  # Rest time at reduced rate
-    
-    return break_cost, total_downtime
-
-
-def _estimate_hos_cost_with_breaks(route: 'Route', driver_state: 'DriverState', sorted_tasks: List) -> float:
-    """
-    Estimate the total HoS cost including the cost of mandatory breaks.
-    Unlike _check_hos_multiday, this function doesn't reject routes outright but estimates
-    the cost of required rests to complete the route legally.
-    
-    This is used for cost evaluation during optimization, while _check_hos_multiday
-    is used for strict feasibility checking.
-    
-    Args:
-        route: The route being evaluated
-        driver_state: Current driver state
-        sorted_tasks: Tasks sorted chronologically
-        
-    Returns:
-        Total estimated cost including mandatory breaks
-    """
-    if not sorted_tasks or len(sorted_tasks) < 2:
-        return 0.0
-
-    total_rest_cost = 0.0
-    driver_cost_per_minute = (route.vehicle.cost_per_hour / 60.0) if route.vehicle else (25.0 / 60.0)
-    sim_state = driver_state.copy()
-    
-    # B license drivers are exempt from HoS regulations
-    if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
-        return 0.0
-    
-    current_time = 0
-    current_day = getattr(sorted_tasks[0], 'day', 0)
-    
-    # Process each task in chronological order
-    for i in range(len(sorted_tasks) - 1):
-        start_task = sorted_tasks[i]
-        end_task = sorted_tasks[i+1]
-
-        # 1. Simulate Service Time at the start_task
-        service_time = start_task.service_time
-        if service_time > 0:
-            # If service time would exceed daily limit, add mandatory rest cost
-            if sim_state.work_today + service_time > sim_state.MAX_WORK_PER_DAY:
-                daily_rest_cost = 11 * 60 * driver_cost_per_minute  # 11-hour daily rest
-                total_rest_cost += daily_rest_cost
-                sim_state.reset_daily()
-            
-            sim_state.work_today += service_time
-            sim_state.work_this_week += service_time
-        
-        # Check for day transition
-        task_day = getattr(start_task, 'day', 0)
-        if task_day != current_day:
-            if sim_state.work_today > 0:
-                rest_time = 11 * 60  # 11 hours in minutes
-                total_rest_cost += rest_time * driver_cost_per_minute
-                current_time += rest_time
-                sim_state.reset_daily()
-            current_day = task_day
-        
-        # Calculate travel time
-        try:
-            from route_provider import calculate_travel_time_between_tasks
-            travel_time = calculate_travel_time_between_tasks(start_task, end_task, route.vehicle)
-        except ImportError:
-            travel_time = calculate_travel_time_haversine(
-                start_task.lat, start_task.lon,
-                end_task.lat, end_task.lon
-            )
-        
-        travel_time_remaining = travel_time
-        while travel_time_remaining > 0:
-            max_drive_before_break = sim_state.MAX_DRIVE_WITHOUT_BREAK - sim_state.drive_since_break
-            max_drive_before_daily_limit = sim_state.MAX_DRIVE_PER_DAY - sim_state.drive_today
-            max_work_before_daily_limit = sim_state.MAX_WORK_PER_DAY - sim_state.work_today
-
-            drivable_time = min(max_drive_before_break, max_drive_before_daily_limit, max_work_before_daily_limit, travel_time_remaining)
-
-            # Simulate driving for the calculated time
-            sim_state.drive_since_break += drivable_time
-            sim_state.drive_today += drivable_time
-            sim_state.work_today += drivable_time
-            sim_state.drive_this_week += drivable_time
-            sim_state.work_this_week += drivable_time
-            travel_time_remaining -= drivable_time
-
-            # If travel is not complete, add the cost of required rest
-            if travel_time_remaining > 0:
-                # A) 4.5-hour driving break required
-                if sim_state.drive_since_break >= sim_state.MAX_DRIVE_WITHOUT_BREAK:
-                    rest_duration = 45  # 45-minute break
-                    total_rest_cost += rest_duration * driver_cost_per_minute
-                    sim_state.work_today += rest_duration
-                    sim_state.work_this_week += rest_duration
-                    sim_state.drive_since_break = 0
-                    continue
-
-                # B) Daily or Weekly limit reached
-                if sim_state.drive_today >= sim_state.MAX_DRIVE_PER_DAY or sim_state.work_today >= sim_state.MAX_WORK_PER_DAY:
-                    if sim_state.work_this_week >= sim_state.MAX_WORK_PER_WEEK:
-                        rest_duration = 45 * 60  # 45-hour weekly rest
-                        total_rest_cost += rest_duration * driver_cost_per_minute
-                        sim_state.reset_weekly()
-                    else:
-                        rest_duration = 11 * 60  # 11-hour daily rest
-                        total_rest_cost += rest_duration * driver_cost_per_minute
-                        sim_state.work_this_week += rest_duration
-                        sim_state.reset_daily()
-        
-        # Handle waiting time costs
-        if (hasattr(start_task, 'earliest_time') and 
-            start_task.earliest_time is not None and 
-            current_time < start_task.earliest_time):
-            wait_time = start_task.earliest_time - current_time
-            current_time = start_task.earliest_time
-            
-            is_depot_waiting = (hasattr(start_task, 'is_depot_start') and start_task.is_depot_start()) or \
-                              (hasattr(start_task, 'task_type') and 'depot' in str(start_task.task_type).lower())
-            
-            if not is_depot_waiting:
-                # Customer waiting counts as work time and cost
-                sim_state.work_today += wait_time
-                sim_state.work_this_week += wait_time
-                total_rest_cost += wait_time * driver_cost_per_minute
-    
-    return total_rest_cost
+# TECHNICAL REVIEW FIX: Removed redundant HoS functions
+# _calculate_realistic_driver_costs() and _estimate_hos_cost_with_breaks() 
+# have been removed as recommended in the technical review.
+# All HoS logic is now centralized in HoSEngine.analyze_route()
 
 
 def calculate_z2_score(route: 'Route') -> float:
@@ -835,17 +1125,18 @@ def calculate_z2_score(route: 'Route') -> float:
     if hasattr(route, '_z2_score'):
         return route._z2_score
     
-    # NEW: Use cached rest costs from the two-stage HoS system
-    hos_cost = 0.0
+    # FIXED: Use only HoSEngine for all driver costs as per technical review
+    # Get HoS costs from the cached timeline (single source of truth)
+    driver_cost = 0.0
     if hasattr(route, '_cached_rest_costs'):
-        hos_cost = route._cached_rest_costs
+        driver_cost = route._cached_rest_costs
     else:
-        # Fallback: generate timeline and cache it
+        # Fallback: generate timeline and cache it using HoSEngine
         from hos_simulation import build_compliant_timeline
         timeline, rest_costs = build_compliant_timeline(route)
         route._cached_timeline = timeline
         route._cached_rest_costs = rest_costs
-        hos_cost = rest_costs
+        driver_cost = rest_costs
     
     # Still need sorted tasks for other calculations
     sorted_tasks = _enforce_pickup_first_sequencing(route.tasks)
@@ -854,18 +1145,11 @@ def calculate_z2_score(route: 'Route') -> float:
     travel_cost = 0.0  # C(r)
     time_window_penalty = 0.0  # W(r) 
     prospective_cost = 0.0  # A(r)
-    driver_cost = 0.0  # D(r)
     vehicle_assignment_penalty = 0.0  # V(r)
     end_position_penalty = 0.0  # E(r)
     soft_time_window_penalty = 0.0  # Additional component for soft violations
     weight_violation_penalty = 0.0  # New component for weight capacity violations
     hos_violation_penalty = 0.0  # NEW: Component for HoS violations allowed through soft constraints
-
-    # Enhanced driver break costs calculation
-    driver_cost, _ = _calculate_realistic_driver_costs(route)
-
-    # Add the HoS rest costs from the two-stage simulation
-    driver_cost += hos_cost
 
     # Multi-day cost simulation with weight violation tracking
     current_time = 0
@@ -989,10 +1273,32 @@ def calculate_z2_score(route: 'Route') -> float:
         # DISABLED: HoS penalty set to 0 for realistic pricing
         hos_violation_penalty = 0.0  # was: 10000.0
 
+    # --- NEW: Pallet Violation Penalty ---
+    pallet_violation_penalty = 0.0
+    max_pallets = route.vehicle.pallet_capacity
+    if max_pallets is not None:
+        current_pallets = 0
+        violation_count = 0
+        for task in sorted_tasks:
+            # Note: task.pallets is negative for deliveries
+            current_pallets += getattr(task, 'pallets', 0)
+            if current_pallets > max_pallets:
+                # Apply a very high penalty for any violation
+                excess_pallets = current_pallets - max_pallets
+                # Progressive penalty: higher penalty for larger violations
+                pallet_violation_penalty += 10000000 + (excess_pallets * 1000000)  # Much larger penalty
+                violation_count += 1
+        
+        # DEBUG: Print penalty calculation
+        if pallet_violation_penalty > 0:
+            print(f"DEBUG Z2: Vehicle {route.vehicle.id} has {violation_count} pallet violations, penalty: {pallet_violation_penalty}")
+            print(f"DEBUG Z2: Max pallets: {max_pallets}, final load: {current_pallets}")
+
     # Calculate total Z2 score including all violation penalties
     total_cost = (travel_cost + time_window_penalty + prospective_cost + 
                   driver_cost + vehicle_assignment_penalty + end_position_penalty +
-                  soft_time_window_penalty + weight_violation_penalty + hos_violation_penalty)
+                  soft_time_window_penalty + weight_violation_penalty + hos_violation_penalty +
+                  pallet_violation_penalty) # Add the new penalty here
 
     # Cache the score
     route._z2_score = total_cost
@@ -1274,8 +1580,9 @@ def _check_hos_lightweight(route: 'Route', driver_state: 'DriverState', tasks: L
 def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> bool:
     """
     Lightweight feasibility check optimized for L2 insertion clustering.
-    This is less strict than the full is_feasible() check to allow more flexibility
-    during the clustering phase of L2 heuristic.
+    
+    IMPORTANT: This function validates the existing task order without reordering
+    to preserve clustered pickup→pickup→delivery→delivery patterns.
     
     Args:
         route: Route to check feasibility for
@@ -1288,8 +1595,8 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
     if debug_insertion:
         print(f"                DEBUG INSERTION: Quick feasibility check for {len(route.tasks)} tasks")
     
-    # Only check critical hard constraints during insertion
-    sorted_tasks = _enforce_pickup_first_sequencing(route.tasks)
+    # VALIDATE EXISTING ORDER (don't reorder during insertion!)
+    tasks = route.tasks
     
     # Check if we're in initialization phase using call stack inspection
     import inspect
@@ -1329,7 +1636,7 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
     peak_load_v = 0.0
     peak_load_pallets = 0
     
-    for task in sorted_tasks:
+    for task in tasks:
         if task.is_pickup():
             load_w += task.demand
             load_v += task.volume
@@ -1339,51 +1646,37 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
             load_v += task.volume  # volume is negative for deliveries
             load_pallets += getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
         
-        # Track peak loads
+        # Track peak loads for soft constraint checking (weight/volume only)
         peak_load_w = max(peak_load_w, load_w)
         peak_load_v = max(peak_load_v, load_v)
         peak_load_pallets = max(peak_load_pallets, load_pallets)
         
-        # STRICT PALLET CONSTRAINTS - NO OVERLOADING ALLOWED
-        # Pallets are physical and cannot be exceeded under any circumstances
-        if max_pallets is not None and peak_load_pallets > max_pallets:
-            if debug_insertion:
-                print(f"                DEBUG INSERTION: STRICT pallet constraint violated: {peak_load_pallets} > {max_pallets} - REJECTED")
-            return False
+        # NOTE: Pallet constraints are now handled by unified hard constraint checker
+        # Only soft constraints (weight/volume with tolerances) are checked here
             
-        # Weight and volume constraints - more flexible during initialization
-        volume_tolerance = 5.0 if is_initialization else 1.1  # 400% tolerance during init, 10% during optimization
+        # Weight and volume constraints - with tolerances for flexibility during insertion
+        volume_tolerance = 1.5 if is_initialization else 1.1  # 50% tolerance during init, 10% during optimization
         if peak_load_v > max_v * volume_tolerance:
             if debug_insertion:
-                print(f"                DEBUG INSERTION: Extreme volume constraint exceeded: {peak_load_v:.2f} > {max_v:.2f}")
+                print(f"                DEBUG INSERTION: Volume constraint exceeded: {peak_load_v:.2f} > {max_v:.2f} * {volume_tolerance}")
             return False
         
-        # Weight constraint - EXTREMELY relaxed for 100% assignment
-        weight_tolerance = 6.0 if is_initialization else 1.1  # 500% tolerance during init, 10% during optimization
+        # Weight constraint - with tolerances for flexibility during insertion
+        weight_tolerance = 1.5 if is_initialization else 1.1  # 50% tolerance during init, 10% during optimization
         if peak_load_w > max_w * weight_tolerance:
             if debug_insertion:
-                print(f"                DEBUG INSERTION: Extreme weight constraint exceeded: {peak_load_w:.2f} > {max_w:.2f}")
+                print(f"                DEBUG INSERTION: Weight constraint exceeded: {peak_load_w:.2f} > {max_w:.2f} * {weight_tolerance}")
             return False
     
-    # H2: Enhanced logical precedence check
-    # NEW RULE: Allow deliveries before pickups as long as:
-    # 1. Each delivery has its corresponding pickup already completed
-    # 2. Pallet capacity is never exceeded (physical constraint)
-    # 3. Distance penalty will discourage inefficient patterns
-    
-    # Track completed pickups for each order to validate deliveries
+    # H2: Basic logical precedence check (detailed LIFO/pallet checks in unified checker)
+    # This is just a quick check for obvious precedence violations
     completed_pickups = set()
-    load_pallets_check = 0  # Track pallet load for physical constraint
     
-    for task in sorted_tasks:
+    for task in tasks:
         if task.is_pickup():
-            # Record this pickup as completed
             order_id = getattr(task, 'order_id', None)
             if order_id:
                 completed_pickups.add(order_id)
-            # Add pallets to load
-            load_pallets_check += getattr(task, 'pallets', 0)
-            
         elif task.is_delivery():
             # Check if corresponding pickup was already completed
             order_id = getattr(task, 'order_id', None)
@@ -1391,18 +1684,10 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
                 if debug_insertion:
                     print(f"                DEBUG INSERTION: Delivery {task.id} attempted before its pickup was completed")
                 return False
-            # Remove pallets from load
-            load_pallets_check += getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
-            
-        # Physical constraint: never exceed pallet capacity
-        if max_pallets is not None and load_pallets_check > max_pallets:
-            if debug_insertion:
-                print(f"                DEBUG INSERTION: Pallet capacity exceeded during route execution: {load_pallets_check} > {max_pallets}")
-            return False
     
     # Individual order precedence constraints
     orders = {}
-    for i, task in enumerate(sorted_tasks):
+    for i, task in enumerate(tasks):
         order_id = getattr(task, 'order_id', None)
         if order_id is None:
             continue
@@ -1434,10 +1719,10 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
     try:
         # Quick time window feasibility check
         current_time = 0
-        for i, task in enumerate(sorted_tasks):
+        for i, task in enumerate(tasks):
             # Calculate travel time from previous task
             if i > 0:
-                prev_task = sorted_tasks[i-1]
+                prev_task = tasks[i-1]
                 # Use a simplified travel time estimate for insertion checks
                 if (hasattr(task, 'lat') and hasattr(task, 'lon') and 
                     hasattr(prev_task, 'lat') and hasattr(prev_task, 'lon')):
@@ -1472,6 +1757,14 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
         if debug_insertion:
             print(f"                DEBUG INSERTION: Time window check failed: {e}")
         pass
+    
+    # H3: UNIFIED HARD CONSTRAINT CHECK (ALWAYS ENFORCED)
+    # Use the same unified checker as the main is_feasible function
+    hard_constraint_valid, hard_constraint_reason = check_hard_constraints(route, debug_insertion)
+    if not hard_constraint_valid:
+        if debug_insertion:
+            print(f"                DEBUG INSERTION: {hard_constraint_reason}")
+        return False
     
     return True
 
@@ -1544,7 +1837,7 @@ def is_timeline_feasible(timeline: List, route: 'Route') -> Tuple[bool, str]:
     return True, "Feasible"
 
 
-def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: bool = False, allow_soft_violations: bool = True) -> Union[bool, Tuple[bool, str]]:
+def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: bool = False, allow_soft_violations: bool = False) -> Union[bool, Tuple[bool, str]]:
     """ 
     Check if the route is feasible according to all constraints.
     Enhanced to support multi-day planning and LIFO loading constraints.
@@ -1760,12 +2053,10 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                 lifo_stack.pop()  # Remove delivered order from stack
         
         # Check capacity constraints
-        # NEW SOFT CONSTRAINT SYSTEM:
-        # Weight: Soft constraint (handled by penalties in Z2)
-        # Volume: Soft constraint (handled by penalties in Z2) - unless extreme violation
-        # Pallets: Hard constraint (physical safety limit)
+        # UPDATED: Hard constraints (capabilities, pallets, LIFO) are now handled by unified checker
+        # Only soft constraints (volume, some weight limits) are handled here
         
-        # Volume is now mostly soft - only fail on extreme violations (>200% capacity)
+        # Volume constraint - can be soft for optimization flexibility
         if allow_soft_violations:
             if load_v > max_v * 2.0:  # Only fail on extreme volume violations
                 reason = f"Extreme volume constraint violated: {load_v:.2f} > {max_v * 2.0:.2f} (200% capacity) for task {task.id}"
@@ -1785,14 +2076,7 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                     return False, reason
                 return False
             
-        # Pallet capacity remains a hard constraint (physical safety)
-        if max_pallets is not None and load_pallets > max_pallets:
-            reason = f"Pallet constraint violated: {load_pallets} > {max_pallets} for task {task.id}"
-            if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: {reason}")
-            if return_reason:
-                return False, reason
-            return False
+        # NOTE: Pallet capacity is now checked by unified hard constraint checker
 
     # LIFO final check: all cargo must be delivered
     if route.vehicle.lifo_required and lifo_stack:
@@ -2002,6 +2286,16 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             if return_reason:
                 return False, reason
             return False
+
+    # H10: UNIFIED HARD CONSTRAINT CHECK (ALWAYS ENFORCED)
+    # Check all hard constraints that should never be violated
+    hard_constraint_valid, hard_constraint_reason = check_hard_constraints(route, debug_feasibility)
+    if not hard_constraint_valid:
+        if debug_feasibility:
+            print(f"            DEBUG FEASIBILITY: {hard_constraint_reason}")
+        if return_reason:
+            return False, hard_constraint_reason
+        return False
     
     # All checks passed - route is feasible
     if return_reason:

@@ -58,13 +58,20 @@ def _create_base_route(vehicle: 'Vehicle') -> 'Route':
     Creates a new, structurally valid route for a vehicle, pre-populated
     with DEPOT_START and DEPOT_RETURN tasks.
     
+    FIXED: No longer uses hardcoded depot coordinates - gets them from vehicle object
+    as recommended by technical review.
+    
     This ensures all routes are valid from inception and prevents the need
     to add depot tasks later in the process, which was causing issues with
     neighborhood operators and route exploration.
     """
     route = Route(vehicle=vehicle)
-    depot_location_id = "DEPOT-ASTI"
-    depot_lat, depot_lon = 44.9009, 8.2057
+    
+    # FIXED: Get depot information from vehicle object instead of hardcoding
+    # Fallback to Asti coordinates for backward compatibility
+    depot_location_id = getattr(vehicle, 'depot_id', "DEPOT-ASTI")
+    depot_lat = getattr(vehicle, 'depot_lat', 44.9009)  # Default Asti coordinates
+    depot_lon = getattr(vehicle, 'depot_lon', 8.2057)
 
     start_task = Task(
         id=f"depot_start_order_{vehicle.id}",
@@ -97,6 +104,8 @@ def _add_depot_tasks_to_route(route: 'Route'):
     """
     Ensures a route has depot start and return tasks, adding them if missing.
     This is a defensive function to fix routes that were created incorrectly.
+    
+    FIXED: No longer uses hardcoded depot coordinates.
     """
     if not hasattr(route, 'tasks') or not route.tasks:
         # Don't add depot tasks to a completely empty route.
@@ -112,8 +121,10 @@ def _add_depot_tasks_to_route(route: 'Route'):
     except ImportError:
         from epdt_data_structures import Task, TaskType
 
-    depot_location_id = "DEPOT-ASTI"
-    depot_lat, depot_lon = 44.9009, 8.2057
+    # FIXED: Get depot information from vehicle object instead of hardcoding
+    depot_location_id = getattr(route.vehicle, 'depot_id', "DEPOT-ASTI")
+    depot_lat = getattr(route.vehicle, 'depot_lat', 44.9009)
+    depot_lon = getattr(route.vehicle, 'depot_lon', 8.2057)
 
     # Check for and add start task
     if not route.tasks[0].is_depot_start():
@@ -170,7 +181,7 @@ def create_lightweight_solution_copy(solution, vehicles_to_copy: Optional[set] =
     
     # Create new solution with basic attributes
     new_solution = Solution()
-    new_solution.unassigned_orders = list(solution.unassigned_orders)  # Shallow copy of list
+    new_solution.unassigned_orders = set(solution.unassigned_orders)  # Shallow copy of set
     new_solution.routes = {}
     
     # Copy only specified routes or all routes
@@ -558,10 +569,14 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
 
 def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
     """
-    Perform final strict validation on all routes and remove any that violate HoS constraints.
+    FIXED: Perform final strict validation on all routes as per technical review.
     
-    This ensures that the final solution only contains routes that pass strict HoS validation,
-    regardless of whether they were created during initialization (when checks are bypassed).
+    The technical review recommendation: any route that does not pass strict feasibility 
+    should be dismantled and its orders marked as unassigned. No moderate violations 
+    are allowed in the final solution.
+    
+    This ensures that the final solution only contains routes that are 100% feasible 
+    according to all hard constraints.
     """
     try:
         from second_level import is_feasible
@@ -575,7 +590,7 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
     validated_routes = {}
     removed_routes_count = 0
     
-    print(f"Validating {len(solution.routes)} routes...")
+    print(f"Validating {len(solution.routes)} routes with STRICT feasibility checks...")
     
     for vehicle_id, route in solution.routes.items():
         if hasattr(route, 'tasks') and route.tasks:  # Only validate routes with tasks
@@ -586,10 +601,9 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
                 print(f"Empty route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed (only depot tasks)")
                 continue
             
-            # Route has customer tasks, validate for HoS compliance
-            # NEW: Use soft constraints in final validation to reduce rejections
-            # Only reject routes with severe safety violations
-            feasible_result = is_feasible(route, debug_feasibility=False, return_reason=True, allow_soft_violations=True)
+            # Route has customer tasks, validate with STRICT feasibility check
+            # FIXED: No soft violations allowed in final solution
+            feasible_result = is_feasible(route, debug_feasibility=False, return_reason=True, allow_soft_violations=False)
             
             if isinstance(feasible_result, tuple):
                 feasible, reason = feasible_result
@@ -600,21 +614,16 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
             if feasible:
                 validated_routes[vehicle_id] = route
             else:
-                # Check if this is a severe safety violation that should be rejected
-                if any(keyword in reason.lower() for keyword in ['severe', 'safety', 'extreme', 'legal', 'pallet']):
-                    removed_routes_count += 1
-                    print(f"Warning:  Route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed due to severe violation: {reason}")
-                    
-                    # Add orders from removed route back to unassigned
-                    for task in route.tasks:
-                        if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
-                            if not hasattr(solution, 'unassigned_orders'):
-                                solution.unassigned_orders = set()
-                            solution.unassigned_orders.add(task.order_id)
-                else:
-                    # Allow routes with moderate violations - they'll be penalized in scoring
-                    validated_routes[vehicle_id] = route
-                    print(f"Info:     Route for vehicle {getattr(route.vehicle, 'id', 'unknown')} allowed with moderate violations: {reason}")
+                # FIXED: Any infeasible route is rejected (no exceptions for moderate violations)
+                removed_routes_count += 1
+                print(f"Warning:  Route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed due to constraint violation: {reason}")
+                
+                # Add orders from removed route back to unassigned
+                for task in route.tasks:
+                    if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
+                        if not hasattr(solution, 'unassigned_orders'):
+                            solution.unassigned_orders = set()
+                        solution.unassigned_orders.add(task.order_id)
         else:
             # Route has no tasks at all, filter it out
             removed_routes_count += 1
@@ -624,9 +633,9 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
     solution.routes = validated_routes
     
     if removed_routes_count > 0:
-        print(f"Enhanced Final validation complete: {removed_routes_count} routes removed due to HoS violations")
+        print(f"STRICT Final validation complete: {removed_routes_count} routes removed due to constraint violations")
     else:
-        print("OK: Final validation complete: All routes pass HoS constraints")
+        print("OK: STRICT Final validation complete: All routes are 100% feasible")
     
     return solution
 
@@ -823,6 +832,7 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
                     pickup_lon = pickup_tasks[0].lon
                     
                     # Calculate distance to vehicle's depot or current location
+                    # FIXED: Get depot coordinates from vehicle instead of hardcoding
                     vehicle_lat = getattr(vehicle, 'depot_lat', 44.9009)  # Default Asti coordinates (Via del Lavoro 38)
                     vehicle_lon = getattr(vehicle, 'depot_lon', 8.2057)
                     
@@ -1219,8 +1229,7 @@ def _calculate_insertion_cost(route: 'Route', task_to_insert, position: int) -> 
 def _is_feasible_insertion(route: 'Route', task_to_insert, position: int) -> bool:
     """
     Check if inserting a task at a position maintains route feasibility.
-    
-    This checks pickup/delivery order constraints and other basic feasibility.
+    Uses unified hard constraint checker for consistency.
     
     Args:
         route: Route to insert into
@@ -1237,10 +1246,14 @@ def _is_feasible_insertion(route: 'Route', task_to_insert, position: int) -> boo
     # Create temporary route object
     temp_route = route.copy()
     temp_route.tasks = temp_tasks
-    # Allow flexible ordering - do not enforce pickup-first automatically
-    # temp_route.ensure_pickup_first_ordering()  # Commented out for efficiency
     
-    # Check if the new task order is valid
+    # Use unified hard constraint checker from second_level module
+    from algo.second_level import check_hard_constraints
+    is_valid, reason = check_hard_constraints(temp_route, debug=False)
+    if not is_valid:
+        return False
+    
+    # Check if the new task order is valid (additional soft constraint)
     return _is_valid_route_order(temp_route)
 
 
@@ -1688,7 +1701,10 @@ def _is_valid_route_order(route: 'Route') -> bool:
     """
     Check if a route's task order is valid (respects pickup/delivery constraints).
     
-    For each order, pickup tasks must come before delivery tasks.
+    FLEXIBLE PRECEDENCE LOGIC:
+    - For simple orders (1P-1D): pickup must come before delivery
+    - For multiple simple orders: allows flexible interleaving (p1-p2-d2-d1)
+    - For complex orders: conservative approach (all P before all D)
     
     Args:
         route: Route to validate
@@ -1699,12 +1715,12 @@ def _is_valid_route_order(route: 'Route') -> bool:
     if not route or not route.tasks:
         return True
     
-    # Track task positions by order
-    order_positions = {}
+    # Group tasks by order
+    orders_tasks = {}
     
     for pos, task in enumerate(route.tasks):
         order_id = getattr(task, 'order_id', None)
-        task_type = getattr(task, 'task_type', None)  # 'pickup' or 'delivery'
+        task_type = getattr(task, 'task_type', None)
         
         if order_id is None or task_type is None:
             continue
@@ -1713,22 +1729,34 @@ def _is_valid_route_order(route: 'Route') -> bool:
         if hasattr(task_type, 'value'):
             task_type = task_type.value
         
-        if order_id not in order_positions:
-            order_positions[order_id] = {'pickup': [], 'delivery': []}
+        if task_type not in ['pickup', 'delivery']:
+            continue
+            
+        if order_id not in orders_tasks:
+            orders_tasks[order_id] = []
         
-        # Only process recognized task types
-        if task_type in ['pickup', 'delivery']:
-            order_positions[order_id][task_type].append(pos)
+        orders_tasks[order_id].append({'task_type': task_type, 'position': pos, 'task': task})
     
-    # Check that all pickups come before all deliveries for each order
-    for order_id, positions in order_positions.items():
-        pickup_positions = positions.get('pickup', [])
-        delivery_positions = positions.get('delivery', [])
+    # Check precedence constraints for each order
+    for order_id, tasks in orders_tasks.items():
+        pickups = [t for t in tasks if t['task_type'] == 'pickup']
+        deliveries = [t for t in tasks if t['task_type'] == 'delivery']
         
-        # All pickup positions must be less than all delivery positions
-        if pickup_positions and delivery_positions:
-            max_pickup_pos = max(pickup_positions)
-            min_delivery_pos = min(delivery_positions)
+        # Skip orders without both pickup and delivery
+        if not pickups or not deliveries:
+            continue
+        
+        # SIMPLE ORDERS: 1 pickup + 1 delivery - just check precedence
+        if len(pickups) == 1 and len(deliveries) == 1:
+            if pickups[0]['position'] >= deliveries[0]['position']:
+                return False
+        
+        # COMPLEX ORDERS: Multiple pickups/deliveries - use conservative approach
+        else:
+            # For now, require all pickups before all deliveries for complex orders
+            # This can be refined later with proper task pairing logic
+            max_pickup_pos = max(p['position'] for p in pickups)
+            min_delivery_pos = min(d['position'] for d in deliveries)
             
             if max_pickup_pos >= min_delivery_pos:
                 return False
@@ -2378,6 +2406,7 @@ def _add_depot_tasks_to_route(route: 'Route'):
             return
             
         depot_location_id = getattr(vehicle, 'depot_id', 'main_depot')
+        # FIXED: Get depot coordinates from vehicle instead of hardcoding
         depot_lat = getattr(vehicle, 'depot_lat', 44.9009)
         depot_lon = getattr(vehicle, 'depot_lon', 8.2057)
         
@@ -2491,7 +2520,7 @@ def try_single_vehicle_strategies(order, vehicles, solution):
         
         print(f"    Testing vehicle {vehicle.id} (capacity: {vehicle.weight_capacity}kg, {vehicle.volume_capacity}m³)")
         
-        # Strategy 1.1: Try clustered sequencing (P-P-D-D)
+        # Strategy 1.1: Try clustered sequencing (P-P-D-D) PREFERRED
         print(f"      Trying clustered sequencing (P-P-D-D)...")
         clustered_route = l2_heuristic(base_route, order, sequencing_strategy='clustered')
         if clustered_route and clustered_route.is_feasible():
@@ -2499,12 +2528,12 @@ def try_single_vehicle_strategies(order, vehicles, solution):
             print(f"      SUCCESS: Clustered sequencing worked for vehicle {vehicle.id}")
             return True
 
-        # Strategy 1.2: Try interleaved sequencing (P-D-P-D)
-        print(f"      Trying interleaved sequencing (P-D-P-D)...")
+        # Strategy 1.2: Try interleaved sequencing (P-D-P-D) FALLBACK ONLY
+        print(f"      Clustered failed, trying interleaved fallback (P-D-P-D)...")
         interleaved_route = l2_heuristic(base_route, order, sequencing_strategy='interleaved')
         if interleaved_route and interleaved_route.is_feasible():
             solution.routes[vehicle.id] = interleaved_route
-            print(f"      SUCCESS: Interleaved sequencing worked for vehicle {vehicle.id}")
+            print(f"      FALLBACK: Interleaved sequencing worked for vehicle {vehicle.id}")
             return True
             
         print(f"      FAILED: Neither sequencing strategy worked for vehicle {vehicle.id}")

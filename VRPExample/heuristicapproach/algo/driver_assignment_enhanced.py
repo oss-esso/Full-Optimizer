@@ -635,8 +635,9 @@ def assign_drivers_to_routes_enhanced(drivers: List[EnhancedDriver],
     """
     Enhanced driver assignment using improved bipartite matching.
     
-    Addresses feedback about dummy assignment handling and uses more sophisticated
-    algorithms for unbalanced problems.
+    TECHNICAL REVIEW FIX: Replaced simplistic greedy assignment with proper
+    assignment algorithm (Hungarian algorithm) that uses the sophisticated
+    calculate_enhanced_assignment_cost function.
     
     Args:
         drivers: List of available enhanced drivers
@@ -655,122 +656,113 @@ def assign_drivers_to_routes_enhanced(drivers: List[EnhancedDriver],
     # Check for verbose logging
     verbose = getattr(config, 'verbose_logging', False)
     if verbose:
-        print("\n--- Driver Assignment Process ---")
+        print("\n--- Enhanced Driver Assignment Process (Hungarian Algorithm) ---")
     
-    # Filter and prioritize routes
-    heavy_routes = [r for r in routes if r.vehicle.vehicle_type == 'heavy']
-    light_routes = [r for r in routes if r.vehicle.vehicle_type != 'heavy']
+    # Filter available drivers
+    available_drivers = [d for d in drivers if d.availability_status == "available"]
     
-    print(f"Simplified assignment: {len(drivers)} drivers to {len(routes)} routes")
-    print(f"  - Heavy truck routes: {len(heavy_routes)}")
-    print(f"  - Light vehicle routes: {len(light_routes)}")
-    print(f"  - CE licensed drivers: {sum(1 for d in drivers if d.license == 'CE')}")
-    print(f"  - B licensed drivers: {sum(1 for d in drivers if d.license == 'B')}")
+    if not available_drivers:
+        print("No available drivers for assignment")
+        return {}
     
-    # Use simple greedy assignment instead of complex cost matrix
+    print(f"Enhanced assignment: {len(available_drivers)} drivers to {len(routes)} routes")
+    
+    # Build cost matrix where cost_matrix[i][j] is the cost of assigning driver i to route j
+    num_drivers = len(available_drivers)
+    num_routes = len(routes)
+    cost_matrix = [[float('inf')] * num_routes for _ in range(num_drivers)]
+    
+    if verbose:
+        print(f"Building {num_drivers}x{num_routes} cost matrix using calculate_enhanced_assignment_cost...")
+    
+    for i, driver in enumerate(available_drivers):
+        for j, route in enumerate(routes):
+            cost_matrix[i][j] = calculate_enhanced_assignment_cost(driver, route, config)
+            if verbose and cost_matrix[i][j] < float('inf'):
+                print(f"  Driver {driver.name} -> Route {route.vehicle.id}: Cost = {cost_matrix[i][j]:.2f}")
+    
+    # Use Hungarian algorithm (via scipy.optimize.linear_sum_assignment) to find optimal assignment
+    try:
+        from scipy.optimize import linear_sum_assignment
+        
+        if verbose:
+            print("Solving optimal assignment using Hungarian algorithm...")
+        
+        row_ind, col_ind = linear_sum_assignment(cost_matrix)
+        
+        # Create the final assignment dictionary
+        assignments = {}
+        total_cost = 0.0
+        
+        for i in range(len(row_ind)):
+            driver_idx = row_ind[i]
+            route_idx = col_ind[i]
+            
+            # Check if assignment is feasible (cost is not infinity)
+            if cost_matrix[driver_idx][route_idx] < float('inf'):
+                driver = available_drivers[driver_idx]
+                route = routes[route_idx]
+                assignments[route.vehicle.id] = driver.name
+                total_cost += cost_matrix[driver_idx][route_idx]
+                
+                if verbose:
+                    print(f"  Optimal Assignment: Route {route.vehicle.id} -> Driver {driver.name} (Cost: {cost_matrix[driver_idx][route_idx]:.2f})")
+            
+        if verbose:
+            print(f"Total optimal assignment cost: {total_cost:.2f}")
+            
+    except ImportError:
+        # Fallback to greedy if scipy not available
+        print("Warning: scipy not available, falling back to greedy assignment")
+        assignments = _fallback_greedy_assignment(available_drivers, routes, config, verbose)
+    
+    print(f"OK Enhanced assignment completed: {len(assignments)} drivers assigned to routes")
+    print(f"   - Unassigned drivers: {len(available_drivers) - len(assignments)}")
+    
+    return assignments
+
+
+def _fallback_greedy_assignment(drivers: List[EnhancedDriver], 
+                              routes: List[Route],
+                              config: DriverAssignmentConfig,
+                              verbose: bool = False) -> Dict[str, str]:
+    """
+    Fallback greedy assignment using the sophisticated cost function.
+    This maintains the enhanced cost calculation even when scipy is not available.
+    """
     assignments = {}
     assigned_drivers = set()
     
-    # Phase 1: Assign CE drivers to heavy trucks first (mandatory requirement)
-    ce_drivers = [d for d in drivers if d.license == 'CE' and d.availability_status == "available"]
-    if verbose:
-        print(f"\n- Phase 1: Assigning {len(ce_drivers)} CE drivers to {len(heavy_routes)} heavy routes.")
-        
-    for route in heavy_routes:
-        if not ce_drivers:
-            break
+    # Sort routes by priority (heavy trucks first)
+    priority_routes = sorted(routes, 
+                           key=lambda r: (r.vehicle.vehicle_type != 'heavy', r.vehicle.id))
+    
+    for route in priority_routes:
         if verbose:
-            print(f"  - Evaluating Route: {route.vehicle.id}")
+            print(f"  - Finding best driver for route {route.vehicle.id}")
             
-        # Find best available CE driver
         best_driver = None
-        best_score = float('inf')
+        best_cost = float('inf')
         
-        for driver in ce_drivers:
+        for driver in drivers:
             if driver.id in assigned_drivers:
                 continue
             
-            # Simple scoring: depot match + default vehicle bonus
-            score = 100.0  # Base cost
-            if hasattr(driver, 'home_depot_id') and hasattr(route.vehicle, 'depot_id'):
-                if driver.home_depot_id == route.vehicle.depot_id:
-                    score -= 20.0  # Depot match bonus
-            if hasattr(driver, 'default_vehicle_id'):
-                if driver.default_vehicle_id == route.vehicle.id:
-                    score -= 30.0  # Default vehicle bonus
+            # Use the sophisticated cost function
+            cost = calculate_enhanced_assignment_cost(driver, route, config)
             
-            if verbose:
-                depot_match = hasattr(driver, 'home_depot_id') and hasattr(route.vehicle, 'depot_id') and driver.home_depot_id == route.vehicle.depot_id
-                default_vehicle_match = hasattr(driver, 'default_vehicle_id') and driver.default_vehicle_id == route.vehicle.id
-                print(f"    - Driver {driver.name}: Score = {score:.2f} (Depot match: {depot_match}, Default vehicle: {default_vehicle_match})")
+            if verbose and cost < float('inf'):
+                print(f"    - Driver {driver.name}: Cost = {cost:.2f}")
                 
-            if score < best_score:
-                best_score = score
+            if cost < best_cost:
+                best_cost = cost
                 best_driver = driver
         
-        if best_driver:
+        if best_driver and best_cost < float('inf'):
             if verbose:
-                print(f"  => Assignment: Route {route.vehicle.id} -> Driver {best_driver.name} (Best Score: {best_score:.2f})")
+                print(f"  => Assignment: Route {route.vehicle.id} -> Driver {best_driver.name} (Cost: {best_cost:.2f})")
             assignments[route.vehicle.id] = best_driver.name
             assigned_drivers.add(best_driver.id)
-            ce_drivers.remove(best_driver)
-    
-    # Phase 2: Assign remaining drivers to remaining routes (light vehicles + unassigned heavy)
-    remaining_drivers = [d for d in drivers if d.id not in assigned_drivers and d.availability_status == "available"]
-    remaining_routes = [r for r in routes if r.vehicle.id not in assignments]
-    
-    if verbose:
-        print(f"\n- Phase 2: Assigning {len(remaining_drivers)} remaining drivers to {len(remaining_routes)} remaining routes.")
-    
-    for route in remaining_routes:
-        if not remaining_drivers:
-            break
-        
-        if verbose:
-            print(f"  - Evaluating Route: {route.vehicle.id}")
-            
-        # Find best available driver
-        best_driver = None
-        best_score = float('inf')
-        
-        for driver in remaining_drivers:
-            # Check license compatibility
-            license_compatible = False
-            if route.vehicle.vehicle_type == 'heavy':
-                license_compatible = driver.license == 'CE'
-            else:
-                license_compatible = driver.license in ['B', 'CE']  # Both can drive light vehicles
-            
-            if not license_compatible:
-                continue
-                
-            # Simple scoring
-            score = 100.0  # Base cost
-            if hasattr(driver, 'home_depot_id') and hasattr(route.vehicle, 'depot_id'):
-                if driver.home_depot_id == route.vehicle.depot_id:
-                    score -= 20.0  # Depot match bonus
-            if hasattr(driver, 'default_vehicle_id'):
-                if driver.default_vehicle_id == route.vehicle.id:
-                    score -= 30.0  # Default vehicle bonus
-                
-            if verbose:
-                depot_match = hasattr(driver, 'home_depot_id') and hasattr(route.vehicle, 'depot_id') and driver.home_depot_id == route.vehicle.depot_id
-                default_vehicle_match = hasattr(driver, 'default_vehicle_id') and driver.default_vehicle_id == route.vehicle.id
-                print(f"    - Driver {driver.name}: Score = {score:.2f} (Depot match: {depot_match}, Default vehicle: {default_vehicle_match})")
-                
-            if score < best_score:
-                best_score = score
-                best_driver = driver
-        
-        if best_driver:
-            if verbose:
-                print(f"  => Assignment: Route {route.vehicle.id} -> Driver {best_driver.name} (Best Score: {best_score:.2f})")
-            assignments[route.vehicle.id] = best_driver.name
-            assigned_drivers.add(best_driver.id)
-            remaining_drivers.remove(best_driver)
-    
-    print(f"OK Assignment completed: {len(assignments)} drivers assigned to routes")
-    print(f"   - Unassigned drivers: {len(drivers) - len(assignments)}")
     
     return assignments
 

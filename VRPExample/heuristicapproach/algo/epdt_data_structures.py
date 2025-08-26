@@ -99,7 +99,7 @@ class DriverState:
     MAX_WORK_WITHOUT_BREAK = 6 * 60            # 6 hours
     MAX_DRIVE_PER_DAY = 9 * 60                 # 9 hours (extendable to 10)
     MAX_WORK_PER_DAY = 13 * 60                 # 13 hours (extendable to 14)
-    MAX_DRIVE_PER_WEEK = 56 * 60               # 56 hours
+    MAX_DRIVE_PER_WEEK = 45 * 60               # 45 hours (CORRECTED from 56)
     MAX_WORK_PER_WEEK = 60 * 60                # 60 hours
     MAX_DRIVE_TWO_WEEKS = 90 * 60              # 90 hours in any two consecutive weeks
     MIN_DAILY_REST = 11 * 60                   # 11 hours (reducible to 9)

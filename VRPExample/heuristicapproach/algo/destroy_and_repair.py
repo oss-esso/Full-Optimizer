@@ -93,6 +93,7 @@ def destroy_and_repair(solution: 'Solution', params: dict = None) -> 'Solution':
 def _is_route_feasible(route: 'Route') -> bool:
     """
     Check if a route is feasible considering all constraints.
+    Uses the unified hard constraint checker for consistency.
     
     Args:
         route: Route to check for feasibility
@@ -103,20 +104,22 @@ def _is_route_feasible(route: 'Route') -> bool:
     if not route or not route.tasks:
         return True
     
-    # Check pickup/delivery order constraints
+    # Use unified hard constraint checker from second_level module
+    from algo.second_level import check_hard_constraints
+    is_valid, reason = check_hard_constraints(route, debug=False)
+    if not is_valid:
+        return False
+    
+    # Check additional soft constraints specific to destroy/repair
     if not _is_valid_route_order(route):
         return False
     
-    # Check capacity constraints
+    # Check soft capacity constraints (weight/volume with tolerances)
     if not _check_capacity_constraints(route):
         return False
     
-    # Check time window constraints
+    # Check time window constraints (can be soft)
     if not _check_time_window_constraints(route):
-        return False
-    
-    # Check vehicle-specific constraints
-    if not _check_vehicle_constraints(route):
         return False
     
     return True

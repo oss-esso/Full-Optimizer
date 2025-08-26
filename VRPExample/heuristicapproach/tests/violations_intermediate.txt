@@ -1,0 +1,54 @@
+ROUTE PROCESSING SUMMARY:
+   ò Total Routes Processed: 84
+   ò Routes with Violations: 10
+   ò Clean Routes: 74
+   ò Violation Rate: 11.9%
+
+CAPABILITY VIOLATIONS:
+   ò Missing LOADER: 4
+   ò Missing LOW_TEMP: 6
+   ò Missing HANGERS: 0
+   ò Total Capability Violations: 10
+
+ROUTE CONSTRAINT VIOLATIONS:
+   ò LIFO Violations: 0
+   ò Pallet Constraint Violations: 10
+   ò Weight Constraint Violations: 0
+   ò Volume Constraint Violations: 0
+   ò Time Window Violations: 0
+   ò HoS Violations: 0
+   ò Total Route Violations: 10
+
+OVERALL VIOLATION SUMMARY:
+   ò Total System Violations: 20
+   ò System Compliance Rate: 88.1%
+
+TOP VIOLATION DETAILS:
+   1. Vehicle FX194HX: Missing LOW_TEMP capability
+   2. Vehicle GW871CW: Missing LOADER capability
+   3. Vehicle XA359KW: Missing LOW_TEMP capability
+   4. Vehicle XA346KW: Missing LOW_TEMP capability
+   5. Vehicle XA321KW: Missing LOADER capability
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+FINANCIAL PERFORMANCE ANALYSIS
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+ROUTE FINANCIAL SUMMARY:
+   ò Total Routes Analyzed: 84
+   ò Profitable Routes: 0
+   ò Unprofitable Routes: 84
+   ò Profitability Rate: 0.0%
+
+FINANCIAL TOTALS:
+   ò Total Operating Costs: Ç61636.78
+     - Driver Costs: Ç4112.50
+     - Vehicle Costs: Ç57524.28
+   ò Total Revenue: Ç33869.15
+   ò Net Profit: Ç-27767.63
+   ò Overall Margin: -82.0%
+   ò Average Profit per Route: Ç-330.57
+
+PERFORMANCE EXTREMES:
+   ò Best Route: GS451PC (Ç-40.25, -54.4% margin)
+   ò Worst Route: XA359KW (Ç-2038.87, -119.7% margin)

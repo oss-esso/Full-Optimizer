@@ -932,12 +932,234 @@ class ProfitTracker:
         }
 
 
+def calculate_peak_route_utilization(route):
+    """Calculate the peak utilization for a route (highest point during route execution)."""
+    if not route or not route.tasks:
+        return {
+            'peak_weight': 0,
+            'peak_volume': 0,
+            'peak_pallets': 0,
+            'utilization_weight': 0.0,
+            'utilization_volume': 0.0,
+            'utilization_pallets': 0.0
+        }
+    
+    current_weight = 0
+    current_volume = 0
+    current_pallets = 0
+    
+    peak_weight = 0
+    peak_volume = 0
+    peak_pallets = 0
+    
+    # Debug: Count tasks
+    pickup_count = 0
+    delivery_count = 0
+    depot_count = 0
+    
+    # Simulate route execution to find peak loads
+    for task in route.tasks:
+        if task.is_depot_start() or task.is_depot_return():
+            depot_count += 1
+            continue
+        
+        # Debug: Check task types and values
+        task_weight = abs(getattr(task, 'demand', 0))
+        task_volume = abs(getattr(task, 'volume', 0))
+        task_pallets = abs(getattr(task, 'pallets', 0))
+            
+        # Update current loads (pickups add, deliveries subtract)
+        if task.is_pickup():
+            pickup_count += 1
+            current_weight += task_weight
+            current_volume += task_volume
+            current_pallets += task_pallets
+        elif task.is_delivery():
+            delivery_count += 1
+            current_weight -= task_weight
+            current_volume -= task_volume
+            current_pallets -= task_pallets
+        
+        # Track peaks
+        peak_weight = max(peak_weight, current_weight)
+        peak_volume = max(peak_volume, current_volume)
+        peak_pallets = max(peak_pallets, current_pallets)
+    
+    # Debug: Log if we have tasks but no peak load
+    if len(route.tasks) > 2 and peak_weight == 0 and peak_volume == 0 and peak_pallets == 0:
+        print(f"DEBUG: Vehicle {route.vehicle.id} has {len(route.tasks)} tasks ({pickup_count}P, {delivery_count}D, {depot_count} depot) but zero peak load")
+    
+    # Calculate utilization percentages
+    vehicle = route.vehicle
+    weight_capacity = getattr(vehicle, 'weight_capacity', 1)
+    volume_capacity = getattr(vehicle, 'volume_capacity', 1)
+    pallet_capacity = getattr(vehicle, 'pallet_capacity', 1) or 1
+    
+    return {
+        'peak_weight': peak_weight,
+        'peak_volume': peak_volume,
+        'peak_pallets': peak_pallets,
+        'utilization_weight': (peak_weight / weight_capacity * 100) if weight_capacity > 0 else 0,
+        'utilization_volume': (peak_volume / volume_capacity * 100) if volume_capacity > 0 else 0,
+        'utilization_pallets': (peak_pallets / pallet_capacity * 100) if pallet_capacity > 0 else 0
+    }
+
+
+def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
+    """Analyze vehicle utilization and provide detailed capacity analysis."""
+    if not solution or not vehicles:
+        print("No solution or vehicle data available for utilization analysis.")
+        return
+    
+    active_vehicles = []
+    idle_vehicles = []
+    underutilized_vehicles = []
+    
+    print("\nVehicles with Significant Remaining Capacity (>1000kg):")
+    print("Vehicle ID   Peak Load (Max During Route)  Remaining Capacity        Utilization          Status")
+    print("-" * 100)
+    
+    for vehicle in vehicles:
+        route = solution.routes.get(vehicle.id)
+        
+        if not route or not route.tasks or len(route.tasks) <= 2:  # Only depot tasks or empty
+            # Idle vehicle
+            idle_vehicles.append(vehicle)
+            weight_capacity = getattr(vehicle, 'weight_capacity', 0)
+            volume_capacity = getattr(vehicle, 'volume_capacity', 0)
+            pallet_capacity = getattr(vehicle, 'pallet_capacity', 0) or 0
+            
+            if weight_capacity > 1000:  # Only show vehicles with significant capacity
+                print(f"{vehicle.id:<12} 0kg, 0.0m3, 0pal          {weight_capacity:.0f}kg, {volume_capacity:.1f}m3, {pallet_capacity}pal    0.0%w, 0.0%v         IDLE")
+        else:
+            # Active vehicle
+            active_vehicles.append(vehicle)
+            utilization = calculate_peak_route_utilization(route)
+            
+            weight_capacity = getattr(vehicle, 'weight_capacity', 1)
+            volume_capacity = getattr(vehicle, 'volume_capacity', 1)
+            pallet_capacity = getattr(vehicle, 'pallet_capacity', 1) or 1
+            
+            current_weight = utilization['peak_weight']
+            current_volume = utilization['peak_volume']
+            current_pallets = utilization['peak_pallets']
+            
+            remaining_weight = weight_capacity - current_weight
+            remaining_volume = volume_capacity - current_volume
+            remaining_pallets = pallet_capacity - current_pallets
+            
+            weight_util = utilization['utilization_weight']
+            volume_util = utilization['utilization_volume']
+            
+            status = "ACTIVE"
+            if remaining_weight > 1000:  # Significant remaining capacity
+                underutilized_vehicles.append(vehicle)
+                print(f"{vehicle.id:<12} {current_weight:.0f}kg, {current_volume:.1f}m3, {current_pallets}pal          {remaining_weight:.0f}kg, {remaining_volume:.1f}m3, {remaining_pallets}pal    {weight_util:.1f}%w, {volume_util:.1f}%v         {status}")
+    
+    print(f"\nVehicles with >1000kg unused capacity: {len(underutilized_vehicles)}")
+    print(f"Completely idle vehicles: {len(idle_vehicles)}")
+    
+    # Analyze unassigned orders vs available capacity
+    if orders:
+        unassigned_orders = get_unassigned_orders(solution, orders)
+        
+        if unassigned_orders:
+            print(f"\nUNASSIGNED ORDERS vs AVAILABLE CAPACITY:")
+            print("-" * 60)
+            
+            for order in unassigned_orders[:10]:  # Show first 10 unassigned orders
+                # Calculate order requirements
+                try:
+                    order_tasks = order.get_all_tasks()
+                    total_weight = sum(abs(getattr(task, 'demand', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
+                    total_volume = sum(abs(getattr(task, 'volume', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
+                    total_pallets = sum(abs(getattr(task, 'pallets', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
+                    
+                    print(f"Order {order.id}: {total_weight:.0f}kg, {total_volume:.1f}m3, {total_pallets}pal")
+                    
+                    # Find vehicles that could fit this order
+                    suitable_vehicles = []
+                    
+                    # PRIORITY 1: Check idle vehicles first (100% capacity available)
+                    for vehicle in idle_vehicles:
+                        vehicle_weight_capacity = getattr(vehicle, 'weight_capacity', 0)
+                        vehicle_volume_capacity = getattr(vehicle, 'volume_capacity', 0)
+                        vehicle_pallet_capacity = getattr(vehicle, 'pallet_capacity', 0) or 0
+                        
+                        if (vehicle_weight_capacity >= total_weight and 
+                            vehicle_volume_capacity >= total_volume and 
+                            vehicle_pallet_capacity >= total_pallets):
+                            suitable_vehicles.append(f"{vehicle.id} (IDLE)")
+                    
+                    # PRIORITY 2: Check underutilized vehicles (with remaining capacity)
+                    for vehicle in underutilized_vehicles[:10]:  # Check more vehicles
+                        route = solution.routes.get(vehicle.id)
+                        utilization = calculate_peak_route_utilization(route) if route else {'peak_weight': 0, 'peak_volume': 0, 'peak_pallets': 0}
+                        
+                        remaining_weight = getattr(vehicle, 'weight_capacity', 0) - utilization['peak_weight']
+                        remaining_volume = getattr(vehicle, 'volume_capacity', 0) - utilization['peak_volume']
+                        remaining_pallets = (getattr(vehicle, 'pallet_capacity', 0) or 0) - utilization['peak_pallets']
+                        
+                        if (remaining_weight >= total_weight and 
+                            remaining_volume >= total_volume and 
+                            remaining_pallets >= total_pallets):
+                            suitable_vehicles.append(f"{vehicle.id} ({remaining_weight:.0f}kg free)")
+                    
+                    if suitable_vehicles:
+                        print(f"   -> Could fit in: {', '.join(suitable_vehicles[:5])}{'...' if len(suitable_vehicles) > 5 else ''}")
+                    else:
+                        print(f"   -> No suitable vehicles with enough remaining capacity")
+                        
+                except Exception as e:
+                    print(f"Order {order.id}: Error analyzing order requirements: {e}")
+            
+            if len(unassigned_orders) > 10:
+                print(f"   ... and {len(unassigned_orders) - 10} more unassigned orders")
+        else:
+            print(f"\nAll orders have been assigned!")
+    
+    # Summary statistics
+    total_vehicles = len(vehicles)
+    active_count = len(active_vehicles)
+    idle_count = len(idle_vehicles)
+    underutilized_count = len(underutilized_vehicles)
+    
+    print(f"\nUTILIZATION SUMMARY:")
+    print(f"   ò Total Vehicles: {total_vehicles}")
+    print(f"   ò Active Vehicles: {active_count} ({(active_count/total_vehicles*100):.1f}%)")
+    print(f"   ò Idle Vehicles: {idle_count} ({(idle_count/total_vehicles*100):.1f}%)")
+    print(f"   ò Underutilized Vehicles (>1000kg free): {underutilized_count} ({(underutilized_count/total_vehicles*100):.1f}%)")
+    
+    # Calculate average utilization for active vehicles
+    if active_vehicles:
+        total_weight_util = 0
+        total_volume_util = 0
+        total_pallet_util = 0
+        
+        for vehicle in active_vehicles:
+            route = solution.routes.get(vehicle.id)
+            if route:
+                utilization = calculate_peak_route_utilization(route)
+                total_weight_util += utilization['utilization_weight']
+                total_volume_util += utilization['utilization_volume']
+                total_pallet_util += utilization['utilization_pallets']
+        
+        avg_weight_util = total_weight_util / len(active_vehicles)
+        avg_volume_util = total_volume_util / len(active_vehicles)
+        avg_pallet_util = total_pallet_util / len(active_vehicles)
+        
+        print(f"\nAVERAGE UTILIZATION (Active Vehicles Only):")
+        print(f"   ò Weight: {avg_weight_util:.1f}%")
+        print(f"   ò Volume: {avg_volume_util:.1f}%")
+        print(f"   ò Pallets: {avg_pallet_util:.1f}%")
+
+
 # Global trackers
 violation_tracker = ViolationTracker()
 profit_tracker = ProfitTracker()
 
 
-def print_comprehensive_final_report():
+def print_comprehensive_final_report(solution=None, orders=None, vehicles=None):
     """Print the final comprehensive report with violations and financial summary."""
     print("\n" + "="*80)
     print("FINAL COMPREHENSIVE SYSTEM REPORT")
@@ -953,30 +1175,58 @@ def print_comprehensive_final_report():
     print("+"*60)
     
     print(f"\nROUTE PROCESSING SUMMARY:")
-    print(f"   • Total Routes Processed: {violation_summary['routes_processed']}")
-    print(f"   • Routes with Violations: {violation_summary['routes_with_violations']}")
-    print(f"   • Clean Routes: {violation_summary['routes_clean']}")
+    print(f"   ò Total Routes Processed: {violation_summary['routes_processed']}")
+    print(f"   ò Routes with Violations: {violation_summary['routes_with_violations']}")
+    print(f"   ò Clean Routes: {violation_summary['routes_clean']}")
     
     if violation_summary['routes_processed'] > 0:
         violation_rate = (violation_summary['routes_with_violations'] / violation_summary['routes_processed']) * 100
-        print(f"   • Violation Rate: {violation_rate:.1f}%")
+        print(f"   ò Violation Rate: {violation_rate:.1f}%")
     
     print(f"\nCAPABILITY VIOLATIONS:")
     cap_violations = violation_summary['capability_violations']
-    print(f"   • Missing LOADER: {cap_violations['loader']}")
-    print(f"   • Missing LOW_TEMP: {cap_violations['low_temp']}")
-    print(f"   • Missing HANGERS: {cap_violations['hangers']}")
-    print(f"   • Total Capability Violations: {cap_violations['total']}")
+    print(f"   ò Missing LOADER: {cap_violations['loader']}")
+    print(f"   ò Missing LOW_TEMP: {cap_violations['low_temp']}")
+    print(f"   ò Missing HANGERS: {cap_violations['hangers']}")
+    print(f"   ò Total Capability Violations: {cap_violations['total']}")
     
     print(f"\nROUTE CONSTRAINT VIOLATIONS:")
     route_violations = violation_summary['route_violations']
-    print(f"   • LIFO Violations: {route_violations['lifo']}")
-    print(f"   • Pallet Constraint Violations: {route_violations['pallet_constraint']}")
-    print(f"   • Weight Constraint Violations: {route_violations['weight_constraint']}")
-    print(f"   • Volume Constraint Violations: {route_violations['volume_constraint']}")
-    print(f"   • Time Window Violations: {route_violations['time_window']}")
-    print(f"   • HoS Violations: {route_violations['hos_violations']}")
-    print(f"   • Total Route Violations: {route_violations['total']}")
+    print(f"   ò LIFO Violations: {route_violations['lifo']}")
+    print(f"   ò Pallet Constraint Violations: {route_violations['pallet_constraint']}")
+    print(f"   ò Weight Constraint Violations: {route_violations['weight_constraint']}")
+    print(f"   ò Volume Constraint Violations: {route_violations['volume_constraint']}")
+    print(f"   ò Time Window Violations: {route_violations['time_window']}")
+    print(f"   ò HoS Violations: {route_violations['hos_violations']}")
+    print(f"   ò Total Route Violations: {route_violations['total']}")
+    
+    print(f"\nOVERALL VIOLATION SUMMARY:")
+    total_violations = violation_summary['total_violations']
+    print(f"   ò Total System Violations: {total_violations}")
+    
+    if total_violations > 0:
+        print(f"   ò System Compliance Rate: {((violation_summary['routes_clean']) / violation_summary['routes_processed'] * 100):.1f}%")
+        
+        # Show top violation details
+        print(f"\nTOP VIOLATION DETAILS:")
+        for i, detail in enumerate(violation_summary['violation_details'][:5]):  # Show first 5
+            print(f"   {i+1}. Vehicle {detail['vehicle_id']}: {detail['violation']}")
+            if i >= 4:  # Limit to 5
+                break
+    
+    # === VEHICLE UTILIZATION ANALYSIS ===
+    if solution and vehicles:
+        print("\n" + "="*80)
+        print("VEHICLE UTILIZATION ANALYSIS")
+        print("="*80)
+        
+        # Calculate vehicle utilization
+        analyze_vehicle_utilization_detailed(solution, vehicles, orders)
+    
+    # === FINANCIAL ANALYSIS ===
+    print("\n" + "+"*60)
+    print("FINANCIAL PERFORMANCE ANALYSIS")
+    print("+"*60)
     
     print(f"\nOVERALL VIOLATION SUMMARY:")
     total_violations = violation_summary['total_violations']
@@ -1200,7 +1450,8 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None, orders=
 
 def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, orders=None):
     """
-    Provides a simplified chronological view when HoS timeline is not available.
+    Provides a simplified chronological view with PROPER HoS simulation.
+    Now tracks cumulative driving time across the entire route.
     """
     # Helper functions
     def get_location_name(task):
@@ -1250,11 +1501,16 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
     print(f"             Departure at {start_date} - 00:00 [No window -> No window] - Status: On time")
     print(f"             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets")
     
+    # Initialize HoS state tracking
     current_weight = 0.0
     current_volume = 0.0
     current_pallets = 0.0
     cumulative_time = 0.0
     task_num = 2
+    
+    # CRITICAL: Track cumulative driving time across entire route
+    cumulative_driving_time = 0.0
+    driving_since_last_break = 0.0
     
     # Process all tasks except depot start/return
     tasks_to_process = [t for t in route.tasks if not (hasattr(t, 'is_depot_start') and t.is_depot_start()) and not (hasattr(t, 'is_depot_return') and t.is_depot_return())]
@@ -1270,8 +1526,6 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
         else:
             travel_time = 30.0  # From depot
             
-        cumulative_time += travel_time
-        
         # Service time
         service_time = getattr(task, 'service_time', 5.0)
         
@@ -1285,17 +1539,22 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
         current_volume += volume_change
         current_pallets += pallets_change
         
-        # Format time with date
+        travel_time_str = _format_time_hhmm(travel_time)
+        print(f"\n            DRIVE to {location} - {travel_time_str}")
+        
+        # CORRECTED HoS BREAKDOWN: Check if breaks are needed for this travel segment
+        if travel_time > 0:
+            cumulative_time, driving_since_last_break = _print_proper_hos_breakdown(
+                travel_time, cumulative_time, driving_since_last_break, cumulative_driving_time
+            )
+            cumulative_driving_time += travel_time
+        else:
+            cumulative_time += travel_time
+        
+        # Format arrival time
         arrival_date = _format_date_from_minutes(cumulative_time)
         arrival_time = _format_time_hhmm(cumulative_time % 1440)
         arrival_str = f"{arrival_date} - {arrival_time}"
-        travel_time_str = _format_time_hhmm(travel_time)
-        
-        print(f"\n            DRIVE to {location} - {travel_time_str}")
-        
-        # Add simulated HoS breakdown for travel segments
-        if travel_time > 60:  # Only show breakdown for trips longer than 1 hour
-            _print_simulated_hos_breakdown(travel_time)
         
         print(f"\n          {task_num}. {location} (Order: {task.order_id})")
         task_status = validate_time_window_status(cumulative_time, task)
@@ -1315,27 +1574,94 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
     except:
         final_travel = 30.0
         
-    cumulative_time += final_travel
+    final_travel_str = _format_time_hhmm(final_travel)
+    print(f"\n            DRIVE to DEPOT-ASTI - {final_travel_str}")
+    
+    # Apply HoS logic for final travel
+    if final_travel > 0:
+        cumulative_time, driving_since_last_break = _print_proper_hos_breakdown(
+            final_travel, cumulative_time, driving_since_last_break, cumulative_driving_time
+        )
+        cumulative_driving_time += final_travel
+    else:
+        cumulative_time += final_travel
+        
     final_date = _format_date_from_minutes(cumulative_time)
     final_time = _format_time_hhmm(cumulative_time % 1440)
     final_arrival_str = f"{final_date} - {final_time}"
-    final_travel_str = _format_time_hhmm(final_travel)
-    
-    print(f"\n            DRIVE to DEPOT-ASTI - {final_travel_str}")
-    
-    # Add simulated HoS breakdown for final journey
-    if final_travel > 60:  # Only show breakdown for trips longer than 1 hour
-        _print_simulated_hos_breakdown(final_travel)
     
     print(f"\n          {task_num}. DEPOT-ASTI")
     print(f"             Arrival at: {final_arrival_str} [No window -> No window] - Status: On time")
     print(f"             Load: +0.0kg, +0.0m3, +0 pallets -> Total: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
     
+    # Show total driving time vs weekly limit
+    total_driving_hours = cumulative_driving_time / 60.0
+    weekly_limit_hours = 45.0  # Corrected limit
+    
     print(f"\n      Total Journey Time: {_format_time_hhmm(cumulative_time)}")
+    print(f"      Total Driving Time: {total_driving_hours:.1f}h (Limit: {weekly_limit_hours}h)")
+    if total_driving_hours > weekly_limit_hours:
+        print(f"      WARNING: Exceeds weekly driving limit by {total_driving_hours - weekly_limit_hours:.1f}h!")
     print(f"      Total Load Changes: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
     
     # Add cost and profit breakdown
     print_route_cost_breakdown(vehicle_id, route, vehicle, orders)
+
+
+def _print_proper_hos_breakdown(travel_time_minutes: float, current_time: float, 
+                               driving_since_break: float, total_driving_time: float) -> tuple:
+    """
+    Print proper HoS breakdown that tracks cumulative driving time and enforces breaks.
+    
+    Args:
+        travel_time_minutes: Time for this travel segment
+        current_time: Current elapsed time in route
+        driving_since_break: Driving time accumulated since last break
+        total_driving_time: Total driving time in entire route so far
+    
+    Returns:
+        Tuple of (updated_current_time, updated_driving_since_break)
+    """
+    if travel_time_minutes <= 0:
+        return current_time, driving_since_break
+    
+    remaining_travel = travel_time_minutes
+    updated_time = current_time
+    updated_driving_since_break = driving_since_break
+    segment_num = 1
+    
+    while remaining_travel > 0:
+        # Check if we need a break before continuing
+        can_drive_continuously = min(remaining_travel, 270 - updated_driving_since_break)  # 4.5h limit
+        
+        if can_drive_continuously <= 0:
+            # Must take a break before any more driving
+            break_duration = 45  # 45-minute mandatory break
+            print(f"               {segment_num}: REST - {_format_time_hhmm(break_duration)} (mandatory break)")
+            updated_time += break_duration
+            updated_driving_since_break = 0  # Reset after break
+            segment_num += 1
+            continue
+        
+        # Drive for the allowed time
+        drive_time = min(remaining_travel, can_drive_continuously)
+        print(f"               {segment_num}: DRIVE - {_format_time_hhmm(drive_time)}")
+        
+        updated_time += drive_time
+        updated_driving_since_break += drive_time
+        remaining_travel -= drive_time
+        segment_num += 1
+        
+        # Check if we hit the 4.5-hour limit and still have more to drive
+        if updated_driving_since_break >= 270 and remaining_travel > 0:
+            # Need a break now
+            break_duration = 45  # 45-minute mandatory break
+            print(f"               {segment_num}: REST - {_format_time_hhmm(break_duration)} (4.5h limit reached)")
+            updated_time += break_duration
+            updated_driving_since_break = 0  # Reset after break
+            segment_num += 1
+    
+    return updated_time, updated_driving_since_break
 
 
 def configure_algorithm_parameters() -> dict:
@@ -1860,6 +2186,18 @@ def force_assign_order_to_vehicle(solution, order, vehicle):
 
 
 def split_large_order(order, max_weight=None, max_volume=None, max_pallets=None):
+    """
+    DEPRECATED: Legacy order splitting function.
+    
+    This function has been replaced by the Advanced Order Sequencing logic
+    implemented in the L2 heuristic (second_level.py). The new approach handles
+    complex orders more intelligently by finding optimal task sequences rather
+    than splitting orders into smaller sub-orders.
+    
+    See: find_best_sequence_for_complex_order() in second_level.py
+    """
+    print(f"WARNING: split_large_order() is deprecated. Use Advanced Order Sequencing in L2 heuristic instead.")
+    return [order]  # Return original order without splitting
     """
     Split a large order into smaller sub-orders that can fit in available vehicles.
     
@@ -2572,8 +2910,30 @@ def force_assign_order_to_vehicle(order, vehicle, solution):
         if not order_tasks:
             print(f"   ERROR: Order {order.id} has no non-depot tasks")
             return False
+
+        # HARD CONSTRAINT CHECK: Verify vehicle can handle this order's requirements
+        from algo.second_level import check_hard_constraints
         
-        # Add tasks to the route (insert before depot return if it exists)
+        # Create temporary route to test feasibility
+        temp_route = route.copy()
+        temp_tasks = temp_route.tasks.copy()
+        
+        # Add tasks to temporary route for testing
+        for task in order_tasks:
+            if temp_tasks and len(temp_tasks) > 0 and temp_tasks[-1].is_depot_return():
+                temp_tasks.insert(-1, task)
+            else:
+                temp_tasks.append(task)
+        
+        temp_route.tasks = temp_tasks
+        
+        # Check if assignment would violate hard constraints
+        is_feasible, reason = check_hard_constraints(temp_route, debug=False)
+        if not is_feasible:
+            print(f"   ERROR: Cannot assign order {order.id} to vehicle {vehicle.id}: {reason}")
+            return False
+
+        # If feasibility check passes, make the actual assignment
         for task in order_tasks:
             if route.tasks and len(route.tasks) > 0 and route.tasks[-1].is_depot_return():
                 # Insert before the depot return task
@@ -2633,10 +2993,28 @@ def emergency_split_and_assign_order(order, vehicles, solution):
                 pallet_ok = vehicle.pallet_capacity is None or piece_pallets <= vehicle.pallet_capacity
                 
                 if weight_ok and volume_ok and pallet_ok:
-                    # Add these tasks to the vehicle's route
+                    # HARD CONSTRAINT CHECK: Verify vehicle capabilities
+                    from algo.second_level import check_hard_constraints
+                    
+                    # Create temporary route to test feasibility
                     route = solution.routes.get(vehicle.id)
                     if route:
-                        # Insert before depot return
+                        temp_route = route.copy()
+                        temp_tasks = temp_route.tasks.copy()
+                        
+                        # Add tasks to temporary route for testing
+                        insert_pos = len(temp_tasks) - 1 if temp_tasks and temp_tasks[-1].is_depot_return() else len(temp_tasks)
+                        temp_tasks.insert(insert_pos, pickup_task)
+                        temp_tasks.insert(insert_pos + 1, corresponding_delivery)
+                        temp_route.tasks = temp_tasks
+                        
+                        # Check if assignment would violate hard constraints
+                        is_feasible, reason = check_hard_constraints(temp_route, debug=False)
+                        if not is_feasible:
+                            print(f"        Cannot assign piece {i+1} to vehicle {vehicle.id}: {reason}")
+                            continue  # Try next vehicle
+                        
+                        # If feasibility check passes, make the actual assignment
                         insert_pos = len(route.tasks) - 1 if route.tasks and route.tasks[-1].is_depot_return() else len(route.tasks)
                         route.tasks.insert(insert_pos, pickup_task)
                         route.tasks.insert(insert_pos + 1, corresponding_delivery)
@@ -2782,16 +3160,17 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
         print(f"   - Orders: {len(orders)}")
         print(f"   - Vehicles: {len(vehicles)}")
         
-        # NEW: Apply AGGRESSIVE order splitting for 100% assignment goal
-        print(f"\nApplying AGGRESSIVE order splitting for 100% assignment...")
-        try:
-            sys.path.insert(0, os.path.join(heuristic_root, 'utils'))
-            from order_splitting import apply_order_splitting
-            original_count = len(orders)
-            orders = apply_order_splitting(orders, vehicles)
-            print(f"AGGRESSIVE order splitting: {original_count} → {len(orders)} orders")
-        except Exception as e:
-            print(f"Order splitting failed: {e}, continuing with original orders")
+        # DISABLED: Apply AGGRESSIVE order splitting for 100% assignment goal
+        # Now using Advanced Order Sequencing in L2 heuristic instead
+        print(f"\nSkipping aggressive order splitting - using Advanced Order Sequencing instead...")
+        # try:
+        #     sys.path.insert(0, os.path.join(heuristic_root, 'utils'))
+        #     from order_splitting import apply_order_splitting
+        #     original_count = len(orders)
+        #     orders = apply_order_splitting(orders, vehicles)
+        #     print(f"AGGRESSIVE order splitting: {original_count} → {len(orders)} orders")
+        # except Exception as e:
+        #     print(f"Order splitting failed: {e}, continuing with original orders")
         
         # The scenario_creator already returns EPDT objects, so no conversion needed
         epdt_orders = orders
@@ -3427,7 +3806,7 @@ def main():
             traceback.print_exc()
         
         # === FINAL COMPREHENSIVE REPORT ===
-        print_comprehensive_final_report()
+        print_comprehensive_final_report(solution, orders, vehicles)
         
         # Final completion message - AFTER all phases and summaries are done
         print("\n" + "="*80)
