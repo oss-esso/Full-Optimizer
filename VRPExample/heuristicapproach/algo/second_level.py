@@ -18,7 +18,7 @@ Architecture Notes:
 """
 
 import math
-from typing import List, Optional, Iterator, Callable, TYPE_CHECKING, Union, Tuple
+from typing import List, Optional, Iterator, Callable, TYPE_CHECKING, Union, Tuple, Dict
 from epdt_data_structures import DriverState, Task
 import copy
 
@@ -325,16 +325,123 @@ def _validate_precedence_constraints(tasks: List) -> bool:
     return True
 
 
-def generate_valid_task_permutations(tasks: List['Task']) -> List[List['Task']]:
+def calculate_sequence_peak_capacity(task_sequence: List['Task']) -> Dict[str, float]:
+    """
+    Calculate peak capacity usage (weight, volume, pallets) for a given task sequence.
+    
+    This is crucial for determining which sequences are feasible for different vehicles.
+    For example, Order 7 with PPPDDD sequence needs 21 pallets peak capacity,
+    but PDPDPD sequence only needs 8 pallets peak capacity.
+    
+    Enhanced to track the actual peak point for each dimension separately.
+    
+    Args:
+        task_sequence: Ordered list of tasks to execute
+        
+    Returns:
+        Dict with peak_weight, peak_volume, peak_pallets, peak_details, and sequence_info
+    """
+    current_weight = 0.0
+    current_volume = 0.0
+    current_pallets = 0.0
+    
+    peak_weight = 0.0
+    peak_volume = 0.0
+    peak_pallets = 0.0
+    
+    # Track when each peak occurs for debugging
+    peak_weight_step = 0
+    peak_volume_step = 0
+    peak_pallets_step = 0
+    peak_weight_details = {}
+    peak_volume_details = {}
+    peak_pallets_details = {}
+    
+    sequence_info = []
+    
+    for i, task in enumerate(task_sequence):
+        # Get task demands (positive for pickup, negative for delivery)
+        task_weight = getattr(task, 'demand', 0.0) if hasattr(task, 'demand') else 0.0
+        task_volume = getattr(task, 'volume', 0.0) if hasattr(task, 'volume') else 0.0
+        task_pallets = getattr(task, 'pallets', 0.0) if hasattr(task, 'pallets') else 0.0
+        
+        # Update current load
+        current_weight += task_weight
+        current_volume += task_volume
+        current_pallets += task_pallets
+        
+        # Track peaks and when they occur
+        if current_weight > peak_weight:
+            peak_weight = current_weight
+            peak_weight_step = i + 1
+            peak_weight_details = {
+                'weight': current_weight,
+                'volume': current_volume, 
+                'pallets': current_pallets,
+                'step': i + 1,
+                'task_id': getattr(task, 'id', 'unknown')
+            }
+            
+        if current_volume > peak_volume:
+            peak_volume = current_volume
+            peak_volume_step = i + 1
+            peak_volume_details = {
+                'weight': current_weight,
+                'volume': current_volume, 
+                'pallets': current_pallets,
+                'step': i + 1,
+                'task_id': getattr(task, 'id', 'unknown')
+            }
+            
+        if current_pallets > peak_pallets:
+            peak_pallets = current_pallets
+            peak_pallets_step = i + 1
+            peak_pallets_details = {
+                'weight': current_weight,
+                'volume': current_volume, 
+                'pallets': current_pallets,
+                'step': i + 1,
+                'task_id': getattr(task, 'id', 'unknown')
+            }
+        
+        # Store sequence info for debugging
+        task_type = getattr(task, 'task_type', None)
+        task_type_name = task_type.name if hasattr(task_type, 'name') else str(task_type)
+        sequence_info.append({
+            'step': i + 1,
+            'task_id': getattr(task, 'id', 'unknown'),
+            'task_type': task_type_name,
+            'change': {'weight': task_weight, 'volume': task_volume, 'pallets': task_pallets},
+            'total': {'weight': current_weight, 'volume': current_volume, 'pallets': current_pallets}
+        })
+    
+    return {
+        'peak_weight': peak_weight,
+        'peak_volume': peak_volume,
+        'peak_pallets': peak_pallets,
+        'peak_details': {
+            'weight_peak': peak_weight_details,
+            'volume_peak': peak_volume_details,
+            'pallets_peak': peak_pallets_details
+        },
+        'sequence_info': sequence_info
+    }
+
+
+def generate_valid_task_permutations(tasks: List['Task']) -> List[Dict]:
     """
     Generate all valid permutations of tasks respecting precedence constraints.
-    A permutation is valid if delivery tasks come after their corresponding pickup tasks.
+    Enhanced to detect and optimize sequential pickup-delivery chains.
+    NOW INCLUDES PEAK CAPACITY TRACKING for each sequence.
     
     Args:
         tasks: List of Task objects (mix of pickups and deliveries)
         
     Returns:
-        List of valid task sequences
+        List of dictionaries containing:
+        - 'sequence': List of tasks
+        - 'peak_capacity': Dict with peak_weight, peak_volume, peak_pallets
+        - 'is_sequential_chain': Boolean indicating if this is an optimized chain
     """
     from itertools import permutations
     
@@ -357,12 +464,136 @@ def generate_valid_task_permutations(tasks: List['Task']) -> List[List['Task']]:
                     pickup_to_delivery[pickup_id] = delivery_id
                     break
     
-    # Generate all permutations and filter valid ones
+    # ENHANCED: Detect sequential pickup-delivery chains (PDP-DP-DP pattern)
+    sequential_chain = detect_sequential_pickup_delivery_chain(pickups, deliveries)
+    
+    if sequential_chain:
+        print(f"    DETECTED SEQUENTIAL CHAIN: Order has connected pickup-delivery sequence")
+        # Calculate peak capacity for the sequential chain
+        peak_capacity = calculate_sequence_peak_capacity(sequential_chain)
+        valid_sequences.append({
+            'sequence': sequential_chain,
+            'peak_capacity': peak_capacity,
+            'is_sequential_chain': True
+        })
+        print(f"    Sequential chain peak usage: {peak_capacity['peak_pallets']:.0f}pal, {peak_capacity['peak_weight']:.0f}kg, {peak_capacity['peak_volume']:.1f}m³")
+        
+        # Enhanced: Show details about when each peak occurs
+        if 'peak_details' in peak_capacity:
+            details = peak_capacity['peak_details']
+            print(f"      Peak pallets: {details['pallets_peak']['pallets']:.0f}pal at step {details['pallets_peak']['step']} ({details['pallets_peak']['weight']:.0f}kg, {details['pallets_peak']['volume']:.1f}m³)")
+            print(f"      Peak weight: {details['weight_peak']['weight']:.0f}kg at step {details['weight_peak']['step']} ({details['weight_peak']['pallets']:.0f}pal, {details['weight_peak']['volume']:.1f}m³)")
+            print(f"      Peak volume: {details['volume_peak']['volume']:.1f}m³ at step {details['volume_peak']['step']} ({details['volume_peak']['pallets']:.0f}pal, {details['volume_peak']['weight']:.0f}kg)")
+        
+        # IMPORTANT: Also generate alternative sequences to compare capacity usage
+        print(f"    Generating alternative sequences for capacity comparison...")
+        
+    # Generate all permutations and filter valid ones (enhanced with capacity tracking)
+    permutation_count = 0
     for perm in permutations(tasks):
         if is_valid_task_sequence(perm, pickup_to_delivery):
-            valid_sequences.append(list(perm))
+            peak_capacity = calculate_sequence_peak_capacity(list(perm))
+            valid_sequences.append({
+                'sequence': list(perm),
+                'peak_capacity': peak_capacity,
+                'is_sequential_chain': False
+            })
+            permutation_count += 1
+            
+            # Debug output for first few permutations
+            if permutation_count <= 3:
+                sequence_types = [getattr(t.task_type, 'name', 'UNK')[0] for t in perm]
+                sequence_pattern = ''.join(sequence_types)
+                print(f"    Sequence {permutation_count} ({sequence_pattern}): {peak_capacity['peak_pallets']:.0f}pal peak")
+    
+    # Sort sequences by peak capacity usage (lower is better for fitting in vehicles)
+    valid_sequences.sort(key=lambda x: (x['peak_capacity']['peak_pallets'], 
+                                      x['peak_capacity']['peak_weight'], 
+                                      x['peak_capacity']['peak_volume']))
+    
+    print(f"    Generated {len(valid_sequences)} valid sequences, sorted by peak capacity")
     
     return valid_sequences
+
+
+def detect_sequential_pickup_delivery_chain(pickups: List['Task'], deliveries: List['Task']) -> Optional[List['Task']]:
+    """
+    Detect if tasks form a sequential pickup-delivery chain where each delivery location
+    becomes the next pickup location (PDP-DP-DP pattern).
+    
+    Args:
+        pickups: List of pickup tasks
+        deliveries: List of delivery tasks
+        
+    Returns:
+        Optimized task sequence if sequential chain detected, None otherwise
+    """
+    if len(pickups) != len(deliveries) or len(pickups) < 2:
+        return None
+    
+    # Check if locations form a sequential chain
+    # Format: P1@A → D1@B, P2@B → D2@C, P3@C → D3@D
+    
+    sequential_tasks = []
+    
+    # Build location mappings
+    pickup_locations = {(task.lat, task.lon): task for task in pickups}
+    delivery_locations = {(task.lat, task.lon): task for task in deliveries}
+    
+    # Find the starting pickup (one that doesn't have a delivery at the same location)
+    current_pickup = None
+    for pickup in pickups:
+        pickup_loc = (pickup.lat, pickup.lon)
+        if pickup_loc not in delivery_locations:
+            current_pickup = pickup
+            break
+    
+    if not current_pickup:
+        # Try alternative: pick any pickup to start the chain
+        current_pickup = pickups[0]
+    
+    # Build the sequential chain
+    used_pickup_ids = set()
+    used_delivery_ids = set()
+    
+    while current_pickup and current_pickup.id not in used_pickup_ids:
+        sequential_tasks.append(current_pickup)
+        used_pickup_ids.add(current_pickup.id)
+        
+        # Find delivery for this pickup (should be at the next location)
+        pickup_loc = (current_pickup.lat, current_pickup.lon)
+        corresponding_delivery = None
+        
+        for delivery in deliveries:
+            if delivery.id not in used_delivery_ids and hasattr(delivery, 'order_id') and delivery.order_id == current_pickup.order_id:
+                corresponding_delivery = delivery
+                break
+        
+        if corresponding_delivery:
+            sequential_tasks.append(corresponding_delivery)
+            used_delivery_ids.add(corresponding_delivery.id)
+            
+            # Find next pickup at the delivery location
+            delivery_loc = (corresponding_delivery.lat, corresponding_delivery.lon)
+            current_pickup = None
+            
+            for pickup in pickups:
+                if pickup.id not in used_pickup_ids:
+                    next_pickup_loc = (pickup.lat, pickup.lon)
+                    # Check if next pickup is at or near the delivery location
+                    if (abs(next_pickup_loc[0] - delivery_loc[0]) < 0.001 and 
+                        abs(next_pickup_loc[1] - delivery_loc[1]) < 0.001):
+                        current_pickup = pickup
+                        break
+        else:
+            break
+    
+    # Verify we used all tasks in a valid sequential pattern
+    if len(used_pickup_ids) == len(pickups) and len(used_delivery_ids) == len(deliveries):
+        print(f"    Sequential chain validated: {len(sequential_tasks)} tasks in sequence")
+        return sequential_tasks
+    
+    return None
 
 
 def is_valid_task_sequence(sequence: List['Task'], pickup_to_delivery: dict) -> bool:
@@ -584,9 +815,31 @@ def find_best_sequence_for_complex_order(route: 'Route', order: 'Order', debug: 
     best_result = None
     best_profit = float('-inf')
     
-    for seq_idx, sequence in enumerate(valid_sequences):
+    for seq_idx, sequence_data in enumerate(valid_sequences):
+        sequence = sequence_data['sequence']
+        peak_capacity = sequence_data['peak_capacity']
+        is_sequential = sequence_data['is_sequential_chain']
+        
         if debug:
             print(f"    Evaluating sequence {seq_idx + 1}/{len(valid_sequences)}")
+            sequence_types = [getattr(t.task_type, 'name', 'UNK')[0] for t in sequence]
+            sequence_pattern = ''.join(sequence_types)
+            print(f"      Pattern: {sequence_pattern}, Peak: {peak_capacity['peak_pallets']:.0f}pal/{peak_capacity['peak_weight']:.0f}kg/{peak_capacity['peak_volume']:.1f}m³")
+            if is_sequential:
+                print(f"      *** SEQUENTIAL CHAIN DETECTED ***")
+        
+        # Check if vehicle can handle the peak capacity requirement
+        if route.vehicle:
+            vehicle_weight = getattr(route.vehicle, 'weight_capacity', float('inf'))
+            vehicle_volume = getattr(route.vehicle, 'volume_capacity', float('inf'))
+            vehicle_pallets = getattr(route.vehicle, 'pallet_capacity', float('inf'))
+            
+            if (peak_capacity['peak_weight'] > vehicle_weight or 
+                peak_capacity['peak_volume'] > vehicle_volume or 
+                peak_capacity['peak_pallets'] > vehicle_pallets):
+                if debug:
+                    print(f"      CAPACITY EXCEEDED: Vehicle({vehicle_weight:.0f}kg/{vehicle_volume:.1f}m³/{vehicle_pallets:.0f}pal) < Required({peak_capacity['peak_weight']:.0f}kg/{peak_capacity['peak_volume']:.1f}m³/{peak_capacity['peak_pallets']:.0f}pal)")
+                continue  # Skip this sequence - vehicle can't handle peak load
         
         # Try all insertion points (after depot start, before depot return)
         for insertion_point in range(1, len(route.tasks)):
@@ -646,14 +899,6 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
         print(f"         Current route tasks: {len(route.tasks)}")
         print(f"         Strategy: {sequencing_strategy}")
         
-        # Special debugging for Order 7
-        if str(order.id) == "7":
-            print(f"         *** DEBUGGING ORDER 7 ASSIGNMENT TO {route.vehicle.id} ***")
-            vehicle_caps = getattr(route.vehicle, 'weight_capacity', 0), getattr(route.vehicle, 'volume_capacity', 0), getattr(route.vehicle, 'pallet_capacity', 0)
-            order_reqs = order.get_total_demand(), order.get_total_volume(), order.get_total_pallets()
-            print(f"         Vehicle capacity: {vehicle_caps[0]}kg, {vehicle_caps[1]}m3, {vehicle_caps[2]}pal")
-            print(f"         Order requirements: {order_reqs[0]}kg, {order_reqs[1]}m3, {order_reqs[2]}pal")
-    
     # Add verbose logging (Step 3 from guide)
     verbose = debug_assignment or enhanced_diagnostics
     if verbose:
@@ -718,14 +963,6 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
         if show_diagnostics:
             print(f"      L2_HEURISTIC FAILURE: Order {order.id} - No feasible initial routes found")
             print(f"         This means task sequence generation completely failed")
-            
-            # Special debugging for Order 7
-            if str(order.id) == "7":
-                print(f"         *** ORDER 7 FAILED ON VEHICLE {route.vehicle.id} ***")
-                print(f"         Reason: No feasible task sequences generated")
-                print(f"         Vehicle has {len(route.tasks)} existing tasks")
-                if hasattr(route, 'tasks') and route.tasks:
-                    print(f"         Existing tasks: {[f'{task.task_type}_{task.order_id}' for task in route.tasks[:5]]}")
                     
         if enhanced_diagnostics:
             print(f"   TASK SEQUENCE FAILURE: Could not generate any feasible initial task sequences for Order {order.id}")

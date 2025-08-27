@@ -485,7 +485,9 @@ def calculate_travel_time_between_tasks(task1, task2, vehicle) -> float:
             R = 6371.0  # Earth's radius in km
             distance_km = R * c
             
-            speed_kmh = getattr(vehicle, 'average_speed', 60.0)
+            # ENHANCED: Use vehicle type for speed instead of just average_speed attribute
+            # This ensures furgoni get higher speeds than heavy trucks
+            speed_kmh = get_vehicle_speed_by_type(vehicle)
             haversine_time = (distance_km / speed_kmh) * 60.0  # Convert to minutes
         except Exception as e:
             print(f"Warning: Haversine calculation failed for cross-validation: {e}")

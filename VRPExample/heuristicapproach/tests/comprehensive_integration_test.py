@@ -99,12 +99,12 @@ except ImportError:
 # Import route provider for OSRM mode
 try:
     from route_provider import set_testing_mode
-    set_testing_mode(use_haversine=True)  # Enable OSRM routing
+    set_testing_mode(use_haversine=False)  # Enable OSRM routing
     print("OK: Configured route provider for OSRM mode")
 except ImportError:
     try:
         from algo.route_provider import set_testing_mode
-        set_testing_mode(use_haversine=True)  # Enable OSRM routing
+        set_testing_mode(use_haversine=False)  # Enable OSRM routing
         print("OK: Configured route provider for OSRM mode with algo prefix")
     except ImportError:
         print("Warning: route_provider not available, using fallback calculations")
@@ -1214,9 +1214,52 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                     order_tasks = order.get_all_tasks()
                     total_weight = sum(abs(getattr(task, 'demand', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
                     total_volume = sum(abs(getattr(task, 'volume', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
-                    total_pallets = sum(abs(getattr(task, 'pallets', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
+                    # Total pallets (for reference)
+                    total_pallets = sum(getattr(task, 'pallets', 0) for task in order_tasks if task.is_pickup() and not task.is_depot_start() and not task.is_depot_return())
                     
-                    print(f"Order {order.id}: {total_pallets}pal, {total_weight:.0f}kg, {total_volume:.1f}m3")
+                    # ENHANCED: Calculate optimized peak capacity using the same logic as L2 heuristic
+                    optimized_peak_pallets = total_pallets  # Default to total
+                    optimized_peak_weight = total_weight    # Default to total
+                    optimized_peak_volume = total_volume    # Default to total
+                    try:
+                        # Try to calculate optimized peak capacity using sequence optimization
+                        pickups = [t for t in order_tasks if hasattr(t, 'task_type') and t.task_type.name == 'PICKUP' and not t.is_depot_start() and not t.is_depot_return()]
+                        deliveries = [t for t in order_tasks if hasattr(t, 'task_type') and t.task_type.name == 'DELIVERY' and not t.is_depot_start() and not t.is_depot_return()]
+                        
+                        if len(pickups) >= 2 and len(deliveries) >= 2:
+                            # Multi-pickup-delivery order - calculate peak capacity for optimal sequence
+                            all_tasks = pickups + deliveries
+                            
+                            # Import sequence optimization functions
+                            from second_level import calculate_sequence_peak_capacity
+                            
+                            # Try PDPDPD pattern (optimal for sequential chains)
+                            if len(pickups) == len(deliveries):
+                                # Build optimal PDPDPD sequence
+                                optimal_sequence = []
+                                for i in range(len(pickups)):
+                                    optimal_sequence.append(pickups[i])
+                                    if i < len(deliveries):
+                                        optimal_sequence.append(deliveries[i])
+                                
+                                # Calculate peak capacity for this sequence
+                                peak_info = calculate_sequence_peak_capacity(optimal_sequence)
+                                optimized_peak_pallets = peak_info['peak_pallets']
+                                optimized_peak_weight = peak_info['peak_weight']
+                                optimized_peak_volume = peak_info['peak_volume']
+                    except Exception as e:
+                        # If optimization fails, fall back to total values
+                        pass
+                    
+                    # Display total vs optimized peak capacity
+                    optimization_achieved = (optimized_peak_pallets < total_pallets or 
+                                           optimized_peak_weight < total_weight or 
+                                           optimized_peak_volume < total_volume)
+                    
+                    if optimization_achieved:
+                        print(f"Order {order.id}: {total_pallets}pal total (peak: {optimized_peak_pallets:.0f}pal, {optimized_peak_weight:.0f}kg, {optimized_peak_volume:.1f}m³)")
+                    else:
+                        print(f"Order {order.id}: {total_pallets}pal, {total_weight:.0f}kg, {total_volume:.1f}m3")
                     
                     # DEBUG: Print idle vehicle list info for the first order
                     if order == unassigned_orders[0]:  # Debug for first unassigned order
@@ -1238,10 +1281,10 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                         vehicle_volume_capacity = getattr(vehicle, 'volume_capacity', 0)
                         vehicle_pallet_capacity = getattr(vehicle, 'pallet_capacity', 0) or 0
                         
-                        # Check capacity constraints
-                        capacity_ok = (vehicle_weight_capacity >= total_weight and 
-                                     vehicle_volume_capacity >= total_volume and 
-                                     vehicle_pallet_capacity >= total_pallets)
+                        # Check capacity constraints using optimized peak capacity for all dimensions
+                        capacity_ok = (vehicle_weight_capacity >= optimized_peak_weight and 
+                                     vehicle_volume_capacity >= optimized_peak_volume and 
+                                     vehicle_pallet_capacity >= optimized_peak_pallets)
                         
                         if capacity_ok:
                             # Check capability constraints
@@ -1271,9 +1314,17 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                             else:
                                 suitable_vehicles.append(f"{vehicle.id} (IDLE-BLOCKED: missing {', '.join(capability_issues)})")
                         else:
-                            # Capacity insufficient for idle vehicle
-                            if vehicle_pallet_capacity < total_pallets:
-                                suitable_vehicles.append(f"{vehicle.id} (IDLE-BLOCKED: {vehicle_pallet_capacity}pal < {total_pallets}pal needed)")
+                            # Capacity insufficient for idle vehicle - show optimized requirements
+                            blocking_reasons = []
+                            if vehicle_weight_capacity < optimized_peak_weight:
+                                blocking_reasons.append(f"weight: {vehicle_weight_capacity:.0f}kg < {optimized_peak_weight:.0f}kg")
+                            if vehicle_volume_capacity < optimized_peak_volume:
+                                blocking_reasons.append(f"volume: {vehicle_volume_capacity:.1f}m³ < {optimized_peak_volume:.1f}m³")
+                            if vehicle_pallet_capacity < optimized_peak_pallets:
+                                blocking_reasons.append(f"pallets: {vehicle_pallet_capacity:.0f} < {optimized_peak_pallets:.0f}")
+                            
+                            if blocking_reasons:
+                                suitable_vehicles.append(f"{vehicle.id} (IDLE-BLOCKED: {'; '.join(blocking_reasons)})")
                             else:
                                 suitable_vehicles.append(f"{vehicle.id} (IDLE-BLOCKED: capacity constraint)")
                     
@@ -1286,9 +1337,9 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                         remaining_volume = getattr(vehicle, 'volume_capacity', 0) - utilization['peak_volume']
                         remaining_pallets = (getattr(vehicle, 'pallet_capacity', 0) or 0) - utilization['peak_pallets']
                         
-                        capacity_ok = (remaining_weight >= total_weight and 
-                                     remaining_volume >= total_volume and 
-                                     remaining_pallets >= total_pallets)
+                        capacity_ok = (remaining_weight >= optimized_peak_weight and 
+                                     remaining_volume >= optimized_peak_volume and 
+                                     remaining_pallets >= optimized_peak_pallets)
                         
                         if capacity_ok:
                             # Check capability constraints
@@ -1318,14 +1369,14 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                             else:
                                 suitable_vehicles.append(f"{vehicle.id} (ACTIVE-BLOCKED: missing {', '.join(capability_issues)})")
                         else:
-                            # Capacity constraint - show which constraint failed
+                            # Capacity constraint - show which constraint failed using optimized requirements
                             constraints = []
-                            if remaining_pallets < total_pallets:
-                                constraints.append(f"pallets: {remaining_pallets} < {total_pallets}")
-                            if remaining_weight < total_weight:
-                                constraints.append(f"weight: {remaining_weight:.0f}kg < {total_weight:.0f}kg")
-                            if remaining_volume < total_volume:
-                                constraints.append(f"volume: {remaining_volume:.1f}m3 < {total_volume:.1f}m3")
+                            if remaining_pallets < optimized_peak_pallets:
+                                constraints.append(f"pallets: {remaining_pallets} < {optimized_peak_pallets:.0f}")
+                            if remaining_weight < optimized_peak_weight:
+                                constraints.append(f"weight: {remaining_weight:.0f}kg < {optimized_peak_weight:.0f}kg")
+                            if remaining_volume < optimized_peak_volume:
+                                constraints.append(f"volume: {remaining_volume:.1f}m³ < {optimized_peak_volume:.1f}m³")
                             
                             suitable_vehicles.append(f"{vehicle.id} (ACTIVE-BLOCKED: {'; '.join(constraints)})")
                     
@@ -1908,11 +1959,11 @@ def configure_algorithm_parameters() -> dict:
     """
     return {
         'verbose_logging': True,  # <--- ADD THIS LINE
-        'separate_orders': True,  # ENABLE order splitting for 100% assignment goal
+        'separate_orders': False,  # ENABLE order splitting for 100% assignment goal
         'enable_force_assignment': True, # <-- Enable force assignment by default
         'tabu_tenure': 50,  # Reduced from 100 - allow more flexibility in search
-        'M1': 1000,  # DEEP EXPLORATION: Much more L1 iterations (was 500) 
-        'M2': 5000,  # DEEP EXPLORATION: Much more total iterations (was 2000)
+        'M1': 2000,  # DEEP EXPLORATION: Much more L1 iterations (was 500) 
+        'M2': 500,  # DEEP EXPLORATION: Much more total iterations (was 2000)
         'exploration_strategy': 'vnd',
         'enable_advanced_neighborhoods': True,
         'enable_granular_search': True,
@@ -1948,14 +1999,14 @@ def configure_algorithm_parameters() -> dict:
         'force_assignment_mode': True,  # New: Force assignment even with minor violations
         'capacity_overflow_tolerance': 1.3,  # New: Allow 30% capacity overflow during initial assignment
         'assignment_priority_boost': 2.0,  # New: Boost assignment priority for difficult orders
-        'relaxed_constraints_iteration_limit': 20,  # New: Use relaxed constraints for first 20 iterations
+        'relaxed_constraints_iteration_limit': 1,  # New: Use relaxed constraints for first 1 iterations
         # Force assignment strategy for 100% order coverage
         'enable_force_assignment': True,  # New: Enable smart force assignment of unassigned orders
         'force_assignment_strategy': 'least_loaded_capable',  # New: Strategy for selecting vehicles for force assignment
         # Advanced order insertion strategies (TODO 20)
         'initialization_method': 'cluster_aware',  # Fast geographic clustering base
         'enable_post_init_consolidation': True,    # NEW: Add consolidation phase for idle vehicles
-        'target_idle_vehicles': 20,                # NEW: Target number of idle vehicles to create
+        'target_idle_vehicles': 10,                # NEW: Target number of idle vehicles to create
         'consolidation_distance_penalty': 2.0,    # NEW: Maximum distance increase allowed for consolidation
         'regret_k_value': 3,  # New: k value for regret calculation (2 or 3 is common)
         'enhanced_logging': True,  # Enhanced: Enable comprehensive diagnostic logging for assignment failures
@@ -2297,17 +2348,15 @@ def get_order_requirements(order):
     total_volume = 0.0
     total_pallets = 0
     
+    # FIXED: Only count pickup tasks (positive values), not deliveries
+    # This gives the correct order requirements without needing to divide by 2
     for task in tasks:
-        total_weight += abs(task.demand)
-        total_volume += abs(task.volume)
-        total_pallets += abs(task.pallets)
+        if task.is_pickup() and not task.is_depot_start() and not task.is_depot_return():
+            total_weight += task.demand  # pickup demand is positive
+            total_volume += task.volume  # pickup volume is positive
+            total_pallets += task.pallets  # pickup pallets is positive
     
-    # Actual requirements (pickup/delivery pairs cancel out, so divide by 2)
-    actual_weight = total_weight / 2 if len(tasks) > 1 else total_weight
-    actual_volume = total_volume / 2 if len(tasks) > 1 else total_volume
-    actual_pallets = total_pallets / 2 if len(tasks) > 1 else total_pallets
-    
-    return actual_weight, actual_volume, actual_pallets
+    return total_weight, total_volume, total_pallets
 
 
 def can_vehicle_handle_order_with_penalties(vehicle, order, current_load=None):
@@ -2391,7 +2440,7 @@ def calculate_order_difficulty(order):
 
 
 def force_assign_order_to_vehicle(solution, order, vehicle):
-    """Force assign an order to a specific vehicle, bypassing L2 failure."""
+    """Force assign an order to a specific vehicle, preserving existing route if insertion fails."""
     from algo.first_level import _create_base_route
     from algo.second_level import l2_heuristic
 
@@ -2399,6 +2448,9 @@ def force_assign_order_to_vehicle(solution, order, vehicle):
     if not route or len(route.tasks) <= 2:
         route = _create_base_route(vehicle)
 
+    # PRESERVE original route for fallback
+    original_route = route.copy() if hasattr(route, 'copy') else route
+    
     # First, try the standard, safe insertion heuristic
     new_route = l2_heuristic(route, order)
 
@@ -2407,16 +2459,14 @@ def force_assign_order_to_vehicle(solution, order, vehicle):
         print(f"OK: Force assigned order {order.id} to vehicle {vehicle.id} via L2 heuristic.")
         return True
     else:
-        # If L2 fails, perform a direct manual insertion.
-        # This prioritizes assignment over ideal feasibility.
-        print(f"Warning: L2 failed for force assignment of {order.id}. Performing direct insertion.")
-        manual_route = _create_base_route(vehicle)
-        tasks_to_add = order.get_pickups() + order.get_deliveries()
-        # Insert tasks between depot start and return
-        manual_route.tasks[1:1] = tasks_to_add
-        solution.routes[vehicle.id] = manual_route
-        print(f"OK: Force assigned order {order.id} to vehicle {vehicle.id} via direct insertion.")
-        return True
+        # FIXED: Preserve existing route instead of discarding it
+        # If L2 fails, keep the original route and just don't add the order
+        print(f"INFO: L2 failed for order {order.id} on vehicle {vehicle.id}. Preserving existing route without new order.")
+        
+        # Keep the original route unchanged - don't destroy existing assignments
+        solution.routes[vehicle.id] = original_route
+        print(f"INFO: Preserved existing route for vehicle {vehicle.id}. Order {order.id} remains unassigned.")
+        return False  # Return False to indicate assignment failed but route preserved
 
 
 def split_large_order(order, max_weight=None, max_volume=None, max_pallets=None):
@@ -2797,7 +2847,10 @@ def calculate_order_difficulty(order):
         # Calculate difficulty based on weight, volume, pallets, and time constraints
         weight_score = order.get_total_demand() / 1000.0  # Weight in tons
         volume_score = order.get_total_volume() / 10.0    # Volume score  
-        pallet_score = order.get_total_pallets() / 5.0    # Pallet score
+        
+        # FIXED: Calculate peak pallets (only pickups) instead of total pallets
+        peak_pallets = sum(getattr(task, 'pallets', 0) for task in order.pickup_tasks)
+        pallet_score = peak_pallets / 5.0    # Pallet score based on peak load
         
         # Time window tightness (lower means tighter)
         time_score = 0
@@ -2826,12 +2879,13 @@ def analyze_unassigned_order_detailed(order, vehicles):
     # Basic order characteristics
     total_weight = order.get_total_demand()
     total_volume = order.get_total_volume() 
-    total_pallets = order.get_total_pallets()
+    # FIXED: Calculate peak pallets (only pickups) instead of total pallets
+    peak_pallets = sum(getattr(task, 'pallets', 0) for task in order.pickup_tasks)
     
     print(f"      Order Requirements:")
     print(f"         - Weight: {total_weight:.1f} kg")
     print(f"         - Volume: {total_volume:.1f} m³")
-    print(f"         - Pallets: {total_pallets}")
+    print(f"         - Peak Pallets: {peak_pallets} (pickups only)")
     print(f"         - Pickup tasks: {len(order.pickup_tasks)}")
     print(f"         - Delivery tasks: {len(order.delivery_tasks)}")
     
@@ -2950,15 +3004,18 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
         
     print(f"Starting force assignment for {len(unassigned_order_ids)} unassigned orders")
     
-    # ORDER TRACKING: Check if target orders are unassigned
+    # ORDER TRACKING: Check if target orders are unassigned - ENHANCED: Track ALL unassigned orders
     target_orders_unassigned = []
-    for order_id in ['4', '7']:
-        if order_id in unassigned_order_ids or str(order_id) in unassigned_order_ids:
+    high_priority_orders = ['1', '5', '6', '7', '8', '19']  # Orders shown as unassigned in output
+    for order_id in unassigned_order_ids:
+        if str(order_id) in high_priority_orders:
             target_orders_unassigned.append(order_id)
             print(f"   TARGET: Order {order_id} is UNASSIGNED - will attempt force assignment")
     
     if not target_orders_unassigned:
-        print(f"   OK: Target orders 4,7 are already assigned - no need to track force assignment")
+        print(f"   OK: Priority orders are already assigned")
+    else:
+        print(f"   PRIORITY: {len(target_orders_unassigned)} high-priority unassigned orders need force assignment")
     
     # Create order lookup
     order_map = {order.id: order for order in orders}
@@ -2998,9 +3055,8 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
     
     # Sort orders by difficulty (easiest first for better success rate)
     def calculate_assignment_difficulty(order):
-        total_weight = order.get_total_demand()
-        total_volume = order.get_total_volume()
-        total_pallets = order.get_total_pallets()
+        # FIXED: Use corrected order requirements calculation
+        total_weight, total_volume, total_pallets = get_order_requirements(order)
         
         # Difficulty based on resource requirements
         weight_score = total_weight / 1000.0  # Per ton
@@ -3029,10 +3085,8 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
             
         vehicle = idle_vehicles[i]
         
-        # Check basic feasibility (strict pallet limits)
-        total_weight = order.get_total_demand()
-        total_volume = order.get_total_volume()
-        total_pallets = order.get_total_pallets()
+        # Check basic feasibility (strict pallet limits) - FIXED: Use corrected pallet calculation
+        total_weight, total_volume, total_pallets = get_order_requirements(order)
         
         weight_ok = total_weight <= vehicle.weight_capacity * 1.5  # 50% overload allowed
         volume_ok = total_volume <= vehicle.volume_capacity * 1.5  # 50% overload allowed
@@ -3085,11 +3139,12 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
                 # Check if vehicle can handle this order
                 total_weight = order.get_total_demand()
                 total_volume = order.get_total_volume()
-                total_pallets = order.get_total_pallets()
+                # FIXED: Calculate peak pallets (only pickups) instead of total pallets
+                peak_pallets = sum(getattr(task, 'pallets', 0) for task in order.pickup_tasks)
                 
                 weight_ok = total_weight <= vehicle.weight_capacity * 1.2  # 20% overload allowed
                 volume_ok = total_volume <= vehicle.volume_capacity * 1.2  # 20% overload allowed
-                pallet_ok = vehicle.pallet_capacity is None or total_pallets <= vehicle.pallet_capacity  # STRICT pallets
+                pallet_ok = vehicle.pallet_capacity is None or peak_pallets <= vehicle.pallet_capacity  # STRICT pallets
                 
                 if weight_ok and volume_ok and pallet_ok:
                     best_vehicle = vehicle

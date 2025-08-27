@@ -1,0 +1,410 @@
+================================================================================
+COMPREHENSIVE PRICING REPORT
+================================================================================
+
+SUMMARY:
+   - Routes analyzed: 21
+   - Orders priced: 22
+   - Total operational cost: €12388.63
+   - Break-even revenue needed: €12388.63
+
+PRICING ALLOCATION WEIGHTS:
+   - Time/Service: 40.0%
+   - Distance/Travel: 30.0%
+   - Demand/Weight: 20.0%
+   - Task Count: 10.0%
+
+============================================================
+DETAILED ROUTE PRICING BREAKDOWN
+============================================================
+
+--- Route FX194HX ---
+   Total Cost: €853.75
+   Distance: 426.5 km
+   Time: 631.8 min
+   Orders: 2, Tasks: 4
+
+   COST BREAKDOWN:
+     • Driver Salary: €263.26 (30.8%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (11.7%)
+     • Distance Cost: €490.49 (57.5%)
+   Break-even Revenue: €853.75
+
+   ORDER PRICING:
+     • Order 10: 45.6% share, €389.41
+       (60min service, 819kg, 2 tasks)
+     • Order 21: 54.4% share, €464.34
+       (60min service, 2100kg, 2 tasks)
+
+--- Route GA621VG ---
+   Total Cost: €951.83
+   Distance: 551.2 km
+   Time: 721.5 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €300.61 (31.6%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (10.5%)
+     • Distance Cost: €551.22 (57.9%)
+   Break-even Revenue: €951.83
+
+   ORDER PRICING:
+     • Order 3: 100.0% share, €951.83
+       (60min service, 1000kg, 2 tasks)
+
+--- Route GC002LX ---
+   Total Cost: €592.87
+   Distance: 311.9 km
+   Time: 434.3 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €180.96 (30.5%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (16.9%)
+     • Distance Cost: €311.91 (52.6%)
+   Break-even Revenue: €592.87
+
+   ORDER PRICING:
+     • Order 16: 100.0% share, €592.87
+       (60min service, 1000kg, 2 tasks)
+
+--- Route GC086LX ---
+   Total Cost: €537.70
+   Distance: 275.1 km
+   Time: 390.2 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €162.57 (30.2%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (18.6%)
+     • Distance Cost: €275.13 (51.2%)
+   Break-even Revenue: €537.70
+
+   ORDER PRICING:
+     • Order 14: 100.0% share, €537.70
+       (60min service, 1000kg, 2 tasks)
+
+--- Route GP339JH ---
+   Total Cost: €300.96
+   Distance: 155.7 km
+   Time: 246.9 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €102.86 (34.2%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (33.2%)
+     • Distance Cost: €98.10 (32.6%)
+   Break-even Revenue: €300.96
+
+   ORDER PRICING:
+     • Order 28: 100.0% share, €300.96
+       (60min service, 200kg, 2 tasks)
+
+--- Route FF235DM ---
+   Total Cost: €494.11
+   Distance: 199.5 km
+   Time: 299.4 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €124.76 (25.2%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (20.2%)
+     • Distance Cost: €269.35 (54.5%)
+   Break-even Revenue: €494.11
+
+   ORDER PRICING:
+     • Order 24: 100.0% share, €494.11
+       (60min service, 1000kg, 2 tasks)
+
+--- Route XA359KW ---
+   Total Cost: €1043.26
+   Distance: 524.7 km
+   Time: 689.7 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €287.36 (27.5%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (9.6%)
+     • Distance Cost: €655.90 (62.9%)
+   Break-even Revenue: €1043.26
+
+   ORDER PRICING:
+     • Order 2: 100.0% share, €1043.26
+       (60min service, 2162kg, 2 tasks)
+
+--- Route XA356KW ---
+   Total Cost: €1026.45
+   Distance: 515.1 km
+   Time: 678.1 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €282.56 (27.5%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (9.7%)
+     • Distance Cost: €643.89 (62.7%)
+   Break-even Revenue: €1026.45
+
+   ORDER PRICING:
+     • Order 17: 100.0% share, €1026.45
+       (60min service, 1390kg, 2 tasks)
+
+--- Route XA346KW ---
+   Total Cost: €344.42
+   Distance: 125.4 km
+   Time: 210.5 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €87.69 (25.5%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (29.0%)
+     • Distance Cost: €156.73 (45.5%)
+   Break-even Revenue: €344.42
+
+   ORDER PRICING:
+     • Order 9: 100.0% share, €344.42
+       (60min service, 1500kg, 2 tasks)
+
+--- Route XA345KW ---
+   Total Cost: €866.12
+   Distance: 423.5 km
+   Time: 568.2 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €236.75 (27.3%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (11.5%)
+     • Distance Cost: €529.37 (61.1%)
+   Break-even Revenue: €866.12
+
+   ORDER PRICING:
+     • Order 11: 100.0% share, €866.12
+       (60min service, 1050kg, 2 tasks)
+
+--- Route XA321KW ---
+   Total Cost: €762.53
+   Distance: 364.3 km
+   Time: 497.2 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €207.15 (27.2%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (13.1%)
+     • Distance Cost: €455.38 (59.7%)
+   Break-even Revenue: €762.53
+
+   ORDER PRICING:
+     • Order 26: 100.0% share, €762.53
+       (60min service, 1466kg, 2 tasks)
+
+--- Route GW895CW ---
+   Total Cost: €501.40
+   Distance: 203.5 km
+   Time: 304.2 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €126.73 (25.3%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (19.9%)
+     • Distance Cost: €274.67 (54.8%)
+   Break-even Revenue: €501.40
+
+   ORDER PRICING:
+     • Order 4: 100.0% share, €501.40
+       (60min service, 4416kg, 2 tasks)
+
+--- Route FX192HX ---
+   Total Cost: €229.22
+   Distance: 94.7 km
+   Time: 173.7 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €72.37 (31.6%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (43.6%)
+     • Distance Cost: €56.85 (24.8%)
+   Break-even Revenue: €229.22
+
+   ORDER PRICING:
+     • Order 20: 100.0% share, €229.22
+       (60min service, 150kg, 2 tasks)
+
+--- Route GA625VG ---
+   Total Cost: €384.66
+   Distance: 273.3 km
+   Time: 388.0 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €161.66 (42.0%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (26.0%)
+     • Distance Cost: €123.00 (32.0%)
+   Break-even Revenue: €384.66
+
+   ORDER PRICING:
+     • Order 22: 100.0% share, €384.66
+       (60min service, 150kg, 2 tasks)
+
+--- Route GA630VG ---
+   Total Cost: €411.37
+   Distance: 260.3 km
+   Time: 372.4 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €155.17 (37.7%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (24.3%)
+     • Distance Cost: €156.20 (38.0%)
+   Break-even Revenue: €411.37
+
+   ORDER PRICING:
+     • Order 23: 100.0% share, €411.37
+       (60min service, 239kg, 2 tasks)
+
+--- Route GA637VG ---
+   Total Cost: €243.85
+   Distance: 108.0 km
+   Time: 189.7 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €79.02 (32.4%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (41.0%)
+     • Distance Cost: €64.83 (26.6%)
+   Break-even Revenue: €243.85
+
+   ORDER PRICING:
+     • Order 25: 100.0% share, €243.85
+       (60min service, 300kg, 2 tasks)
+
+--- Route GA647VG ---
+   Total Cost: €421.24
+   Distance: 311.8 km
+   Time: 434.2 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €180.91 (42.9%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (23.7%)
+     • Distance Cost: €140.32 (33.3%)
+   Break-even Revenue: €421.24
+
+   ORDER PRICING:
+     • Order 13: 100.0% share, €421.24
+       (60min service, 100kg, 2 tasks)
+
+--- Route GG355FV ---
+   Total Cost: €548.52
+   Distance: 385.0 km
+   Time: 522.0 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €217.51 (39.7%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (18.2%)
+     • Distance Cost: €231.01 (42.1%)
+   Break-even Revenue: €548.52
+
+   ORDER PRICING:
+     • Order 12: 100.0% share, €548.52
+       (60min service, 350kg, 2 tasks)
+
+--- Route GP340JH ---
+   Total Cost: €1095.07
+   Distance: 843.5 km
+   Time: 1072.2 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €446.77 (40.8%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (9.1%)
+     • Distance Cost: €548.30 (50.1%)
+   Break-even Revenue: €1095.07
+
+   ORDER PRICING:
+     • Order 27: 100.0% share, €1095.07
+       (60min service, 50kg, 2 tasks)
+
+--- Route GA644VG ---
+   Total Cost: €631.98
+   Distance: 460.9 km
+   Time: 613.1 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €255.44 (40.4%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (15.8%)
+     • Distance Cost: €276.53 (43.8%)
+   Break-even Revenue: €631.98
+
+   ORDER PRICING:
+     • Order 15: 100.0% share, €631.98
+       (60min service, 350kg, 2 tasks)
+
+--- Route GS452PC ---
+   Total Cost: €147.34
+   Distance: 18.9 km
+   Time: 82.7 min
+   Orders: 1, Tasks: 2
+
+   COST BREAKDOWN:
+     • Driver Salary: €34.46 (23.4%)
+     • Vehicle Operating: €0.00 (0.0%)
+     • Fuel Cost: €0.00 (0.0%)
+     • Base Vehicle Cost: €100.00 (67.9%)
+     • Distance Cost: €12.87 (8.7%)
+   Break-even Revenue: €147.34
+
+   ORDER PRICING:
+     • Order 18: 100.0% share, €147.34
+       (60min service, 170kg, 2 tasks)
+
+============================================================
+COST CATEGORY SUMMARY
+============================================================
+
+TOTAL COST BREAKDOWN:
+   - Driver Salaries: €3966.57 (32.0%)
+   - Vehicle Operating: €0.00 (0.0%)
+   - Fuel Costs: €0.00 (0.0%)
+   - Base Vehicle Costs: €2100.00 (17.0%)
+   - Distance-based Costs: €6322.06 (51.0%)

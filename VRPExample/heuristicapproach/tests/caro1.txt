@@ -1,0 +1,1762 @@
+============================================================
+ENHANCED DRIVER ASSIGNMENT SUMMARY
+============================================================
+
+Route Assignments:
+--------------------------------------------------
+
+Vehicle: FX194HX (Max: 67.13856m3, 13500.0kg, 23 pallets) -> Driver Mohamed (License: CE, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 10)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +819.0kg, +8.61m3, +6 pallets -> Total: 819.0kg, 8.6m3, 6 pallets
+
+            DRIVE to VIA DELLA MODA, SERRAVALLE SCRIVIA (AL), ITALY - 01:17
+               1: DRIVE - 01:17
+
+          3. VIA DELLA MODA, SERRAVALLE SCRIVIA (AL), ITALY (Order: 10)
+             Arrival at: 26/08 - 09:47 [26/08 - 07:30 -> 26/08 - 09:30] - Status: Late (00:17)
+             WORK 00:30 - Load: -819.0kg, -8.61m3, -6 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA RODI, GRUGLIASCO (TO), ITALY - 02:17
+               1: DRIVE - 02:17
+
+          4. VIA RODI, GRUGLIASCO (TO), ITALY (Order: 21)
+             Arrival at: 26/08 - 12:34 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: +2100.0kg, +6.00m3, +6 pallets -> Total: 2100.0kg, 6.0m3, 6 pallets
+
+            DRIVE to VIA CLAUDIO TREVES, PAVIA (PV), ITALY - 02:50
+               1: DRIVE - 00:25
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 02:25
+
+          5. VIA CLAUDIO TREVES, PAVIA (PV), ITALY (Order: 21)
+             Arrival at: 26/08 - 16:40 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -2100.0kg, -6.00m3, -6 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 01:57
+               1: DRIVE - 01:57
+
+          6. DEPOT-ASTI
+             Arrival at: 26/08 - 19:07 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 19:07
+      Total Driving Time: 8.9h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 2.3h
+         - Total Distance: 360.7km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: YES
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: YES
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $40.83 (25.0$/h Î 1.6h driving)
+         - Vehicle Cost: $414.83 (1.15$/km Î 360.7km)
+         - Total Cost: $455.67
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $450.91 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         N Net Profit: $-4.76
+          Profit Margin: -1.1%
+
+
+Vehicle: GA621VG (Max: 56.940799999999996m3, 8000.0kg, 20 pallets) -> Driver dobriu (License: B, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEI PIGNATTARI, ZONA ARTIGIANALE FUNO (BO), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEI PIGNATTARI, ZONA ARTIGIANALE FUNO (BO), ITALY (Order: 3)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 16:00] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +1000.0kg, +20.00m3, +9 pallets -> Total: 1000.0kg, 20.0m3, 9 pallets
+
+            DRIVE to VIA GIACOMO MATTEOTTI, MILANO (MI), ITALY - 04:05
+               1: DRIVE - 04:00
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 00:05
+
+          3. VIA GIACOMO MATTEOTTI, MILANO (MI), ITALY (Order: 3)
+             Arrival at: 26/08 - 13:20 [26/08 - 08:00 -> 26/08 - 20:00] - Status: On time
+             WORK 00:30 - Load: -1000.0kg, -20.00m3, -9 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 02:30
+               1: DRIVE - 02:30
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 16:20 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 16:20
+      Total Driving Time: 7.1h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 571.3km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: YES
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: YES
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $571.27 (1.00$/km Î 571.3km)
+         - Total Cost: $591.69
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $714.09 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $122.40
+          Profit Margin: 17.1%
+
+
+Vehicle: GC002LX (Max: 45.8304m3, 2100.0kg, 16 pallets) -> Driver sorina (License: CE, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA LEONARDO DA VINCI, CARAVAGGIO (BG), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA LEONARDO DA VINCI, CARAVAGGIO (BG), ITALY (Order: 16)
+             Arrival at: 26/08 - 00:30 [26/08 - 14:30 -> 26/08 - 23:59] - Status: Early (wait 14:00)
+             WORK 00:30 - Load: +1000.0kg, +5.00m3, +10 pallets -> Total: 1000.0kg, 5.0m3, 10 pallets
+
+            DRIVE to VIA FRATELLI BANDIERA, PESCHIERA BORROMEO (MI), ITALY - 00:59
+               1: DRIVE - 00:59
+
+          3. VIA FRATELLI BANDIERA, PESCHIERA BORROMEO (MI), ITALY (Order: 16)
+             Arrival at: 26/08 - 15:59 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -1000.0kg, -5.00m3, -10 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 02:21
+               1: DRIVE - 02:21
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 18:51 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 18:51
+      Total Driving Time: 3.9h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 262.8km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $262.83 (1.00$/km Î 262.8km)
+         - Total Cost: $283.25
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $328.54 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $45.29
+          Profit Margin: 13.8%
+
+
+Vehicle: GC086LX (Max: 53.4688m3, 8000.0kg, 18 pallets) -> Driver Claudio (License: CE, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA TIEPOLO, SEGRATE (MI), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA TIEPOLO, SEGRATE (MI), ITALY (Order: 14)
+             Arrival at: 26/08 - 00:30 [26/08 - 06:00 -> 26/08 - 18:00] - Status: Early (wait 05:30)
+             WORK 00:30 - Load: +1000.0kg, +6.00m3, +7 pallets -> Total: 1000.0kg, 6.0m3, 7 pallets
+
+            DRIVE to VIA VECCHIA FORNACE, CASTELL'ALFERO (AT), ITALY - 02:37
+               1: DRIVE - 02:37
+
+          3. VIA VECCHIA FORNACE, CASTELL'ALFERO (AT), ITALY (Order: 14)
+             Arrival at: 26/08 - 09:07 [26/08 - 06:00 -> 26/08 - 09:00] - Status: Late (00:07)
+             WORK 00:30 - Load: -1000.0kg, -6.00m3, -7 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 00:25
+               1: DRIVE - 00:25
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 10:03 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 10:03
+      Total Driving Time: 3.6h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 218.2km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: YES
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $218.18 (1.00$/km Î 218.2km)
+         - Total Cost: $238.59
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $272.72 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $34.13
+          Profit Margin: 12.5%
+
+
+Vehicle: GP339JH (Max: 28.336m3, 800.0kg, 9 pallets) -> Driver Massimo (License: B, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY (Order: 28)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +200.0kg, +2.00m3, +1 pallets -> Total: 200.0kg, 2.0m3, 1 pallets
+
+            DRIVE to VIA STRADA STATALE 230, VILLANOVA BIELLESE (BI), ITALY - 01:29
+               1: DRIVE - 01:29
+
+          3. VIA STRADA STATALE 230, VILLANOVA BIELLESE (BI), ITALY (Order: 28)
+             Arrival at: 26/08 - 09:59 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -200.0kg, -2.00m3, -1 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 01:30
+               1: DRIVE - 01:30
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 12:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 12:00
+      Total Driving Time: 3.5h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 131.0km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $82.51 (0.63$/km Î 131.0km)
+         - Total Cost: $102.93
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $104.77 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $1.85
+          Profit Margin: 1.8%
+
+
+Vehicle: FF235DM (Max: 106.9376m3, 44000.0kg, 38 pallets) -> Driver Sergio (License: B, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY (Order: 24)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +1000.0kg, +4.00m3, +4 pallets -> Total: 1000.0kg, 4.0m3, 4 pallets
+
+            DRIVE to VIA CLAUDIO TREVES, PAVIA (PV), ITALY - 01:53
+               1: DRIVE - 01:53
+
+          3. VIA CLAUDIO TREVES, PAVIA (PV), ITALY (Order: 24)
+             Arrival at: 26/08 - 10:23 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -1000.0kg, -4.00m3, -4 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 01:57
+               1: DRIVE - 01:57
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 12:50 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 12:50
+      Total Driving Time: 4.3h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 165.9km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $224.01 (1.35$/km Î 165.9km)
+         - Total Cost: $244.42
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $207.41 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         N Net Profit: $-37.01
+          Profit Margin: -17.8%
+
+
+Vehicle: XA359KW (Max: 91.0656m3, 32700.0kg, 33 pallets) -> Driver Raluca (License: CE, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 2)
+             Arrival at: 26/08 - 00:30 [26/08 - 06:00 -> 26/08 - 08:00] - Status: Early (wait 05:30)
+             WORK 00:30 - Load: +2162.0kg, +14.00m3, +8 pallets -> Total: 2162.0kg, 14.0m3, 8 pallets
+
+            DRIVE to VIA ENRICO MATTEI, SERMIDE (MN), ITALY - 05:08
+               1: DRIVE - 04:00
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 01:08
+
+          3. VIA ENRICO MATTEI, SERMIDE (MN), ITALY (Order: 2)
+             Arrival at: 26/08 - 12:23 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -2162.0kg, -14.00m3, -8 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 05:12
+               1: DRIVE - 03:21
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 01:50
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 18:50 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 18:50
+      Total Driving Time: 10.8h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 485.8km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $607.27 (1.25$/km Î 485.8km)
+         - Total Cost: $627.68
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $607.27 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         N Net Profit: $-20.42
+          Profit Margin: -3.4%
+
+
+Vehicle: XA356KW (Max: 91.0656m3, 32000.0kg, 33 pallets) -> Driver Ottavio (License: B, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 17)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +1390.0kg, +7.00m3, +7 pallets -> Total: 1390.0kg, 7.0m3, 7 pallets
+
+            DRIVE to VIA MONTE CORNO, SARCEDO (VI), ITALY - 05:00
+               1: DRIVE - 04:00
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 01:00
+
+          3. VIA MONTE CORNO, SARCEDO (VI), ITALY (Order: 17)
+             Arrival at: 26/08 - 14:15 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -1390.0kg, -7.00m3, -7 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 05:08
+               1: DRIVE - 03:29
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 01:39
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 20:39 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 20:39
+      Total Driving Time: 10.7h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 551.5km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: YES
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $689.44 (1.25$/km Î 551.5km)
+         - Total Cost: $709.85
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $689.44 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         N Net Profit: $-20.42
+          Profit Margin: -3.0%
+
+
+Vehicle: XA346KW (Max: 91.0656m3, 32700.0kg, 33 pallets) -> Driver valerio (License: B, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 9)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +1500.0kg, +10.00m3, +10 pallets -> Total: 1500.0kg, 10.0m3, 10 pallets
+
+            DRIVE to VIA SAN ROCCO, RORETO (CN), ITALY - 01:14
+               1: DRIVE - 01:14
+
+          3. VIA SAN ROCCO, RORETO (CN), ITALY (Order: 9)
+             Arrival at: 26/08 - 09:44 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -1500.0kg, -10.00m3, -10 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 01:07
+               1: DRIVE - 01:07
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 11:21 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 11:21
+      Total Driving Time: 2.9h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 84.8km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $106.01 (1.25$/km Î 84.8km)
+         - Total Cost: $126.43
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $106.01 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         N Net Profit: $-20.42
+          Profit Margin: -19.3%
+
+
+Vehicle: XA345KW (Max: 73.656m3, 24300.0kg, 27 pallets) -> Driver Sorin (License: CE, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 11)
+             Arrival at: 26/08 - 00:30 [26/08 - 00:00 -> 26/08 - 23:59] - Status: On time
+             WORK 00:30 - Load: +1050.0kg, +13.00m3, +14 pallets -> Total: 1050.0kg, 13.0m3, 14 pallets
+
+            DRIVE to VIA DE GASPERI, NOGAROLE ROCCA (VR), ITALY - 04:06
+               1: DRIVE - 04:00
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 00:06
+
+          3. VIA DE GASPERI, NOGAROLE ROCCA (VR), ITALY (Order: 11)
+             Arrival at: 26/08 - 05:51 [26/08 - 06:30 -> 26/08 - 08:30] - Status: Early (wait 00:38)
+             WORK 00:30 - Load: -1050.0kg, -13.00m3, -14 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 04:12
+               1: DRIVE - 04:12
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 11:12 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 11:12
+      Total Driving Time: 8.8h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 426.4km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: YES
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $533.04 (1.25$/km Î 426.4km)
+         - Total Cost: $553.46
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $533.04 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         N Net Profit: $-20.42
+          Profit Margin: -3.8%
+
+
+Vehicle: XA321KW (Max: 91.0656m3, 32700.0kg, 33 pallets) -> Driver Modou (License: CE, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DELLA CHIESA, CASE NUOVE (VA), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DELLA CHIESA, CASE NUOVE (VA), ITALY (Order: 26)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 18:00] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +1466.0kg, +10.00m3, +10 pallets -> Total: 1466.0kg, 10.0m3, 10 pallets
+
+            DRIVE to VIA FIGLIODONI, BARZAN‗ (LC), ITALY - 01:29
+               1: DRIVE - 01:29
+
+          3. VIA FIGLIODONI, BARZAN‗ (LC), ITALY (Order: 26)
+             Arrival at: 26/08 - 09:59 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -1466.0kg, -10.00m3, -10 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 03:16
+               1: DRIVE - 02:30
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 00:46
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 14:31 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 14:31
+      Total Driving Time: 5.3h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 266.1km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $332.68 (1.25$/km Î 266.1km)
+         - Total Cost: $353.09
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $332.68 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         N Net Profit: $-20.42
+          Profit Margin: -6.1%
+
+
+Vehicle: GW895CW (Max: 106.9376m3, 44000.0kg, 38 pallets) -> Driver Daniela (License: B, Type: heavy)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 4)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +4416.0kg, +67.00m3, +17 pallets -> Total: 4416.0kg, 67.0m3, 17 pallets
+
+            DRIVE to FRAZIONE CIMAFERLE, PONZONE (AL), ITALY - 02:00
+               1: DRIVE - 02:00
+
+          3. FRAZIONE CIMAFERLE, PONZONE (AL), ITALY (Order: 4)
+             Arrival at: 26/08 - 10:30 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -4416.0kg, -67.00m3, -17 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 01:54
+               1: DRIVE - 01:54
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 12:55 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 12:55
+      Total Driving Time: 4.4h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 90.3km
+         - Vehicle Type: Camion (Heavy)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $121.94 (1.35$/km Î 90.3km)
+         - Total Cost: $142.35
+       Revenue:
+         - Rate: 1.25$/km
+         - Total Revenue: $112.90 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         N Net Profit: $-29.45
+          Profit Margin: -26.1%
+
+
+Vehicle: FX192HX (Max: 21.794799999999995m3, 800.0kg, 9 pallets) -> Driver Aimad (License: B, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY (Order: 20)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +150.0kg, +0.96m3, +1 pallets -> Total: 150.0kg, 1.0m3, 1 pallets
+
+            DRIVE to CORSO FRANCIA, RIVOLI (TO), ITALY - 00:56
+               1: DRIVE - 00:56
+
+          3. CORSO FRANCIA, RIVOLI (TO), ITALY (Order: 20)
+             Arrival at: 26/08 - 09:26 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -150.0kg, -0.96m3, -1 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 00:50
+               1: DRIVE - 00:50
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 10:47 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 10:47
+      Total Driving Time: 2.3h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 116.0km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: YES
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $69.58 (0.60$/km Î 116.0km)
+         - Total Cost: $89.99
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $92.77 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $2.78
+          Profit Margin: 3.0%
+
+
+Vehicle: GA625VG (Max: 8.184000000000001m3, 800.0kg, 4 pallets) -> Driver stelian (License: B, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY (Order: 22)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +150.0kg, +0.96m3, +1 pallets -> Total: 150.0kg, 1.0m3, 1 pallets
+
+            DRIVE to VIA OSPEDALE, IMPERIA (IM), ITALY - 02:39
+               1: DRIVE - 02:39
+
+          3. VIA OSPEDALE, IMPERIA (IM), ITALY (Order: 22)
+             Arrival at: 26/08 - 11:09 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -150.0kg, -0.96m3, -1 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 02:42
+               1: DRIVE - 01:20
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 01:21
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 15:06 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 15:06
+      Total Driving Time: 5.9h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 206.2km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: YES
+         - Hangers: NO
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $92.81 (0.45$/km Î 206.2km)
+         - Total Cost: $113.22
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $164.99 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $51.77
+          Profit Margin: 31.4%
+
+
+Vehicle: GA630VG (Max: 18.169200000000004m3, 700.0kg, 8 pallets) -> Driver adrian2 (License: B, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY (Order: 23)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +239.0kg, +0.96m3, +1 pallets -> Total: 239.0kg, 1.0m3, 1 pallets
+
+            DRIVE to VIA ARGINE DESTRO, IMPERIA (IM), ITALY - 02:29
+               1: DRIVE - 02:29
+
+          3. VIA ARGINE DESTRO, IMPERIA (IM), ITALY (Order: 23)
+             Arrival at: 26/08 - 10:59 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -239.0kg, -0.96m3, -1 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 02:36
+               1: DRIVE - 01:30
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 01:06
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 14:51 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 14:51
+      Total Driving Time: 5.6h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 225.4km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: YES
+         - Hangers: NO
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $135.25 (0.60$/km Î 225.4km)
+         - Total Cost: $155.66
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $180.33 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $24.67
+          Profit Margin: 13.7%
+
+
+Vehicle: GA637VG (Max: 24.62112m3, 700.0kg, 10 pallets) -> Driver stefano (License: B, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO 82 ASTI, ASTI (AT), ITALY (Order: 25)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +300.0kg, +0.96m3, +1 pallets -> Total: 300.0kg, 1.0m3, 1 pallets
+
+            DRIVE to VIA FOSSAGAZZO, MONTEBELLO DELLA BATTAGLIA (PV), ITALY - 00:59
+               1: DRIVE - 00:59
+
+          3. VIA FOSSAGAZZO, MONTEBELLO DELLA BATTAGLIA (PV), ITALY (Order: 25)
+             Arrival at: 26/08 - 09:29 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -300.0kg, -0.96m3, -1 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 01:03
+               1: DRIVE - 01:03
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 11:03 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 11:03
+      Total Driving Time: 2.6h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 138.4km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: YES
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $83.03 (0.60$/km Î 138.4km)
+         - Total Cost: $103.45
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $110.71 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $7.26
+          Profit Margin: 6.6%
+
+
+Vehicle: GA647VG (Max: 13.536000000000001m3, 800.0kg, 6 pallets) -> Driver RMEA (License: CE, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DONATORI DEL SANGUE, ARLUNO (MI), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DONATORI DEL SANGUE, ARLUNO (MI), ITALY (Order: 13)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 18:00] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +100.0kg, +1.00m3, +2 pallets -> Total: 100.0kg, 1.0m3, 2 pallets
+
+            DRIVE to VIA ISORELLA, CALVISANO (BS), ITALY - 01:56
+               1: DRIVE - 01:56
+
+          3. VIA ISORELLA, CALVISANO (BS), ITALY (Order: 13)
+             Arrival at: 26/08 - 10:26 [26/08 - 08:00 -> 26/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -100.0kg, -1.00m3, -2 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 02:35
+               1: DRIVE - 02:03
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 00:32
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 14:17 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 14:17
+      Total Driving Time: 5.0h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 373.0km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: YES
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $167.85 (0.45$/km Î 373.0km)
+         - Total Cost: $188.27
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $298.40 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $110.13
+          Profit Margin: 36.9%
+
+
+Vehicle: GE026FZ (Max: 12.384m3, 900.0kg, 5 pallets) -> Driver  Alin (License: CE, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 00:30
+               1: DRIVE - 00:30
+
+          2. DEPOT-ASTI
+             Arrival at: 26/08 - 00:30 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 00:30
+      Total Driving Time: 0.5h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 0.0h
+         - Total Distance: 0.0km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: YES
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $0.00 (25.0$/h Î 0.0h driving)
+         - Vehicle Cost: $0.00 (0.45$/km Î 0.0km)
+         - Total Cost: $0.00
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $0.00 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $0.00
+
+
+Vehicle: GE031FZ (Max: 13.536000000000001m3, 800.0kg, 6 pallets) -> Driver Martinas 2 (License: CE, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 00:30
+               1: DRIVE - 00:30
+
+          2. DEPOT-ASTI
+             Arrival at: 26/08 - 00:30 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 00:30
+      Total Driving Time: 0.5h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 0.0h
+         - Total Distance: 0.0km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: YES
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $0.00 (25.0$/h Î 0.0h driving)
+         - Vehicle Cost: $0.00 (0.45$/km Î 0.0km)
+         - Total Cost: $0.00
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $0.00 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $0.00
+
+
+Vehicle: GG355FV (Max: 24.62112m3, 700.0kg, 10 pallets) -> Driver Anisoara (License: CE, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIALE AGRICOLTURA, CARPI (MO), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIALE AGRICOLTURA, CARPI (MO), ITALY (Order: 12)
+             Arrival at: 26/08 - 00:30 [26/08 - 09:00 -> 26/08 - 16:00] - Status: Early (wait 08:30)
+             WORK 00:30 - Load: +350.0kg, +1.50m3, +2 pallets -> Total: 350.0kg, 1.5m3, 2 pallets
+
+            DRIVE to VIA ANDREA SANSOVINO, TORINO (TO), ITALY - 03:45
+               1: DRIVE - 03:45
+
+          3. VIA ANDREA SANSOVINO, TORINO (TO), ITALY (Order: 12)
+             Arrival at: 26/08 - 13:15 [26/08 - 08:00 -> 27/08 - 08:30] - Status: On time
+             WORK 00:30 - Load: -350.0kg, -1.50m3, -2 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 01:01
+               1: DRIVE - 00:14
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 00:47
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 15:32 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 15:32
+      Total Driving Time: 5.3h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 513.6km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: YES
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $308.14 (0.60$/km Î 513.6km)
+         - Total Cost: $328.55
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $410.85 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $82.30
+          Profit Margin: 20.0%
+
+
+Vehicle: GP340JH (Max: 21.794799999999995m3, 700.0kg, 9 pallets) -> Driver franco borgaro (License: B, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA GALLARATE, MILANO (MI), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA GALLARATE, MILANO (MI), ITALY (Order: 27)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 18:00] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +50.0kg, +4.00m3, +4 pallets -> Total: 50.0kg, 4.0m3, 4 pallets
+
+            DRIVE to VIA SODINE, FROSINONE (FR), ITALY - 07:17
+               1: DRIVE - 04:00
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 03:17
+
+          3. VIA SODINE, FROSINONE (FR), ITALY (Order: 27)
+             Arrival at: 26/08 - 16:32 [26/08 - 08:00 -> 27/08 - 18:00] - Status: On time
+             WORK 00:30 - Load: -50.0kg, -4.00m3, -4 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 07:52
+               1: DRIVE - 01:12
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 04:30
+               4: REST - 00:45 (4.5h limit reached)
+               5: DRIVE - 02:09
+
+          4. DEPOT-ASTI
+             Arrival at: 27/08 - 02:24 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 26:24
+      Total Driving Time: 15.7h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 1192.1km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: YES
+         - Low Temp: NO
+         - Hangers: YES
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $774.86 (0.65$/km Î 1192.1km)
+         - Total Cost: $795.27
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $953.67 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $158.40
+          Profit Margin: 16.6%
+
+
+Vehicle: GA644VG (Max: 24.62112m3, 700.0kg, 10 pallets) -> Driver gabriele (License: B, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA PAVIA, RIVOLI (TO), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA PAVIA, RIVOLI (TO), ITALY (Order: 15)
+             Arrival at: 26/08 - 00:30 [26/08 - 06:00 -> 27/08 - 09:00] - Status: Early (wait 05:30)
+             WORK 00:30 - Load: +350.0kg, +5.00m3, +2 pallets -> Total: 350.0kg, 5.0m3, 2 pallets
+
+            DRIVE to VIA MAESTRI DEL LAVORO, CASTEL BOLOGNESE (RA), ITALY - 04:29
+               1: DRIVE - 04:00
+               2: REST - 00:45 (4.5h limit reached)
+               3: DRIVE - 00:29
+
+          3. VIA MAESTRI DEL LAVORO, CASTEL BOLOGNESE (RA), ITALY (Order: 15)
+             Arrival at: 26/08 - 11:44 [26/08 - 08:00 -> 27/08 - 09:00] - Status: On time
+             WORK 00:30 - Load: -350.0kg, -5.00m3, -2 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 03:53
+               1: DRIVE - 03:53
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 16:08 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 16:08
+      Total Driving Time: 8.9h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 690.2km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: YES
+         - LIFO Required: YES
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $414.12 (0.60$/km Î 690.2km)
+         - Total Cost: $434.54
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $552.16 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $117.62
+          Profit Margin: 21.3%
+
+
+Vehicle: GS178CM (Max: 30.615199999999998m3, 700.0kg, 10 pallets) -> Driver trombetta (License: B, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 00:30
+               1: DRIVE - 00:30
+
+          2. DEPOT-ASTI
+             Arrival at: 26/08 - 00:30 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 00:30
+      Total Driving Time: 0.5h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 0.0h
+         - Total Distance: 0.0km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: NO
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $0.00 (25.0$/h Î 0.0h driving)
+         - Vehicle Cost: $0.00 (0.63$/km Î 0.0km)
+         - Total Cost: $0.00
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $0.00 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         Y Net Profit: $0.00
+
+
+Vehicle: GS452PC (Max: 30.615199999999998m3, 700.0kg, 10 pallets) -> Driver Gianni Vantaggiato (License: B, Type: standard)
+    HoS Timeline: Not available. Using simplified chronological view.
+
+    SIMPLIFIED CHRONOLOGICAL JOURNEY:
+    =====================================
+
+          1. DEPOT-ASTI
+             Departure at 26/08 - 00:00 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to VIA DEL LAVORO, ASTI (AT), ITALY - 00:30
+               1: DRIVE - 00:30
+
+          2. VIA DEL LAVORO, ASTI (AT), ITALY (Order: 18)
+             Arrival at: 26/08 - 00:30 [26/08 - 08:00 -> 26/08 - 23:59] - Status: Early (wait 07:30)
+             WORK 00:30 - Load: +170.0kg, +4.00m3, +4 pallets -> Total: 170.0kg, 4.0m3, 4 pallets
+
+            DRIVE to FRAZIONE QUARTO INFERIORE, QUARTO (AT), ITALY - 00:07
+               1: DRIVE - 00:07
+
+          3. FRAZIONE QUARTO INFERIORE, QUARTO (AT), ITALY (Order: 18)
+             Arrival at: 26/08 - 08:37 [26/08 - 05:00 -> 26/08 - 11:00] - Status: On time
+             WORK 00:30 - Load: -170.0kg, -4.00m3, -4 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+            DRIVE to DEPOT-ASTI - 00:08
+               1: DRIVE - 00:08
+
+          4. DEPOT-ASTI
+             Arrival at: 26/08 - 09:16 [No window -> No window] - Status: On time
+             Load: +0.0kg, +0.0m3, +0 pallets -> Total: 0.0kg, 0.0m3, 0 pallets
+
+      Total Journey Time: 09:16
+      Total Driving Time: 0.8h (Limit: 45.0h)
+      Total Load Changes: 0.0kg, 0.0m3, 0 pallets
+
+       COST & PROFIT BREAKDOWN:
+      ============================
+       Operations:
+         - Total Hours: 1.2h
+         - Total Distance: 12.5km
+         - Vehicle Type: Furgone (Standard)
+       Vehicle Capabilities:
+         - Loader: YES
+         - Low Temp: NO
+         - Hangers: NO
+         - LIFO Required: NO
+       Order Requirements:
+         - Needs Loader: NO
+         - Needs Low Temp: NO
+         - Needs Hangers: NO
+       Constraint Validation:
+         OK All constraints satisfied
+       Costs:
+         - Driver Cost: $20.42 (25.0$/h Î 0.8h driving)
+         - Vehicle Cost: $8.47 (0.68$/km Î 12.5km)
+         - Total Cost: $28.89
+       Revenue:
+         - Rate: 0.80$/km
+         - Total Revenue: $9.97 (sum of dedicated route revenues)
+         - Revenue Model: Each order valued at dedicated route distance Î rate
+       Net Result:
+         N Net Profit: $-18.92
+          Profit Margin: -189.8%
+
+
+UNASSIGNED ORDERS vs AVAILABLE CAPACITY:
+------------------------------------------------------------
+Order 1: 12pal, 2052kg, 12.0m3
+   DEBUG ORDER 1: Found 16 idle vehicles
+   DEBUG: 1 idle vehicles with >10 pallet capacity:
+      - XA819VA: 33pal capacity
+   -> Compatible vehicles:
+      * XA819VA (IDLE - 33pal available)
+      * GE026FZ (IDLE-BLOCKED: 5pal < 12pal needed)
+      * GE031FZ (IDLE-BLOCKED: 6pal < 12pal needed)
+      * GS453PC (IDLE-BLOCKED: 9pal < 12pal needed)
+      * GW877CW (IDLE-BLOCKED: 4pal < 12pal needed)
+      * GS178CM (IDLE-BLOCKED: 10pal < 12pal needed)
+      * GT125RB (IDLE-BLOCKED: 10pal < 12pal needed)
+      * GW855CW (IDLE-BLOCKED: 10pal < 12pal needed)
+      * GW862CW (IDLE-BLOCKED: 10pal < 12pal needed)
+      * GW863CW (IDLE-BLOCKED: 8pal < 12pal needed)
+      * GW865CW (IDLE-BLOCKED: 10pal < 12pal needed)
+      * GW871CW (IDLE-BLOCKED: 8pal < 12pal needed)
+      * GW873CW (IDLE-BLOCKED: 10pal < 12pal needed)
+      * GW880CW (IDLE-BLOCKED: 10pal < 12pal needed)
+      * GW882CW (IDLE-BLOCKED: 10pal < 12pal needed)
+      * GW894CW (IDLE-BLOCKED: 9pal < 12pal needed)
+      * FX194HX (ACTIVE - 17pal free)
+      * GA621VG (ACTIVE-BLOCKED: pallets: 11 < 12)
+      * GC002LX (ACTIVE-BLOCKED: pallets: 6 < 12; weight: 1100kg < 2052kg)
+      * GC086LX (ACTIVE-BLOCKED: pallets: 11 < 12)
+      * FF235DM (ACTIVE - 34pal free)
+      * XA359KW (ACTIVE - 25pal free)
+      * XA356KW (ACTIVE - 26pal free)
+      * XA346KW (ACTIVE - 23pal free)
+      * XA345KW (ACTIVE - 13pal free)
+      * XA321KW (ACTIVE - 23pal free)
+Order 5: 4pal, 388kg, 1.8m3
+   -> Compatible vehicles:
+      * XA819VA (IDLE - 33pal available)
+      * GE026FZ (IDLE-BLOCKED: missing LOW_TEMP)
+      * GE031FZ (IDLE-BLOCKED: missing LOW_TEMP)
+      * GS453PC (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW877CW (IDLE - 4pal available)
+      * GS178CM (IDLE-BLOCKED: missing LOW_TEMP)
+      * GT125RB (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW855CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW862CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW863CW (IDLE - 8pal available)
+      * GW865CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW871CW (IDLE - 8pal available)
+      * GW873CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW880CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW882CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW894CW (IDLE - 9pal available)
+      * FX194HX (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * GA621VG (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * GC002LX (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * GC086LX (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * FF235DM (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA359KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA356KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA346KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA345KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA321KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+Order 6: 4pal, 599kg, 3.0m3
+   -> Compatible vehicles:
+      * XA819VA (IDLE - 33pal available)
+      * GE026FZ (IDLE-BLOCKED: missing LOW_TEMP)
+      * GE031FZ (IDLE-BLOCKED: missing LOW_TEMP)
+      * GS453PC (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW877CW (IDLE - 4pal available)
+      * GS178CM (IDLE-BLOCKED: missing LOW_TEMP)
+      * GT125RB (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW855CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW862CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW863CW (IDLE - 8pal available)
+      * GW865CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW871CW (IDLE - 8pal available)
+      * GW873CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW880CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW882CW (IDLE-BLOCKED: missing LOW_TEMP)
+      * GW894CW (IDLE - 9pal available)
+      * FX194HX (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * GA621VG (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * GC002LX (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * GC086LX (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * FF235DM (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA359KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA356KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA346KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA345KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+      * XA321KW (ACTIVE-BLOCKED: missing LOW_TEMP)
+Order 7: 42pal, 1814kg, 29.5m3
+   -> Compatible vehicles:
+      * XA819VA (IDLE-BLOCKED: 33pal < 42pal needed)
+      * GE026FZ (IDLE-BLOCKED: 5pal < 42pal needed)
+      * GE031FZ (IDLE-BLOCKED: 6pal < 42pal needed)
+      * GS453PC (IDLE-BLOCKED: 9pal < 42pal needed)
+      * GW877CW (IDLE-BLOCKED: 4pal < 42pal needed)
+      * GS178CM (IDLE-BLOCKED: 10pal < 42pal needed)
+      * GT125RB (IDLE-BLOCKED: 10pal < 42pal needed)
+      * GW855CW (IDLE-BLOCKED: 10pal < 42pal needed)
+      * GW862CW (IDLE-BLOCKED: 10pal < 42pal needed)
+      * GW863CW (IDLE-BLOCKED: 8pal < 42pal needed)
+      * GW865CW (IDLE-BLOCKED: 10pal < 42pal needed)
+      * GW871CW (IDLE-BLOCKED: 8pal < 42pal needed)
+      * GW873CW (IDLE-BLOCKED: 10pal < 42pal needed)
+      * GW880CW (IDLE-BLOCKED: 10pal < 42pal needed)
+      * GW882CW (IDLE-BLOCKED: 10pal < 42pal needed)
+      * GW894CW (IDLE-BLOCKED: 9pal < 42pal needed)
+      * FX194HX (ACTIVE-BLOCKED: pallets: 17 < 42)
+      * GA621VG (ACTIVE-BLOCKED: pallets: 11 < 42)
+      * GC002LX (ACTIVE-BLOCKED: pallets: 6 < 42; weight: 1100kg < 1814kg)
+      * GC086LX (ACTIVE-BLOCKED: pallets: 11 < 42)
+      * FF235DM (ACTIVE-BLOCKED: pallets: 34 < 42)
+      * XA359KW (ACTIVE-BLOCKED: pallets: 25 < 42)
+      * XA356KW (ACTIVE-BLOCKED: pallets: 26 < 42)
+      * XA346KW (ACTIVE-BLOCKED: pallets: 23 < 42)
+      * XA345KW (ACTIVE-BLOCKED: pallets: 13 < 42)
+      * XA321KW (ACTIVE-BLOCKED: pallets: 23 < 42)
+Order 8: 24pal, 12320kg, 22.0m3
+   -> Compatible vehicles:
+      * XA819VA (IDLE - 33pal available)
+      * GE026FZ (IDLE-BLOCKED: 5pal < 24pal needed)
+      * GE031FZ (IDLE-BLOCKED: 6pal < 24pal needed)
+      * GS453PC (IDLE-BLOCKED: 9pal < 24pal needed)
+      * GW877CW (IDLE-BLOCKED: 4pal < 24pal needed)
+      * GS178CM (IDLE-BLOCKED: 10pal < 24pal needed)
+      * GT125RB (IDLE-BLOCKED: 10pal < 24pal needed)
+      * GW855CW (IDLE-BLOCKED: 10pal < 24pal needed)
+      * GW862CW (IDLE-BLOCKED: 10pal < 24pal needed)
+      * GW863CW (IDLE-BLOCKED: 8pal < 24pal needed)
+      * GW865CW (IDLE-BLOCKED: 10pal < 24pal needed)
+      * GW871CW (IDLE-BLOCKED: 8pal < 24pal needed)
+      * GW873CW (IDLE-BLOCKED: 10pal < 24pal needed)
+      * GW880CW (IDLE-BLOCKED: 10pal < 24pal needed)
+      * GW882CW (IDLE-BLOCKED: 10pal < 24pal needed)
+      * GW894CW (IDLE-BLOCKED: 9pal < 24pal needed)
+      * FX194HX (ACTIVE-BLOCKED: pallets: 17 < 24; weight: 11400kg < 12320kg)
+      * GA621VG (ACTIVE-BLOCKED: pallets: 11 < 24; weight: 7000kg < 12320kg)
+      * GC002LX (ACTIVE-BLOCKED: pallets: 6 < 24; weight: 1100kg < 12320kg)
+      * GC086LX (ACTIVE-BLOCKED: pallets: 11 < 24; weight: 7000kg < 12320kg)
+      * FF235DM (ACTIVE - 34pal free)
+      * XA359KW (ACTIVE - 25pal free)
+      * XA356KW (ACTIVE - 26pal free)
+      * XA346KW (ACTIVE-BLOCKED: pallets: 23 < 24)
+      * XA345KW (ACTIVE-BLOCKED: pallets: 13 < 24)
+      * XA321KW (ACTIVE-BLOCKED: pallets: 23 < 24)
+Order 19: 2pal, 230kg, 1.9m3
+   -> Compatible vehicles:
+      * XA819VA (IDLE - 33pal available)
+      * GE026FZ (IDLE - 5pal available)
+      * GE031FZ (IDLE - 6pal available)
+      * GS453PC (IDLE - 9pal available)
+      * GW877CW (IDLE - 4pal available)
+      * GS178CM (IDLE - 10pal available)
+      * GT125RB (IDLE - 10pal available)
+      * GW855CW (IDLE - 10pal available)
+      * GW862CW (IDLE - 10pal available)
+      * GW863CW (IDLE - 8pal available)
+      * GW865CW (IDLE - 10pal available)
+      * GW871CW (IDLE - 8pal available)
+      * GW873CW (IDLE - 10pal available)
+      * GW880CW (IDLE - 10pal available)
+      * GW882CW (IDLE - 10pal available)
+      * GW894CW (IDLE - 9pal available)
+      * FX194HX (ACTIVE - 17pal free)
+      * GA621VG (ACTIVE - 11pal free)
+      * GC002LX (ACTIVE - 6pal free)
+      * GC086LX (ACTIVE - 11pal free)
+      * FF235DM (ACTIVE - 34pal free)
+      * XA359KW (ACTIVE - 25pal free)
+      * XA356KW (ACTIVE - 26pal free)
+      * XA346KW (ACTIVE - 23pal free)
+      * XA345KW (ACTIVE - 13pal free)
+      * XA321KW (ACTIVE - 23pal free)
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+FINANCIAL PERFORMANCE ANALYSIS
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+ROUTE FINANCIAL SUMMARY:
+   - Total Routes Analyzed: 25
+   - Profitable Routes: 16
+   - Unprofitable Routes: 9
+   - Profitability Rate: 64.0%
+
+FINANCIAL TOTALS:
+   - Total Operating Costs: $6667.26
+     - Driver Costs: $449.17
+     - Vehicle Costs: $6218.10
+   - Total Revenue: $7233.63
+   - Net Profit: $566.36
+   - Overall Margin: 7.8%
+   - Average Profit per Route: $22.65
