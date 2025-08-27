@@ -1075,6 +1075,10 @@ class HoSEngine:
             # but become infeasible after mandatory rests are added
             is_feasible, violations = self._validate_timeline_against_constraints(timeline, route)
             
+            # DEBUG: Log validation results
+            if violations:
+                print(f"            DEBUG HoS ENGINE: analyze_route returning is_feasible={is_feasible} with {len(violations)} violations: {violations[:2]}")
+            
             # Calculate metrics from timeline
             driving_time = sum(event.duration for event in timeline if event.event_type == 'DRIVE')
             working_time = sum(event.duration for event in timeline if event.event_type in ['DRIVE', 'WORK'])
@@ -1233,7 +1237,13 @@ class HoSEngine:
             if event.event_type in ['WORK'] and event.task_id:
                 task_arrivals[event.task_id] = event.start_time
         
+        # DEBUG: Print task arrivals for debugging
+        debug_enabled = len(task_arrivals) > 0
+        if debug_enabled:
+            print(f"            DEBUG HoS: Validating {len(task_arrivals)} task arrivals against time windows")
+        
         # Validate each task's time window constraints
+        violation_count = 0
         for task in route.tasks:
             if not hasattr(task, 'id') or task.id not in task_arrivals:
                 continue
@@ -1244,13 +1254,23 @@ class HoSEngine:
             if hasattr(task, 'earliest_time') and task.earliest_time is not None:
                 if arrival_time < task.earliest_time:
                     violations.append(f"Task {task.id}: arrives at {arrival_time:.1f}min but earliest allowed is {task.earliest_time:.1f}min")
+                    violation_count += 1
             
-            # Check latest time constraint (hard time windows only)
+            # Check latest time constraint (treat all time windows as hard constraints)
             if hasattr(task, 'latest_time') and task.latest_time is not None:
-                # Only enforce hard time windows - soft windows allow violations with penalties
-                is_hard_window = not getattr(task, 'soft_time_window', False)
-                if is_hard_window and arrival_time > task.latest_time:
-                    violations.append(f"Task {task.id}: arrives at {arrival_time:.1f}min but latest allowed is {task.latest_time:.1f}min")
+                # STRICT TIME WINDOW ENFORCEMENT: All time windows are hard constraints
+                # This ensures no routes with late arrivals pass validation
+                if arrival_time > task.latest_time:
+                    violation_msg = f"Task {task.id}: arrives at {arrival_time:.1f}min but latest allowed is {task.latest_time:.1f}min (late by {arrival_time - task.latest_time:.1f}min)"
+                    violations.append(violation_msg)
+                    violation_count += 1
+                    if debug_enabled:
+                        print(f"            DEBUG HoS: TIME WINDOW VIOLATION - {violation_msg}")
+                elif debug_enabled and violation_count < 3:
+                    print(f"            DEBUG HoS: Task {task.id}: arrival {arrival_time:.1f} <= latest {task.latest_time:.1f} (OK)")
+        
+        if debug_enabled:
+            print(f"            DEBUG HoS: Found {violation_count} time window violations")
         
         # Additional HoS regulation validation could be added here
         # For now, we assume build_compliant_timeline already ensures HoS compliance

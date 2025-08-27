@@ -669,9 +669,9 @@ def get_vehicle_capabilities(vehicle):
     if not vehicle:
         return capabilities
     
-    # DEBUG: Print vehicle capabilities to understand what's actually loaded
+    # DEBUG: Print vehicle capabilities to understand what's actually loaded (COMMENTED OUT)
     vehicle_capabilities = getattr(vehicle, 'capabilities', set())
-    if hasattr(vehicle, 'id') and vehicle.id in ['GA625VG', 'GA621VG', 'FX194HX', 'GE026FZ', 'FX192HX']:
+    if False and hasattr(vehicle, 'id') and vehicle.id in ['GA625VG', 'GA621VG', 'FX194HX', 'GE026FZ', 'FX192HX']:
         print(f"DEBUG CAPABILITIES: Vehicle {vehicle.id} has capabilities set: {vehicle_capabilities}")
         print(f"DEBUG CAPABILITIES: Vehicle {vehicle.id} attributes: {[attr for attr in dir(vehicle) if 'temp' in attr.lower() or 'low' in attr.lower() or 'cap' in attr.lower()]}")
         # Let's check what the final capabilities dict looks like after our detection
@@ -687,7 +687,7 @@ def get_vehicle_capabilities(vehicle):
                                ('LOW TEMP' in str(getattr(vehicle, 'capabilities', '')).upper()) or \
                                ('LOW TEMP' in vehicle_capabilities) or ('LOW_TEMP' in vehicle_capabilities) or \
                                ('low_temp' in vehicle_capabilities) or ('low temp' in vehicle_capabilities)
-        print(f"DEBUG CAPABILITIES: Vehicle {vehicle.id} final capabilities: {temp_caps}")
+        # DEBUG COMMENTED OUT: print(f"DEBUG CAPABILITIES: Vehicle {vehicle.id} final capabilities: {temp_caps}")
     
     # Check for loader capability
     capabilities['loader'] = getattr(vehicle, 'loader', False) or \
@@ -718,8 +718,8 @@ def get_vehicle_capabilities(vehicle):
     if regulations:
         capabilities['regulations'] = [reg.strip() for reg in str(regulations).split(',') if reg.strip()]
     
-    # DEBUG: Print final capabilities for debugging
-    if hasattr(vehicle, 'id') and vehicle.id in ['GA625VG', 'GA621VG', 'FX194HX']:
+    # DEBUG: Print final capabilities for debugging (COMMENTED OUT)
+    if False and hasattr(vehicle, 'id') and vehicle.id in ['GA625VG', 'GA621VG', 'FX194HX']:
         print(f"DEBUG CAPABILITIES: Vehicle {vehicle.id} final capabilities: {capabilities}")
     
     return capabilities
@@ -1785,6 +1785,14 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
         print(f"\n          {task_num}. {location} (Order: {task.order_id})")
         task_status = validate_time_window_status(cumulative_time, task)
         print(f"             Arrival at: {arrival_str} {time_window} - Status: {task_status}")
+        
+        # FIXED: Calculate and apply waiting time if arriving early
+        waiting_time = 0.0
+        earliest = getattr(task, 'earliest_time', None)
+        if earliest is not None and cumulative_time < earliest:
+            waiting_time = earliest - cumulative_time
+            cumulative_time = earliest  # Wait until earliest time
+        
         print(f"             WORK {_format_time_hhmm(service_time)} - Load: {weight_change:+.1f}kg, {volume_change:+.2f}m3, {pallets_change:+.0f} pallets -> Total: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
         
         cumulative_time += service_time
@@ -2942,6 +2950,16 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
         
     print(f"Starting force assignment for {len(unassigned_order_ids)} unassigned orders")
     
+    # ORDER TRACKING: Check if target orders are unassigned
+    target_orders_unassigned = []
+    for order_id in ['4', '7']:
+        if order_id in unassigned_order_ids or str(order_id) in unassigned_order_ids:
+            target_orders_unassigned.append(order_id)
+            print(f"   TARGET: Order {order_id} is UNASSIGNED - will attempt force assignment")
+    
+    if not target_orders_unassigned:
+        print(f"   OK: Target orders 4,7 are already assigned - no need to track force assignment")
+    
     # Create order lookup
     order_map = {order.id: order for order in orders}
     unassigned_orders = [order_map[order_id] for order_id in unassigned_order_ids if order_id in order_map]
@@ -3021,15 +3039,27 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
         pallet_ok = vehicle.pallet_capacity is None or total_pallets <= vehicle.pallet_capacity  # STRICT pallets
         
         if weight_ok and volume_ok and pallet_ok:
+            # ORDER TRACKING: About to force assign
+            if str(order.id) in ['4', '7']:
+                print(f"   TARGET: Attempting to force assign Order {order.id} to idle vehicle {vehicle.id}")
+            
             # Force assign to this idle vehicle
             success = force_assign_order_to_vehicle(order, vehicle, solution)
             if success:
-                print(f"   SUCCESS: Assigned order {order.id} to idle vehicle {vehicle.id}")
+                if str(order.id) in ['4', '7']:
+                    print(f"   TARGET SUCCESS: Order {order.id} FORCE ASSIGNED to idle vehicle {vehicle.id}")
+                    if vehicle.id == 'GW895CW':
+                        print(f"   ALERT: Order {order.id} assigned to GW895CW via STRATEGY 1 (idle assignment)")
+                else:
+                    print(f"   SUCCESS: Assigned order {order.id} to idle vehicle {vehicle.id}")
                 unassigned_orders.remove(order)
                 solution.unassigned_orders.discard(order.id)
                 force_assigned_count += 1
             else:
-                print(f"   FAILED: Failed to assign order {order.id} to vehicle {vehicle.id}")
+                if str(order.id) in ['4', '7']:
+                    print(f"   TARGET FAILED: Order {order.id} force assignment to {vehicle.id} failed")
+                else:
+                    print(f"   FAILED: Failed to assign order {order.id} to vehicle {vehicle.id}")
         else:
             reasons = []
             if not weight_ok:
@@ -3066,9 +3096,18 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
                     break
             
             if best_vehicle:
+                # ORDER TRACKING: About to assign to light vehicle
+                if str(order.id) in ['4', '7']:
+                    print(f"   TARGET: Attempting to assign Order {order.id} to light vehicle {best_vehicle.id}")
+                
                 success = force_assign_order_to_vehicle(order, best_vehicle, solution)
                 if success:
-                    print(f"   SUCCESS: Assigned order {order.id} to light vehicle {best_vehicle.id}")
+                    if str(order.id) in ['4', '7']:
+                        print(f"   TARGET SUCCESS: Order {order.id} ASSIGNED to light vehicle {best_vehicle.id}")
+                        if best_vehicle.id == 'GW895CW':
+                            print(f"   ALERT: Order {order.id} assigned to GW895CW via STRATEGY 2 (light vehicle)")
+                    else:
+                        print(f"   SUCCESS: Assigned order {order.id} to light vehicle {best_vehicle.id}")
                     unassigned_orders.remove(order)
                     solution.unassigned_orders.discard(order.id)
                     force_assigned_count += 1
@@ -3078,10 +3117,17 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
                         if v.id == best_vehicle.id:
                             light_vehicles[i] = (v, load + 1)
                             break
+                else:
+                    if str(order.id) in ['4', '7']:
+                        print(f"   TARGET FAILED: Order {order.id} assignment to light vehicle {best_vehicle.id} failed")
+            else:
+                if str(order.id) in ['4', '7']:
+                    print(f"   TARGET NO MATCH: No suitable light vehicle found for Order {order.id}")
     
-    # STRATEGY 3: Emergency Order Splitting for Remaining Orders
+    # STRATEGY 3: Emergency Order Splitting for Remaining Orders - DISABLED
+    # Emergency splitting is disabled as it complicates route management
     remaining_orders = len(unassigned_orders)
-    if remaining_orders > 0:
+    if False and remaining_orders > 0:  # Disabled
         print(f"\nSTRATEGY 3: Emergency order splitting ({remaining_orders} orders remaining)")
         
         for order in unassigned_orders.copy():
@@ -3097,7 +3143,7 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
     print(f"   - Orders force-assigned: {force_assigned_count}")
     print(f"   - Orders still unassigned: {len(unassigned_orders)}")
     if len(unassigned_order_ids) > 0:
-        print(f"   - Success rate: {(force_assigned_count / len(unassigned_order_ids)) * 100:.1f}%")
+        print(f"   - Success rate: {(force_assigned_count / len(unassigned_order_ids)) * 100:.1f}% (emergency splitting disabled)")
     else:
         print(f"   - Success rate: 100% (all orders already assigned)")
     
@@ -3117,11 +3163,14 @@ def force_assign_order_to_vehicle(order, vehicle, solution):
         bool: True if successful, False otherwise
     """
     try:
-        # Get existing route for this vehicle
+        # Get existing route for this vehicle or create empty route for idle vehicles
         route = solution.routes.get(vehicle.id)
         if not route:
-            print(f"   ERROR: No route found for vehicle {vehicle.id}")
-            return False
+            # Create empty route for idle vehicle using existing infrastructure
+            from algo.first_level import _create_base_route
+            route = _create_base_route(vehicle)
+            solution.routes[vehicle.id] = route
+            print(f"   INFO: Created empty route for idle vehicle {vehicle.id}")
         
         # Get all existing tasks from the order (don't create new ones)
         order_tasks = []
@@ -3137,8 +3186,8 @@ def force_assign_order_to_vehicle(order, vehicle, solution):
             print(f"   ERROR: Order {order.id} has no non-depot tasks")
             return False
 
-        # HARD CONSTRAINT CHECK: Verify vehicle can handle this order's requirements
-        from algo.second_level import check_hard_constraints
+        # CRITICAL: FULL FEASIBILITY CHECK including time windows
+        from algo.second_level import is_feasible
         
         # Create temporary route to test feasibility
         temp_route = route.copy()
@@ -3153,10 +3202,10 @@ def force_assign_order_to_vehicle(order, vehicle, solution):
         
         temp_route.tasks = temp_tasks
         
-        # Check if assignment would violate hard constraints
-        is_feasible, reason = check_hard_constraints(temp_route, debug=False)
-        if not is_feasible:
-            print(f"   ERROR: Cannot assign order {order.id} to vehicle {vehicle.id}: {reason}")
+        # CRITICAL: Use full feasibility check including time window validation
+        is_feasible_result = is_feasible(temp_route, debug_feasibility=False, allow_soft_violations=False)
+        if not is_feasible_result:
+            print(f"   ERROR: Cannot assign order {order.id} to vehicle {vehicle.id}: FEASIBILITY VIOLATION (time windows or other constraints)")
             return False
 
         # If feasibility check passes, make the actual assignment
@@ -3219,8 +3268,8 @@ def emergency_split_and_assign_order(order, vehicles, solution):
                 pallet_ok = vehicle.pallet_capacity is None or piece_pallets <= vehicle.pallet_capacity
                 
                 if weight_ok and volume_ok and pallet_ok:
-                    # HARD CONSTRAINT CHECK: Verify vehicle capabilities
-                    from algo.second_level import check_hard_constraints
+                    # CRITICAL: FULL FEASIBILITY CHECK including time windows
+                    from algo.second_level import is_feasible
                     
                     # Create temporary route to test feasibility
                     route = solution.routes.get(vehicle.id)
@@ -3234,10 +3283,10 @@ def emergency_split_and_assign_order(order, vehicles, solution):
                         temp_tasks.insert(insert_pos + 1, corresponding_delivery)
                         temp_route.tasks = temp_tasks
                         
-                        # Check if assignment would violate hard constraints
-                        is_feasible, reason = check_hard_constraints(temp_route, debug=False)
-                        if not is_feasible:
-                            print(f"        Cannot assign piece {i+1} to vehicle {vehicle.id}: {reason}")
+                        # CRITICAL: Use full feasibility check including time window validation
+                        is_feasible_result = is_feasible(temp_route, debug_feasibility=False, allow_soft_violations=False)
+                        if not is_feasible_result:
+                            print(f"        Cannot assign piece {i+1} to vehicle {vehicle.id}: FEASIBILITY VIOLATION (time windows or other constraints)")
                             continue  # Try next vehicle
                         
                         # If feasibility check passes, make the actual assignment
@@ -3386,6 +3435,19 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
         print(f"   - Orders: {len(orders)}")
         print(f"   - Vehicles: {len(vehicles)}")
         
+        # ORDER TRACKING: Initial state - all orders are unassigned
+        print(f"\nORDER TRACKING: PHASE 1 START - All Orders Initially Unassigned")
+        print(f"     TARGET ORDERS: 4, 7 (tracking these specifically)")
+        print(f"     ALL ORDERS STATUS:")
+        for order in orders:
+            order_id = getattr(order, 'id', 'unknown')
+            num_tasks = len(getattr(order, 'tasks', []))
+            if str(order_id) in ['4', '7']:
+                print(f"     TARGET Order {order_id}: UNASSIGNED (initial) - {num_tasks} tasks")
+            elif int(str(order_id)) <= 10:  # Track first 10 orders for context
+                print(f"     Order {order_id}: UNASSIGNED (initial) - {num_tasks} tasks")
+        print(f"     ... (tracking all {len(orders)} orders)")
+        
         # DISABLED: Apply AGGRESSIVE order splitting for 100% assignment goal
         # Now using Advanced Order Sequencing in L2 heuristic instead
         print(f"\nSkipping aggressive order splitting - using Advanced Order Sequencing instead...")
@@ -3440,6 +3502,71 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
         print(f"   - Runtime: {runtime_seconds:.2f} seconds")
         print(f"   - Solution type: {type(solution).__name__}")
         
+        # ORDER TRACKING: After L1 heuristic - check assignments
+        print(f"\nORDER TRACKING: AFTER L1 HEURISTIC - Assignment Status")
+        assigned_orders = set()
+        route_assignments = {}
+        
+        for vehicle_id, route in solution.routes.items():
+            if route and hasattr(route, 'tasks') and route.tasks:
+                route_orders = set()
+                for task in route.tasks:
+                    if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
+                        assigned_orders.add(str(task.order_id))
+                        route_orders.add(str(task.order_id))
+                if route_orders:
+                    route_assignments[vehicle_id] = route_orders
+        
+        # Check specifically for orders 4 and 7
+        for order in epdt_orders:
+            order_id = str(getattr(order, 'id', 'unknown'))
+            if order_id in assigned_orders:
+                # Find which vehicle has this order
+                assigned_vehicle = None
+                for vehicle_id, order_set in route_assignments.items():
+                    if order_id in order_set:
+                        assigned_vehicle = vehicle_id
+                        break
+                
+                if order_id in ['4', '7']:
+                    print(f"     TARGET Order {order_id}: ASSIGNED to vehicle {assigned_vehicle}")
+                elif int(order_id) <= 10:
+                    print(f"     Order {order_id}: ASSIGNED to vehicle {assigned_vehicle}")
+            else:
+                if order_id in ['4', '7']:
+                    print(f"     TARGET Order {order_id}: STILL UNASSIGNED after L1")
+                elif int(order_id) <= 10:
+                    print(f"     Order {order_id}: STILL UNASSIGNED after L1")
+        
+        print(f"     SUMMARY: {len(assigned_orders)}/{len(epdt_orders)} orders assigned after L1")
+        
+        # Check if target orders are in GW895CW specifically
+        if 'GW895CW' in route_assignments:
+            gw895cw_orders = route_assignments['GW895CW']
+            if '4' in gw895cw_orders or '7' in gw895cw_orders:
+                print(f"     ALERT: GW895CW has target orders: {gw895cw_orders & {'4', '7'}}")
+            else:
+                print(f"     OK: GW895CW orders: {gw895cw_orders} (no target orders)")
+        else:
+            print(f"     OK: GW895CW: No orders assigned")
+        
+        # CRITICAL: Post-optimization feasibility validation
+        print(f"\nPOST-OPTIMIZATION: Validating final solution feasibility...")
+        from second_level import is_feasible
+        validation_failed_routes = []
+        for vehicle_id, route in solution.routes.items():
+            if route and route.tasks and len(route.tasks) > 2:  # Skip empty routes
+                feasible = is_feasible(route, debug_feasibility=True, allow_soft_violations=False)
+                if not feasible:
+                    validation_failed_routes.append(vehicle_id)
+                    print(f"POST-OPTIMIZATION ERROR: Vehicle {vehicle_id} route is INFEASIBLE with {len(route.tasks)} tasks")
+        
+        if validation_failed_routes:
+            print(f"POST-OPTIMIZATION CRITICAL: {len(validation_failed_routes)} routes failed feasibility validation: {validation_failed_routes}")
+            print(f"POST-OPTIMIZATION CRITICAL: These routes will create time window violations!")
+        else:
+            print(f"POST-OPTIMIZATION OK: All routes passed feasibility validation")
+        
         # Step 3.5: Apply special assignment strategies for unassigned orders
         if params.get('separate_orders', False):
             print("\n" + "-"*40)
@@ -3452,8 +3579,67 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
             print("\n" + "-"*40)
             print("PHASE 1.5b: APPLYING SMART FORCE ASSIGNMENT")
             print("-"*40)
+            
+            # ORDER TRACKING: Before force assignment
+            print(f"\nORDER TRACKING: BEFORE FORCE ASSIGNMENT")
+            pre_force_assigned = set()
+            pre_force_assignments = {}
+            
+            for vehicle_id, route in solution.routes.items():
+                if route and hasattr(route, 'tasks') and route.tasks:
+                    route_orders = set()
+                    for task in route.tasks:
+                        if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
+                            pre_force_assigned.add(str(task.order_id))
+                            route_orders.add(str(task.order_id))
+                    if route_orders:
+                        pre_force_assignments[vehicle_id] = route_orders
+            
+            for order_id in ['4', '7']:
+                if order_id in pre_force_assigned:
+                    vehicle = next((v for v, orders in pre_force_assignments.items() if order_id in orders), 'unknown')
+                    print(f"     TARGET Order {order_id}: ALREADY ASSIGNED to {vehicle} (before force)")
+                else:
+                    print(f"     TARGET Order {order_id}: UNASSIGNED (before force)")
+            
             # This function will attempt to force-assign remaining unassigned orders.
             force_assigned_count = smart_force_assign_unassigned_orders(solution, epdt_orders, epdt_vehicles)
+            
+            # ORDER TRACKING: After force assignment
+            print(f"\nORDER TRACKING: AFTER FORCE ASSIGNMENT")
+            post_force_assigned = set()
+            post_force_assignments = {}
+            
+            for vehicle_id, route in solution.routes.items():
+                if route and hasattr(route, 'tasks') and route.tasks:
+                    route_orders = set()
+                    for task in route.tasks:
+                        if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
+                            post_force_assigned.add(str(task.order_id))
+                            route_orders.add(str(task.order_id))
+                    if route_orders:
+                        post_force_assignments[vehicle_id] = route_orders
+            
+            # Check for changes in target orders
+            for order_id in ['4', '7']:
+                if order_id in post_force_assigned:
+                    vehicle = next((v for v, orders in post_force_assignments.items() if order_id in orders), 'unknown')
+                    if order_id not in pre_force_assigned:
+                        print(f"     TARGET Order {order_id}: NEWLY ASSIGNED to {vehicle} (by force assignment)")
+                    else:
+                        print(f"     TARGET Order {order_id}: STILL ASSIGNED to {vehicle} (unchanged)")
+                else:
+                    print(f"     TARGET Order {order_id}: STILL UNASSIGNED (force assignment failed)")
+            
+            # Check if GW895CW gained target orders
+            if 'GW895CW' in post_force_assignments:
+                gw895cw_orders = post_force_assignments['GW895CW']
+                target_orders_in_gw = gw895cw_orders & {'4', '7'}
+                if target_orders_in_gw:
+                    if 'GW895CW' not in pre_force_assignments or not (pre_force_assignments['GW895CW'] & {'4', '7'}):
+                        print(f"     ALERT: GW895CW GAINED target orders via force assignment: {target_orders_in_gw}")
+                    else:
+                        print(f"     ALERT: GW895CW STILL HAS target orders: {target_orders_in_gw}")
             
             # CRITICAL FIX: Recalculate assignment statistics after force assignment
             if force_assigned_count > 0:

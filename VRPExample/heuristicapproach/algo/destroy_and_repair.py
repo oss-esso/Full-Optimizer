@@ -104,9 +104,9 @@ def _is_route_feasible(route: 'Route') -> bool:
     if not route or not route.tasks:
         return True
     
-    # Use unified hard constraint checker from second_level module
-    from algo.second_level import check_hard_constraints
-    is_valid, reason = check_hard_constraints(route, debug=False)
+    # CRITICAL: Use full feasibility check including time window validation
+    from algo.second_level import is_feasible
+    is_valid = is_feasible(route, debug_feasibility=False, allow_soft_violations=False)
     if not is_valid:
         return False
     
@@ -588,12 +588,12 @@ def _insert_order_into_vehicle(order: 'Order', vehicle: 'Vehicle', solution: 'So
         for i, task in enumerate(order_tasks):
             route.tasks.insert(insert_position + i, task)
         
-        # Validate the insertion using lenient feasibility check
+        # Validate the insertion using FULL feasibility check including time windows
         try:
-            from second_level import is_feasible_for_insertion
-            feasible = is_feasible_for_insertion(route, debug_insertion=debug)
+            from second_level import is_feasible
+            feasible = is_feasible(route, debug_feasibility=debug, allow_soft_violations=False)
             if debug:
-                print(f"    Feasibility check result for Order {order.id} into {vehicle.id}: {feasible}")
+                print(f"    FULL Feasibility check result for Order {order.id} into {vehicle.id}: {feasible}")
             
             if feasible:
                 return True
@@ -602,12 +602,17 @@ def _insert_order_into_vehicle(order: 'Order', vehicle: 'Vehicle', solution: 'So
                 for task in reversed(order_tasks):
                     if task in route.tasks:
                         route.tasks.remove(task)
+                if debug:
+                    print(f"    REJECTED: Order {order.id} insertion into {vehicle.id} due to feasibility violation")
                 return False
         except Exception as e:
             if debug:
                 print(f"    Feasibility check failed for Order {order.id} into {vehicle.id}: {e}")
-            # If feasibility check fails, assume success for now
-            return True
+            # If feasibility check fails, remove tasks and return False
+            for task in reversed(order_tasks):
+                if task in route.tasks:
+                    route.tasks.remove(task)
+            return False
             
     except Exception as e:
         if debug:

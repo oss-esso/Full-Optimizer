@@ -261,6 +261,17 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         Optimized solution after Tabu Search
     """
     
+    # ORDER TRACKING: L1 heuristic entry point
+    print(f"\nORDER TRACKING: L1 HEURISTIC ENTRY POINT")
+    print(f"     Tracking Orders 4,7 through L1 heuristic")
+    print(f"     Total orders to process: {len(orders)}")
+    target_order_objects = []
+    for order in orders:
+        order_id = str(getattr(order, 'id', 'unknown'))
+        if order_id in ['4', '7']:
+            target_order_objects.append(order)
+            print(f"     TRACKING: Order {order_id} object found - {len(getattr(order, 'tasks', []))} tasks")
+    
     # 1. Create initial solution using selected initialization method
     initialization_method = params.get('initialization_method', 'cluster_aware')
     
@@ -271,6 +282,33 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
         print("Build  Using cluster-aware initialization strategy") 
         initial_solution = cluster_aware_initializer(orders, vehicles, params)
     
+    # ORDER TRACKING: After initialization
+    print(f"\nORDER TRACKING: AFTER INITIALIZATION")
+    init_assigned_orders = set()
+    init_assignments = {}
+    
+    for vehicle_id, route in initial_solution.routes.items():
+        if route and hasattr(route, 'tasks') and route.tasks:
+            route_orders = set()
+            for task in route.tasks:
+                if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
+                    init_assigned_orders.add(str(task.order_id))
+                    route_orders.add(str(task.order_id))
+            if route_orders:
+                init_assignments[vehicle_id] = route_orders
+    
+    # Check target orders specifically
+    for order_id in ['4', '7']:
+        if order_id in init_assigned_orders:
+            vehicle = next((v for v, orders in init_assignments.items() if order_id in orders), 'unknown')
+            print(f"     TRACKING Order {order_id}: ASSIGNED to {vehicle} (by initialization)")
+            if vehicle == 'GW895CW':
+                print(f"     ALERT: Order {order_id} assigned to GW895CW during INITIALIZATION!")
+        else:
+            print(f"     TRACKING Order {order_id}: UNASSIGNED after initialization")
+    
+    print(f"     Initialization assigned: {len(init_assigned_orders)}/{len(orders)} orders")
+    
     # Check for destroy and repair if enabled and there are unassigned orders
     if params.get('enable_destroy_and_repair', False):
         unassigned_count = len(getattr(initial_solution, 'unassigned_orders', set()))
@@ -279,6 +317,40 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
             try:
                 from destroy_and_repair import destroy_and_repair_large_orders
                 initial_solution = destroy_and_repair_large_orders(initial_solution, orders, vehicles, params)
+                
+                # ORDER TRACKING: After destroy and repair
+                print(f"\nORDER TRACKING: AFTER DESTROY AND REPAIR")
+                dr_assigned_orders = set()
+                dr_assignments = {}
+                
+                for vehicle_id, route in initial_solution.routes.items():
+                    if route and hasattr(route, 'tasks') and route.tasks:
+                        route_orders = set()
+                        for task in route.tasks:
+                            if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
+                                dr_assigned_orders.add(str(task.order_id))
+                                route_orders.add(str(task.order_id))
+                        if route_orders:
+                            dr_assignments[vehicle_id] = route_orders
+                
+                # Check for changes in target orders
+                for order_id in ['4', '7']:
+                    if order_id in dr_assigned_orders:
+                        vehicle = next((v for v, orders in dr_assignments.items() if order_id in orders), 'unknown')
+                        if order_id not in init_assigned_orders:
+                            print(f"     TRACKING Order {order_id}: NEWLY ASSIGNED to {vehicle} (by destroy & repair)")
+                            if vehicle == 'GW895CW':
+                                print(f"     ALERT: Order {order_id} assigned to GW895CW via DESTROY & REPAIR!")
+                        else:
+                            print(f"     TRACKING Order {order_id}: STILL ASSIGNED to {vehicle}")
+                    else:
+                        if order_id in init_assigned_orders:
+                            print(f"     TRACKING Order {order_id}: REMOVED by destroy & repair")
+                        else:
+                            print(f"     TRACKING Order {order_id}: STILL UNASSIGNED after destroy & repair")
+                
+                print(f"     After destroy & repair: {len(dr_assigned_orders)}/{len(orders)} orders")
+                
             except ImportError:
                 print("Warning:  Warning: destroy_and_repair module not available")
     
@@ -313,6 +385,33 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
 
     # 3. Main loop
     print(f"RECALCULATING Starting L1 main optimization loop with M1={params['M1']}, M2={params['M2']}")
+    
+    # ORDER TRACKING: Before L1 main loop
+    print(f"\nORDER TRACKING: BEFORE L1 MAIN LOOP")
+    pre_l1_assigned = set()
+    pre_l1_assignments = {}
+    
+    for vehicle_id, route in center_solution.routes.items():
+        if route and hasattr(route, 'tasks') and route.tasks:
+            route_orders = set()
+            for task in route.tasks:
+                if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
+                    pre_l1_assigned.add(str(task.order_id))
+                    route_orders.add(str(task.order_id))
+            if route_orders:
+                pre_l1_assignments[vehicle_id] = route_orders
+    
+    for order_id in ['4', '7']:
+        if order_id in pre_l1_assigned:
+            vehicle = next((v for v, orders in pre_l1_assignments.items() if order_id in orders), 'unknown')
+            print(f"     TRACKING Order {order_id}: ASSIGNED to {vehicle} (entering L1 loop)")
+            if vehicle == 'GW895CW':
+                print(f"     ALERT: Order {order_id} ALREADY in GW895CW before L1 optimization!")
+        else:
+            print(f"     TRACKING Order {order_id}: UNASSIGNED (entering L1 loop)")
+    
+    iteration_counter = 0  # Track L1 iterations for debugging
+    
     while non_improving_iters < params['M1'] and total_iters < params['M2']:
         total_iters += 1
         improvement_found = False
@@ -471,9 +570,27 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                 move_attrs = get_move_attributes(center_solution, best_neighbor_in_N)
                 tabu_list.append(move_attrs)
                 
-                center_solution = best_neighbor_in_N
-                non_improving_iters = 0
-                improvement_found = True
+                # CRITICAL: Validate feasibility before accepting new solution
+                from second_level import is_feasible
+                is_solution_feasible = True
+                print(f"DEBUG L1: Validating solution feasibility with {len(best_neighbor_in_N.routes)} routes")
+                for vehicle_id, route in best_neighbor_in_N.routes.items():
+                    if route and route.tasks and len(route.tasks) > 2:  # Skip empty routes
+                        feasible = is_feasible(route, debug_feasibility=True, allow_soft_violations=False)
+                        print(f"DEBUG L1: Vehicle {vehicle_id} feasibility: {feasible}")
+                        if not feasible:
+                            is_solution_feasible = False
+                            print(f"REJECTED: Infeasible solution - vehicle {vehicle_id} has time window violations")
+                            break
+                
+                if is_solution_feasible:
+                    center_solution = best_neighbor_in_N
+                    non_improving_iters = 0
+                    improvement_found = True
+                    print(f"DEBUG L1: Solution accepted - all routes feasible")
+                else:
+                    print(f"REJECTED: Solution rejected due to feasibility violations")
+                    # Continue with current solution, do not accept the neighbor
                 
                 # Update global best if needed
                 if best_neighbor_score > calculate_z1_score(best_solution, params, orders):
@@ -514,8 +631,23 @@ def l1_heuristic(orders: List['Order'], vehicles: List['Vehicle'], params: dict)
                     selected_idx = random.choices(range(len(best_neighbors_pool)), weights=weights, k=1)[0]
                     selected_neighbor = best_neighbors_pool[selected_idx][0]
                 
-                # Update center solution
-                center_solution = selected_neighbor
+                # CRITICAL: Validate feasibility before accepting diversification solution
+                from second_level import is_feasible
+                is_diversification_feasible = True
+                for vehicle_id, route in selected_neighbor.routes.items():
+                    if route and route.tasks and len(route.tasks) > 2:  # Skip empty routes
+                        feasible = is_feasible(route, debug_feasibility=False, allow_soft_violations=False)
+                        if not feasible:
+                            is_diversification_feasible = False
+                            print(f"REJECTED: Diversification solution - vehicle {vehicle_id} has time window violations")
+                            break
+                
+                # Update center solution only if feasible
+                if is_diversification_feasible:
+                    center_solution = selected_neighbor
+                else:
+                    print(f"REJECTED: Diversification solution rejected due to feasibility violations")
+                    # Keep current center_solution
                 
                 # In the diversification step
                 if verbose:
@@ -589,6 +721,7 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
     
     validated_routes = {}
     removed_routes_count = 0
+    violation_count = 0  # Track violations without removing routes
     
     print(f"Validating {len(solution.routes)} routes with STRICT feasibility checks...")
     
@@ -614,16 +747,17 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
             if feasible:
                 validated_routes[vehicle_id] = route
             else:
-                # FIXED: Any infeasible route is rejected (no exceptions for moderate violations)
-                removed_routes_count += 1
-                print(f"Warning:  Route for vehicle {getattr(route.vehicle, 'id', 'unknown')} removed due to constraint violation: {reason}")
+                # COMMENTED OUT: Route removal for testing during-optimization validation
+                violation_count += 1
+                print(f"Warning: Route for vehicle {getattr(route.vehicle, 'id', 'unknown')} has violations but KEPT for testing: {reason}")
+                validated_routes[vehicle_id] = route  # Keep the route instead of removing
                 
-                # Add orders from removed route back to unassigned
-                for task in route.tasks:
-                    if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
-                        if not hasattr(solution, 'unassigned_orders'):
-                            solution.unassigned_orders = set()
-                        solution.unassigned_orders.add(task.order_id)
+                # COMMENTED OUT: Adding orders back to unassigned
+                # for task in route.tasks:
+                #     if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
+                #         if not hasattr(solution, 'unassigned_orders'):
+                #             solution.unassigned_orders = set()
+                #         solution.unassigned_orders.add(task.order_id)
         else:
             # Route has no tasks at all, filter it out
             removed_routes_count += 1
@@ -632,10 +766,10 @@ def _validate_and_filter_solution(solution: 'Solution') -> 'Solution':
     # Update solution with validated routes
     solution.routes = validated_routes
     
-    if removed_routes_count > 0:
-        print(f"STRICT Final validation complete: {removed_routes_count} routes removed due to constraint violations")
+    if removed_routes_count > 0 or violation_count > 0:
+        print(f"TESTING Final validation complete: {removed_routes_count} empty routes removed, {violation_count} routes with violations KEPT for testing")
     else:
-        print("OK: STRICT Final validation complete: All routes are 100% feasible")
+        print("OK: TESTING Final validation complete: All routes are 100% feasible")
     
     return solution
 
@@ -2098,9 +2232,9 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
             test_route = current_route.copy()
             test_route.insert_task_without_reordering(pos, pickup)
             
-            # Use relaxed feasibility check during initialization to allow more exploration
-            from second_level import is_feasible_for_insertion
-            if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
+            # Use FULL feasibility check including time windows during initialization
+            from second_level import is_feasible
+            if is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False):
                 from second_level import calculate_z2_score
                 cost = calculate_z2_score(test_route)
                 if cost < best_cost:
@@ -2138,9 +2272,9 @@ def build_clustered_route(route: 'Route', orders: List, debug_assignment: bool =
             test_route = current_route.copy()
             test_route.insert_task_without_reordering(pos, delivery)
             
-            # Use relaxed feasibility check during initialization to allow more exploration
-            from second_level import is_feasible_for_insertion
-            if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
+            # Use FULL feasibility check including time windows during initialization
+            from second_level import is_feasible
+            if is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False):
                 from second_level import calculate_z2_score
                 cost = calculate_z2_score(test_route)
                 if cost < best_cost:

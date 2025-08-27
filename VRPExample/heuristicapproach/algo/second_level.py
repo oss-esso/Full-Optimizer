@@ -742,6 +742,16 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
 
     final_route = local_search_l2(best_initial_route, neighborhoods_to_search, order)
 
+    # CRITICAL: Validate final route before returning - reject infeasible solutions
+    if final_route:
+        # Use strict feasibility check to ensure no constraint violations
+        is_route_feasible = is_feasible(final_route, debug_feasibility=False, allow_soft_violations=False)
+        
+        if not is_route_feasible:
+            if show_diagnostics:
+                print(f"      DEBUG L2: Order {order.id} - REJECTED: Final route failed strict feasibility check")
+            return None  # Reject infeasible routes to prevent violations
+    
     if show_diagnostics:
         if final_route:
             print(f"      DEBUG L2: Order {order.id} - Final route feasible: {final_route.is_feasible()}")
@@ -804,9 +814,9 @@ def _generate_initial_task_sequence(route: 'Route', order: 'Order', debug_assign
                 test_route.insert_task_without_reordering(pos, delivery)
                 
                 if debug_assignment:
-                    print(f"        DEBUG L2: Delivery-only position {pos}, feasible: {is_feasible_for_insertion(test_route, debug_insertion=debug_assignment)}")
+                    print(f"        DEBUG L2: Delivery-only position {pos}, feasible: {is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False)}")
                 
-                if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
+                if is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False):
                     cost = calculate_z2_score(test_route)
                     if cost < best_delivery_cost:
                         best_delivery_cost = cost
@@ -870,9 +880,9 @@ def _generate_clustered_sequence(route: 'Route', order: 'Order', P: List, D: Lis
             # Add detailed logging from guide (Step 3)
             if debug_assignment:
                 print(f"      - Trying to insert {pickup.id if hasattr(pickup, 'id') else 'unknown'} at position {pos}...")
-                print(f"        Feasible: {is_feasible_for_insertion(test_route, debug_insertion=debug_assignment)}, New Route Score (Z2): {calculate_z2_score(test_route):.2f}")
+                print(f"        Feasible: {is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False)}, New Route Score (Z2): {calculate_z2_score(test_route):.2f}")
             
-            if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
+            if is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False):
                 cost = calculate_z2_score(test_route)
                 if cost < best_pickup_cost:
                     best_pickup_cost = cost
@@ -915,9 +925,9 @@ def _generate_clustered_sequence(route: 'Route', order: 'Order', P: List, D: Lis
             test_route.insert_task_without_reordering(pos, delivery)
             
             if debug_assignment:
-                print(f"        DEBUG L2: Delivery cluster position {pos}, feasible: {is_feasible_for_insertion(test_route, debug_insertion=debug_assignment)}")
+                print(f"        DEBUG L2: Delivery cluster position {pos}, feasible: {is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False)}")
             
-            if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
+            if is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False):
                 cost = calculate_z2_score(test_route)
                 if cost < best_delivery_cost:
                     best_delivery_cost = cost
@@ -950,7 +960,7 @@ def _generate_clustered_sequence(route: 'Route', order: 'Order', P: List, D: Lis
                 test_route = current_route.copy()
                 test_route.insert_task_without_reordering(pos, delivery)
                 
-                if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
+                if is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False):
                     cost = calculate_z2_score(test_route)
                     if cost < best_fallback_cost:
                         best_fallback_cost = cost
@@ -1035,9 +1045,9 @@ def _generate_interleaved_sequence(route: 'Route', order: 'Order', P: List, D: L
             test_route.insert_task_without_reordering(pos, task)
             
             if debug_assignment:
-                print(f"        DEBUG L2: Interleaved position {pos}, feasible: {is_feasible_for_insertion(test_route, debug_insertion=debug_assignment)}")
+                print(f"        DEBUG L2: Interleaved position {pos}, feasible: {is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False)}")
             
-            if is_feasible_for_insertion(test_route, debug_insertion=debug_assignment):
+            if is_feasible(test_route, debug_feasibility=debug_assignment, allow_soft_violations=False):
                 cost = calculate_z2_score(test_route)
                 if cost < best_task_cost:
                     best_task_cost = cost
@@ -2371,7 +2381,7 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         del frame
     
     # Apply HoS validation with rest-aware time window checking
-    # NEW APPROACH: Build the HoS timeline first, THEN validate time windows
+    # UNIFIED APPROACH: Single source of truth using HoSEngine.analyze_route()
     try:
         # B license drivers are exempt from HoS regulations
         if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
@@ -2380,30 +2390,45 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             pass  # B license drivers are exempt - skip HoS check
         else:
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: Performing HoS validation for route with {len(route.tasks)} tasks")
+                print(f"            DEBUG FEASIBILITY: Performing unified HoS validation for route with {len(route.tasks)} tasks")
             
-            # NEW INTEGRATED HoS AND TIME WINDOW VALIDATION
-            # Build the HoS-compliant timeline which includes mandatory rests
-            from hos_simulation import build_compliant_timeline
-            timeline, rest_costs = build_compliant_timeline(route)
+            # UNIFIED VALIDATION: Single call to HoSEngine for authoritative feasibility
+            from hos_simulation import HoSEngine
+            hos_engine = HoSEngine()
+            hos_result = hos_engine.analyze_route(route)
             
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: HoS timeline built with {len(timeline)} events, rest cost: {rest_costs}")
+                print(f"            DEBUG FEASIBILITY: HoS Engine analysis complete - feasible: {hos_result.is_feasible}")
+                if hos_result.violations:
+                    print(f"            DEBUG FEASIBILITY: Violations found: {hos_result.violations}")
             
             # Cache the timeline and rest costs on the route object for use by calculate_z2_score
-            route._cached_timeline = timeline
-            route._cached_rest_costs = rest_costs
+            route._cached_timeline = hos_result.timeline
+            route._cached_rest_costs = hos_result.rest_cost
             
-            # The build_compliant_timeline already validates time windows AFTER accounting for rests
-            # If it returns successfully, both HoS and time windows are compliant
+            # Check the unified feasibility result
+            if not hos_result.is_feasible:
+                if not allow_soft_violations:
+                    reason = f"HoS validation failed: {'; '.join(hos_result.violations)}"
+                    if debug_feasibility:
+                        print(f"            DEBUG FEASIBILITY: {reason}")
+                    if return_reason:
+                        return False, reason
+                    return False
+                else:
+                    # Allow soft violations but log them
+                    if debug_feasibility:
+                        print(f"            DEBUG FEASIBILITY: HoS violations found but allowing soft violations: {hos_result.violations}")
+            
+            # HoS validation passed - timeline is both HoS-compliant and respects time windows
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: HoS and time window validation passed")
+                print(f"            DEBUG FEASIBILITY: Unified HoS and time window validation passed")
                 
     except Exception as e:
-        # HoS timeline building failed - this indicates either HoS violations or time window conflicts
+        # HoS analysis failed - this indicates either HoS violations or time window conflicts
         error_msg = str(e)
         if allow_soft_violations:
-            # NEW: More lenient handling of HoS/time window integration issues
+            # More lenient handling of HoS/time window integration issues
             # Only fail for severe violations
             severe_keywords = ["safety-critical", "mandatory rest limit exceeded", "weekly limit"]
             is_severe = any(keyword in error_msg.lower() for keyword in severe_keywords)
@@ -2458,16 +2483,16 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                 late_by = arrival_time - task.latest_time if task.latest_time is not None else 0
                 
                 if allow_soft_violations:
-                    # Allow moderate lateness (up to 60 minutes) but fail on extreme lateness
-                    GRACE_PERIOD_MINUTES = 60.0
+                    # Allow only minor lateness (up to 10 minutes) - strict enforcement
+                    GRACE_PERIOD_MINUTES = 10.0
                     if task.latest_time is not None and late_by > GRACE_PERIOD_MINUTES:
-                        reason = f"Extreme lateness at task {task.id}: arrived at {arrival_time:.1f}, latest allowed {task.latest_time}, late by {late_by:.1f} minutes (exceeds {GRACE_PERIOD_MINUTES} min grace period)"
+                        reason = f"Time window violation at task {task.id}: arrived at {arrival_time:.1f}, latest allowed {task.latest_time}, late by {late_by:.1f} minutes (exceeds {GRACE_PERIOD_MINUTES} min grace period)"
                         if debug_feasibility:
                             print(f"            DEBUG FEASIBILITY: {reason}")
                         if return_reason:
                             return False, reason
                         return False
-                    # Moderate lateness (0-60 minutes) is allowed and will be penalized in Z2
+                    # Only minor lateness (0-10 minutes) is allowed
                 else:
                     # Original strict time window check
                     if task.latest_time is not None and arrival_time > task.latest_time:
@@ -2477,6 +2502,8 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                         if return_reason:
                             return False, reason
                         return False
+                    elif debug_feasibility and task.latest_time is not None:
+                        print(f"            DEBUG FEASIBILITY: Task {task.id} time check OK: arrival {arrival_time:.1f} <= latest {task.latest_time}")
                 
                 # Check for early arrival - vehicle must wait
                 if task.earliest_time is not None and arrival_time < task.earliest_time:
@@ -2509,6 +2536,158 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         if return_reason:
             return False, hard_constraint_reason
         return False
+    
+    # H11: ROUTE DURATION CHECK - Prevent routes that exceed 24 hours with time-sensitive tasks
+    # Calculate total route duration from depot start to depot return
+    if sorted_tasks and len(sorted_tasks) >= 2:
+        first_task = sorted_tasks[0]
+        last_task = sorted_tasks[-1]
+        
+        # Get departure time from first task
+        departure_time = getattr(first_task, 'departure_time', getattr(first_task, 'arrival_time', 0))
+        
+        # Get arrival time at last task (depot return)
+        final_arrival_time = getattr(last_task, 'arrival_time', departure_time)
+        
+        # Calculate total route duration
+        total_duration = final_arrival_time - departure_time
+        
+        # CRITICAL: Reject routes longer than 24 hours that contain time-sensitive tasks
+        MAX_ROUTE_DURATION = 1440  # 24 hours in minutes
+        if total_duration > MAX_ROUTE_DURATION:
+            # Check if route contains tasks with specific time windows (not depot tasks)
+            has_time_sensitive_tasks = False
+            for task in sorted_tasks:
+                if hasattr(task, 'earliest_time') and hasattr(task, 'latest_time'):
+                    if task.earliest_time is not None or task.latest_time is not None:
+                        has_time_sensitive_tasks = True
+                        break
+            
+            if has_time_sensitive_tasks:
+                reason = f"Route duration {total_duration:.1f} minutes exceeds {MAX_ROUTE_DURATION} minute limit for routes with time-sensitive tasks. This prevents day-late deliveries."
+                if debug_feasibility:
+                    print(f"            DEBUG FEASIBILITY: {reason}")
+                if return_reason:
+                    return False, reason
+                return False
+    
+    # H12: ENHANCED SEQUENTIAL TIME WINDOW VALIDATION WITH HoS CONSIDERATION
+    # Use HoS timeline to get accurate arrival times, then validate time windows
+    if sorted_tasks and not allow_soft_violations:
+        if debug_feasibility:
+            print(f"            DEBUG FEASIBILITY: HoS-AWARE SEQUENTIAL VALIDATION - Checking {len(sorted_tasks)} tasks against HoS timeline")
+        
+        # Try to get cached timeline from HoS validation above
+        timeline_violations = []
+        if hasattr(route, '_cached_timeline') and route._cached_timeline:
+            timeline = route._cached_timeline
+            if debug_feasibility:
+                print(f"            DEBUG FEASIBILITY: Using cached HoS timeline with {len(timeline)} events")
+            
+            # Extract tasks from timeline and validate their arrival times against time windows
+            for i, event in enumerate(timeline):
+                if hasattr(event, 'task') and event.task and hasattr(event, 'start_time'):
+                    task = event.task
+                    arrival_time = event.start_time
+                    
+                    # Check time window violations using HoS timeline data
+                    if hasattr(task, 'latest_time') and task.latest_time is not None:
+                        if arrival_time > task.latest_time:
+                            late_by = arrival_time - task.latest_time
+                            timeline_violations.append({
+                                'task_id': getattr(task, 'id', f'event_{i}'),
+                                'arrival_time': arrival_time,
+                                'latest_time': task.latest_time,
+                                'late_by': late_by
+                            })
+                            if debug_feasibility:
+                                print(f"            DEBUG FEASIBILITY: HoS TIMELINE VIOLATION - Task {getattr(task, 'id', f'event_{i}')}: arrival {arrival_time:.1f} > latest {task.latest_time:.1f} (late by {late_by:.1f} min)")
+            
+            if timeline_violations:
+                reason = f"HoS timeline validation found {len(timeline_violations)} time window violations: {[v['task_id'] for v in timeline_violations]}"
+                if debug_feasibility:
+                    print(f"            DEBUG FEASIBILITY: {reason}")
+                    for violation in timeline_violations:
+                        print(f"            DEBUG FEASIBILITY: HoS VIOLATION DETAIL - Task {violation['task_id']}: arrival {violation['arrival_time']:.1f} > latest {violation['latest_time']:.1f} (late by {violation['late_by']:.1f} min)")
+                if return_reason:
+                    return False, reason
+                return False
+            elif debug_feasibility:
+                tasks_checked = len([e for e in timeline if hasattr(e, 'task') and e.task and hasattr(e, 'start_time')])
+                print(f"            DEBUG FEASIBILITY: HoS timeline validation - All {tasks_checked} tasks passed time window validation")
+        else:
+            # Fallback to sequential validation if no HoS timeline available
+            if debug_feasibility:
+                print(f"            DEBUG FEASIBILITY: No HoS timeline available, using fallback sequential validation")
+            
+            # Start with proper timeline calculation (mimicking display logic)
+            completion_time = 0  # Start at depot at time 0
+            simulation_violations = []
+            
+            for i, task in enumerate(sorted_tasks):
+                # Skip depot tasks (they don't have time windows)
+                if (hasattr(task, 'is_depot_start') and task.is_depot_start()) or \
+                   (hasattr(task, 'is_depot_return') and task.is_depot_return()):
+                    service_time = getattr(task, 'service_time', 5.0)
+                    completion_time += service_time
+                    continue
+                
+                # Calculate travel time to this task from previous location
+                travel_time = 0
+                wait_time = 0
+                if i > 0:
+                    prev_task = sorted_tasks[i-1]
+                    try:
+                        travel_time = calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
+                    except:
+                        travel_time = 60  # Fallback as in display logic
+                    
+                    # Check if we need to wait for earliest time (as display does)
+                    try:
+                        if hasattr(task, 'earliest_time') and task.earliest_time is not None:
+                            required_departure_time = task.earliest_time - travel_time
+                            if completion_time < required_departure_time:
+                                wait_time = required_departure_time - completion_time
+                    except:
+                        pass
+                
+                # Calculate arrival time (same logic as display)
+                departure_time = completion_time + wait_time
+                arrival_time = departure_time + travel_time
+                
+                # ENHANCED DEBUG: Show detailed time calculations
+                if debug_feasibility:
+                    print(f"            DEBUG FEASIBILITY: FALLBACK SEQUENTIAL - Task {getattr(task, 'id', f'task_{i}')}: completion_time={completion_time:.1f}, wait_time={wait_time:.1f}, travel_time={travel_time:.1f}, arrival_time={arrival_time:.1f}, latest_time={getattr(task, 'latest_time', 'None')}")
+                
+                # Check time window constraints (same logic as display)
+                if hasattr(task, 'latest_time') and task.latest_time is not None:
+                    if arrival_time > task.latest_time:
+                        late_by = arrival_time - task.latest_time
+                        simulation_violations.append({
+                            'task_id': getattr(task, 'id', f'task_{i}'),
+                            'arrival_time': arrival_time,
+                            'latest_time': task.latest_time,
+                            'late_by': late_by
+                        })
+                        if debug_feasibility:
+                            print(f"            DEBUG FEASIBILITY: FALLBACK SEQUENTIAL VIOLATION - Task {getattr(task, 'id', f'task_{i}')}: arrival {arrival_time:.1f} > latest {task.latest_time:.1f} (late by {late_by:.1f} min)")
+                
+                # Update completion time for next iteration
+                service_time = getattr(task, 'service_time', 5.0)
+                completion_time = arrival_time + service_time
+            
+            if simulation_violations:
+                reason = f"Fallback sequential validation found {len(simulation_violations)} time window violations: {[v['task_id'] for v in simulation_violations]}"
+                if debug_feasibility:
+                    print(f"            DEBUG FEASIBILITY: {reason}")
+                    for violation in simulation_violations:
+                        print(f"            DEBUG FEASIBILITY: FALLBACK VIOLATION DETAIL - Task {violation['task_id']}: arrival {violation['arrival_time']:.1f} > latest {violation['latest_time']:.1f} (late by {violation['late_by']:.1f} min)")
+                if return_reason:
+                    return False, reason
+                return False
+            elif debug_feasibility:
+                non_depot_tasks = len([t for t in sorted_tasks if not (hasattr(t, 'is_depot_start') and t.is_depot_start()) and not (hasattr(t, 'is_depot_return') and t.is_depot_return())])
+                print(f"            DEBUG FEASIBILITY: Fallback sequential validation - All {non_depot_tasks} non-depot tasks passed time window validation")
     
     # All checks passed - route is feasible
     if return_reason:
