@@ -629,6 +629,22 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
     # Enhanced diagnostic logging for problematic orders
     show_diagnostics = debug_assignment or enhanced_diagnostics
     
+    # CRITICAL DEBUG: Track L2 heuristic entry and exit
+    if show_diagnostics:
+        print(f"      L2_HEURISTIC ENTRY:")
+        print(f"         Order: {order.id} ({order.get_total_demand():.0f}kg, {order.get_total_volume():.1f}m³)")
+        print(f"         Vehicle: {route.vehicle.id} (Cap: {getattr(route.vehicle, 'weight_capacity', 'unknown')}kg)")
+        print(f"         Current route tasks: {len(route.tasks)}")
+        print(f"         Strategy: {sequencing_strategy}")
+        
+        # Special debugging for Order 7
+        if str(order.id) == "7":
+            print(f"         *** DEBUGGING ORDER 7 ASSIGNMENT TO {route.vehicle.id} ***")
+            vehicle_caps = getattr(route.vehicle, 'weight_capacity', 0), getattr(route.vehicle, 'volume_capacity', 0), getattr(route.vehicle, 'pallet_capacity', 0)
+            order_reqs = order.get_total_demand(), order.get_total_volume(), order.get_total_pallets()
+            print(f"         Vehicle capacity: {vehicle_caps[0]}kg, {vehicle_caps[1]}m3, {vehicle_caps[2]}pal")
+            print(f"         Order requirements: {order_reqs[0]}kg, {order_reqs[1]}m3, {order_reqs[2]}pal")
+    
     # Add verbose logging (Step 3 from guide)
     verbose = debug_assignment or enhanced_diagnostics
     if verbose:
@@ -691,10 +707,21 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
 
     if not initial_routes:
         if show_diagnostics:
-            print(f"      DEBUG L2: Order {order.id} - No feasible initial routes found")
-        
+            print(f"      L2_HEURISTIC FAILURE: Order {order.id} - No feasible initial routes found")
+            print(f"         This means task sequence generation completely failed")
+            
+            # Special debugging for Order 7
+            if str(order.id) == "7":
+                print(f"         *** ORDER 7 FAILED ON VEHICLE {route.vehicle.id} ***")
+                print(f"         Reason: No feasible task sequences generated")
+                print(f"         Vehicle has {len(route.tasks)} existing tasks")
+                if hasattr(route, 'tasks') and route.tasks:
+                    print(f"         Existing tasks: {[f'{task.task_type}_{task.order_id}' for task in route.tasks[:5]]}")
+                    
         if enhanced_diagnostics:
             print(f"   TASK SEQUENCE FAILURE: Could not generate any feasible initial task sequences for Order {order.id}")
+            print(f"      Vehicle {route.vehicle.id} with {getattr(route.vehicle, 'weight_capacity', 'unknown')}kg capacity")
+            print(f"      Order requires {order.get_total_demand():.0f}kg, {order.get_total_volume():.1f}m³")
             
         return None   # Infeasible insertion
     
@@ -1581,8 +1608,8 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
     """
     Lightweight feasibility check optimized for L2 insertion clustering.
     
-    IMPORTANT: This function validates the existing task order without reordering
-    to preserve clustered pickup→pickup→delivery→delivery patterns.
+    ENHANCED DEBUGGING: This function now provides detailed failure reasons
+    to understand why feasible orders are being rejected.
     
     Args:
         route: Route to check feasibility for
@@ -1594,6 +1621,7 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
     
     if debug_insertion:
         print(f"                DEBUG INSERTION: Quick feasibility check for {len(route.tasks)} tasks")
+        print(f"                Vehicle: {route.vehicle.id} (Cap: {getattr(route.vehicle, 'weight_capacity', 'unknown')}kg)")
     
     # VALIDATE EXISTING ORDER (don't reorder during insertion!)
     tasks = route.tasks
@@ -1658,14 +1686,18 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
         volume_tolerance = 1.5 if is_initialization else 1.1  # 50% tolerance during init, 10% during optimization
         if peak_load_v > max_v * volume_tolerance:
             if debug_insertion:
-                print(f"                DEBUG INSERTION: Volume constraint exceeded: {peak_load_v:.2f} > {max_v:.2f} * {volume_tolerance}")
+                print(f"                ❌ FEASIBILITY FAILURE: Volume constraint exceeded")
+                print(f"                   Peak volume: {peak_load_v:.2f}m³ > Limit: {max_v:.2f}m³ × {volume_tolerance} = {max_v * volume_tolerance:.2f}m³")
+                print(f"                   Current task: {getattr(task, 'id', 'unknown')} adding {getattr(task, 'volume', 0):.2f}m³")
             return False
         
         # Weight constraint - with tolerances for flexibility during insertion
         weight_tolerance = 1.5 if is_initialization else 1.1  # 50% tolerance during init, 10% during optimization
         if peak_load_w > max_w * weight_tolerance:
             if debug_insertion:
-                print(f"                DEBUG INSERTION: Weight constraint exceeded: {peak_load_w:.2f} > {max_w:.2f} * {weight_tolerance}")
+                print(f"                ❌ FEASIBILITY FAILURE: Weight constraint exceeded")
+                print(f"                   Peak weight: {peak_load_w:.2f}kg > Limit: {max_w:.2f}kg × {weight_tolerance} = {max_w * weight_tolerance:.2f}kg")
+                print(f"                   Current task: {getattr(task, 'id', 'unknown')} adding {getattr(task, 'demand', 0):.2f}kg")
             return False
     
     # H2: Basic logical precedence check (detailed LIFO/pallet checks in unified checker)
@@ -1682,7 +1714,9 @@ def is_feasible_for_insertion(route: 'Route', debug_insertion: bool = False) -> 
             order_id = getattr(task, 'order_id', None)
             if order_id and order_id not in completed_pickups:
                 if debug_insertion:
-                    print(f"                DEBUG INSERTION: Delivery {task.id} attempted before its pickup was completed")
+                    print(f"                ❌ FEASIBILITY FAILURE: Precedence violation")
+                    print(f"                   Delivery {getattr(task, 'id', 'unknown')} for order {order_id} attempted before pickup")
+                    print(f"                   Completed pickups: {completed_pickups}")
                 return False
     
     # Individual order precedence constraints

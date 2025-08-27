@@ -1022,7 +1022,28 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
     for vehicle in vehicles:
         route = solution.routes.get(vehicle.id)
         
-        if not route or not route.tasks or len(route.tasks) <= 2:  # Only depot tasks or empty
+        # Enhanced idle detection: Check if vehicle is truly idle
+        is_idle = False
+        if not route or not route.tasks:
+            # No route or no tasks at all
+            is_idle = True
+        elif len(route.tasks) <= 2:
+            # Only depot start/end tasks
+            is_idle = True
+        else:
+            # Check if all tasks are depot tasks (more robust check)
+            non_depot_tasks = [task for task in route.tasks if not (task.is_depot_start() or task.is_depot_return())]
+            if not non_depot_tasks:
+                is_idle = True
+            else:
+                # Final check: if peak utilization is zero, consider idle
+                utilization = calculate_peak_route_utilization(route)
+                if (utilization['peak_weight'] == 0 and 
+                    utilization['peak_volume'] == 0 and 
+                    utilization['peak_pallets'] == 0):
+                    is_idle = True
+        
+        if is_idle:
             # Idle vehicle
             idle_vehicles.append(vehicle)
             weight_capacity = getattr(vehicle, 'weight_capacity', 0)
@@ -1059,6 +1080,69 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
     print(f"\nVehicles with >1000kg unused capacity: {len(underutilized_vehicles)}")
     print(f"Completely idle vehicles: {len(idle_vehicles)}")
     
+    # EXPANDED DEBUG: Show ALL vehicles with empty space
+    print(f"\n" + "="*80)
+    print(f"DETAILED VEHICLE CAPACITY ANALYSIS (sorted by remaining pallets)")
+    print(f"="*80)
+    
+    all_vehicles_with_space = []
+    
+    # Add idle vehicles (100% capacity available)
+    for vehicle in idle_vehicles:
+        weight_capacity = getattr(vehicle, 'weight_capacity', 0)
+        volume_capacity = getattr(vehicle, 'volume_capacity', 0)
+        pallet_capacity = getattr(vehicle, 'pallet_capacity', 0) or 0
+        all_vehicles_with_space.append({
+            'id': vehicle.id,
+            'status': 'IDLE',
+            'remaining_weight': weight_capacity,
+            'remaining_volume': volume_capacity, 
+            'remaining_pallets': pallet_capacity,
+            'vehicle': vehicle
+        })
+    
+    # Add underutilized vehicles (partial capacity available)
+    for vehicle in underutilized_vehicles:
+        route = solution.routes.get(vehicle.id)
+        utilization = calculate_peak_route_utilization(route) if route else {'peak_weight': 0, 'peak_volume': 0, 'peak_pallets': 0}
+        
+        weight_capacity = getattr(vehicle, 'weight_capacity', 0)
+        volume_capacity = getattr(vehicle, 'volume_capacity', 0)
+        pallet_capacity = getattr(vehicle, 'pallet_capacity', 0) or 0
+        
+        remaining_weight = weight_capacity - utilization['peak_weight']
+        remaining_volume = volume_capacity - utilization['peak_volume']
+        remaining_pallets = pallet_capacity - utilization['peak_pallets']
+        
+        all_vehicles_with_space.append({
+            'id': vehicle.id,
+            'status': 'ACTIVE-UNDERUTILIZED',
+            'remaining_weight': remaining_weight,
+            'remaining_volume': remaining_volume,
+            'remaining_pallets': remaining_pallets,
+            'vehicle': vehicle
+        })
+    
+    # Sort by remaining pallet capacity (highest first)
+    all_vehicles_with_space.sort(key=lambda v: v['remaining_pallets'], reverse=True)
+    
+    print(f"Vehicle ID    Status                 Remaining Capacity                    Capabilities")
+    print(f"-" * 95)
+    for v_info in all_vehicles_with_space:
+        vehicle = v_info['vehicle']
+        capabilities = []
+        if getattr(vehicle, 'has_loader', False):
+            capabilities.append('LOADER')
+        if getattr(vehicle, 'has_low_temp', False):
+            capabilities.append('LOW_TEMP')
+        if getattr(vehicle, 'has_hangers', False):
+            capabilities.append('HANGERS')
+        cap_str = ', '.join(capabilities) if capabilities else 'NONE'
+        
+        print(f"{v_info['id']:<12} {v_info['status']:<22} "
+              f"{v_info['remaining_pallets']:>2}pal, {v_info['remaining_weight']:>6.0f}kg, {v_info['remaining_volume']:>5.1f}m3  "
+              f"{cap_str}")
+    
     # Analyze unassigned orders vs available capacity
     if orders:
         unassigned_orders = get_unassigned_orders(solution, orders)
@@ -1075,21 +1159,65 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                     total_volume = sum(abs(getattr(task, 'volume', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
                     total_pallets = sum(abs(getattr(task, 'pallets', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
                     
-                    print(f"Order {order.id}: {total_weight:.0f}kg, {total_volume:.1f}m3, {total_pallets}pal")
+                    print(f"Order {order.id}: {total_pallets}pal, {total_weight:.0f}kg, {total_volume:.1f}m3")
+                    
+                    # DEBUG: Print idle vehicle list info for the first order
+                    if order == unassigned_orders[0]:  # Debug for first unassigned order
+                        print(f"   DEBUG ORDER {order.id}: Found {len(idle_vehicles)} idle vehicles")
+                        large_idle = [v for v in idle_vehicles if getattr(v, 'pallet_capacity', 0) > 10]
+                        print(f"   DEBUG: {len(large_idle)} idle vehicles with >10 pallet capacity:")
+                        for v in large_idle:
+                            print(f"      - {v.id}: {getattr(v, 'pallet_capacity', 0)}pal capacity")
                     
                     # Find vehicles that could fit this order
                     suitable_vehicles = []
                     
                     # PRIORITY 1: Check idle vehicles first (100% capacity available)
-                    for vehicle in idle_vehicles:
+                    # Sort idle vehicles by capacity (largest first) to prioritize big vehicles
+                    sorted_idle_vehicles = sorted(idle_vehicles, key=lambda v: getattr(v, 'weight_capacity', 0), reverse=True)
+                    
+                    for vehicle in sorted_idle_vehicles:
                         vehicle_weight_capacity = getattr(vehicle, 'weight_capacity', 0)
                         vehicle_volume_capacity = getattr(vehicle, 'volume_capacity', 0)
                         vehicle_pallet_capacity = getattr(vehicle, 'pallet_capacity', 0) or 0
                         
-                        if (vehicle_weight_capacity >= total_weight and 
-                            vehicle_volume_capacity >= total_volume and 
-                            vehicle_pallet_capacity >= total_pallets):
-                            suitable_vehicles.append(f"{vehicle.id} (IDLE)")
+                        # Check capacity constraints
+                        capacity_ok = (vehicle_weight_capacity >= total_weight and 
+                                     vehicle_volume_capacity >= total_volume and 
+                                     vehicle_pallet_capacity >= total_pallets)
+                        
+                        if capacity_ok:
+                            # Check capability constraints
+                            capability_issues = []
+                            
+                            # Check if order requires specific capabilities
+                            order_tasks = order.get_all_tasks()
+                            requires_loader = any(getattr(task, 'requires_loader', False) for task in order_tasks)
+                            requires_low_temp = any(getattr(task, 'requires_low_temp', False) for task in order_tasks)
+                            requires_hangers = any(getattr(task, 'requires_hangers', False) for task in order_tasks)
+                            
+                            # Check vehicle capabilities
+                            has_loader = getattr(vehicle, 'has_loader', False)
+                            has_low_temp = getattr(vehicle, 'has_low_temp', False) 
+                            has_hangers = getattr(vehicle, 'has_hangers', False)
+                            
+                            if requires_loader and not has_loader:
+                                capability_issues.append("LOADER")
+                            if requires_low_temp and not has_low_temp:
+                                capability_issues.append("LOW_TEMP")
+                            if requires_hangers and not has_hangers:
+                                capability_issues.append("HANGERS")
+                            
+                            if not capability_issues:
+                                suitable_vehicles.append(f"{vehicle.id} (IDLE - {vehicle_pallet_capacity}pal available)")
+                            else:
+                                suitable_vehicles.append(f"{vehicle.id} (IDLE-BLOCKED: missing {', '.join(capability_issues)})")
+                        else:
+                            # Capacity insufficient for idle vehicle
+                            if vehicle_pallet_capacity < total_pallets:
+                                suitable_vehicles.append(f"{vehicle.id} (IDLE-BLOCKED: {vehicle_pallet_capacity}pal < {total_pallets}pal needed)")
+                            else:
+                                suitable_vehicles.append(f"{vehicle.id} (IDLE-BLOCKED: capacity constraint)")
                     
                     # PRIORITY 2: Check underutilized vehicles (with remaining capacity)
                     for vehicle in underutilized_vehicles[:10]:  # Check more vehicles
@@ -1100,15 +1228,54 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                         remaining_volume = getattr(vehicle, 'volume_capacity', 0) - utilization['peak_volume']
                         remaining_pallets = (getattr(vehicle, 'pallet_capacity', 0) or 0) - utilization['peak_pallets']
                         
-                        if (remaining_weight >= total_weight and 
-                            remaining_volume >= total_volume and 
-                            remaining_pallets >= total_pallets):
-                            suitable_vehicles.append(f"{vehicle.id} ({remaining_weight:.0f}kg free)")
+                        capacity_ok = (remaining_weight >= total_weight and 
+                                     remaining_volume >= total_volume and 
+                                     remaining_pallets >= total_pallets)
+                        
+                        if capacity_ok:
+                            # Check capability constraints
+                            capability_issues = []
+                            
+                            # Check if order requires specific capabilities
+                            order_tasks = order.get_all_tasks()
+                            requires_loader = any(getattr(task, 'requires_loader', False) for task in order_tasks)
+                            requires_low_temp = any(getattr(task, 'requires_low_temp', False) for task in order_tasks)
+                            requires_hangers = any(getattr(task, 'requires_hangers', False) for task in order_tasks)
+                            
+                            # Check vehicle capabilities
+                            has_loader = getattr(vehicle, 'has_loader', False)
+                            has_low_temp = getattr(vehicle, 'has_low_temp', False) 
+                            has_hangers = getattr(vehicle, 'has_hangers', False)
+                            
+                            if requires_loader and not has_loader:
+                                capability_issues.append("LOADER")
+                            if requires_low_temp and not has_low_temp:
+                                capability_issues.append("LOW_TEMP")
+                            if requires_hangers and not has_hangers:
+                                capability_issues.append("HANGERS")
+                            
+                            if not capability_issues:
+                                suitable_vehicles.append(f"{vehicle.id} (ACTIVE - {remaining_pallets}pal free)")
+                            else:
+                                suitable_vehicles.append(f"{vehicle.id} (ACTIVE-BLOCKED: missing {', '.join(capability_issues)})")
+                        else:
+                            # Capacity constraint - show which constraint failed
+                            constraints = []
+                            if remaining_pallets < total_pallets:
+                                constraints.append(f"pallets: {remaining_pallets} < {total_pallets}")
+                            if remaining_weight < total_weight:
+                                constraints.append(f"weight: {remaining_weight:.0f}kg < {total_weight:.0f}kg")
+                            if remaining_volume < total_volume:
+                                constraints.append(f"volume: {remaining_volume:.1f}m3 < {total_volume:.1f}m3")
+                            
+                            suitable_vehicles.append(f"{vehicle.id} (ACTIVE-BLOCKED: {'; '.join(constraints)})")
                     
                     if suitable_vehicles:
-                        print(f"   -> Could fit in: {', '.join(suitable_vehicles[:5])}{'...' if len(suitable_vehicles) > 5 else ''}")
+                        print(f"   -> Compatible vehicles:")
+                        for vehicle_info in suitable_vehicles:
+                            print(f"      * {vehicle_info}")
                     else:
-                        print(f"   -> No suitable vehicles with enough remaining capacity")
+                        print(f"   -> No suitable vehicles with enough remaining capacity AND compatible capabilities")
                         
                 except Exception as e:
                     print(f"Order {order.id}: Error analyzing order requirements: {e}")
@@ -3294,6 +3461,11 @@ def run_phase2_driver_assignment(excel_path: str, solution, vehicles, output_con
     print("\n" + "="*80)
     print("Driver PHASE 2: DRIVER ASSIGNMENT INTEGRATION")
     print("="*80)
+    
+    # RESET PROFIT TRACKER TO AVOID DOUBLE COUNTING FROM PHASE 1
+    global profit_tracker, violation_tracker
+    profit_tracker = ProfitTracker()  # Reset to avoid counting routes twice
+    violation_tracker = ViolationTracker()  # Reset to avoid counting violations twice
     
     # Step 1: Load drivers from Excel
     print(f"\nLoading drivers from: {excel_path}")

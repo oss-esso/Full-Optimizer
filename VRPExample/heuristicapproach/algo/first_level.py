@@ -891,12 +891,30 @@ def best_insertion_initializer(orders: List['Order'], vehicles: List['Vehicle'],
         if best_move is not None:
             solution.add_route(best_vehicle_idx, best_new_route)
             unassigned_orders.remove(best_order)
+            
+            # Special debugging for Order 7
+            if str(best_order.id) == "7":
+                print(f"    *** ORDER 7 SUCCESSFULLY ASSIGNED TO {best_vehicle_idx} IN INITIAL PHASE ***")
+                print(f"    Score improvement: {best_score_improvement}")
         else:
             # No feasible insertion found - add to unassigned orders
             if hasattr(solution, 'unassigned_orders'):
                 solution.unassigned_orders.add(unassigned_orders[0].id)
             else:
                 solution.unassigned_orders = {unassigned_orders[0].id}
+            
+            # Special debugging for Order 7
+            order_id = unassigned_orders[0].id
+            if str(order_id) == "7":
+                print(f"    *** ORDER 7 FAILED TO ASSIGN IN INITIAL PHASE ***")
+                print(f"    Reason: No feasible vehicle found among candidates")
+                print(f"    Total vehicles checked: {len(vehicles)}")
+                # Check if FF235DM and XA819VA were in the vehicle list
+                ff235dm_present = any(v.id == 'FF235DM' for v in vehicles)
+                xa819va_present = any(v.id == 'XA819VA' for v in vehicles)
+                print(f"    FF235DM in candidate list: {ff235dm_present}")
+                print(f"    XA819VA in candidate list: {xa819va_present}")
+                
             print(f"Warning: Could not assign order {unassigned_orders[0].id} to any vehicle")
             unassigned_orders.pop(0)  # Remove the problematic order
     
@@ -1022,14 +1040,21 @@ def round_robin_insertion_with_priority_initializer(orders: List['Order'], vehic
             if current_route is None:
                 current_route = _create_base_route(current_vehicle)
             
-            # Try to insert order using L2 heuristic
-            new_route = l2_heuristic(current_route, order)
+            # Try to insert order using L2 heuristic with enhanced debugging
+            print(f"    🔍 Attempting to assign Order {order.id} to Vehicle {current_vehicle.id}")
+            print(f"       Order: {order.get_total_demand():.0f}kg, {order.get_total_volume():.1f}m³")
+            print(f"       Vehicle: {getattr(current_vehicle, 'weight_capacity', 'unknown')}kg capacity")
+            
+            new_route = l2_heuristic(current_route, order, debug_assignment=True, enhanced_diagnostics=True)
             
             if new_route is not None:  # Feasible insertion
                 solution.add_route(current_vehicle_id, new_route)
                 unassigned_orders.remove(order)
+                print(f"    ✅ Successfully assigned Order {order.id} to Vehicle {current_vehicle.id}")
                 orders_assigned_to_class += 1
             else:
+                print(f"    ❌ Failed to assign Order {order.id} to Vehicle {current_vehicle.id}")
+                print(f"       Trying next vehicle...")
                 # If insertion failed, add to unassigned and try next vehicle
                 if hasattr(solution, 'unassigned_orders'):
                     solution.unassigned_orders.add(order.id)
