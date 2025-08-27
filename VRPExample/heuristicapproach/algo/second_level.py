@@ -178,22 +178,31 @@ def check_hard_constraints(route: 'Route', debug: bool = False) -> Tuple[bool, s
                 all_required_capabilities.add('HANGERS')
     
     if all_required_capabilities:
-        # Get vehicle capabilities
+        # Get vehicle capabilities from the capabilities set
         vehicle_capabilities = set()
         if hasattr(route.vehicle, 'capabilities'):
             if isinstance(route.vehicle.capabilities, (list, set)):
-                vehicle_capabilities = set(str(cap).upper() for cap in route.vehicle.capabilities)
+                # Convert capabilities to uppercase and normalize
+                for cap in route.vehicle.capabilities:
+                    cap_str = str(cap).upper()
+                    if cap_str == 'LOW TEMP':
+                        vehicle_capabilities.add('LOW_TEMP')  # Normalize to underscore
+                    elif cap_str == 'LOADER':
+                        vehicle_capabilities.add('LOADER')
+                    elif cap_str == 'HANGERS':
+                        vehicle_capabilities.add('HANGERS')
             elif isinstance(route.vehicle.capabilities, str):
                 caps = [cap.strip().upper() for cap in route.vehicle.capabilities.split(',') if cap.strip()]
-                vehicle_capabilities = set(caps)
+                for cap in caps:
+                    if cap == 'LOW TEMP':
+                        vehicle_capabilities.add('LOW_TEMP')
+                    elif cap == 'LOADER':
+                        vehicle_capabilities.add('LOADER')
+                    elif cap == 'HANGERS':
+                        vehicle_capabilities.add('HANGERS')
         
-        # Also check individual capability flags on vehicle
-        if hasattr(route.vehicle, 'has_loader') and route.vehicle.has_loader:
-            vehicle_capabilities.add('LOADER')
-        if hasattr(route.vehicle, 'has_low_temp') and route.vehicle.has_low_temp:
-            vehicle_capabilities.add('LOW_TEMP')
-        if hasattr(route.vehicle, 'has_hangers') and route.vehicle.has_hangers:
-            vehicle_capabilities.add('HANGERS')
+        # REMOVED: The wrong individual capability flag checks that don't exist
+        # (vehicles don't have has_loader, has_low_temp, has_hangers attributes)
         
         if not vehicle_capabilities.issuperset(all_required_capabilities):
             missing_caps = all_required_capabilities - vehicle_capabilities
@@ -1133,6 +1142,159 @@ def _task_swap_neighborhood(route: 'Route', order: 'Order') -> Iterator['Route']
 # All HoS logic is now centralized in HoSEngine.analyze_route()
 
 
+def _calculate_route_revenue(route: 'Route') -> float:
+    """
+    Calculate total revenue for a route using the dedicated route model.
+    
+    CORRECTED Revenue Model:
+    - Each order's revenue = price_per_km × distance_of_dedicated_route
+    - dedicated_route = depot → order_tasks → depot (as if served independently)
+    - Total route revenue = sum of all individual order revenues
+    - Price per km: 0.8 for standard vehicles, 1.25 for heavy vehicles
+    
+    This model correctly incentivizes consolidation:
+    - Route cost = actual consolidated route distance × price_per_km
+    - Route revenue = sum of dedicated route distances × price_per_km  
+    - Profit = revenue - cost (consolidation reduces cost while preserving revenue)
+    
+    Args:
+        route: Route object containing tasks and vehicle
+        
+    Returns:
+        Total revenue in cost units (consistent with cost calculation)
+    """
+    if not route.tasks:
+        return 0.0
+    
+    # Determine price per km based on vehicle type
+    vehicle_type = getattr(route.vehicle, 'vehicle_type', 'standard')
+    if vehicle_type == 'heavy':
+        price_per_km = 1.25  # Camion
+    else:
+        price_per_km = 0.8   # Furgone
+    
+    # Get depot location (default to Asti)
+    depot_lat, depot_lon = 44.9009, 8.2057
+    
+    # Group tasks by order_id (excluding depot tasks)
+    orders_map = {}
+    for task in route.tasks:
+        order_id = getattr(task, 'order_id', None)
+        # Skip depot tasks
+        is_depot_task = ((hasattr(task, 'is_depot_start') and task.is_depot_start()) or 
+                        (hasattr(task, 'is_depot_return') and task.is_depot_return()))
+        if order_id and not is_depot_task:
+            if order_id not in orders_map:
+                orders_map[order_id] = []
+            orders_map[order_id].append(task)
+    
+    # Calculate revenue for each order as if served by dedicated route
+    total_revenue = 0.0
+    for order_id, order_tasks in orders_map.items():
+        if not order_tasks:
+            continue
+            
+        # Calculate dedicated route distance: depot → order_tasks → depot
+        dedicated_distance = 0.0
+        current_lat, current_lon = depot_lat, depot_lon
+        
+        # Sort tasks for this order (pickups first, then deliveries)
+        pickups = [t for t in order_tasks if t.is_pickup()]
+        deliveries = [t for t in order_tasks if t.is_delivery()]
+        sorted_tasks = pickups + deliveries
+        
+        # Calculate distance through all tasks for this order
+        for task in sorted_tasks:
+            task_lat = getattr(task, 'lat', depot_lat)
+            task_lon = getattr(task, 'lon', depot_lon)
+            
+            # Distance from current position to this task
+            distance_km = haversine_distance(current_lat, current_lon, task_lat, task_lon)
+            dedicated_distance += distance_km
+            
+            # Update current position
+            current_lat, current_lon = task_lat, task_lon
+        
+        # Return to depot
+        return_distance = haversine_distance(current_lat, current_lon, depot_lat, depot_lon)
+        dedicated_distance += return_distance
+        
+        # Calculate revenue for this order's dedicated route
+        order_revenue = dedicated_distance * price_per_km
+        total_revenue += order_revenue
+    
+    return total_revenue
+
+
+def _calculate_utilization_penalty(route: 'Route', revenue: float) -> float:
+    """
+    Calculate penalty for underutilized vehicles to encourage consolidation.
+    
+    This penalty heavily discourages using large vehicles for small loads,
+    encouraging the optimizer to consolidate orders into fewer, fuller vehicles.
+    
+    Penalty Logic:
+    - No penalty for vehicles with >70% weight utilization
+    - Moderate penalty (10-30% of revenue) for 30-70% utilization  
+    - Heavy penalty (50-100% of revenue) for <30% utilization
+    - Severe penalty for empty or nearly empty vehicles
+    
+    Args:
+        route: Route object with tasks and vehicle
+        revenue: Total revenue for the route (for scaling penalty)
+        
+    Returns:
+        Utilization penalty (positive value that reduces profitability)
+    """
+    if not route.tasks or not hasattr(route, 'vehicle'):
+        return 0.0
+    
+    # Calculate current utilization
+    current_weight = 0.0
+    peak_weight = 0.0
+    
+    for task in route.tasks:
+        if hasattr(task, 'demand'):
+            current_weight += task.demand
+            peak_weight = max(peak_weight, current_weight)
+    
+    # Get vehicle capacity
+    vehicle = route.vehicle
+    max_weight = getattr(vehicle, 'weight_capacity', 1.0)
+    
+    if max_weight <= 0:
+        return 0.0
+    
+    # Calculate weight utilization percentage
+    utilization_pct = (peak_weight / max_weight) * 100
+    
+    # Progressive penalty based on utilization
+    if utilization_pct >= 70.0:
+        # Good utilization - no penalty
+        penalty_factor = 0.0
+    elif utilization_pct >= 50.0:
+        # Moderate utilization - small penalty
+        penalty_factor = 0.2  # 20% of revenue
+    elif utilization_pct >= 30.0:
+        # Poor utilization - moderate penalty
+        penalty_factor = 0.5  # 50% of revenue  
+    elif utilization_pct >= 10.0:
+        # Very poor utilization - heavy penalty
+        penalty_factor = 1.0  # 100% of revenue (makes route unprofitable)
+    else:
+        # Nearly empty vehicle - severe penalty
+        penalty_factor = 2.0  # 200% of revenue (heavily unprofitable)
+    
+    # Scale penalty by revenue (larger revenue = larger penalty potential)
+    base_penalty = revenue * penalty_factor
+    
+    # Add minimum penalty for very underutilized large vehicles
+    if utilization_pct < 20.0 and max_weight > 10000:  # Large vehicles
+        base_penalty += 1000.0  # Fixed penalty for underutilizing big trucks
+    
+    return base_penalty
+
+
 def calculate_z2_score(route: 'Route') -> float:
     """ 
     Enhanced Z2 score calculation with multi-day support, prospective cost calculation,
@@ -1327,9 +1489,26 @@ def calculate_z2_score(route: 'Route') -> float:
                   soft_time_window_penalty + weight_violation_penalty + hos_violation_penalty +
                   pallet_violation_penalty) # Add the new penalty here
 
-    # Cache the score
-    route._z2_score = total_cost
-    return total_cost
+    # NEW: Calculate revenue for profit-driven optimization
+    total_revenue = _calculate_route_revenue(route)
+    
+    # NEW: Add utilization penalty to encourage better vehicle consolidation
+    utilization_penalty = _calculate_utilization_penalty(route, total_revenue)
+    
+    # PROFIT-DRIVEN OBJECTIVE: Minimize (Cost - Revenue + Utilization_Penalty)
+    # A profitable, well-utilized route will have a negative score (good)
+    # An unprofitable or underutilized route will have a positive score (bad)
+    profit_driven_score = total_cost - total_revenue + utilization_penalty
+    
+    # Debug output for profit tracking
+    if hasattr(route, 'vehicle') and route.vehicle:
+        vehicle_id = getattr(route.vehicle, 'id', 'unknown')
+        if total_revenue > 0:  # Only show routes with revenue
+            print(f"DEBUG Z2 PROFIT: Vehicle {vehicle_id} - Cost: {total_cost:.2f}, Revenue: {total_revenue:.2f}, Utilization Penalty: {utilization_penalty:.2f}, Profit Score: {profit_driven_score:.2f}")
+
+    # Cache the profit-driven score
+    route._z2_score = profit_driven_score
+    return profit_driven_score
 
 
 def _calculate_inefficiency_penalty(current_task, next_task, vehicle) -> float:

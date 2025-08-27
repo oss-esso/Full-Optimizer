@@ -405,12 +405,16 @@ def calculate_route_cost_and_profit(vehicle_id: str, route, vehicle=None, orders
     if hasattr(route, 'hos_timeline') and route.hos_timeline:
         # Use HoS timeline for accurate hours calculation
         total_hours = route.hos_timeline[-1].end_time / 60.0 if route.hos_timeline else 0.0
+        # Calculate driving hours only (drivers are only paid for driving, not rest/work)
+        driving_hours = sum(e.duration for e in route.hos_timeline if e.event_type == 'DRIVE') / 60.0
     else:
         # Estimate from tasks (simplified calculation)
         if route.tasks:
             # Estimate: 30 min travel + 5 min service per task
             estimated_minutes = len([t for t in route.tasks if not (hasattr(t, 'is_depot_start') and t.is_depot_start()) and not (hasattr(t, 'is_depot_return') and t.is_depot_return())]) * 35
             total_hours = estimated_minutes / 60.0
+            # For estimated routes, assume 70% of time is driving
+            driving_hours = total_hours * 0.7
     
     # Get driver cost from route or use default
     if hasattr(route, 'driver') and route.driver:
@@ -423,8 +427,8 @@ def calculate_route_cost_and_profit(vehicle_id: str, route, vehicle=None, orders
     # Calculate total distance (simplified - using Haversine estimates)
     total_distance = estimate_route_distance(route)
     
-    # Calculate costs
-    driver_cost = driver_cost_per_hour * total_hours
+    # Calculate costs - ONLY PAY DRIVERS FOR DRIVING HOURS
+    driver_cost = driver_cost_per_hour * driving_hours
     vehicle_cost = vehicle_cost_per_km * total_distance
     total_cost = driver_cost + vehicle_cost
     
@@ -450,6 +454,7 @@ def calculate_route_cost_and_profit(vehicle_id: str, route, vehicle=None, orders
     
     return {
         'total_hours': total_hours,
+        'driving_hours': driving_hours,
         'total_distance': total_distance,
         'driver_cost_per_hour': driver_cost_per_hour,
         'vehicle_cost_per_km': vehicle_cost_per_km,
@@ -514,7 +519,20 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 
 def calculate_order_profit(order_id, orders, price_per_km):
-    """Calculate profit for a specific order based on pickup-delivery distance."""
+    """
+    Calculate profit for a specific order using the dedicated route model.
+    
+    Revenue = price_per_km × dedicated_route_distance
+    Where dedicated_route_distance = depot → order_tasks → depot
+    
+    Args:
+        order_id: ID of the order
+        orders: List of all orders
+        price_per_km: Price per kilometer for the vehicle type
+        
+    Returns:
+        Revenue for this order if served by dedicated route
+    """
     try:
         # Find the order
         order = None
@@ -526,34 +544,44 @@ def calculate_order_profit(order_id, orders, price_per_km):
         if not order:
             return 0.0
         
-        # Get pickup and delivery tasks
-        pickup_tasks = []
-        delivery_tasks = []
-        
+        # Get all tasks for this order
+        order_tasks = []
         for task in order.get_all_tasks():
-            if task.is_pickup():
-                pickup_tasks.append(task)
-            elif task.is_delivery():
-                delivery_tasks.append(task)
+            if not ((hasattr(task, 'is_depot_start') and task.is_depot_start()) or 
+                   (hasattr(task, 'is_depot_return') and task.is_depot_return())):
+                order_tasks.append(task)
         
-        if not pickup_tasks or not delivery_tasks:
+        if not order_tasks:
             return 0.0
         
-        # Calculate distance between pickup and delivery locations
-        total_profit = 0.0
+        # Calculate dedicated route distance: depot → order_tasks → depot
+        depot_lat, depot_lon = 44.9009, 8.2057  # Default to Asti
+        dedicated_distance = 0.0
+        current_lat, current_lon = depot_lat, depot_lon
         
-        for pickup in pickup_tasks:
-            for delivery in delivery_tasks:
-                pickup_lat = getattr(pickup, 'lat', 44.9009)
-                pickup_lon = getattr(pickup, 'lon', 8.2057)
-                delivery_lat = getattr(delivery, 'lat', 44.9009)
-                delivery_lon = getattr(delivery, 'lon', 8.2057)
-                
-                distance = haversine_distance(pickup_lat, pickup_lon, delivery_lat, delivery_lon)
-                profit = distance * price_per_km
-                total_profit += profit
+        # Sort tasks (pickups first, then deliveries)
+        pickups = [t for t in order_tasks if t.is_pickup()]
+        deliveries = [t for t in order_tasks if t.is_delivery()]
+        sorted_tasks = pickups + deliveries
         
-        return total_profit
+        # Calculate distance through all tasks for this order
+        for task in sorted_tasks:
+            task_lat = getattr(task, 'lat', depot_lat)
+            task_lon = getattr(task, 'lon', depot_lon)
+            
+            # Distance from current position to this task
+            distance_km = haversine_distance(current_lat, current_lon, task_lat, task_lon)
+            dedicated_distance += distance_km
+            
+            # Update current position
+            current_lat, current_lon = task_lat, task_lon
+        
+        # Return to depot
+        return_distance = haversine_distance(current_lat, current_lon, depot_lat, depot_lon)
+        dedicated_distance += return_distance
+        
+        # Calculate revenue based on dedicated route
+        return dedicated_distance * price_per_km
         
     except Exception:
         return 0.0
@@ -605,17 +633,14 @@ def print_route_cost_breakdown(vehicle_id: str, route, vehicle=None, orders=None
     profit_tracker.add_route_profit(vehicle_id, breakdown)
     
     print(f"       Costs:")
-    print(f"         • Driver Cost: €{breakdown['driver_cost']:.2f} ({breakdown['driver_cost_per_hour']:.1f}€/h × {breakdown['total_hours']:.1f}h)")
+    print(f"         • Driver Cost: €{breakdown['driver_cost']:.2f} ({breakdown['driver_cost_per_hour']:.1f}€/h × {breakdown['driving_hours']:.1f}h driving)")
     print(f"         • Vehicle Cost: €{breakdown['vehicle_cost']:.2f} ({breakdown['vehicle_cost_per_km']:.2f}€/km × {breakdown['total_distance']:.1f}km)")
     print(f"         • Total Cost: €{breakdown['total_cost']:.2f}")
     
     print(f"       Revenue:")
     print(f"         • Rate: {breakdown['price_per_km']:.2f}€/km")
-    if breakdown['order_profits']:
-        print(f"         • Orders:")
-        for order_id, profit in breakdown['order_profits'].items():
-            print(f"           - Order {order_id}: €{profit:.2f}")
-    print(f"         • Total Revenue: €{breakdown['total_profit']:.2f}")
+    print(f"         • Total Revenue: €{breakdown['total_profit']:.2f} (sum of dedicated route revenues)")
+    print(f"         • Revenue Model: Each order valued at dedicated route distance × rate")
     
     print(f"       Net Result:")
     net_color = "Y" if breakdown['net_profit'] >= 0 else "N"
@@ -644,20 +669,44 @@ def get_vehicle_capabilities(vehicle):
     if not vehicle:
         return capabilities
     
+    # DEBUG: Print vehicle capabilities to understand what's actually loaded
+    vehicle_capabilities = getattr(vehicle, 'capabilities', set())
+    if hasattr(vehicle, 'id') and vehicle.id in ['GA625VG', 'GA621VG', 'FX194HX', 'GE026FZ', 'FX192HX']:
+        print(f"DEBUG CAPABILITIES: Vehicle {vehicle.id} has capabilities set: {vehicle_capabilities}")
+        print(f"DEBUG CAPABILITIES: Vehicle {vehicle.id} attributes: {[attr for attr in dir(vehicle) if 'temp' in attr.lower() or 'low' in attr.lower() or 'cap' in attr.lower()]}")
+        # Let's check what the final capabilities dict looks like after our detection
+        temp_caps = {
+            'loader': False,
+            'low_temp': False, 
+            'hangers': False,
+            'lifo_required': False,
+            'regulations': []
+        }
+        temp_caps['low_temp'] = getattr(vehicle, 'low_temp', False) or \
+                               getattr(vehicle, 'has_low_temp', False) or \
+                               ('LOW TEMP' in str(getattr(vehicle, 'capabilities', '')).upper()) or \
+                               ('LOW TEMP' in vehicle_capabilities) or ('LOW_TEMP' in vehicle_capabilities) or \
+                               ('low_temp' in vehicle_capabilities) or ('low temp' in vehicle_capabilities)
+        print(f"DEBUG CAPABILITIES: Vehicle {vehicle.id} final capabilities: {temp_caps}")
+    
     # Check for loader capability
     capabilities['loader'] = getattr(vehicle, 'loader', False) or \
                             getattr(vehicle, 'has_loader', False) or \
-                            ('LOADER' in str(getattr(vehicle, 'capabilities', '')).upper())
+                            ('LOADER' in str(getattr(vehicle, 'capabilities', '')).upper()) or \
+                            ('LOADER' in vehicle_capabilities) or ('loader' in vehicle_capabilities)
     
-    # Check for low temperature capability  
+    # Check for low temperature capability - FIXED: Check for "LOW TEMP" with space  
     capabilities['low_temp'] = getattr(vehicle, 'low_temp', False) or \
                               getattr(vehicle, 'has_low_temp', False) or \
-                              ('LOW_TEMP' in str(getattr(vehicle, 'capabilities', '')).upper())
+                              ('LOW TEMP' in str(getattr(vehicle, 'capabilities', '')).upper()) or \
+                              ('LOW TEMP' in vehicle_capabilities) or ('LOW_TEMP' in vehicle_capabilities) or \
+                              ('low_temp' in vehicle_capabilities) or ('low temp' in vehicle_capabilities)
     
     # Check for hangers capability
     capabilities['hangers'] = getattr(vehicle, 'hangers', False) or \
                              getattr(vehicle, 'has_hangers', False) or \
-                             ('HANGERS' in str(getattr(vehicle, 'capabilities', '')).upper())
+                             ('HANGERS' in str(getattr(vehicle, 'capabilities', '')).upper()) or \
+                             ('HANGERS' in vehicle_capabilities) or ('hangers' in vehicle_capabilities)
     
     # Check for LIFO requirement
     capabilities['lifo_required'] = getattr(vehicle, 'lifo_required', False) or \
@@ -668,6 +717,10 @@ def get_vehicle_capabilities(vehicle):
     regulations = getattr(vehicle, 'regulations', '')
     if regulations:
         capabilities['regulations'] = [reg.strip() for reg in str(regulations).split(',') if reg.strip()]
+    
+    # DEBUG: Print final capabilities for debugging
+    if hasattr(vehicle, 'id') and vehicle.id in ['GA625VG', 'GA621VG', 'FX194HX']:
+        print(f"DEBUG CAPABILITIES: Vehicle {vehicle.id} final capabilities: {capabilities}")
     
     return capabilities
 
@@ -1130,13 +1183,17 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
     print(f"-" * 95)
     for v_info in all_vehicles_with_space:
         vehicle = v_info['vehicle']
+        # Use the correct capability detection function
+        vehicle_caps = get_vehicle_capabilities(vehicle)
         capabilities = []
-        if getattr(vehicle, 'has_loader', False):
+        if vehicle_caps['loader']:
             capabilities.append('LOADER')
-        if getattr(vehicle, 'has_low_temp', False):
+        if vehicle_caps['low_temp']:
             capabilities.append('LOW_TEMP')
-        if getattr(vehicle, 'has_hangers', False):
+        if vehicle_caps['hangers']:
             capabilities.append('HANGERS')
+        if vehicle_caps['lifo_required']:
+            capabilities.append('LIFO')
         cap_str = ', '.join(capabilities) if capabilities else 'NONE'
         
         print(f"{v_info['id']:<12} {v_info['status']:<22} "
@@ -1196,10 +1253,11 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                             requires_low_temp = any(getattr(task, 'requires_low_temp', False) for task in order_tasks)
                             requires_hangers = any(getattr(task, 'requires_hangers', False) for task in order_tasks)
                             
-                            # Check vehicle capabilities
-                            has_loader = getattr(vehicle, 'has_loader', False)
-                            has_low_temp = getattr(vehicle, 'has_low_temp', False) 
-                            has_hangers = getattr(vehicle, 'has_hangers', False)
+                            # Check vehicle capabilities using correct detection function
+                            vehicle_caps = get_vehicle_capabilities(vehicle)
+                            has_loader = vehicle_caps['loader']
+                            has_low_temp = vehicle_caps['low_temp']
+                            has_hangers = vehicle_caps['hangers']
                             
                             if requires_loader and not has_loader:
                                 capability_issues.append("LOADER")
@@ -1242,10 +1300,11 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                             requires_low_temp = any(getattr(task, 'requires_low_temp', False) for task in order_tasks)
                             requires_hangers = any(getattr(task, 'requires_hangers', False) for task in order_tasks)
                             
-                            # Check vehicle capabilities
-                            has_loader = getattr(vehicle, 'has_loader', False)
-                            has_low_temp = getattr(vehicle, 'has_low_temp', False) 
-                            has_hangers = getattr(vehicle, 'has_hangers', False)
+                            # Check vehicle capabilities using correct detection function
+                            vehicle_caps = get_vehicle_capabilities(vehicle)
+                            has_loader = vehicle_caps['loader']
+                            has_low_temp = vehicle_caps['low_temp']
+                            has_hangers = vehicle_caps['hangers']
                             
                             if requires_loader and not has_loader:
                                 capability_issues.append("LOADER")
@@ -3896,7 +3955,7 @@ def main():
     print("Starting EPDT Comprehensive Integration Test...")
     
     # Define path to the Excel file
-    excel_file = os.path.join(src_dir, 'furgoni3_2.xlsx')
+    excel_file = os.path.join(src_dir, 'furgoni_con_prova.xlsx')
     
     if not os.path.exists(excel_file):
         print(f"Error: Excel file not found at {excel_file}")
