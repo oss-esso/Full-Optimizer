@@ -1,3 +1,0 @@
-## 2025-07-18
-
-- Added a detailed guide on how to make calls to an OSRM server to `heuristicapproach/tasks/TODO2.md`. The guide covers basic requests for distance and duration, fetching route geometry for visualization, and advanced requests to get road composition for realistic vehicle modeling. It includes Python code snippets and example JSON responses, based on the implementation in `New_solvers/vrp_multiday_sequential.py`.

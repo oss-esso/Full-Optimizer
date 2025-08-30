@@ -1,2 +1,0 @@
-- Always write all your changes in changelog.md (create it if it doesn't exist)
-- if you have to run a file always use ; instead of &&
