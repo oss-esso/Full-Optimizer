@@ -95,9 +95,42 @@ VEHICLE_SPEEDS = {
         'primary_link': 30,
         'secondary_link': 25,
         'tertiary_link': 20,
-        'living_street': 15,
     }
 }
+
+def get_vehicle_speed_by_type(vehicle) -> float:
+    """
+    Get appropriate speed for a vehicle based on its type.
+    
+    Args:
+        vehicle: Vehicle object with attributes like 'average_speed', 'capabilities', etc.
+        
+    Returns:
+        Speed in km/h
+    """
+    # First check if vehicle has an explicit average_speed
+    if hasattr(vehicle, 'average_speed') and vehicle.average_speed and vehicle.average_speed > 0:
+        return vehicle.average_speed
+    
+    # Determine vehicle type based on capabilities or ID patterns
+    vehicle_type = 'standard'  # Default to standard (furgoni)
+    
+    if hasattr(vehicle, 'id'):
+        vehicle_id = str(vehicle.id).upper()
+        # Heavy vehicle patterns (based on observed data)
+        if any(pattern in vehicle_id for pattern in ['XA', 'FX194', 'GA6', 'GE0']):
+            vehicle_type = 'heavy'
+    
+    # Check capabilities for heavy vehicle indicators
+    if hasattr(vehicle, 'capabilities'):
+        capabilities = str(getattr(vehicle, 'capabilities', '')).upper()
+        if 'HEAVY' in capabilities or 'TRUCK' in capabilities:
+            vehicle_type = 'heavy'
+    
+    # Return average speed for the vehicle type
+    speed_profile = VEHICLE_SPEEDS.get(vehicle_type, VEHICLE_SPEEDS['standard'])
+    # Use motorway speed as representative average
+    return speed_profile.get('motorway', 90)
 
 # Speed ratios for different truck types compared to a car
 TRUCK_SPEED_RATIOS = {

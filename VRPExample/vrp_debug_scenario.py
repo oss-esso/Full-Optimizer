@@ -278,7 +278,7 @@ def debug_pyvrp_conversion():
         logger.info(f"  Feasible: {result.is_feasible()}")
         
         if result.is_feasible():
-            logger.info("✓ Model API instance is feasible!")
+            logger.info(" Model API instance is feasible!")
             solution_routes = [list(route) for route in result.best.routes()]
             logger.info(f"  Routes: {solution_routes}")
         else:
@@ -342,17 +342,17 @@ def create_comparison_summary(results, pure_result, conversion_result):
     
     # Pure pyVRP (reference)
     if pure_result:
-        print(f"{'Pure pyVRP':<20} {'✓ Feasible':<12} {pure_result.cost():<15} {'~5.0':<12} {'Reference solution'}")
+        print(f"{'Pure pyVRP':<20} {' Feasible':<12} {pure_result.cost():<15} {'~5.0':<12} {'Reference solution'}")
     
     # Our Model API
     if conversion_result:
-        status = "✓ Feasible" if conversion_result.is_feasible() else "✗ Infeasible"
+        status = " Feasible" if conversion_result.is_feasible() else "✗ Infeasible"
         print(f"{'Our Model API':<20} {status:<12} {conversion_result.cost():<15} {'~5.0':<12} {'Should match pure'}")
     
     # Our three solvers
     for solver_name, result in results.items():
         if result:
-            status = "✓ " + result.status.capitalize()
+            status = " " + result.status.capitalize()
             distance = result.metrics.get('total_distance', 0)
             runtime = result.runtime
             
@@ -485,8 +485,8 @@ def main():
     pure_result = test_pure_pyvrp()
     
     if pure_result and pure_result.is_feasible():
-        print("✓ Pure pyVRP finds feasible solution")
-        logger.info("✓ Pure pyVRP finds feasible solution")
+        print(" Pure pyVRP finds feasible solution")
+        logger.info(" Pure pyVRP finds feasible solution")
     else:
         print("✗ Pure pyVRP does not find feasible solution")
         logger.error("✗ Pure pyVRP does not find feasible solution")

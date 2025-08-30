@@ -510,6 +510,7 @@ class Task:
     priority: int = 1        # Task priority (higher = more important)
     requires_low_temp: bool = False # Requires low temperature vehicle
     requires_loader: bool = False   # Requires a vehicle with a loader
+    requires_hangers: bool = False  # Requires a vehicle with hangers
 
     # Day of week constraints
     day: int = 0  # Day of week (0=Today, 1=Tomorrow, -1= Yesterday, etc.)
@@ -607,6 +608,7 @@ class Order:
     id: str
     pickup_tasks: List[Task] = field(default_factory=list)
     delivery_tasks: List[Task] = field(default_factory=list)
+    tasks: List[Task] = field(default_factory=list)  # Combined tasks for compatibility
     
     # Order properties
     priority: int = 1           # Order priority for scheduling
@@ -617,6 +619,11 @@ class Order:
     
     # Preferred assignment constraints
     preferred_vehicle_ids: Set[str] = field(default_factory=set)  # Preferred vehicles
+
+    def __post_init__(self):
+        """Ensure tasks field is populated with pickup_tasks + delivery_tasks for compatibility."""
+        if not self.tasks and (self.pickup_tasks or self.delivery_tasks):
+            self.tasks = self.pickup_tasks + self.delivery_tasks
     forbidden_vehicle_ids: Set[str] = field(default_factory=set)  # Forbidden vehicles
     
     # Time constraints
@@ -848,19 +855,37 @@ class Route:
         self._cached_time = None
         self._is_feasible_cached = None
     
-    def is_feasible(self) -> bool:
+    def is_feasible(self, allow_soft_violations: bool = False) -> bool:
         """
         Check if this route is feasible (respects all hard constraints).
         
+        Args:
+            allow_soft_violations: Whether to allow soft constraint violations
+        
         This is a placeholder - actual implementation is in second_level.py
         """
-        if self._is_feasible_cached is not None:
+        # Re-enable caching now that the issue is resolved
+        if not allow_soft_violations and self._is_feasible_cached is not None:
             return self._is_feasible_cached
         
         # Import here to avoid circular imports
         from second_level import is_feasible
-        self._is_feasible_cached = is_feasible(self, debug_feasibility=False)
-        return self._is_feasible_cached
+        
+        # Enable debugging for ALL routes with orders (not just Order 7)
+        debug_this_route = False
+        if hasattr(self, 'vehicle') and self.vehicle and self.tasks:
+            # Check if route has any order tasks (non-depot)
+            order_tasks = [task for task in self.tasks if hasattr(task, 'order_id') and not task.is_depot_start() and not task.is_depot_return()]
+            if order_tasks:
+                debug_this_route = True
+        
+        result = is_feasible(self, debug_feasibility=debug_this_route, allow_soft_violations=allow_soft_violations)
+        
+        # Re-enable caching now that the issue is resolved
+        if not allow_soft_violations:
+            self._is_feasible_cached = result
+        
+        return result
     
     def get_orders(self) -> Set[str]:
         """Get set of order IDs in this route (excludes depot start/return tasks)."""

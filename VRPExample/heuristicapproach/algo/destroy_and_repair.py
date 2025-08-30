@@ -381,6 +381,11 @@ def destroy_and_repair_large_orders(solution: 'Solution', orders: List['Order'],
             print(f"No suitable target vehicle found for {target_order.id}")
             continue
         
+        # SECTION 3.2: Store original state before destroy operation
+        original_route = copy.deepcopy(improved_solution.routes.get(target_vehicle.id))
+        if debug_destroy_repair:
+            print(f"    TRANSACTIONAL SAFETY: Stored original route state for {target_vehicle.id}")
+        
         # Step 3b: Destroy phase - remove orders from target vehicle
         removed_orders = _destroy_orders_from_vehicle(target_vehicle, improved_solution, target_order, debug_destroy_repair)
         
@@ -392,15 +397,25 @@ def destroy_and_repair_large_orders(solution: 'Solution', orders: List['Order'],
         success = _insert_order_into_vehicle(target_order, target_vehicle, improved_solution, debug_destroy_repair)
         
         if success:
-            orders_successfully_assigned += 1
-            print(f"Successfully inserted {target_order.id} into {target_vehicle.id}")
-            
             # Step 3d: Re-insert removed orders elsewhere
-            _reinsert_removed_orders(removed_orders, improved_solution, vehicles, debug_destroy_repair)
+            reinsert_success = _reinsert_removed_orders(removed_orders, improved_solution, vehicles, debug_destroy_repair)
+            
+            # SECTION 3.2: Verify all orders were successfully re-inserted
+            if reinsert_success:
+                orders_successfully_assigned += 1
+                print(f"Successfully completed destroy/repair for {target_order.id} on {target_vehicle.id}")
+            else:
+                # SECTION 3.2: Rollback if re-insertion failed
+                if debug_destroy_repair:
+                    print(f"    TRANSACTIONAL SAFETY: Re-insertion failed, rolling back to original state")
+                improved_solution.routes[target_vehicle.id] = original_route
+                print(f"Rolled back destroy/repair for {target_order.id} - re-insertion failed")
         else:
-            print(f"Failed to insert {target_order.id} into {target_vehicle.id}")
-            # Restore removed orders to original vehicle
-            _restore_orders_to_vehicle(removed_orders, target_vehicle, improved_solution)
+            # SECTION 3.2: Rollback if target order insertion failed
+            if debug_destroy_repair:
+                print(f"    TRANSACTIONAL SAFETY: Target insertion failed, rolling back to original state")
+            improved_solution.routes[target_vehicle.id] = original_route
+            print(f"Rolled back destroy/repair for {target_order.id} - target insertion failed")
     
     print(f"\nDestroy and repair completed: {orders_successfully_assigned}/{len(unassigned_orders)} large orders assigned")
     return improved_solution
@@ -419,7 +434,38 @@ def _find_best_target_vehicle(target_order: 'Order', vehicles: List['Vehicle'], 
         print(f" Could not get requirements for order {target_order.id}")
         return None
     
+    # SECTION 3.1: Get order capability requirements first
+    order_capabilities = set()
+    order_tasks = target_order.get_pickups() + target_order.get_deliveries()
+    for task in order_tasks:
+        if getattr(task, 'requires_hangers', False):
+            order_capabilities.add('HANGERS')
+        if getattr(task, 'requires_loader', False):
+            order_capabilities.add('LOADER')
+        if getattr(task, 'requires_low_temp', False):
+            order_capabilities.add('LOW_TEMP')
+    
+    if debug and order_capabilities:
+        print(f" Order {target_order.id} requires capabilities: {order_capabilities}")
+    
+    compatible_vehicles_count = 0
+    
     for vehicle in vehicles:
+        # SECTION 3.1: Check capability requirements first
+        vehicle_capabilities = set()
+        if hasattr(vehicle, 'capabilities') and vehicle.capabilities:
+            for cap in vehicle.capabilities:
+                if hasattr(cap, 'name'):
+                    vehicle_capabilities.add(cap.name)
+                else:
+                    vehicle_capabilities.add(str(cap))
+        
+        # Skip vehicles that don't have required capabilities
+        if not order_capabilities.issubset(vehicle_capabilities):
+            continue
+        
+        compatible_vehicles_count += 1
+        
         # Check if vehicle can theoretically handle this order
         if (order_weight > vehicle.weight_capacity or 
             order_volume > vehicle.volume_capacity):
@@ -452,8 +498,13 @@ def _find_best_target_vehicle(target_order: 'Order', vehicles: List['Vehicle'], 
             best_score = deficit_score
             best_vehicle = vehicle
     
-    if debug and best_vehicle:
-        print(f"    Selected target vehicle: {best_vehicle.id} (deficit score: {best_score:.1f})")
+    if debug:
+        if order_capabilities:
+            print(f"    Capability filtering: {compatible_vehicles_count}/{len(vehicles)} vehicles compatible with {order_capabilities}")
+        if best_vehicle:
+            print(f"    Selected target vehicle: {best_vehicle.id} (deficit score: {best_score:.1f})")
+        else:
+            print(f"    No suitable vehicle found for order {target_order.id}")
     
     return best_vehicle
 
@@ -620,12 +671,19 @@ def _insert_order_into_vehicle(order: 'Order', vehicle: 'Vehicle', solution: 'So
         return False
 
 
-def _reinsert_removed_orders(removed_orders: List, solution: 'Solution', vehicles: List['Vehicle'], debug: bool = False):
+def _reinsert_removed_orders(removed_orders: List, solution: 'Solution', vehicles: List['Vehicle'], debug: bool = False) -> bool:
     """Attempt to re-insert removed orders into other vehicles.
+    
+    SECTION 3.2: Now returns True if ALL orders were successfully re-inserted, False otherwise.
     
     This function ensures ALL vehicles are considered, including idle ones that might
     not be in the original vehicles list due to filtering upstream.
+    
+    Returns:
+        bool: True if all removed orders were successfully re-inserted, False otherwise
     """
+    successful_insertions = 0
+    
     for order in removed_orders:
         inserted = False
         
@@ -724,6 +782,10 @@ def _reinsert_removed_orders(removed_orders: List, solution: 'Solution', vehicle
                         print(f"     Failed to insert Order 7 into active {vehicle.id}: {e}")
                     continue
         
+        # SECTION 3.2: Track successful insertions
+        if inserted:
+            successful_insertions += 1
+        
         if not inserted and debug:
             print(f"     Could not re-insert {order.id}")
             
@@ -760,6 +822,13 @@ def _reinsert_removed_orders(removed_orders: List, solution: 'Solution', vehicle
                         print(f"        XA819VA has no route object")
                 else:
                     print(f"     XA819VA was NOT in vehicle candidate list")
+    
+    # SECTION 3.2: Return success status
+    all_successful = (successful_insertions == len(removed_orders))
+    if debug:
+        print(f"    Re-insertion result: {successful_insertions}/{len(removed_orders)} orders successfully re-inserted")
+    
+    return all_successful
 
 
 def _restore_orders_to_vehicle(orders: List, vehicle: 'Vehicle', solution: 'Solution'):

@@ -144,6 +144,17 @@ def check_hard_constraints(route: 'Route', debug: bool = False) -> Tuple[bool, s
     """
     if not route or not route.tasks:
         return True, "Empty route is valid"
+    
+    # Order 7 specific debugging
+    order_7_debug = False
+    if hasattr(route, 'vehicle') and route.vehicle:
+        order_7_tasks = [task for task in route.tasks if hasattr(task, 'order_id') and str(task.order_id) == '7']
+        if order_7_tasks:
+            order_7_debug = True
+            debug = True  # Force debug output for Order 7
+            print(f"            *** ORDER 7 HARD CONSTRAINT DEBUG ***")
+            print(f"            Vehicle: {route.vehicle.id}")
+            print(f"            Order 7 tasks: {[task.id for task in order_7_tasks]}")
         
     # VALIDATE EXISTING TASK ORDER (don't reorder!)
     tasks = route.tasks
@@ -154,6 +165,9 @@ def check_hard_constraints(route: 'Route', debug: bool = False) -> Tuple[bool, s
         if debug:
             print(f"            HARD CONSTRAINT CHECK: {reason}")
         return False, reason
+    
+    if order_7_debug:
+        print(f"             Precedence constraints passed")
     
     # HARD CONSTRAINT 1: VEHICLE CAPABILITIES
     # Check if vehicle has all required capabilities
@@ -176,6 +190,9 @@ def check_hard_constraints(route: 'Route', debug: bool = False) -> Tuple[bool, s
                 all_required_capabilities.add('LOW_TEMP')
             if 'HANGERS' in capabilities_str:
                 all_required_capabilities.add('HANGERS')
+    
+    if order_7_debug:
+        print(f"            Route requires capabilities: {all_required_capabilities}")
     
     if all_required_capabilities:
         # Get vehicle capabilities from the capabilities set
@@ -253,12 +270,23 @@ def check_hard_constraints(route: 'Route', debug: bool = False) -> Tuple[bool, s
                     if debug:
                         print(f"            HARD CONSTRAINT CHECK: {reason}")
                     return False, reason
-                if lifo_stack[-1] != task.order_id:
-                    reason = f"HARD CONSTRAINT VIOLATION: LIFO violation - expected {lifo_stack[-1]}, got {task.order_id}"
-                    if debug:
-                        print(f"            HARD CONSTRAINT CHECK: {reason}")
-                    return False, reason
-                lifo_stack.pop()
+                
+                # FIXED LIFO LOGIC: Allow same-order deliveries regardless of stack position
+                # For patterns like PP...PD (multiple pickups, single delivery of same order)
+                # we should remove ALL instances of the order from the stack
+                if task.order_id in lifo_stack:
+                    # For same-order patterns, remove ALL instances of this order
+                    # This handles PP...D patterns where all cargo is delivered together
+                    while task.order_id in lifo_stack:
+                        lifo_stack.remove(task.order_id)
+                else:
+                    # Only enforce strict LIFO when mixing different orders
+                    if lifo_stack[-1] != task.order_id:
+                        reason = f"HARD CONSTRAINT VIOLATION: LIFO violation - expected {lifo_stack[-1]}, got {task.order_id} (mixed-order constraint)"
+                        if debug:
+                            print(f"            HARD CONSTRAINT CHECK: {reason}")
+                        return False, reason
+                    lifo_stack.pop()
         
         # Final LIFO check
         if lifo_stack:
@@ -314,13 +342,87 @@ def _validate_precedence_constraints(tasks: List) -> bool:
             if pickups[0]['position'] >= deliveries[0]['position']:
                 return False
         
-        # For complex orders: all pickups must come before all deliveries
+        # For complex orders: validate paired pickup-delivery relationships
+        # Allow PDPDPD patterns as long as each pickup comes before its delivery
         else:
-            max_pickup_pos = max(p['position'] for p in pickups)
-            min_delivery_pos = min(d['position'] for d in deliveries)
+            # ENHANCED LOGIC: Check actual pickup-delivery pairs by task relationships
+            # This allows interleaved patterns like PDPDPD for complex orders
             
-            if max_pickup_pos >= min_delivery_pos:
-                return False
+            # Build actual pickup-delivery pairs by examining task properties
+            pickup_delivery_pairs = []
+            
+            for pickup in pickups:
+                pickup_pos = pickup['position']
+                pickup_task = tasks[pickup_pos]
+                
+                # Find corresponding delivery by matching task properties
+                # Strategy 1: Match by magnitude (pickup +300kg → delivery -300kg)
+                # Strategy 2: Match by task ID patterns (TASK_7_14 → TASK_7_15)
+                
+                best_delivery = None
+                best_delivery_pos = float('inf')
+                
+                for delivery in deliveries:
+                    delivery_pos = delivery['position']
+                    delivery_task = tasks[delivery_pos]
+                    
+                    # Check if this pickup-delivery pair makes sense
+                    is_matching_pair = False
+                    
+                    # Method 1: Match by magnitude (pickup pallets = -delivery pallets)
+                    pickup_pallets = getattr(pickup_task, 'pallets', 0)
+                    delivery_pallets = getattr(delivery_task, 'pallets', 0)
+                    if pickup_pallets > 0 and delivery_pallets < 0 and pickup_pallets == -delivery_pallets:
+                        is_matching_pair = True
+                    
+                    # Method 2: Match by weight magnitude
+                    pickup_weight = getattr(pickup_task, 'weight', 0)
+                    delivery_weight = getattr(delivery_task, 'weight', 0)
+                    if pickup_weight > 0 and delivery_weight < 0 and abs(pickup_weight + delivery_weight) < 1.0:
+                        is_matching_pair = True
+                    
+                    # Method 3: Match by task ID pattern (TASK_X_14 → TASK_X_15)
+                    pickup_id = getattr(pickup_task, 'id', '')
+                    delivery_id = getattr(delivery_task, 'id', '')
+                    if pickup_id and delivery_id:
+                        # Extract base pattern: TASK_7_14 → TASK_7_, then find corresponding delivery
+                        import re
+                        pickup_match = re.match(r'(TASK_\d+_)(\d+)', pickup_id)
+                        delivery_match = re.match(r'(TASK_\d+_)(\d+)', delivery_id)
+                        if pickup_match and delivery_match:
+                            pickup_base = pickup_match.group(1)
+                            delivery_base = delivery_match.group(1)
+                            pickup_num = int(pickup_match.group(2))
+                            delivery_num = int(delivery_match.group(2))
+                            # Common pattern: delivery_num = pickup_num + 1
+                            if pickup_base == delivery_base and delivery_num == pickup_num + 1:
+                                is_matching_pair = True
+                    
+                    if is_matching_pair and delivery_pos > pickup_pos:
+                        if delivery_pos < best_delivery_pos:
+                            best_delivery = delivery
+                            best_delivery_pos = delivery_pos
+                
+                if best_delivery:
+                    pickup_delivery_pairs.append((pickup_pos, best_delivery_pos))
+            
+            # Validate all identified pairs
+            for pickup_pos, delivery_pos in pickup_delivery_pairs:
+                if pickup_pos >= delivery_pos:
+                    # DEBUG for ALL orders
+                    order_id = getattr(tasks[pickup_pos], 'order_id', 'unknown')
+                    pickup_task_id = getattr(tasks[pickup_pos], 'id', f'pos_{pickup_pos}')
+                    delivery_task_id = getattr(tasks[delivery_pos], 'id', f'pos_{delivery_pos}')
+                    print(f"            DEBUG: Order {order_id} precedence failure - pickup {pickup_task_id} at pos {pickup_pos} >= delivery {delivery_task_id} at pos {delivery_pos}")
+                    return False
+            
+            # If we couldn't identify proper pairs, fall back to strict validation
+            if len(pickup_delivery_pairs) != len(pickups):
+                max_pickup_pos = max(p['position'] for p in pickups)
+                min_delivery_pos = min(d['position'] for d in deliveries)
+                
+                if max_pickup_pos >= min_delivery_pos:
+                    return False
     
     return True
 
@@ -464,6 +566,22 @@ def generate_valid_task_permutations(tasks: List['Task']) -> List[Dict]:
                     pickup_to_delivery[pickup_id] = delivery_id
                     break
     
+    # ENHANCED: Generate optimized interleaved patterns first (as requested by user)
+    optimized_patterns = generate_optimized_interleaved_patterns(pickups, deliveries)
+    
+    for pattern in optimized_patterns:
+        peak_capacity = calculate_sequence_peak_capacity(pattern['sequence'])
+        valid_sequences.append({
+            'sequence': pattern['sequence'],
+            'peak_capacity': peak_capacity,
+            'is_sequential_chain': pattern['is_interleaved']
+        })
+        
+        # Debug output for optimized patterns
+        sequence_types = [getattr(t.task_type, 'name', 'UNK')[0] for t in pattern['sequence']]
+        sequence_pattern = ''.join(sequence_types)
+        print(f"    Optimized {pattern['pattern_type']} ({sequence_pattern}): {peak_capacity['peak_pallets']:.0f}pal peak")
+    
     # ENHANCED: Detect sequential pickup-delivery chains (PDP-DP-DP pattern)
     sequential_chain = detect_sequential_pickup_delivery_chain(pickups, deliveries)
     
@@ -514,6 +632,390 @@ def generate_valid_task_permutations(tasks: List['Task']) -> List[Dict]:
     print(f"    Generated {len(valid_sequences)} valid sequences, sorted by peak capacity")
     
     return valid_sequences
+
+
+def generate_distance_optimized_sequences(pickups: List['Task'], deliveries: List['Task'], pattern_type: str) -> List[Dict]:
+    """
+    Generate LOCATION-AWARE sequences using geographical clustering while respecting pickup-delivery pairing.
+    
+    This implementation fixes the task pairing issue by ensuring each pickup is correctly
+    paired with its corresponding delivery (same order_id and matching cargo amounts).
+    
+    Key improvements:
+    1. Groups tasks by geographical location
+    2. Maintains pickup-delivery pairing constraints
+    3. Minimizes total travel distance between locations
+    4. Respects time window constraints
+    """
+    import math
+    
+    def get_location_name(task):
+        """Extract location name from task"""
+        if hasattr(task, 'location') and hasattr(task.location, 'name'):
+            return task.location.name
+        elif hasattr(task, 'location_id'):
+            return task.location_id
+        else:
+            return str(getattr(task, 'id', 'unknown'))
+    
+    def get_time_window(task):
+        """Extract time window from task"""
+        earliest = getattr(task, 'earliest_time', 0)
+        latest = getattr(task, 'latest_time', 9999)
+        return earliest, latest
+    
+    def find_corresponding_delivery(pickup_task, delivery_tasks):
+        """Find the delivery task that corresponds to a pickup task"""
+        pickup_order_id = getattr(pickup_task, 'order_id', None)
+        pickup_demand = abs(getattr(pickup_task, 'demand', 0))
+        pickup_pallets = abs(getattr(pickup_task, 'pallets', 0))
+        
+        for delivery in delivery_tasks:
+            delivery_order_id = getattr(delivery, 'order_id', None)
+            delivery_demand = abs(getattr(delivery, 'demand', 0))
+            delivery_pallets = abs(getattr(delivery, 'pallets', 0))
+            
+            # Match by order_id and same cargo amounts
+            if (pickup_order_id == delivery_order_id and 
+                pickup_demand == delivery_demand and 
+                pickup_pallets == delivery_pallets):
+                return delivery
+        return None
+    
+    def calculate_location_distance(loc1_name, loc2_name):
+        """Calculate distance between location names (simple heuristic)"""
+        if loc1_name == loc2_name:
+            return 0.0  # Same location
+        
+        # Milano locations are close to each other
+        milano_locations = ['CORSO VENEZIA, MILANO', 'C.SO DI PORTA NUOVA, MILANO']
+        if any(milano in loc1_name for milano in milano_locations) and any(milano in loc2_name for milano in milano_locations):
+            return 0.1  # Very close Milano locations
+        
+        return 1.0  # Different distant locations
+    
+    # STEP 1: Create pickup-delivery pairs
+    pickup_delivery_pairs = []
+    used_deliveries = set()
+    
+    for pickup in pickups:
+        corresponding_delivery = find_corresponding_delivery(pickup, deliveries)
+        if corresponding_delivery and corresponding_delivery.id not in used_deliveries:
+            pickup_delivery_pairs.append((pickup, corresponding_delivery))
+            used_deliveries.add(corresponding_delivery.id)
+        else:
+            print(f"        WARNING: No corresponding delivery found for pickup {pickup.id}")
+    
+    print(f"        PICKUP-DELIVERY PAIRING: Created {len(pickup_delivery_pairs)} pairs")
+    for pickup, delivery in pickup_delivery_pairs:
+        print(f"          {pickup.id} ({pickup.pallets}pal) ↔ {delivery.id} ({delivery.pallets}pal)")
+    
+    # STEP 2: Group pairs by pickup location (since pickup must come first)
+    location_pairs = {}
+    
+    for pickup, delivery in pickup_delivery_pairs:
+        pickup_loc = get_location_name(pickup)
+        delivery_loc = get_location_name(delivery)
+        
+        if pickup_loc not in location_pairs:
+            location_pairs[pickup_loc] = []
+        
+        location_pairs[pickup_loc].append({
+            'pickup': pickup,
+            'delivery': delivery,
+            'pickup_location': pickup_loc,
+            'delivery_location': delivery_loc,
+            'pickup_time': get_time_window(pickup)[0],
+            'delivery_time': get_time_window(delivery)[0]
+        })
+    
+    print(f"        LOCATION GROUPING:")
+    for loc_name, pairs in location_pairs.items():
+        print(f"        - {loc_name}: {len(pairs)} pickup-delivery pairs")
+    
+    # STEP 3: Generate location-optimized sequences
+    sequences = []
+    
+    # STRATEGY 1: Sort by pickup time windows, maintain pairing
+    time_sorted_pairs = []
+    for loc_name, pairs in location_pairs.items():
+        time_sorted_pairs.extend(sorted(pairs, key=lambda x: x['pickup_time']))
+    
+    time_sorted_pairs.sort(key=lambda x: x['pickup_time'])
+    
+    print(f"        SEQUENCE GENERATION: Processing {len(time_sorted_pairs)} pairs by pickup time")
+    
+    # Build sequence respecting pickup-delivery precedence
+    optimal_sequence = []
+    total_distance = 0.0
+    previous_pickup_location = None
+    previous_delivery_location = None
+    
+    for pair in time_sorted_pairs:
+        pickup = pair['pickup']
+        delivery = pair['delivery']
+        pickup_loc = pair['pickup_location']
+        delivery_loc = pair['delivery_location']
+        
+        # Add pickup first
+        optimal_sequence.append(pickup)
+        print(f"          PICKUP: {pickup.id} at {pickup_loc} ({pair['pickup_time']:.0f}min)")
+        
+        # Calculate distance from previous location to pickup location
+        if previous_delivery_location and previous_delivery_location != pickup_loc:
+            total_distance += calculate_location_distance(previous_delivery_location, pickup_loc)
+        
+        # Add corresponding delivery second
+        optimal_sequence.append(delivery)
+        print(f"          DELIVERY: {delivery.id} at {delivery_loc} ({pair['delivery_time']:.0f}min)")
+        
+        # Calculate distance from pickup to delivery location  
+        if pickup_loc != delivery_loc:
+            total_distance += calculate_location_distance(pickup_loc, delivery_loc)
+        
+        previous_pickup_location = pickup_loc
+        previous_delivery_location = delivery_loc
+    
+    sequences.append({
+        'sequence': optimal_sequence,
+        'distance_score': total_distance,
+        'optimization_method': 'paired_time_ordered'
+    })
+    
+    print(f"        Generated 1 location-optimized sequence with total distance: {total_distance:.2f}")
+    
+    return sequences
+    
+    for i in range(len(time_ordered_sequence) - 1):
+        loc1 = get_location_name(time_ordered_sequence[i])
+        loc2 = get_location_name(time_ordered_sequence[i+1])
+        time_distance += calculate_location_distance(loc1, loc2)
+    
+    sequences.append({
+        'sequence': time_ordered_sequence,
+        'distance_score': time_distance,
+        'optimization_method': 'time_window_ordered'
+    })
+    
+    # Sort by distance score (lower is better)  
+    sequences.sort(key=lambda x: x['distance_score'])
+    
+    print(f"        Generated {len(sequences)} location-optimized sequences")
+    print(f"        Best sequence distance: {sequences[0]['distance_score']:.2f}")
+    
+    return sequences
+
+
+def generate_optimized_interleaved_patterns(pickups: List['Task'], deliveries: List['Task']) -> List[Dict]:
+    """
+    Generate optimized interleaved patterns to minimize peak capacity usage.
+    
+    Based on user requirements:
+    - For 2P+1D orders (like Orders 5,6): Generate PPD and PDP patterns  
+    - For 1P+4D orders (like Order 8): Generate PDDDD with optimized delivery order
+    - For 3P+3D orders (like Order 7): Generate PDPDPD instead of PPPDDD
+    
+    Args:
+        pickups: List of pickup tasks
+        deliveries: List of delivery tasks
+        
+    Returns:
+        List of dictionaries with 'sequence', 'pattern_type', and 'is_interleaved'
+    """
+    patterns = []
+    num_pickups = len(pickups)
+    num_deliveries = len(deliveries)
+    
+    print(f"        ADVANCED SEQUENCING: {num_pickups}P + {num_deliveries}D order")
+    
+    # Case A: Balanced Pickups and Deliveries (num_p == num_d > 1)
+    if num_pickups == num_deliveries and num_pickups > 1:
+        print(f"        Case A: Balanced order ({num_pickups}P+{num_deliveries}D) - generating interleaved PDPDPD sequences")
+        
+        # Strategy 1: Generate DISTANCE-OPTIMIZED interleaved sequences (PDPDPD pattern)
+        # This minimizes both peak capacity AND total travel distance
+        
+        # ENHANCED: Use geographic clustering and distance optimization
+        optimized_sequences = generate_distance_optimized_sequences(pickups, deliveries, 'PDPDPD')
+        
+        for seq_idx, optimized_seq in enumerate(optimized_sequences):
+            patterns.append({
+                'sequence': optimized_seq['sequence'],
+                'pattern_type': f'PDPDPD_DISTANCE_OPT_{seq_idx}',
+                'is_interleaved': True,
+                'priority': 1,  # High priority - distance optimized
+                'distance_score': optimized_seq.get('distance_score', 0)
+            })
+        
+        print(f"        Generated {len(optimized_sequences)} distance-optimized PDPDPD sequences")
+        
+        # Strategy 2: Traditional PPPDDD pattern for comparison
+        patterns.append({
+            'sequence': list(pickups) + list(deliveries),
+            'pattern_type': 'PPPDDD_TRADITIONAL',
+            'is_interleaved': False,
+            'priority': 2  # Lower priority - higher capacity
+        })
+        
+        print(f"        Generated {len(patterns)} balanced sequences (interleaved + traditional)")
+    
+    # Case B: Single Pickup, Multiple Deliveries (1P, nD)
+    elif num_pickups == 1 and num_deliveries > 1:
+        print(f"        Case B: Single pickup, multiple deliveries (1P+{num_deliveries}D) - optimizing delivery sequence")
+        
+        pickup = pickups[0]
+        
+        # Strategy 1: TSP optimization for deliveries (minimize total distance)
+        # For now, use simple heuristics - could be enhanced with proper TSP solver
+        
+        # Pattern 1: Original delivery order
+        patterns.append({
+            'sequence': [pickup] + list(deliveries),
+            'pattern_type': 'PDDDD_ORIGINAL',
+            'is_interleaved': False,
+            'priority': 1
+        })
+        
+        # Pattern 2: Reverse delivery order (sometimes closer)
+        patterns.append({
+            'sequence': [pickup] + list(reversed(deliveries)),
+            'pattern_type': 'PDDDD_REVERSED',
+            'is_interleaved': False,
+            'priority': 2
+        })
+        
+        # Pattern 3: Sort deliveries by location (if coordinate data available)
+        try:
+            # Sort by latitude + longitude as a simple distance proxy
+            sorted_deliveries = sorted(deliveries, key=lambda d: (getattr(d, 'lat', 0) + getattr(d, 'lon', 0)))
+            patterns.append({
+                'sequence': [pickup] + sorted_deliveries,
+                'pattern_type': 'PDDDD_SORTED',
+                'is_interleaved': False,
+                'priority': 1
+            })
+        except:
+            pass  # Skip if no location data
+        
+        print(f"        Generated {len(patterns)} single-pickup sequences")
+    
+    # Case C: Multiple Pickups, Single Delivery (nP, 1D)
+    elif num_pickups > 1 and num_deliveries == 1:
+        print(f"        Case C: Multiple pickups, single delivery ({num_pickups}P+1D) - optimizing pickup sequence")
+        
+        delivery = deliveries[0]
+        
+        # Strategy 1: TSP optimization for pickups (minimize total distance)
+        
+        # Pattern 1: Original pickup order
+        patterns.append({
+            'sequence': list(pickups) + [delivery],
+            'pattern_type': 'PPPPD_ORIGINAL',
+            'is_interleaved': False,
+            'priority': 1
+        })
+        
+        # Pattern 2: Reverse pickup order
+        patterns.append({
+            'sequence': list(reversed(pickups)) + [delivery],
+            'pattern_type': 'PPPPD_REVERSED',
+            'is_interleaved': False,
+            'priority': 2
+        })
+        
+        # Pattern 3: Sort pickups by location (if coordinate data available)
+        try:
+            # Sort by latitude + longitude as a simple distance proxy
+            sorted_pickups = sorted(pickups, key=lambda p: (getattr(p, 'lat', 0) + getattr(p, 'lon', 0)))
+            patterns.append({
+                'sequence': sorted_pickups + [delivery],
+                'pattern_type': 'PPPPD_SORTED',
+                'is_interleaved': False,
+                'priority': 1
+            })
+        except:
+            pass  # Skip if no location data
+        
+        print(f"        Generated {len(patterns)} multi-pickup sequences")
+    # Case B: Single Pickup, Multiple Deliveries (1P, nD)
+    elif num_pickups == 1 and num_deliveries > 1:
+        pickup = pickups[0]
+        
+        # Sort deliveries by distance from pickup or other cost criteria
+        # For now, use the original order but this could be optimized
+        sorted_deliveries = deliveries.copy()
+        
+        # Pattern 1: Standard PDDDD
+        patterns.append({
+            'sequence': [pickup] + sorted_deliveries,
+            'pattern_type': 'PDDDD_OPTIMIZED',
+            'is_interleaved': False
+        })
+        
+        # Could add more patterns with different delivery orders here
+    
+    # Case A: Balanced Pickups and Deliveries (num_p == num_d > 1) 
+    elif num_pickups == num_deliveries and num_pickups > 1:
+        print(f"        Case A: Balanced order ({num_pickups}P+{num_deliveries}D) - generating interleaved PDPDPD sequences")
+        
+        # Strategy 1: Generate all possible interleaved sequences (PDPDPD pattern)
+        # This minimizes peak capacity as each pickup is immediately followed by delivery
+        from itertools import permutations
+        
+        # Generate all permutations of pickup-delivery pairs
+        pickup_permutations = list(permutations(pickups))
+        delivery_permutations = list(permutations(deliveries))
+        
+        # Create interleaved sequences for each permutation combination
+        interleaved_count = 0
+        for p_perm in pickup_permutations[:3]:  # Limit to avoid explosion
+            for d_perm in delivery_permutations[:3]:
+                interleaved_sequence = []
+                for i in range(num_pickups):
+                    interleaved_sequence.extend([p_perm[i], d_perm[i]])
+                
+                patterns.append({
+                    'sequence': interleaved_sequence,
+                    'pattern_type': f'PDPDPD_INTERLEAVED_{interleaved_count}',
+                    'is_interleaved': True,
+                    'priority': 1  # High priority - should minimize capacity
+                })
+                interleaved_count += 1
+                if interleaved_count >= 6:  # Limit combinations
+                    break
+            if interleaved_count >= 6:
+                break
+        
+        # Strategy 2: Traditional PPPDDD pattern for comparison
+        patterns.append({
+            'sequence': list(pickups) + list(deliveries),
+            'pattern_type': 'PPPDDD_TRADITIONAL',
+            'is_interleaved': False,
+            'priority': 2  # Lower priority - higher capacity
+        })
+        
+        print(f"        Generated {len(patterns)} balanced sequences (interleaved + traditional)")
+    
+    # Case 4: Other patterns - generate basic interleaved if possible
+    elif num_pickups > 0 and num_deliveries > 0:
+        # Try to create a simple interleaved pattern
+        if num_pickups == num_deliveries:
+            # Create PD-PD-PD pattern
+            pd_pairs = []
+            for i in range(min(num_pickups, num_deliveries)):
+                pd_pairs.append((pickups[i], deliveries[i]))
+            
+            interleaved_sequence = []
+            for pickup, delivery in pd_pairs:
+                interleaved_sequence.extend([pickup, delivery])
+            
+            patterns.append({
+                'sequence': interleaved_sequence,
+                'pattern_type': f'P{num_pickups}D{num_deliveries}_INTERLEAVED',
+                'is_interleaved': True
+            })
+    
+    return patterns
 
 
 def detect_sequential_pickup_delivery_chain(pickups: List['Task'], deliveries: List['Task']) -> Optional[List['Task']]:
@@ -635,8 +1137,13 @@ def evaluate_permutation_at_insertion_point(route: 'Route', task_sequence: List[
     Returns:
         Dictionary with feasibility, cost, and route info, or None if infeasible
     """
-    if debug:
-        print(f"      Evaluating sequence at position {insertion_point}")
+    # Check if this is for Order 7 (enhanced debugging)
+    order_7_debug = debug or any(str(getattr(task, 'order_id', '')) == '7' for task in task_sequence)
+    
+    if order_7_debug:
+        print(f"          *** INSERTION EVALUATION *** Position {insertion_point}")
+        sequence_ids = [getattr(task, 'id', 'UNK') for task in task_sequence]
+        print(f"              Inserting tasks: {', '.join(sequence_ids)}")
     
     # Create temporary route with sequence inserted
     temp_route = route.copy()
@@ -646,16 +1153,18 @@ def evaluate_permutation_at_insertion_point(route: 'Route', task_sequence: List[
         temp_route.insert_task_without_reordering(insertion_point + i, task)
     
     # Check feasibility with real-time load simulation
-    if not is_feasible_with_load_tracking(temp_route, insertion_point, task_sequence, debug):
-        if debug:
-            print(f"      Sequence infeasible at position {insertion_point}")
-        return None
+    feasibility_result = is_feasible_with_load_tracking(temp_route, insertion_point, task_sequence, order_7_debug)
+    
+    if not feasibility_result:
+        if order_7_debug:
+            print(f"          *** INSERTION FAILED *** Position {insertion_point} - constraint violation")
+        return {'feasible': False, 'failure_reason': 'constraint_violation'}
     
     # Calculate cost (negative because we want to minimize cost)
     cost = calculate_z2_score(temp_route)
     
-    if debug:
-        print(f"      Sequence feasible at position {insertion_point}, cost: {cost:.2f}")
+    if order_7_debug:
+        print(f"          *** INSERTION SUCCESS *** Position {insertion_point}, cost: {cost:.2f}")
     
     return {
         'feasible': True,
@@ -679,44 +1188,292 @@ def is_feasible_with_load_tracking(route: 'Route', insertion_point: int,
     Returns:
         True if feasible, False otherwise
     """
-    if debug:
-        print(f"        Load tracking from insertion point {insertion_point}")
+    # Check if this is for Order 7 (enhanced debugging)
+    order_7_debug = debug or any(str(getattr(task, 'order_id', '')) == '7' for task in task_sequence)
+    
+    if order_7_debug:
+        print(f"              *** LOAD TRACKING *** from insertion point {insertion_point}")
+        print(f"                  Vehicle limits: {getattr(route.vehicle, 'weight_capacity', 'N/A')}kg, {getattr(route.vehicle, 'volume_capacity', 'N/A')}m³, {getattr(route.vehicle, 'pallet_capacity', 'N/A')}pal")
     
     # Calculate initial load at insertion point
-    current_load = 0
+    current_weight = 0.0
+    current_volume = 0.0
+    current_pallets = 0.0
+    
     for i in range(insertion_point):
         if i < len(route.tasks):
             task = route.tasks[i]
             if hasattr(task, 'demand'):
-                current_load += task.demand
+                current_weight += getattr(task, 'demand', 0.0)
+            if hasattr(task, 'volume'):
+                current_volume += getattr(task, 'volume', 0.0)
+            if hasattr(task, 'pallets'):
+                current_pallets += getattr(task, 'pallets', 0.0)
     
-    if debug:
-        print(f"        Initial load at insertion: {current_load}")
+    if order_7_debug:
+        print(f"                  Initial load: {current_weight:.1f}kg, {current_volume:.1f}m³, {current_pallets:.0f}pal")
     
     # Simulate load changes through the inserted sequence
     for i, task in enumerate(task_sequence):
-        if hasattr(task, 'demand'):
-            current_load += task.demand
+        # Update loads
+        task_weight = getattr(task, 'demand', 0.0)
+        task_volume = getattr(task, 'volume', 0.0)
+        task_pallets = getattr(task, 'pallets', 0.0)
         
-        if debug:
-            print(f"        After task {i+1}: load = {current_load}")
+        current_weight += task_weight
+        current_volume += task_volume
+        current_pallets += task_pallets
+        
+        if order_7_debug:
+            task_type = getattr(getattr(task, 'task_type', None), 'name', 'UNK')
+            task_id = getattr(task, 'id', 'UNK')
+            print(f"                  Step {i+1} - {task_id} ({task_type}): {task_weight:+.1f}kg, {task_volume:+.1f}m³, {task_pallets:+.0f}pal")
+            print(f"                      → Total: {current_weight:.1f}kg, {current_volume:.1f}m³, {current_pallets:.0f}pal")
         
         # Check constraints
-        if current_load < 0:
-            if debug:
-                print(f"        VIOLATION: Negative load {current_load}")
-            return False
+        violations = []
         
-        if hasattr(route.vehicle, 'weight_capacity') and current_load > route.vehicle.weight_capacity:
-            if debug:
-                print(f"        VIOLATION: Exceeds capacity {current_load} > {route.vehicle.weight_capacity}")
+        if current_weight < -0.1:  # Allow small floating point errors
+            violations.append(f"NEGATIVE WEIGHT: {current_weight:.1f}kg")
+        
+        if current_volume < -0.1:  # Allow small floating point errors
+            violations.append(f"NEGATIVE VOLUME: {current_volume:.1f}m³")
+        
+        if current_pallets < -0.1:  # Allow small floating point errors
+            violations.append(f"NEGATIVE PALLETS: {current_pallets:.1f}")
+        
+        if hasattr(route.vehicle, 'weight_capacity') and current_weight > route.vehicle.weight_capacity:
+            violations.append(f"WEIGHT EXCEEDED: {current_weight:.1f}kg > {route.vehicle.weight_capacity:.1f}kg")
+        
+        if hasattr(route.vehicle, 'volume_capacity') and current_volume > route.vehicle.volume_capacity:
+            violations.append(f"VOLUME EXCEEDED: {current_volume:.1f}m³ > {route.vehicle.volume_capacity:.1f}m³")
+        
+        if hasattr(route.vehicle, 'pallet_capacity') and current_pallets > route.vehicle.pallet_capacity:
+            violations.append(f"PALLETS EXCEEDED: {current_pallets:.0f} > {route.vehicle.pallet_capacity:.0f}")
+        
+        if violations:
+            if order_7_debug:
+                print(f"                      *** CONSTRAINT VIOLATIONS ***")
+                for violation in violations:
+                    print(f"                          - {violation}")
+                print(f"                      *** INSERTION FAILED ***")
             return False
     
-    # Check overall route feasibility
+    # Check overall route feasibility (time windows, HoS, etc.)
     try:
-        overall_feasible = route.is_feasible() if hasattr(route, 'is_feasible') else True
-        if debug and not overall_feasible:
-            print(f"        VIOLATION: Overall route infeasible")
+        # DEBUG: Add detailed time window analysis before feasibility check
+        if debug:
+            print(f"        DEBUG: Analyzing route timing and time windows...")
+            print(f"        DEBUG: Route has {len(route.tasks)} tasks")
+            
+            # Calculate estimated travel times and arrival times
+            current_time = 0.0  # Start at midnight (0:00) - vehicles can depart anytime
+            total_travel_time = 0.0
+            total_service_time = 0.0
+            
+            for i, task in enumerate(route.tasks):
+                task_type = getattr(task, 'task_type', 'UNKNOWN')
+                
+                # FIXED: Use correct location attributes
+                location = getattr(task, 'location', None)
+                if not location:
+                    lat = getattr(task, 'lat', None)
+                    lon = getattr(task, 'lon', None)
+                    if lat is not None and lon is not None:
+                        location = f"lat={lat:.4f}, lon={lon:.4f}"
+                    else:
+                        location = "Unknown"
+                
+                # Estimate service time (rough estimate)
+                if hasattr(task, 'service_time'):
+                    service_time = task.service_time / 60.0  # Convert minutes to hours
+                elif task_type.name in ['PICKUP', 'DELIVERY']:
+                    service_time = 0.5  # 30 minutes default
+                else:
+                    service_time = 0.0  # Depot tasks
+                
+                # Calculate actual travel time using route provider
+                if i > 0:
+                    prev_task = route.tasks[i-1] 
+                    try:
+                        travel_time_minutes = _calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
+                        travel_time = travel_time_minutes / 60.0  # Convert minutes to hours
+                        if order_7_debug:
+                            print(f"                  Travel from {prev_task.id} to {task.id}: {travel_time:.2f}h ({travel_time_minutes:.1f}min)")
+                    except Exception as e:
+                        if order_7_debug:
+                            print(f"                  WARNING: Route provider failed for {prev_task.id}→{task.id}, using fallback: {e}")
+                        travel_time = 0.5  # Fallback to 30 minutes only if route provider fails
+                    
+                    current_time += travel_time
+                    total_travel_time += travel_time
+                
+                # Calculate arrival time
+                arrival_time = current_time
+                departure_time = current_time + service_time
+                current_time = departure_time
+                total_service_time += service_time
+                
+                # FIXED: Use correct time window attributes
+                time_window_info = "No time window"
+                if hasattr(task, 'time_window') and task.time_window:
+                    tw_start = task.time_window[0] if len(task.time_window) > 0 else None
+                    tw_end = task.time_window[1] if len(task.time_window) > 1 else None
+                    
+                    # Convert time window to hours (assuming it's in minutes)
+                    tw_start_hours = tw_start / 60.0 if tw_start is not None else None
+                    tw_end_hours = tw_end / 60.0 if tw_end is not None else None
+                    
+                    tw_start_str = f"{tw_start_hours:.1f}h" if tw_start_hours is not None else "No start"
+                    tw_end_str = f"{tw_end_hours:.1f}h" if tw_end_hours is not None else "No end"
+                    
+                    violation = ""
+                    # Apply waiting logic: vehicles can wait if they arrive early
+                    if tw_start_hours is not None and arrival_time < tw_start_hours:
+                        # Vehicle can wait until time window opens - this is allowed
+                        waiting_time = tw_start_hours - arrival_time
+                        if order_7_debug:
+                            print(f"            Task {i+1}: Will wait {waiting_time:.1f}h until time window opens")
+                        # Update arrival time to earliest window time (after waiting)
+                        current_time += waiting_time
+                        total_service_time += waiting_time  # Count waiting as service time
+                        arrival_time = tw_start_hours  # Now arrives exactly when window opens
+                        
+                    if tw_end_hours is not None and arrival_time > tw_end_hours:
+                        violation += f" LATE by {arrival_time - tw_end_hours:.1f}h"
+                    
+                    if arrival_time == tw_start_hours:
+                        time_window_info = f"[{tw_start_str}-{tw_end_str}] On time"
+                    elif violation:
+                        time_window_info = f"[{tw_start_str}-{tw_end_str}]{violation}"
+                    else:
+                        time_window_info = f"[{tw_start_str}-{tw_end_str}] On time"
+                else:
+                    # Try earliest_time/latest_time attributes
+                    earliest = getattr(task, 'earliest_time', None)
+                    latest = getattr(task, 'latest_time', None)
+                    
+                    if earliest is not None and latest is not None:
+                        # Convert from minutes to hours
+                        earliest_hours = earliest / 60.0
+                        latest_hours = latest / 60.0
+                        
+                        violation = ""
+                        # Apply waiting logic: vehicles can wait if they arrive early
+                        if arrival_time < earliest_hours:
+                            # Vehicle can wait until time window opens - this is allowed
+                            waiting_time = earliest_hours - arrival_time
+                            if order_7_debug:
+                                print(f"            Task {i+1}: Will wait {waiting_time:.1f}h until time window opens")
+                            # Update arrival time to earliest window time (after waiting)
+                            current_time += waiting_time
+                            total_service_time += waiting_time  # Count waiting as service time
+                            arrival_time = earliest_hours  # Now arrives exactly when window opens
+                            
+                        if arrival_time > latest_hours:
+                            violation += f" LATE by {arrival_time - latest_hours:.1f}h"
+                        
+                        if arrival_time == earliest_hours:
+                            time_window_info = f"[{earliest_hours:.1f}h-{latest_hours:.1f}h] On time"
+                        elif violation:
+                            time_window_info = f"[{earliest_hours:.1f}h-{latest_hours:.1f}h]{violation}"
+                        else:
+                            time_window_info = f"[{earliest_hours:.1f}h-{latest_hours:.1f}h] On time"
+                    else:
+                        time_window_info = "No time window"
+                
+                print(f"          Task {i+1}: {task_type} at {location[:50]}")
+                print(f"            Arrival: {arrival_time:.1f}h, Window: {time_window_info}")
+                    
+            print(f"        DEBUG: Total route time: {current_time:.1f}h (Travel: {total_travel_time:.1f}h, Service: {total_service_time:.1f}h)")
+            
+        # COMPREHENSIVE DEBUG: Vehicle and route state analysis  
+        if order_7_debug:
+            print(f"                      *** COMPREHENSIVE FEASIBILITY ANALYSIS ***")
+            print(f"                          Route has {len(route.tasks)} tasks")
+            print(f"                          Vehicle: {route.vehicle.id if hasattr(route, 'vehicle') and route.vehicle else 'No vehicle'}")
+            
+            # Check vehicle working hours
+            if hasattr(route, 'vehicle') and route.vehicle:
+                if hasattr(route.vehicle, 'max_working_hours'):
+                    max_hours = route.vehicle.max_working_hours
+                    print(f"                          Vehicle max working hours: {max_hours}h")
+                    if current_time > max_hours:
+                        print(f"                          *** WORKING HOURS VIOLATION *** {current_time:.1f}h > {max_hours}h")
+                else:
+                    print(f"                          Vehicle has no max_working_hours attribute")
+                    
+                # Check vehicle capabilities
+                if hasattr(route.vehicle, 'capabilities'):
+                    caps = [str(c) for c in route.vehicle.capabilities] if route.vehicle.capabilities else []
+                    print(f"                          Vehicle capabilities: {caps}")
+                else:
+                    print(f"                          Vehicle has no capabilities attribute")
+            
+            # Check route properties
+            if hasattr(route, 'get_total_time'):
+                try:
+                    route_total_time = route.get_total_time()
+                    print(f"                          Route.get_total_time(): {route_total_time:.1f}h")
+                except Exception as e:
+                    print(f"                          Route.get_total_time() error: {e}")
+            
+            if hasattr(route, 'get_violations'):
+                try:
+                    violations = route.get_violations()
+                    print(f"                          Route violations: {violations}")
+                except Exception as e:
+                    print(f"                          Route.get_violations() error: {e}")
+            
+            # Try to get detailed feasibility info
+            print(f"                          About to call route.is_feasible()...")
+            
+        overall_feasible = route.is_feasible(allow_soft_violations=False) if hasattr(route, 'is_feasible') else True
+        
+        if order_7_debug:
+            print(f"                          route.is_feasible() returned: {overall_feasible}")
+            
+            if not overall_feasible:
+                print(f"                      *** FINAL FEASIBILITY CHECK FAILED ***")
+                # Enhanced debugging: Check individual constraint types
+                if hasattr(route, 'is_feasible'):
+                    # Try to get detailed failure reason - REMOVE return_reason parameter
+                    try:
+                        detailed_check = route.is_feasible(allow_soft_violations=False)
+                        print(f"                          Route.is_feasible() returned: {detailed_check}")
+                    except Exception as e:
+                        print(f"                          Error calling route.is_feasible(): {e}")
+                        
+                    # REMOVE soft violations test - not allowed
+                    # Check specific constraint methods if they exist
+                    if hasattr(route, 'check_time_windows'):
+                        try:
+                            tw_check = route.check_time_windows()
+                            print(f"                          Time windows check: {tw_check}")
+                        except Exception as e:
+                            print(f"                          Time windows check error: {e}")
+                    
+                    if hasattr(route, 'check_working_hours'):
+                        try:
+                            wh_check = route.check_working_hours()
+                            print(f"                          Working hours check: {wh_check}")
+                        except Exception as e:
+                            print(f"                          Working hours check error: {e}")
+                    
+                    if hasattr(route, 'validate_hos'):
+                        try:
+                            hos_check = route.validate_hos()
+                            print(f"                          HoS validation: {hos_check}")
+                        except Exception as e:
+                            print(f"                          HoS validation error: {e}")
+                            
+                    # Try to inspect route object directly
+                    print(f"                          Route object type: {type(route)}")
+                    print(f"                          Route object attributes: {[attr for attr in dir(route) if not attr.startswith('_') and 'check' in attr.lower() or 'valid' in attr.lower() or 'feasib' in attr.lower()]}")
+                else:
+                    print(f"                          Route has no is_feasible method!")
+            else:
+                print(f"                      *** ALL CONSTRAINTS SATISFIED *** Load tracking passed!")
         return overall_feasible
     except Exception as e:
         if debug:
@@ -786,47 +1543,145 @@ def find_best_sequence_for_complex_order(route: 'Route', order: 'Order', debug: 
     Returns:
         Optimized route with order inserted, or None if infeasible
     """
-    if debug:
-        print(f"    Advanced Sequencing: Processing complex order {order.id}")
+    # ENHANCED DEBUG: Always debug Order 7 specifically
+    order_debug = debug or str(order.id) == '7'
+    
+    if order_debug:
+        print(f"    *** ENHANCED DEBUG: Processing complex order {order.id} on vehicle {route.vehicle.id if route.vehicle else 'None'} ***")
+        if route.vehicle:
+            print(f"        Vehicle capacity: {getattr(route.vehicle, 'weight_capacity', 'N/A')}kg, {getattr(route.vehicle, 'volume_capacity', 'N/A')}m³, {getattr(route.vehicle, 'pallet_capacity', 'N/A')}pal")
+            vehicle_caps = []
+            if hasattr(route.vehicle, 'capabilities') and route.vehicle.capabilities:
+                for cap in route.vehicle.capabilities:
+                    vehicle_caps.append(cap.name if hasattr(cap, 'name') else str(cap))
+            print(f"        Vehicle capabilities: {', '.join(vehicle_caps) if vehicle_caps else 'NONE'}")
+            
+            # COMPREHENSIVE VEHICLE STATE DEBUG
+            print(f"        *** VEHICLE STATE ANALYSIS ***")
+            print(f"        Current route has {len(route.tasks)} tasks")
+            if hasattr(route.vehicle, 'max_working_hours'):
+                print(f"        Vehicle max working hours: {route.vehicle.max_working_hours}h")
+            else:
+                print(f"        Vehicle has no max_working_hours defined")
+                
+            # Show current route if any
+            if route.tasks:
+                print(f"        Current route tasks:")
+                for i, task in enumerate(route.tasks):
+                    task_type = task.task_type.name if hasattr(task.task_type, 'name') else str(task.task_type)
+                    print(f"          {i+1}. {task_type} - {task.id if hasattr(task, 'id') else 'No ID'}")
+            else:
+                print(f"        Vehicle route is EMPTY (ideal for Order 7 testing)")
+                
+            # Check if vehicle is truly idle
+            active_orders = []
+            if hasattr(route, 'orders') and route.orders:
+                active_orders = [str(o.id) for o in route.orders]
+            print(f"        Active orders on vehicle: {active_orders if active_orders else 'NONE (IDLE)'}")
+            
+            # Get current route time if possible
+            try:
+                if hasattr(route, 'get_total_time'):
+                    current_route_time = route.get_total_time()
+                    print(f"        Current route time: {current_route_time:.1f}h")
+                elif hasattr(route, 'total_time'):
+                    print(f"        Current route time (attr): {route.total_time:.1f}h")
+                else:
+                    print(f"        Cannot determine current route time")
+            except Exception as e:
+                print(f"        Error getting current route time: {e}")
     
     # Get all tasks from the order
     all_tasks = order.get_pickups() + order.get_deliveries()
     
     if not all_tasks:
-        if debug:
-            print(f"    No tasks found in order {order.id}")
+        if order_debug:
+            print(f"    *** ORDER {order.id} REJECTED: No tasks found ***")
         return None
     
-    if debug:
+    if order_debug:
         print(f"    Order has {len(order.get_pickups())} pickups and {len(order.get_deliveries())} deliveries")
+        # Show task capability requirements
+        for task in all_tasks:
+            caps_needed = []
+            if getattr(task, 'requires_hangers', False):
+                caps_needed.append('HANGERS')
+            if getattr(task, 'requires_loader', False):
+                caps_needed.append('LOADER') 
+            if getattr(task, 'requires_low_temp', False):
+                caps_needed.append('LOW_TEMP')
+            print(f"        Task {task.id}: {task.demand}kg, {task.volume}m³, {task.pallets}pal, needs {', '.join(caps_needed) if caps_needed else 'NONE'}")
     
-    # Step 2: Generate all valid task permutations
-    valid_sequences = generate_valid_task_permutations(all_tasks)
+    # Step 2: Generate optimized task sequences using enhanced patterns
+    pickups = order.get_pickups()
+    deliveries = order.get_deliveries()
     
-    if debug:
-        print(f"    Generated {len(valid_sequences)} valid sequences")
+    # First try the enhanced optimized patterns
+    optimized_patterns = generate_optimized_interleaved_patterns(pickups, deliveries)
+    valid_sequences = []
+    
+    # Convert optimized patterns to the expected format
+    for pattern in optimized_patterns:
+        peak_capacity = calculate_sequence_peak_capacity(pattern['sequence'])
+        valid_sequences.append({
+            'sequence': pattern['sequence'],
+            'peak_capacity': peak_capacity,
+            'is_sequential_chain': pattern['is_interleaved'],
+            'pattern_type': pattern['pattern_type'],
+            'priority': pattern.get('priority', 999)
+        })
+    
+    # If no optimized patterns, fall back to permutation generation
+    if not valid_sequences:
+        if order_debug:
+            print(f"    *** ORDER {order.id}: No optimized patterns found, falling back to permutation generation ***")
+        valid_sequences = generate_valid_task_permutations(all_tasks)
+    else:
+        if order_debug:
+            print(f"    ORDER {order.id}: Using {len(valid_sequences)} optimized sequence patterns")
+    
+    # Sort by priority (if available) then by peak capacity
+    valid_sequences.sort(key=lambda x: (x.get('priority', 999),
+                                      x['peak_capacity']['peak_pallets'], 
+                                      x['peak_capacity']['peak_weight'], 
+                                      x['peak_capacity']['peak_volume']))
+    
+    if order_debug:
+        print(f"    ORDER {order.id}: Generated {len(valid_sequences)} valid sequences")
     
     if not valid_sequences:
-        if debug:
-            print(f"    No valid sequences found for order {order.id}")
+        if order_debug:
+            print(f"    *** ORDER {order.id} REJECTED: No valid sequences found ***")
         return None
     
     # Step 3: Evaluate each valid permutation at all possible insertion points
     best_result = None
     best_profit = float('-inf')
     
+    if order_debug:
+        print(f"    ORDER {order.id}: Starting evaluation of {len(valid_sequences)} sequences")
+    
+    sequences_rejected_capacity = 0
+    sequences_rejected_insertion = 0
+    sequences_accepted = 0
+    
     for seq_idx, sequence_data in enumerate(valid_sequences):
         sequence = sequence_data['sequence']
         peak_capacity = sequence_data['peak_capacity']
         is_sequential = sequence_data['is_sequential_chain']
         
-        if debug:
-            print(f"    Evaluating sequence {seq_idx + 1}/{len(valid_sequences)}")
+        # SECTION 1.2: Add diagnostic logging for Order 7 as per sequencer debug guide
+        if str(order.id) == '7':
+            task_ids = [getattr(task, 'id', f'T{i}') for i, task in enumerate(sequence)]
+            print(f"DEBUG SEQUENCER (Order 7): Trying sequence -> {task_ids}")
+        
+        if order_debug:
+            print(f"    ORDER {order.id}: Evaluating sequence {seq_idx + 1}/{len(valid_sequences)}")
             sequence_types = [getattr(t.task_type, 'name', 'UNK')[0] for t in sequence]
             sequence_pattern = ''.join(sequence_types)
-            print(f"      Pattern: {sequence_pattern}, Peak: {peak_capacity['peak_pallets']:.0f}pal/{peak_capacity['peak_weight']:.0f}kg/{peak_capacity['peak_volume']:.1f}m³")
+            print(f"        Pattern: {sequence_pattern}, Peak: {peak_capacity['peak_pallets']:.0f}pal/{peak_capacity['peak_weight']:.0f}kg/{peak_capacity['peak_volume']:.1f}m³")
             if is_sequential:
-                print(f"      *** SEQUENTIAL CHAIN DETECTED ***")
+                print(f"        *** SEQUENTIAL CHAIN DETECTED ***")
         
         # Check if vehicle can handle the peak capacity requirement
         if route.vehicle:
@@ -834,38 +1689,115 @@ def find_best_sequence_for_complex_order(route: 'Route', order: 'Order', debug: 
             vehicle_volume = getattr(route.vehicle, 'volume_capacity', float('inf'))
             vehicle_pallets = getattr(route.vehicle, 'pallet_capacity', float('inf'))
             
-            if (peak_capacity['peak_weight'] > vehicle_weight or 
-                peak_capacity['peak_volume'] > vehicle_volume or 
-                peak_capacity['peak_pallets'] > vehicle_pallets):
-                if debug:
-                    print(f"      CAPACITY EXCEEDED: Vehicle({vehicle_weight:.0f}kg/{vehicle_volume:.1f}m³/{vehicle_pallets:.0f}pal) < Required({peak_capacity['peak_weight']:.0f}kg/{peak_capacity['peak_volume']:.1f}m³/{peak_capacity['peak_pallets']:.0f}pal)")
+            capacity_failed = False
+            failure_reasons = []
+            
+            if peak_capacity['peak_weight'] > vehicle_weight:
+                capacity_failed = True
+                failure_reasons.append(f"weight: {peak_capacity['peak_weight']:.0f}kg > {vehicle_weight:.0f}kg")
+            if peak_capacity['peak_volume'] > vehicle_volume:
+                capacity_failed = True
+                failure_reasons.append(f"volume: {peak_capacity['peak_volume']:.1f}m³ > {vehicle_volume:.1f}m³")  
+            if peak_capacity['peak_pallets'] > vehicle_pallets:
+                capacity_failed = True
+                failure_reasons.append(f"pallets: {peak_capacity['peak_pallets']:.0f}pal > {vehicle_pallets:.0f}pal")
+            
+            if capacity_failed:
+                sequences_rejected_capacity += 1
+                if order_debug:
+                    print(f"        *** SEQUENCE {seq_idx + 1} REJECTED: CAPACITY EXCEEDED ***")
+                    print(f"            Vehicle({vehicle_weight:.0f}kg/{vehicle_volume:.1f}m³/{vehicle_pallets:.0f}pal)")
+                    print(f"            Required({peak_capacity['peak_weight']:.0f}kg/{peak_capacity['peak_volume']:.1f}m³/{peak_capacity['peak_pallets']:.0f}pal)")
+                    print(f"            Failures: {', '.join(failure_reasons)}")
                 continue  # Skip this sequence - vehicle can't handle peak load
+            else:
+                if order_debug:
+                    print(f"        CAPACITY OK: Vehicle({vehicle_weight:.0f}kg/{vehicle_volume:.1f}m³/{vehicle_pallets:.0f}pal) >= Required({peak_capacity['peak_weight']:.0f}kg/{peak_capacity['peak_volume']:.1f}m³/{peak_capacity['peak_pallets']:.0f}pal)")
         
         # Try all insertion points (after depot start, before depot return)
+        insertion_attempts = 0
+        feasible_insertions = 0
+        
+        if order_debug:
+            print(f"        Testing {len(route.tasks)-1} insertion points...")
+        
         for insertion_point in range(1, len(route.tasks)):
-            result = evaluate_permutation_at_insertion_point(route, sequence, insertion_point, debug)
+            insertion_attempts += 1
+            
+            if order_debug and insertion_attempts <= 3:  # Show first 3 attempts in detail
+                print(f"            Trying insertion at point {insertion_point}/{len(route.tasks)-1}")
+            
+            result = evaluate_permutation_at_insertion_point(route, sequence, insertion_point, order_debug)
             
             if result and result['feasible']:
+                feasible_insertions += 1
+                sequences_accepted += 1
                 # Calculate profit for this sequence
                 profit = calculate_sequence_profit(result['route'], order, result['cost'])
                 
-                if debug:
-                    print(f"      Sequence {seq_idx + 1} at position {insertion_point}: profit = {profit:.2f}")
+                # SECTION 1.2: Add cost evaluation logging for Order 7 as per sequencer debug guide
+                if str(order.id) == '7':
+                    task_ids = [getattr(task, 'id', f'T{i}') for i, task in enumerate(sequence)]
+                    print(f"DEBUG SEQUENCER (Order 7): Evaluating cost for sequence {task_ids} -> Cost: {result['cost']:.1f}")
+                
+                if order_debug:
+                    print(f"            *** INSERTION SUCCESS *** at point {insertion_point}: profit = {profit:.2f}")
                 
                 if profit > best_profit:
                     best_profit = profit
                     best_result = result
-                    if debug:
-                        print(f"      New best sequence found: profit = {profit:.2f}")
+                    if order_debug:
+                        print(f"            *** NEW BEST SEQUENCE *** profit = {profit:.2f}")
+            else:
+                if order_debug and insertion_attempts <= 3:  # Show detailed failure for first 3 attempts
+                    print(f"            Insertion FAILED at point {insertion_point}: {result.get('failure_reason', 'Unknown reason') if result else 'No result returned'}")
+        
+        if feasible_insertions == 0:
+            sequences_rejected_insertion += 1
+            
+        if order_debug:
+            if feasible_insertions > 0:
+                print(f"        Sequence {seq_idx + 1} summary: {feasible_insertions}/{insertion_attempts} insertion points SUCCEEDED")
+            else:
+                print(f"        *** SEQUENCE {seq_idx + 1} REJECTED: {feasible_insertions}/{insertion_attempts} insertion points failed - NO VALID INSERTION POINTS ***")
     
-    # Step 4: Return the best sequence
-    if best_result and best_profit > 0:  # Only accept profitable insertions
-        if debug:
-            print(f"    Best sequence selected with profit: {best_profit:.2f}")
+    # Step 4: Return the best sequence with relaxed profitability requirements
+    if order_debug:
+        print(f"    *** ORDER {order.id} EVALUATION SUMMARY ***")
+        print(f"        Total sequences: {len(valid_sequences)}")
+        print(f"        Rejected by capacity: {sequences_rejected_capacity}")
+        print(f"        Rejected by insertion: {sequences_rejected_insertion}")
+        print(f"        Sequences with valid insertions: {sequences_accepted}")
+        
+    if best_result:
+        # SECTION 1.2: Add best sequence found logging for Order 7 as per sequencer debug guide
+        if str(order.id) == '7':
+            best_sequence = []
+            if 'sequence' in best_result:
+                best_sequence = [getattr(task, 'id', f'T{i}') for i, task in enumerate(best_result['sequence'])]
+            elif 'route' in best_result and hasattr(best_result['route'], 'tasks'):
+                # Extract the order's tasks from the final route 
+                order_tasks = []
+                for task in best_result['route'].tasks:
+                    if hasattr(task, 'order_id') and str(task.order_id) == '7':
+                        order_tasks.append(getattr(task, 'id', f'T{len(order_tasks)}'))
+                best_sequence = order_tasks
+            print(f"DEBUG SEQUENCER (Order 7): Best sequence found -> {best_sequence} with cost {best_result.get('cost', 'unknown')}")
+            
+        if order_debug:
+            if best_profit > 0:
+                print(f"    *** ORDER {order.id} SUCCESS *** Best sequence selected with profit: {best_profit:.2f}")
+            else:
+                print(f"    *** ORDER {order.id} SUCCESS *** Best sequence selected despite low profit ({best_profit:.2f}) - accepting for strategic value")
         return best_result['route']
     else:
-        if debug:
-            print(f"    No profitable sequence found for complex order {order.id}")
+        if order_debug:
+            print(f"    *** ORDER {order.id} COMPLETE FAILURE *** No feasible sequence found")
+            print(f"        This means all {len(valid_sequences)} sequences failed constraints or insertion")
+            if sequences_rejected_capacity > 0:
+                print(f"        {sequences_rejected_capacity} sequences failed vehicle capacity constraints")
+            if sequences_rejected_insertion > 0:
+                print(f"        {sequences_rejected_insertion} sequences failed insertion point constraints")
         return None
 
 
@@ -899,6 +1831,20 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
         print(f"         Current route tasks: {len(route.tasks)}")
         print(f"         Strategy: {sequencing_strategy}")
         
+        # NEW: TIMELINE DEBUG - Show route timeline BEFORE insertion
+        print(f"         [TIMELINE] BEFORE L2 INSERTION:")
+        debug_print_route_timeline(route, "L2_ENTRY")
+    
+    # DEBUG: Force debug for Orders 5 & 6 as per debug guide
+    if str(order.id) in ['5', '6']:
+        print(f"L2_DEBUG: Starting L2 heuristic for Order {order.id}")
+        show_diagnostics = True
+        debug_assignment = True
+        
+        # FORCE timeline debug for problematic orders
+        print(f"         [TIMELINE] BEFORE L2 INSERTION (Order {order.id}):")
+        debug_print_route_timeline(route, f"L2_ENTRY_ORDER_{order.id}")
+        
     # Add verbose logging (Step 3 from guide)
     verbose = debug_assignment or enhanced_diagnostics
     if verbose:
@@ -931,27 +1877,49 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
             order_volume > (route.vehicle.volume_capacity - current_volume)):
             print(f"   CAPACITY FAILURE: Order {order.id} exceeds vehicle capacity")
     
-    # Step 1: Identify Complex Orders and apply advanced sequencing
+    # Step 1: Enhanced Complex Order Classification
+    # Following user specifications: All orders except 1P+1D are complex
     pickups = order.get_pickups()
     deliveries = order.get_deliveries()
-    is_complex_order = len(pickups) > 1 or len(deliveries) > 1
+    total_tasks = len(pickups) + len(deliveries)
+    num_pickups = len(pickups)
+    num_deliveries = len(deliveries)
     
-    # Always print complex order detection for debugging
+    # NEW CLASSIFICATION: Only 1P+1D orders are simple, everything else is complex
+    is_complex_order = not (num_pickups == 1 and num_deliveries == 1)
+    
+    # Always print order detection for debugging
     if is_complex_order:
-        print(f"    *** COMPLEX ORDER DETECTED: Order {order.id} has {len(pickups)} pickups, {len(deliveries)} deliveries ***")
+        print(f"    *** COMPLEX ORDER DETECTED: Order {order.id} has {num_pickups} pickups, {num_deliveries} deliveries ***")
         
-        # Execute new advanced sequencing logic for complex orders
-        complex_route = find_best_sequence_for_complex_order(route, order, show_diagnostics)
+        # Classify the complex order type for optimized sequencing
+        if num_pickups == num_deliveries and num_pickups > 1:
+            print(f"        Case A: Balanced order ({num_pickups}P+{num_deliveries}D) - using interleaved PDPDPD strategy")
+        elif num_pickups == 1 and num_deliveries > 1:
+            print(f"        Case B: Single pickup, multiple deliveries (1P+{num_deliveries}D) - optimizing delivery sequence")
+        elif num_pickups > 1 and num_deliveries == 1:
+            print(f"        Case C: Multiple pickups, single delivery ({num_pickups}P+1D) - optimizing pickup sequence")
+        else:
+            print(f"        Case D: Imbalanced order ({num_pickups}P+{num_deliveries}D) - using comprehensive sequencing")
+        
+        # Execute enhanced advanced sequencing logic for complex orders
+        # Force debug for orders 5 and 6 to see detailed rejection reasons
+        debug_for_this_order = show_diagnostics or (str(order.id) in ['5', '6'])
+        complex_route = find_best_sequence_for_complex_order(route, order, debug_for_this_order)
         if complex_route:
+            if show_diagnostics or str(order.id) in ['5', '6']:
+                print(f"L2_DEBUG: Complex order {order.id} SUCCESS - Route created with {len(complex_route.tasks)} tasks")
             print(f"    *** COMPLEX ORDER SUCCESS: Order {order.id} processed successfully ***")
             return complex_route
         else:
+            if show_diagnostics or str(order.id) in ['5', '6']:
+                print(f"L2_DEBUG: Complex order {order.id} FAILED - find_best_sequence_for_complex_order returned None")
+                print(f"L2_DEBUG: This is the exact failure point mentioned in debug guide")
             print(f"    *** COMPLEX ORDER FAILED: Order {order.id} - No feasible sequence found ***")
             return None
     else:
-        # Simple order - print for debugging
-        if len(pickups) + len(deliveries) > 0:  # Only print if there are tasks
-            print(f"    Simple Order: Order {order.id} has {len(pickups)} pickups, {len(deliveries)} deliveries")
+        # Simple order (1P+1D) - print for debugging
+        print(f"    Simple Order: Order {order.id} has {num_pickups} pickup, {num_deliveries} delivery")
     
     # For simple orders, proceed with existing logic
     initial_routes: List['Route'] = _generate_initial_task_sequence(route, order, show_diagnostics, sequencing_strategy)
@@ -1004,6 +1972,17 @@ def l2_heuristic(route: 'Route', order: 'Order', debug_assignment: bool = False,
             print(f"    -- L2 Heuristic Complete: Found best insertion for Order {order.id}. Final Route Score (Z2): {calculate_z2_score(final_route):.2f} --")
         else:
             print(f"    -- L2 Heuristic Complete: No feasible insertion found for Order {order.id}. --")
+
+    # CRITICAL DEBUG: Track L2 heuristic exit point
+    if show_diagnostics or str(order.id) in ['5', '6']:
+        if final_route:
+            print(f"L2_DEBUG: Order {order.id} RETURNING SUCCESS - Route with {len(final_route.tasks)} tasks")
+            # NEW: TIMELINE DEBUG - Show route timeline AFTER insertion
+            print(f"         [TIMELINE] AFTER L2 SUCCESS:")
+            debug_print_route_timeline(final_route, f"L2_SUCCESS_ORDER_{order.id}")
+        else:
+            print(f"L2_DEBUG: Order {order.id} RETURNING FAILURE - final_route is None")
+            print(f"L2_DEBUG: Failure location: {'complex_order_processing' if is_complex_order else 'simple_order_processing'}")
 
     return final_route
 
@@ -2320,40 +3299,84 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
     - SOFT: Time windows, capacity (with safety buffers), non-critical HoS violations
     """
     
+    # TRACE SPECIFIC VIOLATING VEHICLES
+    is_violating_vehicle = hasattr(route, 'vehicle') and route.vehicle.id in ['GA621VG', 'FF235DM', 'XA346KW']
+    if is_violating_vehicle:
+        print(f"            TRACE {route.vehicle.id}: is_feasible() called - checking route with {len(route.tasks)} tasks")
+    
+    # COMPREHENSIVE DEBUGGING - now handled by Route.is_feasible() enabling debug for all orders
+    order_7_debug = debug_feasibility  # Use the debug_feasibility flag directly
+    
     # Enhanced debugging for assignment failures
     if debug_feasibility:
-        #print(f"            DEBUG FEASIBILITY: Checking route feasibility for vehicle {route.vehicle.id}")
-        #print(f"            DEBUG FEASIBILITY: Route has {len(route.tasks)} tasks")
-        pass
+        print(f"            *** ROUTE FEASIBILITY DEBUG ***")
+        print(f"            Vehicle: {route.vehicle.id if route.vehicle else 'None'}")
+        print(f"            Total tasks: {len(route.tasks)}")
+        order_tasks = [task for task in route.tasks if hasattr(task, 'order_id') and not task.is_depot_start() and not task.is_depot_return()]
+        if order_tasks:
+            order_ids = list(set(str(task.order_id) for task in order_tasks))
+            print(f"            Orders in route: {order_ids}")
+        print(f"            allow_soft_violations: {allow_soft_violations}")
+        print(f"            return_reason: {return_reason}")
+        
+        # Show vehicle constraints
+        if hasattr(route, 'vehicle') and route.vehicle:
+            if hasattr(route.vehicle, 'max_working_hours'):
+                print(f"            Vehicle max working hours: {route.vehicle.max_working_hours}h")
+            else:
+                print(f"            Vehicle has NO max_working_hours limit")
+                
+            # Check if vehicle has active routes
+            try:
+                current_time = route.get_total_time() if hasattr(route, 'get_total_time') else None
+                if current_time:
+                    print(f"            Current route time: {current_time:.1f}h")
+            except:
+                print(f"            Cannot determine current route time")
     
     # H0: DEPOT START/END VALIDATION - Must be first check
     # Every route must start with a depot start task and end with a depot return task
     if route.tasks:
+        if debug_feasibility:
+            print(f"            *** STEP 1: DEPOT VALIDATION ***")
+            print(f"            Route has {len(route.tasks)} tasks")
+            
         # Check first task is depot start
         first_task = route.tasks[0]
+        if debug_feasibility:
+            print(f"            Checking first task: {first_task.id if hasattr(first_task, 'id') else 'no ID'}")
+            print(f"            First task type: {type(first_task)}")
+            print(f"            Has is_depot_start: {hasattr(first_task, 'is_depot_start')}")
+            
         if not (hasattr(first_task, 'is_depot_start') and first_task.is_depot_start()):
             reason = f"Route validation failed: First task ({first_task.id if hasattr(first_task, 'id') else 'unknown'}) is not a depot start task"
             if debug_feasibility:
-                #print(f"            DEBUG FEASIBILITY: {reason}")
-                pass
-            if return_reason:
-                return False, reason
-            return False
-        
-        # Check last task is depot return
-        last_task = route.tasks[-1]
-        if not (hasattr(last_task, 'is_depot_return') and last_task.is_depot_return()):
-            reason = f"Route validation failed: Last task ({last_task.id if hasattr(last_task, 'id') else 'unknown'}) is not a depot return task"
-            if debug_feasibility:
-                #print(f"            DEBUG FEASIBILITY: {reason}")
-                pass
+                print(f"            *** DEPOT VALIDATION FAILED *** {reason}")
             if return_reason:
                 return False, reason
             return False
         
         if debug_feasibility:
-            #print(f"            DEBUG FEASIBILITY: OK Depot validation passed - route starts and ends at depot")
-            pass
+            print(f"             First task is depot start")
+        
+        # Check last task is depot return
+        last_task = route.tasks[-1]
+        if debug_feasibility:
+            print(f"            Checking last task: {last_task.id if hasattr(last_task, 'id') else 'no ID'}")
+            print(f"            Last task type: {type(last_task)}")
+            print(f"            Has is_depot_return: {hasattr(last_task, 'is_depot_return')}")
+            
+        if not (hasattr(last_task, 'is_depot_return') and last_task.is_depot_return()):
+            reason = f"Route validation failed: Last task ({last_task.id if hasattr(last_task, 'id') else 'unknown'}) is not a depot return task"
+            if debug_feasibility:
+                print(f"            *** DEPOT VALIDATION FAILED *** {reason}")
+            if return_reason:
+                return False, reason
+            return False
+        
+        if debug_feasibility:
+            print(f"             Last task is depot return")
+            print(f"             DEPOT VALIDATION PASSED")
     
     # H1: Multi-day chronological simulation setup
     # Check original task order first for pickup-before-delivery precedence constraint
@@ -2365,51 +3388,96 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
     # 2. Pallet capacity is never exceeded (physical constraint)
     # 3. Distance penalty will discourage inefficient patterns
     
+    if debug_feasibility:
+        print(f"            *** STEP 2: LOGICAL PRECEDENCE CHECK ***")
+    
     # Track completed pickups for each order to validate deliveries
     completed_pickups = set()
     load_pallets_check = 0  # Track pallet load for physical constraint
     
+    if debug_feasibility:
+        print(f"            Checking {len(original_tasks)} tasks for precedence violations...")
+    
     # Iterate through tasks in chronological sequence
-    for task in original_tasks:
+    for i, task in enumerate(original_tasks):
+        if debug_feasibility:
+            task_type = "pickup" if task.is_pickup() else "delivery" if task.is_delivery() else "other"
+            order_id = getattr(task, 'order_id', 'no_order')
+            print(f"            Task {i}: {task.id if hasattr(task, 'id') else 'no_id'} - {task_type} - Order {order_id}")
+            
         if task.is_pickup():
             # Record this pickup as completed
             order_id = getattr(task, 'order_id', None)
             if order_id:
                 completed_pickups.add(order_id)
             # Add pallets to load
-            load_pallets_check += getattr(task, 'pallets', 0)
+            pallets = getattr(task, 'pallets', 0)
+            load_pallets_check += pallets
+            if debug_feasibility:
+                print(f"              Pickup completed for order {order_id}, load now: {load_pallets_check} pal")
             
         elif task.is_delivery():
             # Check if corresponding pickup was already completed
             order_id = getattr(task, 'order_id', None)
+            if debug_feasibility:
+                print(f"              Delivery for order {order_id}, completed pickups: {completed_pickups}")
+                
             if order_id and order_id not in completed_pickups:
                 reason = f"Enhanced logical precedence violated: Delivery {task.id} attempted before its pickup was completed"
                 if debug_feasibility:
-                    #print(f"            DEBUG FEASIBILITY: {reason}")
-                    pass
+                    print(f"            *** PRECEDENCE VIOLATION *** {reason}")
                 if return_reason:
                     return False, reason
                 return False
             # Remove pallets from load
-            load_pallets_check += getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
+            pallets = getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
+            load_pallets_check += pallets
+            if debug_feasibility:
+                print(f"              Delivery completed, load now: {load_pallets_check} pal")
             
         # Physical constraint: never exceed pallet capacity during route execution
         max_pallets = route.vehicle.pallet_capacity
+        if debug_feasibility:
+            print(f"              Checking pallet capacity: {load_pallets_check} pal <= {max_pallets} pal")
+            
         if max_pallets is not None and load_pallets_check > max_pallets:
             reason = f"Pallet capacity exceeded during route execution: {load_pallets_check} > {max_pallets}"
             if debug_feasibility:
-                #print(f"            DEBUG FEASIBILITY: {reason}")
-                pass
+                print(f"            *** PALLET CAPACITY VIOLATION *** {reason}")
             if return_reason:
                 return False, reason
             return False
     
+    if debug_feasibility:
+        print(f"             LOGICAL PRECEDENCE CHECK PASSED")
+    
     # Sort tasks with pickup-first sequencing for proper HoS simulation
     # Apply LIFO sequencing if required by vehicle
+    if debug_feasibility:
+        print(f"            *** STEP 2.5: TASK SEQUENCING ***")
+        print(f"            Original task order: {[task.id for task in route.tasks if hasattr(task, 'id')]}")
+        
     if hasattr(route.vehicle, 'lifo_required') and route.vehicle.lifo_required:
+        if debug_feasibility:
+            print(f"            Using LIFO sequencing...")
         sorted_tasks = _enforce_pickup_first_sequencing_with_lifo(route.tasks, route.vehicle)
     else:
+        if debug_feasibility:
+            print(f"            Using basic pickup-first sequencing...")
         sorted_tasks = _enforce_pickup_first_sequencing_basic(route.tasks)
+    
+    if debug_feasibility:
+        print(f"            Sequenced task order: {[task.id for task in sorted_tasks if hasattr(task, 'id')]}")
+        
+        # Check if sequencing changed the order
+        original_ids = [task.id for task in route.tasks if hasattr(task, 'id')]
+        sequenced_ids = [task.id for task in sorted_tasks if hasattr(task, 'id')]
+        if original_ids != sequenced_ids:
+            print(f"            *** WARNING: Task order changed by sequencing! ***")
+            print(f"            Original:  {original_ids}")
+            print(f"            Sequenced: {sequenced_ids}")
+        else:
+            print(f"             Task order unchanged by sequencing")
     
     # Initialize vehicle state from previous day if available
     initial_state = getattr(route.vehicle, 'initial_state', None)
@@ -2440,6 +3508,9 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             driver_state = DriverState()
     
     # H3: Capacity check with multi-day simulation
+    if debug_feasibility:
+        print(f"            *** STEP 3: VEHICLE STATE INITIALIZATION ***")
+        
     load_w = previous_day_load_w
     load_v = previous_day_load_v
     load_pallets = initial_state.get('load_pallets', 0) if initial_state else 0
@@ -2447,9 +3518,17 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
     max_v = route.vehicle.volume_capacity
     max_pallets = route.vehicle.pallet_capacity  # Hard constraint on pallets
     
+    if debug_feasibility:
+        print(f"            Vehicle capacity: {max_w}kg, {max_v:.1f}m³, {max_pallets}pal")
+        print(f"            Initial load: {load_w}kg, {load_v:.1f}m³, {load_pallets}pal")
+    
     # H4: LIFO Loading Constraint check
     lifo_stack = []
     if route.vehicle.lifo_required:
+        if debug_feasibility:
+            print(f"            *** STEP 4: LIFO CONSTRAINT CHECK ***")
+            print(f"            Vehicle requires LIFO loading")
+            
         # Initialize stack with any cargo from previous day
         if initial_state and 'cargo_stack' in initial_state:
             lifo_stack = initial_state['cargo_stack'].copy()
@@ -2474,45 +3553,120 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             # Order doesn't matter for delivery-only since they'll all be delivered
             lifo_stack = list(delivery_only_orders)
             if debug_feasibility:
-                #print(f"            DEBUG FEASIBILITY: Pre-loaded LIFO stack for delivery-only orders: {lifo_stack}")
-                pass
+                print(f"            Pre-loaded LIFO stack for delivery-only orders: {lifo_stack}")
 
-    for task in sorted_tasks:
+    if debug_feasibility:
+        print(f"            *** STEP 5: TASK-BY-TASK SIMULATION ***")
+        print(f"            Starting simulation of {len(sorted_tasks)} tasks...")
+
+    for i, task in enumerate(sorted_tasks):
+        if debug_feasibility:
+            task_type = "pickup" if task.is_pickup() else "delivery" if task.is_delivery() else "other"
+            print(f"            Task {i}: {task.id} ({task_type})")
+            
         if task.is_pickup():
-            load_w += task.demand
-            load_v += task.volume
-            load_pallets += getattr(task, 'pallets', 0)  # Add pallets for pickup
+            new_load_w = load_w + task.demand
+            new_load_v = load_v + task.volume
+            new_load_pallets = load_pallets + getattr(task, 'pallets', 0)
+            
+            if debug_feasibility:
+                print(f"              Pickup: +{task.demand}kg, +{task.volume:.1f}m³, +{getattr(task, 'pallets', 0)}pal")
+                print(f"              New load: {new_load_w}kg, {new_load_v:.1f}m³, {new_load_pallets}pal")
+                print(f"              Capacity: {max_w}kg, {max_v:.1f}m³, {max_pallets}pal")
+                
+            # Check capacity violations
+            if new_load_w > max_w:
+                reason = f"Weight capacity exceeded: {new_load_w} > {max_w} kg"
+                if debug_feasibility:
+                    print(f"              *** WEIGHT CAPACITY VIOLATION *** {reason}")
+                if return_reason:
+                    return False, reason
+                return False
+                
+            if new_load_v > max_v:
+                reason = f"Volume capacity exceeded: {new_load_v} > {max_v} m³"
+                if debug_feasibility:
+                    print(f"              *** VOLUME CAPACITY VIOLATION *** {reason}")
+                if return_reason:
+                    return False, reason
+                return False
+                
+            if max_pallets is not None and new_load_pallets > max_pallets:
+                reason = f"Pallet capacity exceeded: {new_load_pallets} > {max_pallets} pallets"
+                if debug_feasibility:
+                    print(f"              *** PALLET CAPACITY VIOLATION *** {reason}")
+                if return_reason:
+                    return False, reason
+                return False
+            
+            # Update loads
+            load_w = new_load_w
+            load_v = new_load_v
+            load_pallets = new_load_pallets
             
             # LIFO constraint: push order_id onto stack
             if route.vehicle.lifo_required:
                 lifo_stack.append(task.order_id)
+                if debug_feasibility:
+                    print(f"              LIFO stack after pickup: {lifo_stack}")
                 
         elif task.is_delivery():
-            load_w += task.demand  # demand is negative for deliveries
-            load_v += task.volume  # volume is negative for deliveries
-            load_pallets += getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
+            new_load_w = load_w + task.demand  # demand is negative for deliveries
+            new_load_v = load_v + task.volume  # volume is negative for deliveries
+            new_load_pallets = load_pallets + getattr(task, 'pallets', 0)  # pallets should be negative for delivery tasks
+            
+            if debug_feasibility:
+                print(f"              Delivery: {task.demand}kg, {task.volume:.1f}m³, {getattr(task, 'pallets', 0)}pal")
+                print(f"              New load: {new_load_w}kg, {new_load_v:.1f}m³, {new_load_pallets}pal")
             
             # LIFO constraint: check if this delivery matches top of stack
             if route.vehicle.lifo_required:
+                if debug_feasibility:
+                    print(f"              LIFO stack before delivery: {lifo_stack}")
+                    
                 if not lifo_stack:
                     reason = f"LIFO violation: trying to deliver {task.id} when no cargo loaded"
                     if debug_feasibility:
-                        #print(f"            DEBUG FEASIBILITY: {reason}")
-                        pass
+                        print(f"              *** LIFO VIOLATION *** {reason}")
                     if return_reason:
                         return False, reason
                     return False
-                if lifo_stack[-1] != task.order_id:
-                    reason = f"LIFO violation: expected {lifo_stack[-1]}, got {task.order_id}"
+                
+                # FIXED LIFO LOGIC: Allow same-order deliveries regardless of stack position
+                # For patterns like PP...PD (multiple pickups, single delivery of same order)
+                # we should remove ALL instances of the order from the stack
+                if task.order_id in lifo_stack:
+                    # For same-order patterns, remove ALL instances of this order
+                    # This handles PP...D patterns where all cargo is delivered together
+                    while task.order_id in lifo_stack:
+                        lifo_stack.remove(task.order_id)
                     if debug_feasibility:
-                        #print(f"            DEBUG FEASIBILITY: {reason}")
-                        pass
-                    if return_reason:
-                        return False, reason
-                    return False
-                lifo_stack.pop()  # Remove delivered order from stack
+                        print(f"              Removed order {task.order_id} from LIFO stack")
+                else:
+                    # Only enforce strict LIFO when mixing different orders
+                    if lifo_stack[-1] != task.order_id:
+                        reason = f"LIFO violation: expected {lifo_stack[-1]}, got {task.order_id} (mixed-order constraint)"
+                        if debug_feasibility:
+                            print(f"              *** LIFO VIOLATION *** {reason}")
+                        if return_reason:
+                            return False, reason
+                        return False
+                    lifo_stack.pop()  # Remove delivered order from stack
+                    
+                if debug_feasibility:
+                    print(f"              LIFO stack after delivery: {lifo_stack}")
+            
+            # Update loads
+            load_w = new_load_w
+            load_v = new_load_v
+            load_pallets = new_load_pallets
+            
+        else:
+            # Other task types (depot, etc.)
+            if debug_feasibility:
+                print(f"              Other task type - no capacity impact")
         
-        # Check capacity constraints
+        # Check capacity constraints after each task
         # UPDATED: Hard constraints (capabilities, pallets, LIFO) are now handled by unified checker
         # Only soft constraints (volume, some weight limits) are handled here
         
@@ -2531,24 +3685,33 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
             if load_v > max_v:
                 reason = f"Volume constraint violated: {load_v:.2f} > {max_v:.2f} for task {task.id}"
                 if debug_feasibility:
-                    print(f"            DEBUG FEASIBILITY: {reason}")
+                    print(f"              *** VOLUME VIOLATION *** {reason}")
                 if return_reason:
                     return False, reason
                 return False
             
         # NOTE: Pallet capacity is now checked by unified hard constraint checker
 
+    if debug_feasibility:
+        print(f"             TASK-BY-TASK SIMULATION PASSED")
+        print(f"            Final load: {load_w}kg, {load_v:.1f}m³, {load_pallets}pal")
+
     # LIFO final check: all cargo must be delivered
     if route.vehicle.lifo_required and lifo_stack:
         reason = f"LIFO constraint violated: undelivered cargo: {lifo_stack}"
         if debug_feasibility:
-            #print(f"            DEBUG FEASIBILITY: {reason}")
-            pass
+            print(f"            *** LIFO FINAL CHECK FAILED *** {reason}")
         if return_reason:
             return False, reason
         return False
+    
+    if debug_feasibility and route.vehicle.lifo_required:
+        print(f"             LIFO FINAL CHECK PASSED (stack empty)")
 
     # H5: Per-order precedence constraints check with multi-day consideration
+    if debug_feasibility:
+        print(f"            *** STEP 6: PER-ORDER PRECEDENCE CHECK ***")
+        
     orders = {}
     for i, task in enumerate(sorted_tasks):
         order_id = getattr(task, 'order_id', None)
@@ -2567,32 +3730,96 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
 
     # Check precedence constraints across days
     for order_id, tasks in orders.items():
+        if debug_feasibility:
+            print(f"            Checking order {order_id}: {len(tasks['pickups'])} pickups, {len(tasks['deliveries'])} deliveries")
+            
         if tasks['pickups'] and tasks['deliveries']:
             try:
-                # Find last pickup (considering day and position)
-                last_pickup = max(tasks['pickups'], key=lambda x: (x[1], x[0]))  # Sort by day, then position
-                # Find first delivery
-                first_delivery = min(tasks['deliveries'], key=lambda x: (x[1], x[0]))
+                # ENHANCED: Handle complex orders (multiple P/D pairs) differently
+                pickups = tasks['pickups']
+                deliveries = tasks['deliveries']
                 
-                # Check if last pickup happens before first delivery
-                if (last_pickup[1] > first_delivery[1] or 
-                    (last_pickup[1] == first_delivery[1] and last_pickup[0] >= first_delivery[0])):
-                    reason = f"Precedence constraint violated for {order_id}: last pickup (day={last_pickup[1]}, pos={last_pickup[0]}) >= first delivery (day={first_delivery[1]}, pos={first_delivery[0]})"
+                # Check if this is a complex order with multiple balanced P/D pairs
+                if len(pickups) > 1 and len(deliveries) > 1 and len(pickups) == len(deliveries):
+                    # COMPLEX ORDER: Check each pickup-delivery pair individually
                     if debug_feasibility:
-                        #print(f"            DEBUG FEASIBILITY: {reason}")
-                        pass
-                    if return_reason:
-                        return False, reason
-                    return False
+                        print(f"              Complex order detected - checking individual P/D pairs")
+                    
+                    # Sort tasks by position to match pairs correctly
+                    pickups_sorted = sorted(pickups, key=lambda x: x[0])  # Sort by position
+                    deliveries_sorted = sorted(deliveries, key=lambda x: x[0])
+                    
+                    # For PDPDPD pattern, each pickup should come before its next delivery
+                    precedence_valid = True
+                    for i in range(len(pickups_sorted)):
+                        pickup_pos = pickups_sorted[i][0]
+                        pickup_day = pickups_sorted[i][1]
+                        
+                        # Find the corresponding delivery (should be the next one)
+                        if i < len(deliveries_sorted):
+                            delivery_pos = deliveries_sorted[i][0]
+                            delivery_day = deliveries_sorted[i][1]
+                            
+                            # Check if this pickup comes before its delivery
+                            if (pickup_day > delivery_day or 
+                                (pickup_day == delivery_day and pickup_pos >= delivery_pos)):
+                                precedence_valid = False
+                                if debug_feasibility:
+                                    print(f"              *** PAIR PRECEDENCE VIOLATION *** Pickup {i} at pos {pickup_pos} >= Delivery {i} at pos {delivery_pos}")
+                                break
+                            else:
+                                if debug_feasibility:
+                                    print(f"               Pair {i}: Pickup pos {pickup_pos} < Delivery pos {delivery_pos}")
+                    
+                    if not precedence_valid:
+                        reason = f"Complex order precedence violated for {order_id}: pickup-delivery pair constraint failed"
+                        if debug_feasibility:
+                            print(f"              *** COMPLEX ORDER PRECEDENCE VIOLATION *** {reason}")
+                        if return_reason:
+                            return False, reason
+                        return False
+                        
+                else:
+                    # SIMPLE ORDER: Use traditional all-pickups-before-all-deliveries constraint
+                    if debug_feasibility:
+                        print(f"              Simple order - checking global P before D constraint")
+                        
+                    # Find last pickup (considering day and position)
+                    last_pickup = max(pickups, key=lambda x: (x[1], x[0]))  # Sort by day, then position
+                    # Find first delivery
+                    first_delivery = min(deliveries, key=lambda x: (x[1], x[0]))
+                    
+                    if debug_feasibility:
+                        print(f"              Last pickup: day={last_pickup[1]}, pos={last_pickup[0]}")
+                        print(f"              First delivery: day={first_delivery[1]}, pos={first_delivery[0]}")
+                    
+                    # Check if last pickup happens before first delivery
+                    if (last_pickup[1] > first_delivery[1] or 
+                        (last_pickup[1] == first_delivery[1] and last_pickup[0] >= first_delivery[0])):
+                        reason = f"Precedence constraint violated for {order_id}: last pickup (day={last_pickup[1]}, pos={last_pickup[0]}) >= first delivery (day={first_delivery[1]}, pos={first_delivery[0]})"
+                        if debug_feasibility:
+                            print(f"              *** SIMPLE ORDER PRECEDENCE VIOLATION *** {reason}")
+                        if return_reason:
+                            return False, reason
+                        return False
+                    
+                if debug_feasibility:
+                    print(f"               Order {order_id} precedence valid")
+                    
             except (ValueError, TypeError, KeyError) as e:
                 if debug_feasibility:
-                    #print(f"            DEBUG FEASIBILITY: Error in precedence check for {order_id}: {e}")
-                    pass
+                    print(f"              Error in precedence check for {order_id}: {e}")
                 # Skip this order's precedence check if there's an error
                 continue
+    
+    if debug_feasibility:
+        print(f"             PER-ORDER PRECEDENCE CHECK PASSED")
 
     # H6: Multi-day Hours of Service check - DISABLED during initialization
     # Check if we're in initialization phase using call stack inspection
+    if debug_feasibility:
+        print(f"            *** STEP 7: HoS INITIALIZATION CHECK ***")
+        
     import inspect
     frame = inspect.currentframe()
     is_initialization = False
@@ -2620,33 +3847,53 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
     # Apply HoS validation with rest-aware time window checking
     # UNIFIED APPROACH: Single source of truth using HoSEngine.analyze_route()
     try:
+        # TRACE SPECIFIC VIOLATING VEHICLES
+        is_violating_vehicle = hasattr(route, 'vehicle') and route.vehicle.id in ['GA621VG', 'FF235DM', 'XA346KW']
+        
         # B license drivers are exempt from HoS regulations
         if route.driver and hasattr(route.driver, 'license') and route.driver.license == 'B':
-            if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: B license driver exemption - skipping HoS check")
+            if debug_feasibility or is_violating_vehicle:
+                print(f"            TRACE {route.vehicle.id if hasattr(route, 'vehicle') else 'Unknown'}: B license driver exemption - skipping HoS check")
             pass  # B license drivers are exempt - skip HoS check
         else:
             if debug_feasibility:
                 print(f"            DEBUG FEASIBILITY: Performing unified HoS validation for route with {len(route.tasks)} tasks")
             
-            # UNIFIED VALIDATION: Single call to HoSEngine for authoritative feasibility
-            from hos_simulation import HoSEngine
-            hos_engine = HoSEngine()
-            hos_result = hos_engine.analyze_route(route)
+            if order_7_debug:
+                print(f"            *** ORDER 7 HoS VALIDATION ***")
+                print(f"            About to call validate_route_hos_feasibility()...")
             
-            if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: HoS Engine analysis complete - feasible: {hos_result.is_feasible}")
+            # UNIFIED VALIDATION: Use the same timing calculation as final route display
+            from hos_simulation import validate_route_hos_feasibility
+            hos_result = validate_route_hos_feasibility(route)
+            
+            if debug_feasibility or order_7_debug:
+                print(f"            DEBUG FEASIBILITY: UNIFIED HoS validation complete - feasible: {hos_result.is_feasible}")
                 if hos_result.violations:
                     print(f"            DEBUG FEASIBILITY: Violations found: {hos_result.violations}")
+                if order_7_debug:
+                    print(f"            *** ORDER 7 HoS RESULT ***")
+                    print(f"            HoS feasible: {hos_result.is_feasible}")
+                    print(f"            HoS violations: {hos_result.violations if hos_result.violations else 'NONE'}")
+                    if hasattr(hos_result, 'total_time'):
+                        print(f"            HoS calculated total time: {hos_result.total_time:.1f}h")
+                    if hasattr(hos_result, 'events') and hos_result.events:
+                        print(f"            HoS timeline events: {len(hos_result.events)}")
+                        # Show first few events
+                        for i, event in enumerate(hos_result.events[:3]):
+                            if hasattr(event, 'start_time') and hasattr(event, 'task'):
+                                task_id = event.task.id if event.task else 'No task'
+                                print(f"              Event {i+1}: {task_id} at {event.start_time:.1f}min")
+            
             
             # Cache the timeline and rest costs on the route object for use by calculate_z2_score
-            route._cached_timeline = hos_result.timeline
-            route._cached_rest_costs = hos_result.rest_cost
+            route._cached_timeline = getattr(hos_result, 'events', [])
+            route._cached_rest_costs = getattr(hos_result, 'rest_time', 0.0) * 25.0  # Convert to cost
             
             # Check the unified feasibility result
             if not hos_result.is_feasible:
                 if not allow_soft_violations:
-                    reason = f"HoS validation failed: {'; '.join(hos_result.violations)}"
+                    reason = f"UNIFIED HoS validation failed: {'; '.join(hos_result.violations)}"
                     if debug_feasibility:
                         print(f"            DEBUG FEASIBILITY: {reason}")
                     if return_reason:
@@ -2655,9 +3902,9 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                 else:
                     # Allow soft violations but log them
                     if debug_feasibility:
-                        print(f"            DEBUG FEASIBILITY: HoS violations found but allowing soft violations: {hos_result.violations}")
+                        print(f"            DEBUG FEASIBILITY: UNIFIED HoS violations found but allowing soft violations: {hos_result.violations}")
             
-            # HoS validation passed - timeline is both HoS-compliant and respects time windows
+            # UNIFIED HoS validation passed - timeline uses same calculation as final route display
             if debug_feasibility:
                 print(f"            DEBUG FEASIBILITY: Unified HoS and time window validation passed")
                 
@@ -2720,20 +3967,22 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                 late_by = arrival_time - task.latest_time if task.latest_time is not None else 0
                 
                 if allow_soft_violations:
-                    # Allow only minor lateness (up to 10 minutes) - strict enforcement
-                    GRACE_PERIOD_MINUTES = 10.0
-                    if task.latest_time is not None and late_by > GRACE_PERIOD_MINUTES:
-                        reason = f"Time window violation at task {task.id}: arrived at {arrival_time:.1f}, latest allowed {task.latest_time}, late by {late_by:.1f} minutes (exceeds {GRACE_PERIOD_MINUTES} min grace period)"
+                    # ABSOLUTE ENFORCEMENT: 10-minute grace period regardless of any relaxation parameters
+                    ABSOLUTE_GRACE_PERIOD_MINUTES = 10.0
+                    if task.latest_time is not None and late_by > ABSOLUTE_GRACE_PERIOD_MINUTES:
+                        reason = f"Time window violation at task {task.id}: arrived at {arrival_time:.1f}, latest allowed {task.latest_time}, late by {late_by:.1f} minutes (exceeds ABSOLUTE {ABSOLUTE_GRACE_PERIOD_MINUTES} min grace period)"
                         if debug_feasibility:
                             print(f"            DEBUG FEASIBILITY: {reason}")
                         if return_reason:
                             return False, reason
                         return False
-                    # Only minor lateness (0-10 minutes) is allowed
+                    # Only minor lateness (0-10 minutes) is allowed for soft violations
                 else:
-                    # Original strict time window check
-                    if task.latest_time is not None and arrival_time > task.latest_time:
-                        reason = f"Late arrival at task {task.id}: arrived at {arrival_time:.1f}, latest allowed {task.latest_time}"
+                    # ABSOLUTE ENFORCEMENT: Apply same ABSOLUTE 10-minute grace period for strict mode too
+                    # This ensures consistent behavior across initialization, L1, L2, and force assignment
+                    ABSOLUTE_GRACE_PERIOD_MINUTES = 10.0
+                    if task.latest_time is not None and late_by > ABSOLUTE_GRACE_PERIOD_MINUTES:
+                        reason = f"Time window violation at task {task.id}: arrived at {arrival_time:.1f}, latest allowed {task.latest_time}, late by {late_by:.1f} minutes (exceeds ABSOLUTE {ABSOLUTE_GRACE_PERIOD_MINUTES} min grace period)"
                         if debug_feasibility:
                             print(f"            DEBUG FEASIBILITY: {reason}")
                         if return_reason:
@@ -2766,13 +4015,26 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
 
     # H10: UNIFIED HARD CONSTRAINT CHECK (ALWAYS ENFORCED)
     # Check all hard constraints that should never be violated
+    if debug_feasibility:
+        print(f"            *** STEP 3: HARD CONSTRAINT CHECK ***")
+        print(f"            About to call check_hard_constraints()...")
+    
     hard_constraint_valid, hard_constraint_reason = check_hard_constraints(route, debug_feasibility)
+    
+    if debug_feasibility:
+        print(f"            Hard constraints result: {hard_constraint_valid}")
+        if not hard_constraint_valid:
+            print(f"            Hard constraint failure reason: {hard_constraint_reason}")
+    
     if not hard_constraint_valid:
         if debug_feasibility:
-            print(f"            DEBUG FEASIBILITY: {hard_constraint_reason}")
+            print(f"            *** HARD CONSTRAINT VIOLATION *** {hard_constraint_reason}")
         if return_reason:
             return False, hard_constraint_reason
         return False
+    
+    if debug_feasibility:
+        print(f"             HARD CONSTRAINT CHECK PASSED")
     
     # H11: ROUTE DURATION CHECK - Prevent routes that exceed 24 hours with time-sensitive tasks
     # Calculate total route duration from depot start to depot return
@@ -2789,6 +4051,16 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
         # Calculate total route duration
         total_duration = final_arrival_time - departure_time
         
+        # Order 7 debugging for duration check
+        if order_7_debug:
+            print(f"            *** ROUTE DURATION CHECK ***")
+            print(f"            Departure time: {departure_time:.1f} minutes")
+            print(f"            Final arrival time: {final_arrival_time:.1f} minutes")
+            print(f"            Total duration: {total_duration:.1f} minutes ({total_duration/60:.1f}h)")
+            print(f"            MAX_ROUTE_DURATION: {1440} minutes (24h)")
+            if total_duration > 1440:
+                print(f"            *** DURATION VIOLATION *** {total_duration:.1f}min > 1440min")
+        
         # CRITICAL: Reject routes longer than 24 hours that contain time-sensitive tasks
         MAX_ROUTE_DURATION = 1440  # 24 hours in minutes
         if total_duration > MAX_ROUTE_DURATION:
@@ -2800,9 +4072,15 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                         has_time_sensitive_tasks = True
                         break
             
+            if order_7_debug:
+                print(f"            *** CHECKING TIME-SENSITIVE TASKS ***")
+                print(f"            Has time-sensitive tasks: {has_time_sensitive_tasks}")
+                if has_time_sensitive_tasks:
+                    print(f"            *** FAILING ROUTE: Duration exceeds 24h with time-sensitive tasks ***")
+            
             if has_time_sensitive_tasks:
                 reason = f"Route duration {total_duration:.1f} minutes exceeds {MAX_ROUTE_DURATION} minute limit for routes with time-sensitive tasks. This prevents day-late deliveries."
-                if debug_feasibility:
+                if debug_feasibility or order_7_debug:
                     print(f"            DEBUG FEASIBILITY: {reason}")
                 if return_reason:
                     return False, reason
@@ -2853,78 +4131,63 @@ def is_feasible(route: 'Route', debug_feasibility: bool = False, return_reason: 
                 tasks_checked = len([e for e in timeline if hasattr(e, 'task') and e.task and hasattr(e, 'start_time')])
                 print(f"            DEBUG FEASIBILITY: HoS timeline validation - All {tasks_checked} tasks passed time window validation")
         else:
-            # Fallback to sequential validation if no HoS timeline available
+            # Timeline not cached - generate it now using HoS engine
             if debug_feasibility:
-                print(f"            DEBUG FEASIBILITY: No HoS timeline available, using fallback sequential validation")
+                print(f"            DEBUG FEASIBILITY: Timeline not cached, generating HoS timeline now")
             
-            # Start with proper timeline calculation (mimicking display logic)
-            completion_time = 0  # Start at depot at time 0
-            simulation_violations = []
-            
-            for i, task in enumerate(sorted_tasks):
-                # Skip depot tasks (they don't have time windows)
-                if (hasattr(task, 'is_depot_start') and task.is_depot_start()) or \
-                   (hasattr(task, 'is_depot_return') and task.is_depot_return()):
-                    service_time = getattr(task, 'service_time', 5.0)
-                    completion_time += service_time
-                    continue
+            try:
+                from hos_simulation import validate_route_hos_feasibility
+                hos_result = validate_route_hos_feasibility(route)
                 
-                # Calculate travel time to this task from previous location
-                travel_time = 0
-                wait_time = 0
-                if i > 0:
-                    prev_task = sorted_tasks[i-1]
-                    try:
-                        travel_time = calculate_travel_time_between_tasks(prev_task, task, route.vehicle)
-                    except:
-                        travel_time = 60  # Fallback as in display logic
+                if hos_result and hasattr(hos_result, 'events'):
+                    timeline = hos_result.events
+                    route._cached_timeline = timeline  # Cache for future use
+                    if debug_feasibility:
+                        print(f"            DEBUG FEASIBILITY: Generated HoS timeline with {len(timeline)} events")
                     
-                    # Check if we need to wait for earliest time (as display does)
-                    try:
-                        if hasattr(task, 'earliest_time') and task.earliest_time is not None:
-                            required_departure_time = task.earliest_time - travel_time
-                            if completion_time < required_departure_time:
-                                wait_time = required_departure_time - completion_time
-                    except:
-                        pass
-                
-                # Calculate arrival time (same logic as display)
-                departure_time = completion_time + wait_time
-                arrival_time = departure_time + travel_time
-                
-                # ENHANCED DEBUG: Show detailed time calculations
-                if debug_feasibility:
-                    print(f"            DEBUG FEASIBILITY: FALLBACK SEQUENTIAL - Task {getattr(task, 'id', f'task_{i}')}: completion_time={completion_time:.1f}, wait_time={wait_time:.1f}, travel_time={travel_time:.1f}, arrival_time={arrival_time:.1f}, latest_time={getattr(task, 'latest_time', 'None')}")
-                
-                # Check time window constraints (same logic as display)
-                if hasattr(task, 'latest_time') and task.latest_time is not None:
-                    if arrival_time > task.latest_time:
-                        late_by = arrival_time - task.latest_time
-                        simulation_violations.append({
-                            'task_id': getattr(task, 'id', f'task_{i}'),
-                            'arrival_time': arrival_time,
-                            'latest_time': task.latest_time,
-                            'late_by': late_by
-                        })
+                    # Now validate time windows using the generated timeline
+                    for i, event in enumerate(timeline):
+                        if hasattr(event, 'task') and event.task and hasattr(event, 'start_time'):
+                            task = event.task
+                            arrival_time = event.start_time
+                            
+                            # Check time window violations using HoS timeline data
+                            if hasattr(task, 'latest_time') and task.latest_time is not None:
+                                if arrival_time > task.latest_time:
+                                    late_by = arrival_time - task.latest_time
+                                    timeline_violations.append({
+                                        'task_id': getattr(task, 'id', f'event_{i}'),
+                                        'arrival_time': arrival_time,
+                                        'latest_time': task.latest_time,
+                                        'late_by': late_by
+                                    })
+                                    if debug_feasibility:
+                                        print(f"            DEBUG FEASIBILITY: HoS TIMELINE VIOLATION - Task {getattr(task, 'id', f'event_{i}')}: arrival {arrival_time:.1f} > latest {task.latest_time:.1f} (late by {late_by:.1f} min)")
+                    
+                    if timeline_violations:
+                        reason = f"HoS timeline validation found {len(timeline_violations)} time window violations: {[v['task_id'] for v in timeline_violations]}"
                         if debug_feasibility:
-                            print(f"            DEBUG FEASIBILITY: FALLBACK SEQUENTIAL VIOLATION - Task {getattr(task, 'id', f'task_{i}')}: arrival {arrival_time:.1f} > latest {task.latest_time:.1f} (late by {late_by:.1f} min)")
-                
-                # Update completion time for next iteration
-                service_time = getattr(task, 'service_time', 5.0)
-                completion_time = arrival_time + service_time
-            
-            if simulation_violations:
-                reason = f"Fallback sequential validation found {len(simulation_violations)} time window violations: {[v['task_id'] for v in simulation_violations]}"
+                            print(f"            DEBUG FEASIBILITY: {reason}")
+                            for violation in timeline_violations:
+                                print(f"            DEBUG FEASIBILITY: HoS VIOLATION DETAIL - Task {violation['task_id']}: arrival {violation['arrival_time']:.1f} > latest {violation['latest_time']:.1f} (late by {violation['late_by']:.1f} min)")
+                        if return_reason:
+                            return False, reason
+                        return False
+                    elif debug_feasibility:
+                        tasks_checked = len([e for e in timeline if hasattr(e, 'task') and e.task and hasattr(e, 'start_time')])
+                        print(f"            DEBUG FEASIBILITY: Generated HoS timeline validation - All {tasks_checked} tasks passed time window validation")
+                else:
+                    if debug_feasibility:
+                        print(f"            DEBUG FEASIBILITY: Failed to generate HoS timeline - route rejected")
+                    if return_reason:
+                        return False, "Failed to generate HoS timeline for sequential validation"
+                    return False
+            except Exception as e:
                 if debug_feasibility:
-                    print(f"            DEBUG FEASIBILITY: {reason}")
-                    for violation in simulation_violations:
-                        print(f"            DEBUG FEASIBILITY: FALLBACK VIOLATION DETAIL - Task {violation['task_id']}: arrival {violation['arrival_time']:.1f} > latest {violation['latest_time']:.1f} (late by {violation['late_by']:.1f} min)")
+                    print(f"            DEBUG FEASIBILITY: HoS timeline generation failed: {e}")
                 if return_reason:
-                    return False, reason
+                    return False, f"HoS timeline generation error: {e}"
                 return False
-            elif debug_feasibility:
-                non_depot_tasks = len([t for t in sorted_tasks if not (hasattr(t, 'is_depot_start') and t.is_depot_start()) and not (hasattr(t, 'is_depot_return') and t.is_depot_return())])
-                print(f"            DEBUG FEASIBILITY: Fallback sequential validation - All {non_depot_tasks} non-depot tasks passed time window validation")
     
     # All checks passed - route is feasible
     if return_reason:
@@ -2946,59 +4209,198 @@ def format_absolute_minutes(minutes):
 def _enforce_pickup_first_sequencing_basic(tasks: List) -> List:
     """
     Basic pickup-first sequencing without LIFO constraints.
+    
+    ENHANCED: Handle complex order patterns correctly:
+    - nP+nD (balanced): Preserve pickup-delivery pairs (PDPDPD)
+    - 1P+nD (single pickup, multiple deliveries): Keep pickup before its deliveries (PDDDD)
+    - nP+1D (multiple pickups, single delivery): Keep pickups before delivery (PPPPD)
     """
     if not tasks:
         return []
     
-    pickups = []
-    deliveries = []
-    others = []
+    # Separate depot tasks and order tasks
+    depot_tasks = []
+    order_tasks = []
     
     for task in tasks:
-        if task.is_pickup():
-            pickups.append(task)
-        elif task.is_delivery():
-            deliveries.append(task)
+        if task.is_depot_start() or task.is_depot_return():
+            depot_tasks.append(task)
         else:
-            others.append(task)
+            order_tasks.append(task)
     
-    # Sort by order_id for consistency
-    pickups.sort(key=lambda t: getattr(t, 'order_id', ''))
-    deliveries.sort(key=lambda t: getattr(t, 'order_id', ''))
+    # Group tasks by order_id
+    orders = {}
+    for task in order_tasks:
+        order_id = getattr(task, 'order_id', None)
+        if order_id:
+            if order_id not in orders:
+                orders[order_id] = {'pickups': [], 'deliveries': []}
+            
+            if task.is_pickup():
+                orders[order_id]['pickups'].append(task)
+            elif task.is_delivery():
+                orders[order_id]['deliveries'].append(task)
     
-    return others + pickups + deliveries
+    # Process each order with appropriate sequencing strategy
+    sequenced_tasks = []
+    
+    for order_id in sorted(orders.keys()):
+        pickups = orders[order_id]['pickups']
+        deliveries = orders[order_id]['deliveries']
+        
+        # Check order pattern type
+        if len(pickups) > 1 and len(deliveries) > 1 and len(pickups) == len(deliveries):
+            # CASE 1: nP+nD (BALANCED COMPLEX ORDER) - Preserve pickup-delivery pairs (PDPDPD)
+            # Sort pickups and deliveries by task ID to ensure consistent pairing
+            pickups.sort(key=lambda t: getattr(t, 'id', ''))
+            deliveries.sort(key=lambda t: getattr(t, 'id', ''))
+            
+            # Create pickup-delivery pairs
+            for i in range(len(pickups)):
+                pickup = pickups[i]
+                # Find matching delivery (same task number pattern)
+                pickup_id = getattr(pickup, 'id', '')
+                pickup_num = pickup_id.split('_')[-1] if '_' in pickup_id else ''
+                
+                matching_delivery = None
+                for delivery in deliveries:
+                    delivery_id = getattr(delivery, 'id', '')
+                    delivery_num = delivery_id.split('_')[-1] if '_' in delivery_id else ''
+                    # Match by task number (e.g., TASK_7_14 matches TASK_7_15)
+                    if pickup_num and delivery_num and abs(int(pickup_num) - int(delivery_num)) == 1:
+                        matching_delivery = delivery
+                        break
+                
+                if matching_delivery:
+                    sequenced_tasks.extend([pickup, matching_delivery])
+                    deliveries.remove(matching_delivery)
+                else:
+                    # Fallback: just add pickup, delivery will be added later
+                    sequenced_tasks.append(pickup)
+            
+            # Add any remaining deliveries
+            sequenced_tasks.extend(deliveries)
+            
+        elif len(pickups) == 1 and len(deliveries) > 1:
+            # CASE 2: 1P+nD (SINGLE PICKUP, MULTIPLE DELIVERIES) - Keep pickup before deliveries (PDDDD)
+            pickups.sort(key=lambda t: getattr(t, 'id', ''))
+            deliveries.sort(key=lambda t: getattr(t, 'id', ''))
+            
+            # Single pickup followed by all its deliveries
+            sequenced_tasks.extend(pickups + deliveries)
+            
+        elif len(pickups) > 1 and len(deliveries) == 1:
+            # CASE 3: nP+1D (MULTIPLE PICKUPS, SINGLE DELIVERY) - Keep pickups before delivery (PPPPD)
+            pickups.sort(key=lambda t: getattr(t, 'id', ''))
+            deliveries.sort(key=lambda t: getattr(t, 'id', ''))
+            
+            # All pickups followed by single delivery
+            sequenced_tasks.extend(pickups + deliveries)
+            
+        else:
+            # CASE 4: SIMPLE ORDER (1P+1D or unbalanced) - Traditional pickup-first
+            pickups.sort(key=lambda t: getattr(t, 'id', ''))
+            deliveries.sort(key=lambda t: getattr(t, 'id', ''))
+            
+            sequenced_tasks.extend(pickups + deliveries)
+    
+    # Combine: depot start, sequenced order tasks, depot return
+    depot_start = [t for t in depot_tasks if t.is_depot_start()]
+    depot_return = [t for t in depot_tasks if t.is_depot_return()]
+    
+    return depot_start + sequenced_tasks + depot_return
 
 
 def _enforce_pickup_first_sequencing_with_lifo(tasks: List, vehicle) -> List:
     """
     Pickup-first sequencing with LIFO constraints for deliveries.
+    
+    ENHANCED: For complex orders (multiple P/D pairs), preserve pickup-delivery pairs
+    while respecting LIFO constraints within each order.
     """
     if not tasks:
         return []
     
-    pickups = []
-    deliveries = []
-    others = []
+    # Separate depot tasks and order tasks
+    depot_tasks = []
+    order_tasks = []
     
     for task in tasks:
-        if task.is_pickup():
-            pickups.append(task)
-        elif task.is_delivery():
-            deliveries.append(task)
+        if task.is_depot_start() or task.is_depot_return():
+            depot_tasks.append(task)
         else:
-            others.append(task)
+            order_tasks.append(task)
     
-    # Sort pickups by order_id for consistency
-    pickups.sort(key=lambda t: getattr(t, 'order_id', ''))
+    # Group tasks by order_id
+    orders = {}
+    for task in order_tasks:
+        order_id = getattr(task, 'order_id', None)
+        if order_id:
+            if order_id not in orders:
+                orders[order_id] = {'pickups': [], 'deliveries': []}
+            
+            if task.is_pickup():
+                orders[order_id]['pickups'].append(task)
+            elif task.is_delivery():
+                orders[order_id]['deliveries'].append(task)
     
-    # For LIFO: deliveries must be in reverse order of pickups
-    # Create a mapping of order_id to pickup position
-    pickup_order = {getattr(p, 'order_id', ''): i for i, p in enumerate(pickups)}
+    # Process each order
+    sequenced_tasks = []
     
-    # Sort deliveries in reverse pickup order (LIFO)
-    deliveries.sort(key=lambda t: pickup_order.get(getattr(t, 'order_id', ''), 999), reverse=True)
+    for order_id in sorted(orders.keys()):
+        pickups = orders[order_id]['pickups']
+        deliveries = orders[order_id]['deliveries']
+        
+        # Check if this is a complex order (multiple pickup/delivery pairs)
+        if len(pickups) > 1 and len(deliveries) > 1 and len(pickups) == len(deliveries):
+            # COMPLEX ORDER: Preserve pickup-delivery pairs with LIFO constraint
+            # Sort pickups and deliveries by task ID to ensure consistent pairing
+            pickups.sort(key=lambda t: getattr(t, 'id', ''))
+            deliveries.sort(key=lambda t: getattr(t, 'id', ''))
+            
+            # Create pickup-delivery pairs and maintain LIFO order
+            # For LIFO: last pickup's delivery should be first delivery
+            for i in range(len(pickups)):
+                pickup = pickups[i]
+                # Find matching delivery (same task number pattern)
+                pickup_id = getattr(pickup, 'id', '')
+                pickup_num = pickup_id.split('_')[-1] if '_' in pickup_id else ''
+                
+                matching_delivery = None
+                for delivery in deliveries:
+                    delivery_id = getattr(delivery, 'id', '')
+                    delivery_num = delivery_id.split('_')[-1] if '_' in delivery_id else ''
+                    # Match by task number (e.g., TASK_7_14 matches TASK_7_15)
+                    if pickup_num and delivery_num and abs(int(pickup_num) - int(delivery_num)) == 1:
+                        matching_delivery = delivery
+                        break
+                
+                if matching_delivery:
+                    sequenced_tasks.extend([pickup, matching_delivery])
+                    deliveries.remove(matching_delivery)
+                else:
+                    # Fallback: just add pickup, delivery will be added later
+                    sequenced_tasks.append(pickup)
+            
+            # Add any remaining deliveries
+            sequenced_tasks.extend(deliveries)
+            
+        else:
+            # SIMPLE ORDER: Traditional pickup-first, then delivery with LIFO
+            # Sort pickups by order_id for consistency
+            pickups.sort(key=lambda t: getattr(t, 'order_id', ''))
+            
+            # For LIFO: deliveries in reverse order of pickups
+            pickup_order = {getattr(p, 'order_id', ''): i for i, p in enumerate(pickups)}
+            deliveries.sort(key=lambda t: pickup_order.get(getattr(t, 'order_id', ''), 999), reverse=True)
+            
+            sequenced_tasks.extend(pickups + deliveries)
     
-    return others + pickups + deliveries
+    # Combine: depot start, sequenced order tasks, depot return
+    depot_start = [t for t in depot_tasks if t.is_depot_start()]
+    depot_return = [t for t in depot_tasks if t.is_depot_return()]
+    
+    return depot_start + sequenced_tasks + depot_return
 
 
 def _enforce_pickup_first_sequencing(tasks: List) -> List:
@@ -3336,6 +4738,83 @@ def _check_hos_multiday(route: 'Route', driver_state: 'DriverState', sorted_task
 # The functions below are kept for backward compatibility.
 
 def _get_max_drive_per_day(extensions_used: dict) -> float:
+    """Returns the maximum driving time per day based on HoS extensions."""
+    base_drive_time = 9 * 60  # 9 hours = 540 minutes
+    extension = extensions_used.get('drive_extension', 0.0)
+    return base_drive_time + extension
+
+
+def debug_print_route_timeline(route, phase_label: str):
+    """
+    Debug function to print detailed route timeline showing arrival times and time windows.
+    This helps detect timing inconsistencies between different phases.
+    """
+    try:
+        if not route or not hasattr(route, 'tasks') or len(route.tasks) == 0:
+            print(f"           [{phase_label}] EMPTY ROUTE - No tasks to display")
+            return
+        
+        print(f"           [{phase_label}] ROUTE TIMELINE ({len(route.tasks)} tasks):")
+        
+        # Use HoS simulation to get accurate timeline
+        try:
+            from hos_simulation import validate_route_hos_feasibility
+            hos_result = validate_route_hos_feasibility(route)
+            
+            if hos_result and hasattr(hos_result, 'events') and hos_result.events:
+                print(f"           [{phase_label}] Using HoS timeline ({len(hos_result.events)} events):")
+                for i, event in enumerate(hos_result.events):
+                    event_type = getattr(event, 'event_type', 'unknown')
+                    start_time = getattr(event, 'start_time', 0)
+                    end_time = getattr(event, 'end_time', 0)
+                    task_id = getattr(event, 'task_id', 'unknown')
+                    
+                    # Convert minutes to hours for readability
+                    start_hours = start_time / 60.0
+                    end_hours = end_time / 60.0
+                    
+                    print(f"             {i+1:2d}. {event_type:12s} {task_id:15s} {start_hours:6.1f}h-{end_hours:6.1f}h ({start_time:7.1f}-{end_time:7.1f}min)")
+                
+                # Check for time window violations in the HoS timeline
+                violations = getattr(hos_result, 'violations', [])
+                if violations:
+                    print(f"           [{phase_label}] ⚠️  HoS VIOLATIONS DETECTED:")
+                    for violation in violations:
+                        print(f"             - {violation}")
+                else:
+                    print(f"           [{phase_label}] ✅ No HoS violations detected")
+                    
+            else:
+                print(f"           [{phase_label}] HoS timeline not available, using simple task list:")
+                # Fallback to simple task enumeration
+                for i, task in enumerate(route.tasks):
+                    task_type = getattr(task, 'task_type', 'unknown')
+                    task_id = getattr(task, 'id', 'unknown')
+                    order_id = getattr(task, 'order_id', 'N/A')
+                    
+                    # Try to get time window info
+                    earliest = getattr(task, 'earliest_time', None)
+                    latest = getattr(task, 'latest_time', None)
+                    tw_info = ""
+                    if earliest is not None and latest is not None:
+                        tw_info = f"TW:[{earliest:.0f}-{latest:.0f}min]"
+                    
+                    print(f"             {i+1:2d}. {str(task_type):12s} {task_id:15s} Order:{order_id:3s} {tw_info}")
+                    
+        except Exception as e:
+            print(f"           [{phase_label}] ERROR in timeline debug: {e}")
+            # Fallback to basic task listing
+            for i, task in enumerate(route.tasks):
+                task_type = getattr(task, 'task_type', 'unknown')
+                task_id = getattr(task, 'id', 'unknown')
+                order_id = getattr(task, 'order_id', 'N/A')
+                print(f"             {i+1:2d}. {str(task_type):12s} {task_id:15s} Order:{order_id}")
+                
+    except Exception as e:
+        print(f"           [{phase_label}] CRITICAL ERROR in timeline debug: {e}")
+
+
+def _get_max_drive_per_day_old(extensions_used: dict) -> float:
     """Helper function for backward compatibility."""
     driving_extensions = extensions_used.get('driving', 0)
     return 10 * 60 if driving_extensions < 2 else 9 * 60

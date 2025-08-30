@@ -1101,16 +1101,20 @@ def create_task_from_row(row: pd.Series, geocode_cache: Dict[str, Dict[str, floa
         # Legacy format support (individual boolean columns)
         requires_low_temp = safe_parse_value(row, 'LOW TEMP', False, bool)
         requires_loader = safe_parse_value(row, 'LOADER', False, bool)
+        requires_hangers = safe_parse_value(row, 'HANGERS', False, bool)
         
         # Convert legacy boolean fields to capabilities
         if requires_low_temp:
             required_capabilities.add('LOW TEMP')
         if requires_loader:
             required_capabilities.add('LOADER')
+        if requires_hangers:
+            required_capabilities.add('HANGERS')
         
         # For backward compatibility, also set individual flags
         requires_low_temp = requires_low_temp or 'LOW TEMP' in required_capabilities
         requires_loader = requires_loader or 'LOADER' in required_capabilities
+        requires_hangers = requires_hangers or 'HANGERS' in required_capabilities
         
         # For pickup tasks, demand is positive; for delivery, negative
         if task_type == TaskType.PICKUP:
@@ -1230,7 +1234,8 @@ def create_task_from_row(row: pd.Series, geocode_cache: Dict[str, Dict[str, floa
             pallets=pallets_adjusted,  # Use adjusted pallets with proper sign
             priority=priority,
             requires_low_temp=requires_low_temp,
-            requires_loader=requires_loader
+            requires_loader=requires_loader,
+            requires_hangers=requires_hangers
         )
         
         logger.debug(f"Created task: {task_id} ({task_type.value}) at ({lat:.6f}, {lon:.6f})")
@@ -1511,10 +1516,14 @@ def create_scenario_from_excel(file_path: str) -> Tuple[List[Order], List[Vehicl
                     is_urgent = True
 
         if pickup_tasks or delivery_tasks:
+            # Combine pickup and delivery tasks for the main tasks list
+            all_tasks = pickup_tasks + delivery_tasks
+            
             order = Order(
                 id=str(order_id),
                 pickup_tasks=pickup_tasks,
                 delivery_tasks=delivery_tasks,
+                tasks=all_tasks,  # Explicitly set the combined tasks
                 priority=order_priority,
                 is_urgent=is_urgent,
                 is_mandatory=True

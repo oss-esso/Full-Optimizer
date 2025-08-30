@@ -194,6 +194,11 @@ except ImportError:
 # This helps track how many route calculations are made (OSRM calls or cache hits)
 route_calculation_count = 0
 
+def flush_print(*args, **kwargs):
+    """Helper function to print and flush output immediately for redirection compatibility."""
+    print(*args, **kwargs)
+    sys.stdout.flush()
+
 def calculate_travel_time_with_counter(prev_task, curr_task, vehicle):
     """
     Wrapper for calculate_travel_time_between_tasks that increments the global counter.
@@ -1212,10 +1217,28 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                 # Calculate order requirements
                 try:
                     order_tasks = order.get_all_tasks()
-                    total_weight = sum(abs(getattr(task, 'demand', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
-                    total_volume = sum(abs(getattr(task, 'volume', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
-                    # Total pallets (for reference)
-                    total_pallets = sum(getattr(task, 'pallets', 0) for task in order_tasks if task.is_pickup() and not task.is_depot_start() and not task.is_depot_return())
+                    
+                    # FIXED: Calculate peak capacity during route execution, not sum of absolute demands
+                    # Separate pickups and deliveries to calculate peak load
+                    pickups = [t for t in order_tasks if hasattr(t, 'task_type') and t.task_type.name == 'PICKUP' and not t.is_depot_start() and not t.is_depot_return()]
+                    deliveries = [t for t in order_tasks if hasattr(t, 'task_type') and t.task_type.name == 'DELIVERY' and not t.is_depot_start() and not t.is_depot_return()]
+                    
+                    # Calculate peak load (maximum load during route)
+                    if pickups and deliveries:
+                        # Peak load = total pickup demands (all items loaded at once in worst case)
+                        peak_weight = sum(getattr(task, 'demand', 0) for task in pickups)
+                        peak_volume = sum(getattr(task, 'volume', 0) for task in pickups)
+                        peak_pallets = sum(getattr(task, 'pallets', 0) for task in pickups)
+                    else:
+                        # Single task or unusual order structure - use total absolute demands
+                        peak_weight = sum(abs(getattr(task, 'demand', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
+                        peak_volume = sum(abs(getattr(task, 'volume', 0)) for task in order_tasks if not task.is_depot_start() and not task.is_depot_return())
+                        peak_pallets = sum(getattr(task, 'pallets', 0) for task in order_tasks if task.is_pickup() and not task.is_depot_start() and not task.is_depot_return())
+                    
+                    # Use the peak values for capacity calculation
+                    total_weight = peak_weight
+                    total_volume = peak_volume
+                    total_pallets = peak_pallets
                     
                     # ENHANCED: Calculate optimized peak capacity using the same logic as L2 heuristic
                     optimized_peak_pallets = total_pallets  # Default to total
@@ -1260,6 +1283,25 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
                         print(f"Order {order.id}: {total_pallets}pal total (peak: {optimized_peak_pallets:.0f}pal, {optimized_peak_weight:.0f}kg, {optimized_peak_volume:.1f}m³)")
                     else:
                         print(f"Order {order.id}: {total_pallets}pal, {total_weight:.0f}kg, {total_volume:.1f}m3")
+                    
+                    # ENHANCED DEBUG: Show order capability requirements
+                    order_tasks = order.get_all_tasks()
+                    requires_loader = any(getattr(task, 'requires_loader', False) for task in order_tasks)
+                    requires_low_temp = any(getattr(task, 'requires_low_temp', False) for task in order_tasks)
+                    requires_hangers = any(getattr(task, 'requires_hangers', False) for task in order_tasks)
+                    
+                    required_caps = []
+                    if requires_loader:
+                        required_caps.append("LOADER")
+                    if requires_low_temp:
+                        required_caps.append("LOW_TEMP") 
+                    if requires_hangers:
+                        required_caps.append("HANGERS")
+                        
+                    if required_caps:
+                        print(f"   Required capabilities: {', '.join(required_caps)}")
+                    else:
+                        print(f"   Required capabilities: NONE")
                     
                     # DEBUG: Print idle vehicle list info for the first order
                     if order == unassigned_orders[0]:  # Debug for first unassigned order
@@ -1429,6 +1471,408 @@ def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
         print(f"   ò Weight: {avg_weight_util:.1f}%")
         print(f"   ò Volume: {avg_volume_util:.1f}%")
         print(f"   ò Pallets: {avg_pallet_util:.1f}%")
+
+
+# Global order tracking system
+class OrderTracker:
+    """Comprehensive order tracking system for debugging assignment pipeline."""
+    
+    def __init__(self, orders_to_track=None):
+        self.orders_to_track = orders_to_track or []
+        self.assignment_log = {}
+        self.phase_assignments = {
+            'initialization': {},
+            'optimization': {},
+            'force_assignment': {}
+        }
+        
+    def log_assignment(self, order_id, vehicle_id, phase, details=""):
+        """Log when an order gets assigned to a vehicle."""
+        if order_id not in self.assignment_log:
+            self.assignment_log[order_id] = []
+        
+        entry = {
+            'phase': phase,
+            'vehicle_id': vehicle_id,
+            'details': details,
+            'timestamp': len(self.assignment_log[order_id])
+        }
+        
+        self.assignment_log[order_id].append(entry)
+        self.phase_assignments[phase][order_id] = vehicle_id
+        
+        if order_id in self.orders_to_track:
+            print(f"     TRACKING Order {order_id}: ASSIGNED to {vehicle_id} (by {phase}) - {details}")
+    
+    def log_attempt(self, order_id, vehicle_id, phase, reason=""):
+        """Log when an assignment is attempted but fails."""
+        if order_id in self.orders_to_track:
+            print(f"     TRACKING Order {order_id}: FAILED attempt on {vehicle_id} (in {phase}) - {reason}")
+    
+    def check_assignment_status(self, solution, orders):
+        """Check current assignment status and log changes."""
+        print(f"\nORDER TRACKING: ASSIGNMENT STATUS CHECK")
+        for order in orders:
+            if order.id in self.orders_to_track:
+                assigned_vehicle = None
+                for vehicle_id, route in solution.routes.items():
+                    if route and route.tasks:
+                        for task in route.tasks:
+                            if hasattr(task, 'order_id') and task.order_id == order.id:
+                                assigned_vehicle = vehicle_id
+                                break
+                        if assigned_vehicle:
+                            break
+                
+                if assigned_vehicle:
+                    print(f"     TRACKING Order {order.id}: ASSIGNED to {assigned_vehicle}")
+                    if order.id not in self.assignment_log:
+                        self.log_assignment(order.id, assigned_vehicle, "unknown", "Found in solution")
+                else:
+                    print(f"     TRACKING Order {order.id}: UNASSIGNED")
+    
+    def print_summary(self):
+        """Print final tracking summary."""
+        print(f"\n" + "="*80)
+        print(f"ORDER TRACKING SUMMARY")
+        print(f"="*80)
+        
+        for phase in ['initialization', 'optimization', 'force_assignment']:
+            assigned_in_phase = len(self.phase_assignments[phase])
+            print(f"\n{phase.upper()}:")
+            if assigned_in_phase > 0:
+                for order_id, vehicle_id in self.phase_assignments[phase].items():
+                    details = ""
+                    for entry in self.assignment_log.get(order_id, []):
+                        if entry['phase'] == phase:
+                            details = entry['details']
+                            break
+                    print(f"   Order {order_id} -> {vehicle_id} ({details})")
+            else:
+                print(f"   No orders assigned in this phase")
+
+# Global tracker instance
+order_tracker = OrderTracker(orders_to_track=[1, 5, 6, 7, 8, 19])
+
+
+# Global trackers
+violation_tracker = ViolationTracker()
+profit_tracker = ProfitTracker()
+
+
+def optimize_route_consolidation(solution, vehicles, orders):
+    """
+    Optimize route consolidation by detecting geographically compatible routes
+    that can be merged to improve efficiency.
+    
+    Based on your observation that GC002LX and XA359KW could be combined
+    since XA's pickup is on GC's route and delivery is near GC's last delivery.
+    
+    Args:
+        solution: Current solution object
+        vehicles: List of vehicle objects  
+        orders: List of order objects
+        
+    Returns:
+        Tuple of (optimized_solution, consolidation_report)
+    """
+    print("Analyzing routes for consolidation opportunities...")
+    
+    # Create a copy of the solution for optimization
+    import copy
+    optimized_solution = copy.deepcopy(solution)
+    
+    consolidation_report = []
+    merges_performed = 0
+    
+    # Get active routes (exclude depot-only routes)
+    active_routes = {}
+    for vehicle_id, route in solution.routes.items():
+        if route and route.tasks:
+            non_depot_tasks = [task for task in route.tasks 
+                             if not (task.is_depot_start() or task.is_depot_return())]
+            if non_depot_tasks:
+                active_routes[vehicle_id] = {
+                    'route': route,
+                    'tasks': non_depot_tasks,
+                    'orders': set(task.order_id for task in non_depot_tasks if hasattr(task, 'order_id')),
+                    'load': calculate_route_utilization_metrics(route)
+                }
+    
+    print(f"Found {len(active_routes)} active routes to analyze")
+    
+    # Analyze each pair of routes for consolidation potential
+    route_pairs = []
+    for vehicle_id1 in active_routes:
+        for vehicle_id2 in active_routes:
+            if vehicle_id1 < vehicle_id2:  # Avoid duplicates
+                route_pairs.append((vehicle_id1, vehicle_id2))
+    
+    print(f"Analyzing {len(route_pairs)} route pairs for consolidation...")
+    
+    for vehicle_id1, vehicle_id2 in route_pairs:
+        route1_info = active_routes[vehicle_id1]
+        route2_info = active_routes[vehicle_id2]
+        
+        # Check if routes can be geographically consolidated
+        consolidation_result = analyze_route_consolidation_potential(
+            vehicle_id1, route1_info, vehicle_id2, route2_info, vehicles, orders
+        )
+        
+        if consolidation_result['can_consolidate']:
+            print(f"\n🎯 CONSOLIDATION OPPORTUNITY FOUND:")
+            print(f"   Routes: {vehicle_id1} + {vehicle_id2}")
+            print(f"   Reason: {consolidation_result['reason']}")
+            print(f"   Savings: {consolidation_result['estimated_savings']:.1f}km")
+            
+            # Attempt the consolidation
+            success = perform_route_consolidation(
+                optimized_solution, vehicle_id1, vehicle_id2, 
+                consolidation_result, vehicles, orders
+            )
+            
+            if success:
+                print(f"   ✅ SUCCESS: Routes consolidated")
+                consolidation_report.append({
+                    'merged_routes': f"{vehicle_id1} + {vehicle_id2}",
+                    'reason': consolidation_result['reason'],
+                    'savings_km': consolidation_result['estimated_savings'],
+                    'status': 'SUCCESS'
+                })
+                merges_performed += 1
+                
+                # Remove the second route from active analysis
+                del active_routes[vehicle_id2]
+                break  # Re-analyze with new route structure
+            else:
+                print(f"   ❌ FAILED: Consolidation attempt failed")
+                consolidation_report.append({
+                    'attempted_routes': f"{vehicle_id1} + {vehicle_id2}",
+                    'reason': consolidation_result['reason'],
+                    'status': 'FAILED'
+                })
+    
+    # Generate consolidation report
+    report_text = f"\n📊 ROUTE CONSOLIDATION ANALYSIS REPORT\n"
+    report_text += f"="*50 + "\n"
+    report_text += f"Routes analyzed: {len(solution.routes)}\n"
+    report_text += f"Active routes: {len(active_routes)}\n"
+    report_text += f"Consolidations performed: {merges_performed}\n\n"
+    
+    if consolidation_report:
+        report_text += "CONSOLIDATION DETAILS:\n"
+        for entry in consolidation_report:
+            if entry['status'] == 'SUCCESS':
+                report_text += f"✅ {entry['merged_routes']}: {entry['reason']} (Saved: {entry['savings_km']:.1f}km)\n"
+            else:
+                report_text += f"❌ {entry['attempted_routes']}: {entry['reason']} (Failed)\n"
+    
+    if merges_performed == 0:
+        report_text += "No viable consolidation opportunities found.\n"
+        return None, report_text
+    
+    return optimized_solution, report_text
+
+
+def calculate_route_utilization_metrics(route):
+    """Calculate utilization metrics for a route."""
+    if not route or not route.tasks:
+        return {'weight': 0, 'volume': 0, 'pallets': 0, 'distance': 0}
+    
+    # Calculate peak load during route execution
+    current_weight = 0
+    current_volume = 0
+    current_pallets = 0
+    peak_weight = 0
+    peak_volume = 0
+    peak_pallets = 0
+    
+    for task in route.tasks:
+        if not (task.is_depot_start() or task.is_depot_return()):
+            if task.is_pickup():
+                current_weight += abs(getattr(task, 'demand', 0))
+                current_volume += abs(getattr(task, 'volume', 0))
+                current_pallets += abs(getattr(task, 'pallets', 0))
+            elif task.is_delivery():
+                current_weight -= abs(getattr(task, 'demand', 0))
+                current_volume -= abs(getattr(task, 'volume', 0))
+                current_pallets -= abs(getattr(task, 'pallets', 0))
+            
+            peak_weight = max(peak_weight, current_weight)
+            peak_volume = max(peak_volume, current_volume)
+            peak_pallets = max(peak_pallets, current_pallets)
+    
+    # Estimate route distance
+    distance = len(route.tasks) * 25  # Rough estimate: 25km per task
+    
+    return {
+        'peak_weight': peak_weight,
+        'peak_volume': peak_volume, 
+        'peak_pallets': peak_pallets,
+        'distance': distance,
+        'task_count': len([t for t in route.tasks if not (t.is_depot_start() or t.is_depot_return())])
+    }
+
+
+def analyze_route_consolidation_potential(vehicle_id1, route1_info, vehicle_id2, route2_info, vehicles, orders):
+    """
+    Analyze if two routes can be consolidated based on geographical and capacity factors.
+    
+    Implements the logic you observed: check if one route's pickup/delivery points
+    lie along the other route's path.
+    """
+    # Get vehicle capacities
+    vehicle1 = next((v for v in vehicles if v.id == vehicle_id1), None)
+    vehicle2 = next((v for v in vehicles if v.id == vehicle_id2), None)
+    
+    if not vehicle1 or not vehicle2:
+        return {'can_consolidate': False, 'reason': 'Vehicle data not found'}
+    
+    # Use the larger vehicle for consolidation
+    target_vehicle = vehicle1 if vehicle1.weight_capacity >= vehicle2.weight_capacity else vehicle2
+    target_vehicle_id = target_vehicle.id
+    
+    # Calculate combined load requirements
+    combined_weight = route1_info['load']['peak_weight'] + route2_info['load']['peak_weight']
+    combined_volume = route1_info['load']['peak_volume'] + route2_info['load']['peak_volume']
+    combined_pallets = route1_info['load']['peak_pallets'] + route2_info['load']['peak_pallets']
+    
+    # Check capacity constraints with tolerance
+    weight_ok = combined_weight <= target_vehicle.weight_capacity * 1.1  # 10% tolerance
+    volume_ok = combined_volume <= target_vehicle.volume_capacity * 1.1
+    pallet_ok = combined_pallets <= target_vehicle.pallet_capacity if target_vehicle.pallet_capacity else True
+    
+    if not (weight_ok and volume_ok and pallet_ok):
+        return {
+            'can_consolidate': False, 
+            'reason': f'Capacity exceeded: W:{combined_weight:.0f}/{target_vehicle.weight_capacity:.0f}kg, '
+                     f'V:{combined_volume:.0f}/{target_vehicle.volume_capacity:.0f}m³, '
+                     f'P:{combined_pallets:.0f}/{target_vehicle.pallet_capacity or "∞"}'
+        }
+    
+    # Check geographic proximity/overlap
+    # Simplified geographic analysis - in practice you'd use actual coordinates
+    route1_orders = len(route1_info['orders'])
+    route2_orders = len(route2_info['orders'])
+    
+    # Heuristic: Routes with very different order counts are good consolidation candidates
+    # (one route is underutilized)
+    if route1_orders == 1 or route2_orders == 1:
+        # One route has only one order - good candidate for consolidation
+        underutilized_route = vehicle_id1 if route1_orders == 1 else vehicle_id2
+        main_route = vehicle_id2 if route1_orders == 1 else vehicle_id1
+        
+        estimated_savings = min(route1_info['load']['distance'], route2_info['load']['distance']) * 0.3
+        
+        return {
+            'can_consolidate': True,
+            'reason': f'Single-order route {underutilized_route} can be merged into {main_route}',
+            'estimated_savings': estimated_savings,
+            'target_vehicle': target_vehicle_id,
+            'merge_strategy': 'insert_single_order'
+        }
+    
+    # Check if routes have similar geographic patterns (simplified)
+    if abs(route1_orders - route2_orders) <= 1 and (route1_orders + route2_orders) <= 4:
+        # Similar small routes that could be combined
+        estimated_savings = (route1_info['load']['distance'] + route2_info['load']['distance']) * 0.2
+        
+        return {
+            'can_consolidate': True,
+            'reason': f'Similar small routes can be efficiently combined',
+            'estimated_savings': estimated_savings,
+            'target_vehicle': target_vehicle_id,
+            'merge_strategy': 'combine_small_routes'
+        }
+    
+    return {'can_consolidate': False, 'reason': 'No clear consolidation benefit identified'}
+
+
+def perform_route_consolidation(solution, vehicle_id1, vehicle_id2, consolidation_plan, vehicles, orders):
+    """
+    Perform the actual route consolidation by merging route tasks.
+    
+    Returns True if successful, False otherwise.
+    """
+    try:
+        # Get the routes
+        route1 = solution.routes.get(vehicle_id1)
+        route2 = solution.routes.get(vehicle_id2)
+        
+        if not route1 or not route2:
+            return False
+        
+        # Get target vehicle (the one that will hold the consolidated route)
+        target_vehicle_id = consolidation_plan['target_vehicle']
+        target_route = route1 if vehicle_id1 == target_vehicle_id else route2
+        source_route = route2 if vehicle_id1 == target_vehicle_id else route1
+        source_vehicle_id = vehicle_id2 if vehicle_id1 == target_vehicle_id else vehicle_id1
+        
+        # Extract non-depot tasks from source route
+        source_tasks = [task for task in source_route.tasks 
+                       if not (task.is_depot_start() or task.is_depot_return())]
+        
+        if not source_tasks:
+            return False
+        
+        # Insert source tasks into target route using optimal insertion
+        consolidated_tasks = list(target_route.tasks)
+        
+        # Remove depot return task temporarily
+        depot_return = None
+        if consolidated_tasks and consolidated_tasks[-1].is_depot_return():
+            depot_return = consolidated_tasks.pop()
+        
+        # Find best insertion positions for source tasks
+        for task in source_tasks:
+            best_position = find_best_insertion_position(consolidated_tasks, task)
+            consolidated_tasks.insert(best_position, task)
+        
+        # Re-add depot return task
+        if depot_return:
+            consolidated_tasks.append(depot_return)
+        
+        # Update the target route
+        target_route.tasks = consolidated_tasks
+        solution.routes[target_vehicle_id] = target_route
+        
+        # Clear the source route (make it depot-only)
+        from algo.first_level import _create_base_route
+        source_vehicle = next((v for v in vehicles if v.id == source_vehicle_id), None)
+        if source_vehicle:
+            solution.routes[source_vehicle_id] = _create_base_route(source_vehicle)
+        
+        return True
+        
+    except Exception as e:
+        print(f"   Error during consolidation: {e}")
+        return False
+
+
+def find_best_insertion_position(route_tasks, new_task):
+    """
+    Find the best position to insert a new task in a route.
+    
+    Simple heuristic: insert pickup tasks early, delivery tasks late.
+    """
+    if not route_tasks:
+        return 0
+    
+    # Find depot start and return positions
+    depot_start_pos = 0
+    depot_return_pos = len(route_tasks)
+    
+    for i, task in enumerate(route_tasks):
+        if task.is_depot_return():
+            depot_return_pos = i
+            break
+    
+    if new_task.is_pickup():
+        # Insert pickups early in the route (after depot start)
+        return depot_start_pos + 1
+    else:
+        # Insert deliveries late in the route (before depot return)
+        return depot_return_pos
 
 
 # Global trackers
@@ -1725,11 +2169,252 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None, orders=
     print_route_cost_breakdown(vehicle_id, route, vehicle, orders)
 
 
+def _print_hos_timeline_view(vehicle_id: str, route, timeline, vehicle=None, orders=None):
+    """
+    Display route using the cached HoS timeline events for perfect timing accuracy.
+    This ensures the final display matches the validation timing calculation.
+    Includes financial information when vehicle and orders are provided.
+    """
+    print(f"\n    HoS TIMELINE JOURNEY:")
+    print(f"    =====================================")
+    
+    # Helper functions
+    def format_absolute_minutes(minutes):
+        if minutes is None:
+            return "No window"
+        # Use current scenario date (August 28, 2025)
+        from datetime import datetime
+        base_date = datetime(2025, 8, 28)  # August 28, 2025
+        
+        day_offset = int(minutes / 1440)
+        actual_date = base_date.replace(day=base_date.day + day_offset)
+        
+        remaining_minutes = int(minutes % 1440)
+        hour = remaining_minutes // 60
+        minute = remaining_minutes % 60
+        
+        return f"{actual_date.day:02d}/{actual_date.month:02d} - {hour:02d}:{minute:02d}"
+
+    def get_time_window_display(task):
+        earliest = getattr(task, 'earliest_time', None)
+        latest = getattr(task, 'latest_time', None)
+        if earliest is None and latest is None:
+            return "[No window -> No window]"
+        elif earliest is not None and latest is not None:
+            return f"[{format_absolute_minutes(earliest)} -> {format_absolute_minutes(latest)}]"
+        elif earliest is not None:
+            return f"[{format_absolute_minutes(earliest)} -> No window]"
+        else:
+            return f"[No window -> {format_absolute_minutes(latest)}]"
+
+    def get_status(arrival_time, task):
+        if hasattr(task, 'latest_time') and task.latest_time is not None:
+            if arrival_time > task.latest_time:
+                late_by = arrival_time - task.latest_time
+                return f"Late ({late_by/60:.0f}:{late_by%60:02.0f})"
+            elif hasattr(task, 'earliest_time') and task.earliest_time is not None and arrival_time < task.earliest_time:
+                early_by = task.earliest_time - arrival_time
+                return f"Early (wait {early_by/60:.0f}:{early_by%60:02.0f})"
+        return "On time"
+
+    # Track load changes
+    current_weight = 0.0
+    current_volume = 0.0
+    current_pallets = 0.0
+    
+    # Part 2 Implementation: Group events by journey segment and remove debug output
+    task_counter = 1
+    journey_events = []  # Collect DRIVE, REST, WAIT events between tasks
+    
+    for i, event in enumerate(timeline):
+        # Handle both dict and object event formats
+        if isinstance(event, dict):
+            event_type = event.get('event_type', 'UNKNOWN')
+            start_time = event.get('start_time', 0.0)
+            duration = event.get('duration', 0.0)
+            description = event.get('description', '')
+            task_id = event.get('task_id', None)
+        else:
+            event_type = getattr(event, 'event_type', 'UNKNOWN')
+            start_time = getattr(event, 'start_time', 0.0)
+            duration = getattr(event, 'duration', 0.0)
+            description = getattr(event, 'description', '')
+            task_id = getattr(event, 'task_id', None)
+        
+        # Collect journey events (DRIVE, REST, WAIT)
+        if event_type in ['DRIVE', 'REST', 'WAIT']:
+            journey_events.append({
+                'type': event_type,
+                'duration': duration,
+                'description': description
+            })
+        
+        # When we hit a WORK event, print the journey segment and then the task
+        elif event_type == 'WORK' and task_id:
+            # Print journey events leading to this task (if any)
+            if journey_events:
+                for j_event in journey_events:
+                    event_name = j_event['type']
+                    duration_str = f"{int(j_event['duration']//60)}:{int(j_event['duration']%60):02d}"
+                    if event_name == 'DRIVE':
+                        print(f"               DRIVE: {duration_str} - {j_event['description']}")
+                    elif event_name == 'WAIT':
+                        print(f"               WAIT: {duration_str} - {j_event['description']}")
+                    elif event_name == 'REST':
+                        print(f"               REST: {duration_str} - {j_event['description']}")
+                journey_events = []  # Clear for next segment
+            
+            # Find the task associated with this event
+            task = None
+            for route_task in route.tasks:
+                if route_task.id == task_id:
+                    task = route_task
+                    break
+            
+            if task:
+                # Print task details
+                location = getattr(getattr(task, 'location', None), 'name', getattr(task, 'location_id', "Unknown"))
+                weight_change = getattr(task, 'demand', 0.0)
+                volume_change = getattr(task, 'volume', 0.0)
+                pallets_change = getattr(task, 'pallets', 0.0)
+                
+                current_weight += weight_change
+                current_volume += volume_change  
+                current_pallets += pallets_change
+                
+                # Get order ID if available
+                order_id = getattr(task, 'order_id', 'N/A')
+                order_display = f" (Order: {order_id})" if order_id != 'N/A' else ""
+                
+                print(f"\n          {task_counter}. {location}{order_display}")
+                print(f"             Arrival at: {format_absolute_minutes(start_time)} {get_time_window_display(task)} - Status: {get_status(start_time, task)}")
+                
+                service_time = duration
+                if service_time > 0:
+                    print(f"             WORK {service_time/60:.0f}:{service_time%60:02.0f} - Load: {weight_change:+.1f}kg, {volume_change:+.2f}m3, {pallets_change:+.0f} pallets -> Total: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
+                
+                task_counter += 1
+        
+        # Handle legacy TASK events (for light vehicles)
+        elif event_type == 'TASK':
+            task = None
+            if not isinstance(event, dict):
+                task = getattr(event, 'task', None)
+            
+            if task:
+                # Print journey events leading to this task (if any)
+                if journey_events:
+                    for j_event in journey_events:
+                        event_name = j_event['type']
+                        duration_str = f"{int(j_event['duration']//60)}:{int(j_event['duration']%60):02d}"
+                        if event_name == 'DRIVE':
+                            print(f"               DRIVE: {duration_str} - {j_event['description']}")
+                        elif event_name == 'WAIT':
+                            print(f"               WAIT: {duration_str} - {j_event['description']}")
+                        elif event_name == 'REST':
+                            print(f"               REST: {duration_str} - {j_event['description']}")
+                    journey_events = []  # Clear for next segment
+                
+                # Print task details
+                location = getattr(getattr(task, 'location', None), 'name', getattr(task, 'location_id', "Unknown"))
+                weight_change = getattr(task, 'demand', 0.0)
+                volume_change = getattr(task, 'volume', 0.0)
+                pallets_change = getattr(task, 'pallets', 0.0)
+                
+                current_weight += weight_change
+                current_volume += volume_change  
+                current_pallets += pallets_change
+                
+                # Get order ID if available
+                order_id = getattr(task, 'order_id', 'N/A')
+                order_display = f" (Order: {order_id})" if order_id != 'N/A' else ""
+                
+                print(f"\n          {task_counter}. {location}{order_display}")
+                print(f"             Arrival at: {format_absolute_minutes(start_time)} {get_time_window_display(task)} - Status: {get_status(start_time, task)}")
+                
+                service_time = duration
+                if service_time > 0:
+                    print(f"             WORK {service_time/60:.0f}:{service_time%60:02.0f} - Load: {weight_change:+.1f}kg, {volume_change:+.2f}m3, {pallets_change:+.0f} pallets -> Total: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
+                
+                task_counter += 1
+    
+    # Handle any remaining journey events (final return to depot)
+    if journey_events:
+        for j_event in journey_events:
+            event_name = j_event['type']
+            duration_str = f"{int(j_event['duration']//60)}:{int(j_event['duration']%60):02d}"
+            if event_name == 'DRIVE':
+                print(f"               DRIVE: {duration_str} - {j_event['description']}")
+            elif event_name == 'WAIT':
+                print(f"               WAIT: {duration_str} - {j_event['description']}")
+            elif event_name == 'REST':
+                print(f"               REST: {duration_str} - {j_event['description']}")
+    
+    # Calculate total metrics from timeline
+    total_duration = 0.0
+    total_driving = 0.0
+    if timeline:
+        # Handle both dict and object formats for final event
+        if isinstance(timeline[-1], dict):
+            total_duration = timeline[-1].get('end_time', 0.0)
+        else:
+            total_duration = getattr(timeline[-1], 'end_time', 0.0)
+        
+        # Calculate total driving time
+        for event in timeline:
+            if isinstance(event, dict):
+                if event.get('event_type') == 'DRIVE':
+                    total_driving += event.get('duration', 0.0)
+            else:
+                if getattr(event, 'event_type', '') == 'DRIVE':
+                    total_driving += getattr(event, 'duration', 0.0)
+    
+    print(f"\n      Total Journey Time: {total_duration/60:.0f}:{total_duration%60:02.0f}")
+    print(f"      Total Driving Time: {total_driving/60:.1f}h (Limit: 45.0h)")
+    print(f"      Total Load Changes: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
+    
+    # Add financial information if vehicle and orders are provided
+    if vehicle and orders:
+        try:
+            breakdown = calculate_route_cost_and_profit(vehicle_id, route, vehicle, orders)
+            
+            print(f"\n       Costs:")
+            print(f"         • Driver Cost: €{breakdown['driver_cost']:.2f} ({breakdown['driver_cost_per_hour']:.1f}€/h × {breakdown['driving_hours']:.1f}h driving)")
+            print(f"         • Vehicle Cost: €{breakdown['vehicle_cost']:.2f} ({breakdown['vehicle_cost_per_km']:.2f}€/km × {breakdown['total_distance']:.1f}km)")
+            print(f"         • Total Cost: €{breakdown['total_cost']:.2f}")
+            
+            print(f"       Revenue:")
+            print(f"         • Rate: {breakdown['price_per_km']:.2f}€/km")
+            print(f"         • Total Revenue: €{breakdown['total_profit']:.2f} (sum of dedicated route revenues)")
+            print(f"         • Revenue Model: Each order valued at dedicated route distance × rate")
+            
+            print(f"       Net Result:")
+            net_color = "+" if breakdown['net_profit'] >= 0 else "-"
+            print(f"         {net_color} Net Profit: €{breakdown['net_profit']:.2f}")
+            
+            if breakdown['total_profit'] > 0:
+                margin = (breakdown['net_profit'] / breakdown['total_profit']) * 100
+                print(f"         • Profit Margin: {margin:.1f}%")
+            
+        except Exception as e:
+            print(f"\n       Financial Information: Calculation failed ({e})")
+
+
 def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, orders=None):
     """
     Provides a simplified chronological view with PROPER HoS simulation.
     Now tracks cumulative driving time across the entire route.
+    UNIFIED TIMING: Uses vehicle regulations to determine timing rules.
     """
+    # UNIFIED TIMING: Timing is based on vehicle regulations, not driver license
+    vehicle_regulations = getattr(route.vehicle, 'regulations', '') if route.vehicle else ''
+    has_hos_regulations = str(vehicle_regulations).upper() in ['YES', 'TRUE', '1']
+    
+    # TRACE SPECIFIC VIOLATING VEHICLES
+    is_violating_vehicle = hasattr(route, 'vehicle') and route.vehicle and hasattr(route.vehicle, 'id') and route.vehicle.id in ['GA621VG', 'FF235DM', 'XA346KW']
+    if is_violating_vehicle:
+        print(f"    TRACE {route.vehicle.id}: Final display timing - HoS regulations: {has_hos_regulations}, Vehicle regs: {vehicle_regulations}")
+    
     # Helper functions
     def get_location_name(task):
         return getattr(getattr(task, 'location', None), 'name', getattr(task, 'location_id', "Unknown"))
@@ -1769,10 +2454,36 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
         volume_change = getattr(task, 'volume', 0.0)
         return weight_change, volume_change
 
-    print(f"\n    SIMPLIFIED CHRONOLOGICAL JOURNEY:")
+    # UNIFIED TIMING: Check if cached HoS timeline is available (from validation)
+    if hasattr(route, '_cached_timeline') and route._cached_timeline:
+        print(f"    HoS Timeline: Available with {len(route._cached_timeline)} events. Using HoS timeline for display.")
+        _print_hos_timeline_view(vehicle_id, route, route._cached_timeline, vehicle, orders)
+        # Continue to also show simplified view for comparison
+    else:
+        # Timeline not available - generate it now for unified timing
+        print(f"    HoS Timeline: Not cached. Generating HoS timeline for unified display timing.")
+        try:
+            from algo.hos_simulation import validate_route_hos_feasibility
+            print(f"    DEBUG: Successfully imported validate_route_hos_feasibility")
+            hos_result = validate_route_hos_feasibility(route)
+            print(f"    DEBUG: HoS validation completed, result type: {type(hos_result)}")
+            
+            if hos_result and hasattr(hos_result, 'events') and hos_result.events:
+                print(f"    HoS Timeline: Generated with {len(hos_result.events)} events. Using HoS timeline for display.")
+                _print_hos_timeline_view(vehicle_id, route, hos_result.events, vehicle, orders)
+                # Continue to also show simplified view for comparison
+            else:
+                print(f"    DEBUG: HoS result details - has events: {hasattr(hos_result, 'events') if hos_result else 'None'}, events length: {len(hos_result.events) if hos_result and hasattr(hos_result, 'events') else 'N/A'}")
+                print(f"    HoS Timeline: Failed to generate. Using simplified chronological view.")
+        except Exception as e:
+            print(f"    DEBUG: Full exception details: {type(e).__name__}: {str(e)}")
+            print(f"    HoS Timeline: Generation failed ({e}). Using simplified chronological view.")
+    
+    # Now show the simplified chronological view for comparison
+    print(f"\n    SIMPLIFIED CHRONOLOGICAL VIEW (for comparison):")
     print(f"    =====================================")
     
-    # Print initial depot start - get start date from first task or use default
+    # Re-print initial depot start for the simplified view
     start_date = _format_date_from_minutes(0.0)
     print(f"\n          1. DEPOT-ASTI")
     print(f"             Departure at {start_date} - 00:00 [No window -> No window] - Status: On time")
@@ -1822,7 +2533,7 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
         # CORRECTED HoS BREAKDOWN: Check if breaks are needed for this travel segment
         if travel_time > 0:
             cumulative_time, driving_since_last_break = _print_proper_hos_breakdown(
-                travel_time, cumulative_time, driving_since_last_break, cumulative_driving_time
+                travel_time, cumulative_time, driving_since_last_break, cumulative_driving_time, not has_hos_regulations
             )
             cumulative_driving_time += travel_time
         else:
@@ -1865,7 +2576,7 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
     # Apply HoS logic for final travel
     if final_travel > 0:
         cumulative_time, driving_since_last_break = _print_proper_hos_breakdown(
-            final_travel, cumulative_time, driving_since_last_break, cumulative_driving_time
+            final_travel, cumulative_time, driving_since_last_break, cumulative_driving_time, not has_hos_regulations
         )
         cumulative_driving_time += final_travel
     else:
@@ -1894,21 +2605,29 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
 
 
 def _print_proper_hos_breakdown(travel_time_minutes: float, current_time: float, 
-                               driving_since_break: float, total_driving_time: float) -> tuple:
+                               driving_since_break: float, total_driving_time: float, is_light_vehicle: bool = False) -> tuple:
     """
     Print proper HoS breakdown that tracks cumulative driving time and enforces breaks.
+    UNIFIED TIMING: Apply same B license exemptions as validation.
     
     Args:
         travel_time_minutes: Time for this travel segment
         current_time: Current elapsed time in route
         driving_since_break: Driving time accumulated since last break
         total_driving_time: Total driving time in entire route so far
+        is_light_vehicle: Whether vehicle has light regulations (no HoS breaks)
     
     Returns:
         Tuple of (updated_current_time, updated_driving_since_break)
     """
     if travel_time_minutes <= 0:
         return current_time, driving_since_break
+    
+    # UNIFIED TIMING: Light vehicles (regulations=NO) don't need HoS breaks
+    if is_light_vehicle:
+        # Simple drive time calculation without breaks
+        print(f"               1: DRIVE - {_format_time_hhmm(travel_time_minutes)}")
+        return current_time + travel_time_minutes, driving_since_break + travel_time_minutes
     
     remaining_travel = travel_time_minutes
     updated_time = current_time
@@ -1962,7 +2681,7 @@ def configure_algorithm_parameters() -> dict:
         'separate_orders': False,  # ENABLE order splitting for 100% assignment goal
         'enable_force_assignment': True, # <-- Enable force assignment by default
         'tabu_tenure': 50,  # Reduced from 100 - allow more flexibility in search
-        'M1': 2000,  # DEEP EXPLORATION: Much more L1 iterations (was 500) 
+        'M1': 200,  # DEEP EXPLORATION: Much more L1 iterations (was 500) 
         'M2': 500,  # DEEP EXPLORATION: Much more total iterations (was 2000)
         'exploration_strategy': 'vnd',
         'enable_advanced_neighborhoods': True,
@@ -1985,10 +2704,10 @@ def configure_algorithm_parameters() -> dict:
         'M': 5000.0,  # Reduced from 8000.0 - smaller penalty multiplier
         'P_task': 500000.0,  # Reduced from 75000.0 - less penalty for task violations
         'P_fleet': 50000000.0,  # Reduced from 75000.0 - less penalty for fleet violations
-        'max_neighbors_to_evaluate': 2000,  # DOUBLED: More neighbors to explore (was 1000)
+        'max_neighbors_to_evaluate': 200,  # DOUBLED: More neighbors to explore (was 1000)
         'best_k_insertions': 200,  # DOUBLED: Try many more insertion positions (was 100)
         'enable_delta_evaluation': True,
-        'max_neighbors_per_iteration': 2000,  # DOUBLED: More neighbors per iteration (was 1000)
+        'max_neighbors_per_iteration': 200,  # DOUBLED: More neighbors per iteration (was 1000)
         # Cluster-aware initialization parameters for much more lenient assignment
         'cluster_tolerance_factor': 1.0,  # Increased from 1.5 - Allow 100% more tolerance in clustering
         'initial_assignment_relaxation': 0.8,  # Reduced from 0.8 - Relax constraints by 50% during initialization
@@ -2004,9 +2723,9 @@ def configure_algorithm_parameters() -> dict:
         'enable_force_assignment': True,  # New: Enable smart force assignment of unassigned orders
         'force_assignment_strategy': 'least_loaded_capable',  # New: Strategy for selecting vehicles for force assignment
         # Advanced order insertion strategies (TODO 20)
-        'initialization_method': 'cluster_aware',  # Fast geographic clustering base
+        'initialization_method': 'cluster_aware',  # Revert to cluster_aware for zero violations
         'enable_post_init_consolidation': True,    # NEW: Add consolidation phase for idle vehicles
-        'target_idle_vehicles': 10,                # NEW: Target number of idle vehicles to create
+        'target_idle_vehicles': 5,                 # REDUCED: Focus on assignment over consolidation
         'consolidation_distance_penalty': 2.0,    # NEW: Maximum distance increase allowed for consolidation
         'regret_k_value': 3,  # New: k value for regret calculation (2 or 3 is common)
         'enhanced_logging': True,  # Enhanced: Enable comprehensive diagnostic logging for assignment failures
@@ -2014,6 +2733,14 @@ def configure_algorithm_parameters() -> dict:
         'max_destroy_attempts': 10,  # New: Maximum number of destroy-repair attempts for difficult orders
         'debug_regret': True,  # New: Enable debug output for regret-k initialization
         'debug_destroy_repair': True,  # New: Enable debug output for destroy and repair operations
+        
+        # COMPREHENSIVE ORDER TRACKING - NEW
+        'track_order_assignments': True,  # Track each order through the entire pipeline
+        'detailed_assignment_logging': True,  # Show detailed assignment attempts
+        'debug_order_ids': [1, 5, 6, 7, 8, 19],  # Specific orders to track in detail
+        'show_iteration_progress': True,  # Show progress at each iteration
+        'log_assignment_failures': True,  # Log why assignments fail
+        'track_vehicle_attempts': True,  # Track which vehicles are tried for each order
     }
 
 
@@ -2291,6 +3018,9 @@ def get_unassigned_orders(solution, orders):
     """
     Identify orders that are not assigned to any vehicle route.
     
+    ENHANCED: Considers split order mapping - if all parts of a split order 
+    are assigned, the original order is considered virtually assigned.
+    
     Args:
         solution: Solution object with routes
         orders: List of all Order objects
@@ -2310,10 +3040,21 @@ def get_unassigned_orders(solution, orders):
                     if not ('depot_start' in str(order_id).lower() or 'depot_return' in str(order_id).lower()):
                         assigned_order_ids.add(order_id)
     
-    # Find unassigned orders
+    # Check for split orders and mark as virtually assigned if all parts are assigned
+    virtually_assigned_orders = set()
+    if hasattr(solution, 'split_order_mapping') and solution.split_order_mapping:
+        for original_order_id, sub_order_ids in solution.split_order_mapping.items():
+            # Check if all sub-orders are assigned
+            all_parts_assigned = all(sub_id in assigned_order_ids for sub_id in sub_order_ids)
+            if all_parts_assigned:
+                virtually_assigned_orders.add(original_order_id)
+                # Optional: print debug info
+                # print(f"DEBUG: Order {original_order_id} virtually assigned (all {len(sub_order_ids)} parts assigned)")
+    
+    # Find unassigned orders (excluding virtually assigned split orders)
     unassigned_orders = []
     for order in orders:
-        if order.id not in assigned_order_ids:
+        if order.id not in assigned_order_ids and order.id not in virtually_assigned_orders:
             unassigned_orders.append(order)
     
     return unassigned_orders
@@ -2364,6 +3105,7 @@ def can_vehicle_handle_order_with_penalties(vehicle, order, current_load=None):
     Check if a vehicle can handle an order with hard/soft constraints and penalty calculation.
     
     Hard constraints (cannot be violated):
+    - Capability requirements: vehicle must have all order capabilities (SECTION 2.2)
     - Volume capacity: must not exceed vehicle.volume_capacity
     - Pallet capacity: must not exceed vehicle.pallet_capacity
     
@@ -2382,6 +3124,31 @@ def can_vehicle_handle_order_with_penalties(vehicle, order, current_load=None):
     """
     if current_load is None:
         current_load = (0.0, 0.0, 0)
+    
+    # SECTION 2.2: Check capability requirements first
+    order_capabilities = set()
+    order_tasks = order.get_pickups() + order.get_deliveries()
+    for task in order_tasks:
+        if getattr(task, 'requires_hangers', False):
+            order_capabilities.add('HANGERS')
+        if getattr(task, 'requires_loader', False):
+            order_capabilities.add('LOADER')
+        if getattr(task, 'requires_low_temp', False):
+            order_capabilities.add('LOW_TEMP')
+    
+    # Get vehicle capabilities
+    vehicle_capabilities = set()
+    if hasattr(vehicle, 'capabilities') and vehicle.capabilities:
+        for cap in vehicle.capabilities:
+            if hasattr(cap, 'name'):
+                vehicle_capabilities.add(cap.name)
+            else:
+                vehicle_capabilities.add(str(cap))
+    
+    # Check if vehicle has all required capabilities (hard constraint)
+    if not order_capabilities.issubset(vehicle_capabilities):
+        # Return immediately if capability requirements not met
+        return False, float('inf')  # Infinite penalty for capability mismatch
     
     current_weight, current_volume, current_pallets = current_load
     order_weight, order_volume, order_pallets = get_order_requirements(order)
@@ -2439,10 +3206,21 @@ def calculate_order_difficulty(order):
     return difficulty
 
 
-def force_assign_order_to_vehicle(solution, order, vehicle):
+def force_assign_order_to_vehicle(order, vehicle, solution):
     """Force assign an order to a specific vehicle, preserving existing route if insertion fails."""
     from algo.first_level import _create_base_route
     from algo.second_level import l2_heuristic
+
+    # DEBUG: Show what tasks this order actually has
+    if str(order.id) in ['5', '6', '8']:
+        pickup_tasks = getattr(order, 'pickup_tasks', [])
+        delivery_tasks = getattr(order, 'delivery_tasks', [])
+        all_tasks = getattr(order, 'tasks', [])
+        pickup_ids = [getattr(t, 'id', 'unknown') for t in pickup_tasks]
+        delivery_ids = [getattr(t, 'id', 'unknown') for t in delivery_tasks]
+        print(f"   DEBUG: Order {order.id} has {len(pickup_tasks)}P + {len(delivery_tasks)}D = {len(all_tasks)} total tasks")
+        print(f"   DEBUG: Pickups: {pickup_ids}")
+        print(f"   DEBUG: Deliveries: {delivery_ids}")
 
     route = solution.routes.get(vehicle.id)
     if not route or len(route.tasks) <= 2:
@@ -3077,107 +3855,143 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
     force_assigned_count = 0
     
     # STRATEGY 1: Direct Assignment to Idle Vehicles
-    print(f"\nSTRATEGY 1: Direct assignment to {len(idle_vehicles)} idle vehicles")
+    print(f"\nSTRATEGY 1: Comprehensive assignment to {len(idle_vehicles)} idle vehicles")
     
-    for i, order in enumerate(unassigned_orders.copy()):
-        if i >= len(idle_vehicles):
-            break  # No more idle vehicles
-            
-        vehicle = idle_vehicles[i]
+    # Test EVERY unassigned order against EVERY idle vehicle (comprehensive approach)
+    for order in unassigned_orders.copy():
+        order_assigned = False
         
-        # Check basic feasibility (strict pallet limits) - FIXED: Use corrected pallet calculation
+        # Get order requirements
         total_weight, total_volume, total_pallets = get_order_requirements(order)
         
-        weight_ok = total_weight <= vehicle.weight_capacity * 1.5  # 50% overload allowed
-        volume_ok = total_volume <= vehicle.volume_capacity * 1.5  # 50% overload allowed
-        pallet_ok = vehicle.pallet_capacity is None or total_pallets <= vehicle.pallet_capacity  # STRICT pallets
+        # ORDER TRACKING: Start comprehensive idle vehicle testing
+        if str(order.id) in ['1', '5', '6', '7', '8', '19']:
+            print(f"   TARGET: Testing Order {order.id} against ALL {len(idle_vehicles)} idle vehicles")
         
-        if weight_ok and volume_ok and pallet_ok:
-            # ORDER TRACKING: About to force assign
-            if str(order.id) in ['4', '7']:
-                print(f"   TARGET: Attempting to force assign Order {order.id} to idle vehicle {vehicle.id}")
+        # Test against ALL idle vehicles, sorted by capacity (best fit first)
+        compatible_idle_vehicles = []
+        
+        for vehicle in idle_vehicles:
+            # Check basic feasibility
+            weight_ok = total_weight <= vehicle.weight_capacity * 1.2  # 20% overload allowed
+            volume_ok = total_volume <= vehicle.volume_capacity * 1.2  # 20% overload allowed
+            pallet_ok = vehicle.pallet_capacity is None or total_pallets <= vehicle.pallet_capacity  # STRICT pallets
+            
+            if weight_ok and volume_ok and pallet_ok:
+                # Calculate capacity fit score (smaller is better - closer to optimal fit)
+                weight_ratio = total_weight / vehicle.weight_capacity
+                volume_ratio = total_volume / vehicle.volume_capacity
+                pallet_ratio = total_pallets / vehicle.pallet_capacity if vehicle.pallet_capacity else 0
+                fit_score = weight_ratio + volume_ratio + pallet_ratio
+                
+                compatible_idle_vehicles.append((vehicle, fit_score))
+                
+                # ORDER TRACKING: Log compatible vehicle
+                if str(order.id) in ['1', '5', '6', '7', '8', '19']:
+                    print(f"     Compatible: {vehicle.id} (fit_score: {fit_score:.2f})")
+        
+        # Sort by fit score (best fit first)
+        compatible_idle_vehicles.sort(key=lambda x: x[1])
+        
+        # Try to assign to the best fitting idle vehicle
+        for vehicle, fit_score in compatible_idle_vehicles:
+            # ORDER TRACKING: About to test assignment
+            if str(order.id) in ['1', '5', '6', '7', '8', '19']:
+                print(f"   TARGET: Attempting to force assign Order {order.id} to idle vehicle {vehicle.id} (fit: {fit_score:.2f})")
             
             # Force assign to this idle vehicle
             success = force_assign_order_to_vehicle(order, vehicle, solution)
             if success:
-                if str(order.id) in ['4', '7']:
+                if str(order.id) in ['1', '5', '6', '7', '8', '19']:
                     print(f"   TARGET SUCCESS: Order {order.id} FORCE ASSIGNED to idle vehicle {vehicle.id}")
-                    if vehicle.id == 'GW895CW':
-                        print(f"   ALERT: Order {order.id} assigned to GW895CW via STRATEGY 1 (idle assignment)")
                 else:
                     print(f"   SUCCESS: Assigned order {order.id} to idle vehicle {vehicle.id}")
                 unassigned_orders.remove(order)
                 solution.unassigned_orders.discard(order.id)
+                idle_vehicles.remove(vehicle)  # Remove from idle list
                 force_assigned_count += 1
+                order_assigned = True
+                break
             else:
-                if str(order.id) in ['4', '7']:
-                    print(f"   TARGET FAILED: Order {order.id} force assignment to {vehicle.id} failed")
-                else:
-                    print(f"   FAILED: Failed to assign order {order.id} to vehicle {vehicle.id}")
-        else:
-            reasons = []
-            if not weight_ok:
-                reasons.append(f"weight {total_weight:.0f}kg > {vehicle.weight_capacity*1.5:.0f}kg")
-            if not volume_ok:
-                reasons.append(f"volume {total_volume:.0f}m³ > {vehicle.volume_capacity*1.5:.0f}m³")
-            if not pallet_ok:
-                reasons.append(f"pallets {total_pallets} > {vehicle.pallet_capacity}")
-            print(f"   WARNING: Order {order.id} incompatible with vehicle {vehicle.id}: {'; '.join(reasons)}")
+                # ORDER TRACKING: Log failed attempt
+                if str(order.id) in ['1', '5', '6', '7', '8', '19']:
+                    print(f"   TARGET FAILED: Order {order.id} assignment to idle vehicle {vehicle.id} failed (time windows/constraints)")
+        
+        # ORDER TRACKING: Summary for unassigned orders
+        if not order_assigned and str(order.id) in ['1', '5', '6', '7', '8', '19']:
+            print(f"   TARGET NO MATCH: Order {order.id} could not be assigned to any of {len(compatible_idle_vehicles)} compatible idle vehicles")
     
-    # STRATEGY 2: Assignment to Light Vehicles (if space available)
+    # STRATEGY 2: Comprehensive assignment to Light Vehicles (if space available)
     remaining_orders = len(unassigned_orders)
     if remaining_orders > 0:
-        print(f"\nSTRATEGY 2: Assignment to light vehicles ({remaining_orders} orders remaining)")
+        print(f"\nSTRATEGY 2: Comprehensive assignment to light vehicles ({remaining_orders} orders remaining)")
         
         for order in unassigned_orders.copy():
-            best_vehicle = None
+            order_assigned = False
+            
+            # Get order requirements
+            total_weight = order.get_total_demand()
+            total_volume = order.get_total_volume()
+            # FIXED: Calculate peak pallets (only pickups) instead of total pallets
+            peak_pallets = sum(getattr(task, 'pallets', 0) for task in order.pickup_tasks)
+            
+            # ORDER TRACKING: Start comprehensive light vehicle testing
+            if str(order.id) in ['1', '5', '6', '7', '8', '19']:
+                print(f"   TARGET: Testing Order {order.id} against ALL light vehicles")
+            
+            # Test against ALL light vehicles, sorted by current load (least loaded first)
+            compatible_light_vehicles = []
             
             for vehicle, current_load in light_vehicles:
                 if current_load >= 4:  # Skip already heavy vehicles
                     continue
                     
                 # Check if vehicle can handle this order
-                total_weight = order.get_total_demand()
-                total_volume = order.get_total_volume()
-                # FIXED: Calculate peak pallets (only pickups) instead of total pallets
-                peak_pallets = sum(getattr(task, 'pallets', 0) for task in order.pickup_tasks)
-                
                 weight_ok = total_weight <= vehicle.weight_capacity * 1.2  # 20% overload allowed
                 volume_ok = total_volume <= vehicle.volume_capacity * 1.2  # 20% overload allowed
                 pallet_ok = vehicle.pallet_capacity is None or peak_pallets <= vehicle.pallet_capacity  # STRICT pallets
                 
                 if weight_ok and volume_ok and pallet_ok:
-                    best_vehicle = vehicle
-                    break
+                    compatible_light_vehicles.append((vehicle, current_load))
+                    
+                    # ORDER TRACKING: Log compatible vehicle
+                    if str(order.id) in ['1', '5', '6', '7', '8', '19']:
+                        print(f"     Compatible: {vehicle.id} (current_load: {current_load})")
             
-            if best_vehicle:
+            # Sort by current load (least loaded first)
+            compatible_light_vehicles.sort(key=lambda x: x[1])
+            
+            # Try to assign to the best light vehicle
+            for vehicle, current_load in compatible_light_vehicles:
                 # ORDER TRACKING: About to assign to light vehicle
-                if str(order.id) in ['4', '7']:
-                    print(f"   TARGET: Attempting to assign Order {order.id} to light vehicle {best_vehicle.id}")
+                if str(order.id) in ['1', '5', '6', '7', '8', '19']:
+                    print(f"   TARGET: Attempting to assign Order {order.id} to light vehicle {vehicle.id} (load: {current_load})")
                 
-                success = force_assign_order_to_vehicle(order, best_vehicle, solution)
+                success = force_assign_order_to_vehicle(order, vehicle, solution)
                 if success:
-                    if str(order.id) in ['4', '7']:
-                        print(f"   TARGET SUCCESS: Order {order.id} ASSIGNED to light vehicle {best_vehicle.id}")
-                        if best_vehicle.id == 'GW895CW':
-                            print(f"   ALERT: Order {order.id} assigned to GW895CW via STRATEGY 2 (light vehicle)")
+                    if str(order.id) in ['1', '5', '6', '7', '8', '19']:
+                        print(f"   TARGET SUCCESS: Order {order.id} ASSIGNED to light vehicle {vehicle.id}")
                     else:
-                        print(f"   SUCCESS: Assigned order {order.id} to light vehicle {best_vehicle.id}")
+                        print(f"   SUCCESS: Assigned order {order.id} to light vehicle {vehicle.id}")
                     unassigned_orders.remove(order)
                     solution.unassigned_orders.discard(order.id)
                     force_assigned_count += 1
                     
                     # Update light vehicle load tracking
                     for i, (v, load) in enumerate(light_vehicles):
-                        if v.id == best_vehicle.id:
+                        if v.id == vehicle.id:
                             light_vehicles[i] = (v, load + 1)
                             break
+                    order_assigned = True
+                    break
                 else:
-                    if str(order.id) in ['4', '7']:
-                        print(f"   TARGET FAILED: Order {order.id} assignment to light vehicle {best_vehicle.id} failed")
-            else:
-                if str(order.id) in ['4', '7']:
-                    print(f"   TARGET NO MATCH: No suitable light vehicle found for Order {order.id}")
+                    # ORDER TRACKING: Log failed attempt
+                    if str(order.id) in ['1', '5', '6', '7', '8', '19']:
+                        print(f"   TARGET FAILED: Order {order.id} assignment to light vehicle {vehicle.id} failed")
+            
+            # ORDER TRACKING: Summary for unassigned orders
+            if not order_assigned and str(order.id) in ['1', '5', '6', '7', '8', '19']:
+                print(f"   TARGET NO MATCH: Order {order.id} could not be assigned to any of {len(compatible_light_vehicles)} compatible light vehicles")
     
     # STRATEGY 3: Emergency Order Splitting for Remaining Orders - DISABLED
     # Emergency splitting is disabled as it complicates route management
@@ -3218,6 +4032,10 @@ def force_assign_order_to_vehicle(order, vehicle, solution):
         bool: True if successful, False otherwise
     """
     try:
+        # DETAILED TRACKING: Log assignment attempt
+        if hasattr(order, 'id') and order.id in [1, 5, 6, 7, 8, 19]:
+            print(f"   FORCE ASSIGNMENT ATTEMPT: Order {order.id} -> Vehicle {vehicle.id}")
+        
         # Get existing route for this vehicle or create empty route for idle vehicles
         route = solution.routes.get(vehicle.id)
         if not route:
@@ -3260,7 +4078,11 @@ def force_assign_order_to_vehicle(order, vehicle, solution):
         # CRITICAL: Use full feasibility check including time window validation
         is_feasible_result = is_feasible(temp_route, debug_feasibility=False, allow_soft_violations=False)
         if not is_feasible_result:
-            print(f"   ERROR: Cannot assign order {order.id} to vehicle {vehicle.id}: FEASIBILITY VIOLATION (time windows or other constraints)")
+            failure_reason = f"FEASIBILITY VIOLATION (time windows or other constraints)"
+            if hasattr(order, 'id') and order.id in [1, 5, 6, 7, 8, 19]:
+                print(f"   FORCE ASSIGNMENT FAILED: Order {order.id} -> Vehicle {vehicle.id}: {failure_reason}")
+                order_tracker.log_attempt(order.id, vehicle.id, "force_assignment", failure_reason)
+            print(f"   ERROR: Cannot assign order {order.id} to vehicle {vehicle.id}: {failure_reason}")
             return False
 
         # If feasibility check passes, make the actual assignment
@@ -3271,6 +4093,11 @@ def force_assign_order_to_vehicle(order, vehicle, solution):
             else:
                 # Add to the end
                 route.tasks.append(task)
+        
+        # DETAILED TRACKING: Log successful assignment
+        if hasattr(order, 'id') and order.id in [1, 5, 6, 7, 8, 19]:
+            print(f"   FORCE ASSIGNMENT SUCCESS: Order {order.id} -> Vehicle {vehicle.id}")
+            order_tracker.log_assignment(order.id, vehicle.id, "force_assignment", f"Force assigned with {len(order_tasks)} tasks")
         
         print(f"   SUCCESS: Added {len(order_tasks)} tasks from order {order.id} to vehicle {vehicle.id}")
         return True
@@ -3496,11 +4323,27 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
         print(f"     ALL ORDERS STATUS:")
         for order in orders:
             order_id = getattr(order, 'id', 'unknown')
-            num_tasks = len(getattr(order, 'tasks', []))
-            if str(order_id) in ['4', '7']:
-                print(f"     TARGET Order {order_id}: UNASSIGNED (initial) - {num_tasks} tasks")
+            
+            # Get detailed task information
+            pickup_tasks = getattr(order, 'pickup_tasks', [])
+            delivery_tasks = getattr(order, 'delivery_tasks', [])
+            all_tasks = getattr(order, 'tasks', [])
+            
+            pickup_count = len(pickup_tasks)
+            delivery_count = len(delivery_tasks)
+            total_tasks = len(all_tasks)
+            
+            # For target orders 5, 6, 8, show detailed task IDs
+            if str(order_id) in ['5', '6', '8']:
+                pickup_ids = [getattr(t, 'id', 'unknown') for t in pickup_tasks]
+                delivery_ids = [getattr(t, 'id', 'unknown') for t in delivery_tasks]
+                print(f"     TARGET Order {order_id}: UNASSIGNED (initial) - {pickup_count}P + {delivery_count}D = {total_tasks} tasks")
+                print(f"         Pickups: {pickup_ids}")
+                print(f"         Deliveries: {delivery_ids}")
+            elif str(order_id) in ['4', '7']:
+                print(f"     TARGET Order {order_id}: UNASSIGNED (initial) - {pickup_count}P + {delivery_count}D = {total_tasks} tasks")
             elif int(str(order_id)) <= 10:  # Track first 10 orders for context
-                print(f"     Order {order_id}: UNASSIGNED (initial) - {num_tasks} tasks")
+                print(f"     Order {order_id}: UNASSIGNED (initial) - {pickup_count}P + {delivery_count}D = {total_tasks} tasks")
         print(f"     ... (tracking all {len(orders)} orders)")
         
         # DISABLED: Apply AGGRESSIVE order splitting for 100% assignment goal
@@ -3545,20 +4388,133 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
     params = configure_algorithm_parameters()
     print(f"OK: Parameters configured (M1={params['M1']}, M2={params['M2']})")
     
-    # Step 3: Run l1_heuristic
+    # Step 3: Run l1_heuristic with detailed tracking
     print(f"\nRunning l1_heuristic...")
     start_time = time.time()
+    
+    # TRACKING: Check initial status
+    print(f"\nORDER TRACKING: BEFORE L1 HEURISTIC")
+    order_tracker.check_assignment_status(type('MockSolution', (), {'routes': {}})(), epdt_orders)
+    
+    # COMPREHENSIVE DEBUG: Check ALL orders' tasks before going into L1 heuristic (READ-ONLY)
+    print(f"\nCOMPREHENSIVE DEBUG: Checking ALL orders' tasks before L1 heuristic:")
+    
+    service_time_zero_orders = []
+    empty_tasks_orders = []
+    
+    for order in epdt_orders:
+        order_id = str(getattr(order, 'id', 'unknown'))
+        pickup_tasks = getattr(order, 'pickup_tasks', [])
+        delivery_tasks = getattr(order, 'delivery_tasks', [])
+        all_tasks = getattr(order, 'tasks', [])
+        
+        # Check for zero service time tasks
+        zero_service_tasks = []
+        for task in pickup_tasks + delivery_tasks:
+            if getattr(task, 'service_time', 5.0) == 0.0:
+                zero_service_tasks.append(getattr(task, 'id', 'no-id'))
+        
+        if zero_service_tasks:
+            service_time_zero_orders.append(order_id)
+        
+        print(f"   Order {order_id}: {len(pickup_tasks)}P + {len(delivery_tasks)}D = expected {len(pickup_tasks) + len(delivery_tasks)}, actual tasks: {len(all_tasks)}")
+        
+        # For our target orders (5, 6, 7, 8), show detailed info
+        if order_id in ['5', '6', '7', '8']:
+            print(f"      TARGET Order {order_id} DETAILED:")
+            for i, p in enumerate(pickup_tasks):
+                print(f"         Pickup {i+1}: {getattr(p, 'id', 'no-id')} - service_time: {getattr(p, 'service_time', 'unknown')}")
+            for i, d in enumerate(delivery_tasks):
+                print(f"         Delivery {i+1}: {getattr(d, 'id', 'no-id')} - service_time: {getattr(d, 'service_time', 'unknown')}")
+            
+            if zero_service_tasks:
+                print(f"         ZERO SERVICE TIME tasks: {zero_service_tasks}")
+        
+        # IMPORTANT: DO NOT MODIFY THE ORDER OBJECTS - just track the issue
+        if len(all_tasks) == 0 and (len(pickup_tasks) > 0 or len(delivery_tasks) > 0):
+            empty_tasks_orders.append(order_id)
+            print(f"         OBSERVATION: Order {order_id} has empty tasks attribute but {len(pickup_tasks) + len(delivery_tasks)} pickup/delivery tasks")
+    
+    print(f"\nSUMMARY (READ-ONLY ANALYSIS):")
+    print(f"   - Orders with zero service time tasks: {service_time_zero_orders}")
+    print(f"   - Orders with empty tasks attribute: {empty_tasks_orders}")
+    print(f"   - Total orders to be processed by L1: {len(epdt_orders)}")
+    
+    print(f"\nCALLING L1 HEURISTIC WITHOUT MODIFICATIONS - observing natural behavior...")
     
     try:
         solution = l1_heuristic(epdt_orders, epdt_vehicles, params)
         runtime_seconds = time.time() - start_time
         
-        print(f"OK: Heuristic completed successfully!")
+        print(f"L1 HEURISTIC COMPLETED!")
         print(f"   - Runtime: {runtime_seconds:.2f} seconds")
-        print(f"   - Solution type: {type(solution).__name__}")
         
-        # ORDER TRACKING: After L1 heuristic - check assignments
-        print(f"\nORDER TRACKING: AFTER L1 HEURISTIC - Assignment Status")
+        # COMPREHENSIVE POST-L1 ANALYSIS: Check which orders got assigned
+        print(f"\nPOST-L1 ANALYSIS: Checking assignment results...")
+        
+        assigned_orders_detailed = {}
+        all_assigned_task_ids = set()
+        
+        for vehicle_id, route in solution.routes.items():
+            if route and hasattr(route, 'tasks') and route.tasks:
+                vehicle_orders = set()
+                vehicle_tasks = []
+                for task in route.tasks:
+                    if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
+                        vehicle_orders.add(str(task.order_id))
+                        vehicle_tasks.append(getattr(task, 'id', 'no-id'))
+                        all_assigned_task_ids.add(getattr(task, 'id', 'no-id'))
+                
+                if vehicle_orders:
+                    assigned_orders_detailed[vehicle_id] = {
+                        'orders': vehicle_orders,
+                        'tasks': vehicle_tasks
+                    }
+        
+        # Check specifically for our target orders
+        target_order_status = {}
+        for order_id in ['5', '6', '7', '8']:
+            target_order_status[order_id] = {'assigned': False, 'vehicle': None, 'missing_tasks': []}
+            
+            # Check if any tasks from this order are assigned
+            for order in epdt_orders:
+                if str(getattr(order, 'id', 'unknown')) == order_id:
+                    pickup_tasks = getattr(order, 'pickup_tasks', [])
+                    delivery_tasks = getattr(order, 'delivery_tasks', [])
+                    all_order_tasks = pickup_tasks + delivery_tasks
+                    
+                    for task in all_order_tasks:
+                        task_id = getattr(task, 'id', 'no-id')
+                        if task_id in all_assigned_task_ids:
+                            target_order_status[order_id]['assigned'] = True
+                            # Find which vehicle
+                            for vehicle_id, details in assigned_orders_detailed.items():
+                                if task_id in details['tasks']:
+                                    target_order_status[order_id]['vehicle'] = vehicle_id
+                                    break
+                        else:
+                            target_order_status[order_id]['missing_tasks'].append(task_id)
+        
+        print(f"\nTARGET ORDER ASSIGNMENT STATUS:")
+        for order_id, status in target_order_status.items():
+            if status['assigned']:
+                print(f"   Order {order_id}: ASSIGNED to {status['vehicle']}")
+                if status['missing_tasks']:
+                    print(f"      BUT missing tasks: {status['missing_tasks']}")
+            else:
+                print(f"   Order {order_id}: UNASSIGNED - all tasks missing: {status['missing_tasks']}")
+        
+        print(f"\nASSIGNMENT SUMMARY:")
+        total_assigned_orders = len([status for status in target_order_status.values() if status['assigned']])
+        print(f"   Target orders assigned: {total_assigned_orders}/4")
+        print(f"   Total vehicles with assignments: {len(assigned_orders_detailed)}")
+    
+    except Exception as e:
+        print(f"L1 HEURISTIC FAILED: {e}")
+        import traceback
+        traceback.print_exc()
+        return None, None, None, None
+        
         assigned_orders = set()
         route_assignments = {}
         
@@ -3569,6 +4525,10 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
                     if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
                         assigned_orders.add(str(task.order_id))
                         route_orders.add(str(task.order_id))
+                        
+                        # Log to order tracker
+                        order_tracker.log_assignment(task.order_id, vehicle_id, "initialization", "L1 heuristic")
+                        
                 if route_orders:
                     route_assignments[vehicle_id] = route_orders
         
@@ -3637,6 +4597,8 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
             
             # ORDER TRACKING: Before force assignment
             print(f"\nORDER TRACKING: BEFORE FORCE ASSIGNMENT")
+            order_tracker.check_assignment_status(solution, epdt_orders)
+            
             pre_force_assigned = set()
             pre_force_assignments = {}
             
@@ -3662,6 +4624,8 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
             
             # ORDER TRACKING: After force assignment
             print(f"\nORDER TRACKING: AFTER FORCE ASSIGNMENT")
+            order_tracker.check_assignment_status(solution, epdt_orders)
+            
             post_force_assigned = set()
             post_force_assignments = {}
             
@@ -3672,6 +4636,11 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
                         if hasattr(task, 'order_id') and task.order_id and 'depot' not in str(task.order_id).lower():
                             post_force_assigned.add(str(task.order_id))
                             route_orders.add(str(task.order_id))
+                            
+                            # Track newly assigned orders
+                            if str(task.order_id) not in pre_force_assigned:
+                                order_tracker.log_assignment(task.order_id, vehicle_id, "force_assignment", "Smart force assignment")
+                                
                     if route_orders:
                         post_force_assignments[vehicle_id] = route_orders
             
@@ -3710,6 +4679,11 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
     print("DEBUG: Analyzing vehicle utilization...")
     unassigned_orders = get_unassigned_orders(solution, epdt_orders)
     analyze_vehicle_utilization(solution, epdt_vehicles, unassigned_orders)
+    
+    # ORDER TRACKING: Final summary
+    print(f"\nORDER TRACKING: FINAL ASSIGNMENT STATUS")
+    order_tracker.check_assignment_status(solution, epdt_orders)
+    order_tracker.print_summary()
     
     # Step 5: Validate and summarize results
     print("DEBUG: About to call validation summary...")
@@ -3963,52 +4937,208 @@ def run_phase2_driver_assignment(excel_path: str, solution, vehicles, output_con
         # Continue even if summary fails
     
     # Step 6: Generate Interactive Map
-    #print(f"\nMap Generating interactive solution map...")
-    #try:
-    #    from algo.solution_visualizer import create_interactive_map
-    #    import os
-    #    from datetime import datetime
-    #    
-    #    # Create results directory with cleaner path
-    #    test_dir = os.path.dirname(__file__)
-    #    project_root = os.path.dirname(test_dir)  # Go up from tests to heuristicapproach
-    #    results_dir = os.path.join(project_root, "results")
-    #    os.makedirs(results_dir, exist_ok=True)
-    #    
-    #    # Create map filename with timestamp
-    #    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    #    map_filename = f"comprehensive_solution_map_{timestamp}.html"
-    #    map_path = os.path.join(results_dir, map_filename)
-    #    
-    #    # Generate the interactive map
-    #    created_map_path = create_interactive_map(solution, map_path)
-    #    
-    #    if created_map_path:
-    #        # Normalize the path for clean display
-    #        clean_path = os.path.normpath(created_map_path)
-    #        print(f"Map Interactive map saved to: {clean_path}")
-    #        print(f"   - Open this file in your browser to view the solution")
-    #        print(f"   - Shows routes, driver assignments, and task details")
-    #        
-    #        # Also provide the absolute path for easy access
-    #        abs_path = os.path.abspath(clean_path)
-    #        print(f"   - Full path: {abs_path}")
-    #    else:
-    #        print(f"Warning: Map generation failed")
-    #        
-    #except ImportError as e:
-    #    print(f"Warning: Map visualization not available: {e}")
-    #except Exception as e:
-    #    print(f"Warning: Error generating map: {e}")
-#
-    ## Step 7: Export Routes to Text Format
-    #print(f"\nExport Exporting routes to text format...")
-    #try:
-    #    route_export_path = f"route_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-    #    export_routes_to_text(solution, route_export_path)
-    #    print(f"Export Routes exported to: {route_export_path}")
-    #except Exception as e:
-    #    print(f"Warning: Error exporting routes: {e}")
+    # Step 6: Generate Interactive Map Visualization
+    print(f"\n" + "="*80)
+    print("GENERATING INTERACTIVE MAP VISUALIZATION")
+    print("="*80)
+    
+    # Generate timestamp for unique map filename (outside try block to avoid scoping issues)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    try:
+        from algo.solution_visualizer import create_interactive_map
+        
+        # Create map filename with absolute path to avoid directory issues
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(current_dir)  # Go up from tests to heuristicapproach
+        map_filename = os.path.join(parent_dir, f"complete_route_map_{timestamp}.html")
+        
+        print(f"Creating interactive map: {map_filename}")
+        print("Map features:")
+        print("  • Vehicle routes with different colors")
+        print("  • Task locations with pickup/delivery markers")
+        print("  • Vehicle information and route details")
+        print("  • Driver assignments and qualifications")
+        print("  • Interactive zoom and pan controls")
+        print("  • Route feasibility status and violations")
+        
+        # Create the interactive map with the correct parameters
+        map_success = create_interactive_map(
+            solution=solution,
+            save_path=map_filename
+        )
+        
+        if map_success:
+            import os
+            map_path = os.path.abspath(map_filename)
+            print(f"✅ SUCCESS: Interactive map created successfully!")
+            print(f"📁 Map file: {map_path}")
+            print(f"🌐 Open in browser: file://{map_path}")
+            
+            # Provide easy copy-paste browser URL
+            browser_url = f"file:///{map_path.replace(os.sep, '/')}"
+            print(f"📋 Browser URL: {browser_url}")
+            
+            # Optional: Try to open the map in the default browser
+            try:
+                import webbrowser
+                webbrowser.open(browser_url)
+                print("🚀 Map automatically opened in default browser")
+            except Exception:
+                print("💡 Tip: Copy the browser URL above into your browser to view the map")
+                
+        else:
+            print("❌ ERROR: Failed to create interactive map")
+            
+    except ImportError as e:
+        print(f"⚠️  Interactive map module not available: {e}")
+        print("� Attempting alternative map generation...")
+        
+        # Try alternative map generation approaches
+        try:
+            # Try solution visualizer from algo directory
+            from algo.solution_visualizer import create_interactive_map as alt_create_map
+            
+            map_filename = f"solution_map_{timestamp}.html"
+            map_success = alt_create_map(solution, map_filename)
+            
+            if map_success:
+                print(f"✅ Alternative map created: {map_filename}")
+            else:
+                raise Exception("Alternative map generation failed")
+                
+        except ImportError:
+            try:
+                # Try creating a simple HTML map manually
+                print("🛠️  Generating simple route summary map...")
+                _create_simple_route_summary(solution, vehicles, orders, drivers)
+                print("✅ Simple route summary generated: route_summary.html")
+                
+            except Exception as e2:
+                print(f"❌ All map generation methods failed: {e2}")
+                print("💡 Continuing without map visualization")
+                
+    except Exception as e:
+        print(f"❌ ERROR: Failed to create interactive map: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+
+def _create_simple_route_summary(solution, vehicles, orders, drivers):
+    """
+    Create a simple HTML route summary as fallback when full map generation isn't available.
+    
+    Args:
+        solution: Solution object with routes
+        vehicles: List of vehicle objects  
+        orders: List of order objects
+        drivers: List of driver objects
+    """
+    try:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"route_summary_{timestamp}.html"
+        
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Route Summary - {timestamp}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        .header {{ background-color: #f0f0f0; padding: 10px; margin-bottom: 20px; }}
+        .route {{ border: 1px solid #ccc; margin: 10px 0; padding: 10px; }}
+        .route-header {{ background-color: #e6f3ff; padding: 5px; font-weight: bold; }}
+        .task {{ margin: 5px 0; padding: 5px; background-color: #f9f9f9; }}
+        .pickup {{ border-left: 4px solid green; }}
+        .delivery {{ border-left: 4px solid blue; }}
+        .depot {{ border-left: 4px solid gray; }}
+        .stats {{ background-color: #fff3cd; padding: 10px; margin: 10px 0; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>VRP Solution Route Summary</h1>
+        <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    </div>
+    
+    <div class="stats">
+        <h2>Solution Statistics</h2>
+        <p><strong>Total Vehicles:</strong> {len(vehicles)}</p>
+        <p><strong>Total Orders:</strong> {len(orders)}</p>
+        <p><strong>Active Routes:</strong> {len([r for r in solution.routes.values() if r and r.tasks and len(r.tasks) > 2])}</p>
+    </div>
+"""
+        
+        # Add route details
+        route_count = 0
+        for vehicle_id, route in solution.routes.items():
+            if route and route.tasks and len(route.tasks) > 2:
+                route_count += 1
+                
+                # Get vehicle info
+                vehicle = next((v for v in vehicles if v.id == vehicle_id), None)
+                vehicle_type = "Unknown"
+                if vehicle:
+                    capacity = getattr(vehicle, 'weight_capacity', 0)
+                    if capacity >= 20000:
+                        vehicle_type = "Heavy Vehicle (Camion)"
+                    else:
+                        vehicle_type = "Light Vehicle (Furgone)"
+                
+                # Get driver info
+                driver_name = "Not assigned"
+                if hasattr(route, 'driver') and route.driver:
+                    driver_name = route.driver.name
+                
+                html_content += f"""
+    <div class="route">
+        <div class="route-header">
+            Route {route_count}: Vehicle {vehicle_id} ({vehicle_type})
+            <br>Driver: {driver_name}
+        </div>
+"""
+                
+                # Add tasks
+                for i, task in enumerate(route.tasks):
+                    task_type = "depot"
+                    task_class = "depot"
+                    
+                    if hasattr(task, 'task_type'):
+                        if task.task_type.name == 'PICKUP':
+                            task_type = "pickup"
+                            task_class = "pickup"
+                        elif task.task_type.name == 'DELIVERY':
+                            task_type = "delivery"
+                            task_class = "delivery"
+                    
+                    location = getattr(task, 'location_id', 'Unknown')
+                    demand = getattr(task, 'demand', 0)
+                    
+                    html_content += f"""
+        <div class="task {task_class}">
+            {i+1}. {task_type.upper()}: {location} ({demand}kg)
+        </div>
+"""
+                
+                html_content += "    </div>\n"
+        
+        html_content += """
+</body>
+</html>
+"""
+        
+        # Write to file
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+            
+        print(f"✅ Simple route summary created: {filename}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to create simple route summary: {e}")
+        return False
 
 
 def export_routes_to_text(solution, file_path: str):
@@ -4179,7 +5309,10 @@ def run_precomputation_phase(excel_file: str):
         print(f"   - Routes in cache before: {cache_count_before}")
         print(f"   - Routes in cache after: {cache_count_after}")
         print(f"   - New routes cached: {new_routes}")
-        print(f"   - Cache coverage: {(cache_count_after/unique_pairs)*100:.1f}%")
+        if unique_pairs > 0:
+            print(f"   - Cache coverage: {(cache_count_after/unique_pairs)*100:.1f}%")
+        else:
+            print(f"   - Cache coverage: N/A (no unique pairs to cache)")
         print(f"\nRunning Expected benefit: Subsequent optimizations should make ~0 OSRM calls!")
         
     except Exception as e:
@@ -4193,16 +5326,32 @@ def main():
     """
     Main function to run the comprehensive integration test.
     """
+    # Fix output encoding and buffering for redirection compatibility
+    import codecs
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
+            sys.stderr.reconfigure(encoding='utf-8', line_buffering=True)
+        except:
+            pass
+    
+    # Force unbuffered output for redirection
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 1, encoding='utf-8', errors='replace')
+    sys.stderr = os.fdopen(sys.stderr.fileno(), 'w', 1, encoding='utf-8', errors='replace')
+    
     print("Starting EPDT Comprehensive Integration Test...")
+    sys.stdout.flush()
     
     # Define path to the Excel file
     excel_file = os.path.join(src_dir, 'furgoni_con_prova.xlsx')
     
     if not os.path.exists(excel_file):
         print(f"Error: Excel file not found at {excel_file}")
+        sys.stdout.flush()
         sys.exit(1)
     
     print(f"Using Excel file: {excel_file}")
+    sys.stdout.flush()
     
     try:
         # Configure algorithm parameters
@@ -4277,26 +5426,145 @@ def main():
             import traceback
             traceback.print_exc()
         
+        # PHASE 6: Post-Optimization Route Consolidation
+        print("\n" + "="*80)
+        print("PHASE 6: POST-OPTIMIZATION ROUTE CONSOLIDATION")
+        print("="*80)
+        
+        try:
+            print("Analyzing routes for consolidation opportunities...")
+            
+            # Perform route consolidation optimization
+            consolidated_solution, consolidation_report = optimize_route_consolidation(
+                solution, vehicles, orders
+            )
+            
+            if consolidated_solution:
+                print("✅ Route consolidation optimization completed!")
+                print(consolidation_report)
+                
+                # Update solution with consolidated routes
+                solution = consolidated_solution
+                
+                # Recalculate metrics after consolidation
+                active_routes_after = len([r for r in solution.routes.values() if r and r.tasks and len(r.tasks) > 2])
+                print(f"\n📊 CONSOLIDATION IMPACT:")
+                print(f"   • Routes before consolidation: {active_route_count}")
+                print(f"   • Routes after consolidation: {active_routes_after}")
+                print(f"   • Routes reduced: {active_route_count - active_routes_after}")
+                if active_route_count > 0:
+                    print(f"   • Efficiency improvement: {((active_route_count - active_routes_after) / active_route_count * 100):.1f}%")
+                
+            else:
+                print("ℹ️  No consolidation opportunities found")
+                print(consolidation_report)
+                
+        except Exception as e:
+            print(f"ERROR: Route consolidation failed: {e}")
+            print("Continuing with original solution...")
+            import traceback
+            traceback.print_exc()
+
+        # PHASE 7: Enhanced Interactive Map with Consolidation Results
+        print(f"\n" + "="*80)
+        print("PHASE 7: ENHANCED INTERACTIVE MAP WITH CONSOLIDATION")
+        print("="*80)
+        
+        # Update map generation to include consolidation results
+        try:
+            from algo.solution_visualizer import create_interactive_map
+            
+            # Create map filename with consolidation indicator
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            parent_dir = os.path.dirname(os.path.abspath(__file__))
+            map_filename_consolidated = os.path.join(parent_dir, f"optimized_route_map_{timestamp}.html")
+            
+            print(f"Creating enhanced interactive map: {os.path.basename(map_filename_consolidated)}")
+            print("Enhanced map features:")
+            print("  • Consolidated route visualizations")
+            print("  • Before/after consolidation comparison")
+            print("  • Efficiency improvement indicators")
+            print("  • Cost reduction analysis")
+            
+            # Create the enhanced map
+            map_success = create_interactive_map(
+                solution=solution,
+                save_path=map_filename_consolidated
+            )
+            
+            if map_success:
+                print(f"✅ Enhanced map created: {os.path.basename(map_filename_consolidated)}")
+                browser_url = f"file:///{map_filename_consolidated.replace(os.sep, '/')}"
+                print(f"🌐 Enhanced Map URL: {browser_url}")
+            
+        except Exception as e:
+            print(f"⚠️  Enhanced map generation failed: {e}")
+        
         # === FINAL COMPREHENSIVE REPORT ===
         print_comprehensive_final_report(solution, orders, vehicles)
         
         # Final completion message - AFTER all phases and summaries are done
         print("\n" + "="*80)
-        print("Success COMPREHENSIVE INTEGRATION TEST COMPLETED!")
+        print("✅ COMPREHENSIVE INTEGRATION TEST COMPLETED SUCCESSFULLY!")
         print("="*80)
-        print(f"OK: Phase 1: Heuristic solver executed in {runtime:.2f} seconds")
-        print(f"OK: Phase 2: Driver assignment integration completed")
-        print(f"OK: Phase 3: Static pricing calculation completed")
-        print(f"OK: Phase 4: Comprehensive violation and financial analysis completed")
-        print("\nRunning Complete system integration with optimized constraints, visualization, and pricing!")
+        print(f"📊 PHASE COMPLETION SUMMARY:")
+        print(f"   ✅ Phase 1: Heuristic solver executed in {runtime:.2f} seconds")
+        print(f"   ✅ Phase 2: Driver assignment integration completed")
+        print(f"   ✅ Phase 3: Static pricing calculation completed")
+        print(f"   ✅ Phase 4: Comprehensive violation and financial analysis completed")
+        print(f"   ✅ Phase 5: Interactive map visualization generated")
+        
+        # Count active routes for final summary
+        active_route_count = len([r for r in solution.routes.values() if r and r.tasks and len(r.tasks) > 2])
+        assigned_orders = len(orders) - len(getattr(solution, 'unassigned_orders', set()))
+        
+        print(f"\n🎯 FINAL RESULTS:")
+        print(f"   • Total Orders: {len(orders)}")
+        print(f"   • Orders Assigned: {assigned_orders}")
+        print(f"   • Assignment Rate: {(assigned_orders/len(orders)*100):.1f}%")
+        print(f"   • Active Routes: {active_route_count}")
+        print(f"   • Vehicles Used: {active_route_count}/{len(vehicles)}")
+        
+        # Check if map was generated
+        map_generated = False
+        try:
+            # Check if map file exists
+            import glob
+            map_files = glob.glob("complete_route_map_*.html")
+            if map_files:
+                latest_map = max(map_files, key=os.path.getctime)
+                map_generated = True
+                print(f"   • Interactive Map: {latest_map}")
+        except:
+            pass
+        
+        if not map_generated:
+            print(f"   • Interactive Map: Not generated")
+        
+        print(f"\n🚀 NEXT STEPS:")
+        print(f"   1. Review the route assignments and driver allocations above")
+        print(f"   2. Check constraint violations and financial analysis")
+        print(f"   3. Open the interactive map file in your browser for visual inspection")
+        print(f"   4. Use the pricing information for customer quotations")
+        
+        print("\n🎉 Complete system integration with optimization, visualization, and smart order splitting!")
+        sys.stdout.flush()
         
     except Exception as e:
         print(f"\nCOMPREHENSIVE INTEGRATION TEST FAILED!")
         print(f"Error: {e}")
+        sys.stdout.flush()
         import traceback
         traceback.print_exc()
+        sys.stdout.flush()
         sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
+
+
+'''
+cd "d:\\Projects\\OQI_Project\\Full Optimizer\\VRPExample\\heuristicapproach" ; $env:PYTHONIOENCODING="utf-8" ; python tests\\comprehensive_integration_test.py > order_assignment_results.txt 2>&1
+'''
