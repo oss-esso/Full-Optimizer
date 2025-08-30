@@ -148,6 +148,144 @@ except ImportError as e:
     print(f"Warning: RoutePrecomputer not available: {e}")
     RoutePrecomputer = None
 
+# Import time utility functions
+try:
+    from algo.time_utils import format_duration_detailed, format_time_hhmm, format_date_from_minutes
+    print("OK: Successfully imported time utility functions")
+except ImportError as e:
+    print(f"Warning: time_utils not available: {e}")
+    # Define fallback functions
+    def format_duration_detailed(minutes):
+        return f"{int(minutes)}m"
+    def format_time_hhmm(minutes):
+        return f"{int(minutes//60):02d}:{int(minutes%60):02d}"
+    def format_date_from_minutes(minutes, start_date=None):
+        return "XX/XX"
+
+# Import vehicle utility functions
+try:
+    from algo.vehicle_utils import get_vehicle_capabilities, get_route_order_requirements, validate_constraints, get_pallets_change
+    print("OK: Successfully imported vehicle utility functions")
+except ImportError as e:
+    print(f"Warning: vehicle_utils not available: {e}")
+    # Define fallback functions
+    def get_vehicle_capabilities(vehicle):
+        return {'loader': False, 'low_temp': False, 'hangers': False, 'lifo_required': False, 'regulations': []}
+    def get_route_order_requirements(orders, route):
+        return {'loader': False, 'low_temp': False, 'hangers': False, 'special_requirements': []}
+    def validate_constraints(vehicle_capabilities, order_requirements):
+        return []
+    def get_pallets_change(task):
+        return getattr(task, 'pallets', 0.0)
+
+# Import route calculation utilities
+try:
+    from algo.route_utils import (calculate_travel_time_with_counter, reset_route_calculation_counter, 
+                                 get_route_calculation_count, calculate_peak_route_utilization,
+                                 calculate_route_load, print_simulated_hos_breakdown)
+    print("OK: Successfully imported route calculation utilities")
+except ImportError as e:
+    print(f"Warning: route_utils not available: {e}")
+    # Define fallback functions
+    route_calculation_count = 0
+    def calculate_travel_time_with_counter(prev_task, curr_task, vehicle):
+        return 60
+    def reset_route_calculation_counter():
+        global route_calculation_count
+        route_calculation_count = 0
+    def get_route_calculation_count():
+        return route_calculation_count
+    def calculate_peak_route_utilization(route):
+        return {'peak_weight': 0, 'peak_volume': 0, 'peak_pallets': 0, 'utilization_weight': 0.0, 'utilization_volume': 0.0, 'utilization_pallets': 0.0}
+    def calculate_route_load(route):
+        return {'total_weight_change': 0, 'total_volume_change': 0, 'total_pallets_change': 0}
+    def print_simulated_hos_breakdown(travel_time_minutes):
+        print(f"               1: DRIVE - {int(travel_time_minutes//60):02d}:{int(travel_time_minutes%60):02d}")
+
+# Import financial calculation utilities
+try:
+    from algo.financial_utils import (calculate_route_cost_and_profit, estimate_route_distance, 
+                                    haversine_distance, calculate_order_profit, validate_time_window_status)
+    print("OK: Successfully imported financial calculation utilities")
+except ImportError as e:
+    print(f"Warning: financial_utils not available: {e}")
+    # Define fallback functions
+    def calculate_route_cost_and_profit(vehicle_id, route, vehicle=None, orders=None):
+        return {'total_hours': 0, 'driving_hours': 0, 'total_distance': 0, 'driver_cost_per_hour': 25, 'vehicle_cost_per_km': 1,
+                'driver_cost': 0, 'vehicle_cost': 0, 'total_cost': 0, 'total_profit': 0, 'order_profits': {}, 'net_profit': 0, 'price_per_km': 0.8}
+    def estimate_route_distance(route):
+        return 0.0
+    def haversine_distance(lat1, lon1, lat2, lon2):
+        return 0.0
+    def calculate_order_profit(order_id, orders, price_per_km):
+        return 0.0
+    def validate_time_window_status(arrival_time_minutes, task):
+        return "On time"
+
+# Import analysis and tracking utilities
+try:
+    from algo.analysis_utils import (ViolationTracker, ProfitTracker, OrderTracker, 
+                                   analyze_vehicle_utilization_detailed)
+    print("OK: Successfully imported analysis and tracking utilities")
+except ImportError as e:
+    print(f"Warning: analysis_utils not available: {e}")
+    # Define fallback classes
+    class ViolationTracker:
+        def __init__(self):
+            pass
+        def reset(self):
+            pass
+        def add_capability_violations(self, vehicle_id, violations):
+            pass
+        def add_route_violation(self, vehicle_id, violation_msg):
+            pass
+        def increment_routes_processed(self):
+            pass
+        def get_summary(self):
+            return {}
+    
+    class ProfitTracker:
+        def __init__(self):
+            pass
+        def reset(self):
+            pass
+        def add_route_profit(self, vehicle_id, breakdown):
+            pass
+        def get_summary(self):
+            return {}
+    
+    class OrderTracker:
+        def __init__(self, orders_to_track=None):
+            pass
+        def log_assignment(self, order_id, vehicle_id, phase, details=""):
+            pass
+        def log_attempt(self, order_id, vehicle_id, phase, reason=""):
+            pass
+        def check_assignment_status(self, solution, orders):
+            pass
+        def print_summary(self):
+            pass
+    
+    def analyze_vehicle_utilization_detailed(solution, vehicles, orders=None):
+        print("Vehicle utilization analysis not available")
+
+# Import reporting utilities
+try:
+    from algo.reporting_utils import (print_route_cost_breakdown, print_comprehensive_final_report, 
+                                    flush_print, export_routes_to_text)
+    print("OK: Successfully imported reporting utilities")
+except ImportError as e:
+    print(f"Warning: reporting_utils not available: {e}")
+    # Define fallback functions
+    def print_route_cost_breakdown(vehicle_id, route, vehicle=None, orders=None, violation_tracker=None, profit_tracker=None):
+        print(f"Cost breakdown not available for {vehicle_id}")
+    def print_comprehensive_final_report(solution=None, orders=None, vehicles=None, violation_tracker=None, profit_tracker=None):
+        print("Comprehensive final report not available")
+    def flush_print(*args, **kwargs):
+        print(*args, **kwargs)
+    def export_routes_to_text(solution, file_path):
+        print(f"Route export not available for {file_path}")
+
 # Import HoS timeline generation for route breakdown integration
 try:
     from algo.hos_simulation import build_compliant_timeline, SimulatedEvent
@@ -199,136 +337,19 @@ def flush_print(*args, **kwargs):
     print(*args, **kwargs)
     sys.stdout.flush()
 
-def calculate_travel_time_with_counter(prev_task, curr_task, vehicle):
-    """
-    Wrapper for calculate_travel_time_between_tasks that increments the global counter.
-    This helps track how many route calculations are made.
-    
-    Args:
-        prev_task: Previous task in route
-        curr_task: Current task in route  
-        vehicle: object
-        
-    Returns:
-        Travel time in minutes
-    """
-    global route_calculation_count
-    route_calculation_count += 1
-    
-    try:
-        from route_provider import calculate_travel_time_between_tasks
-        return calculate_travel_time_between_tasks(prev_task, curr_task, vehicle)
-    except ImportError:
-        try:
-            from algo.route_provider import calculate_travel_time_between_tasks
-            return calculate_travel_time_between_tasks(prev_task, curr_task, vehicle)
-        except ImportError:
-            # Fallback: simple time estimation
-            return 60  # 1 hour default
-
-def reset_route_calculation_counter():
-    """Reset the global route calculation counter."""
-    global route_calculation_count
-    route_calculation_count = 0
-
-def get_route_calculation_count():
-    """Get the current route calculation count."""
-    global route_calculation_count
-    return route_calculation_count
-
-
-def format_duration_detailed(minutes: float) -> str:
-    """
-    Format duration in minutes to a human-readable string with days, hours, and minutes.
-    
-    Args:
-        minutes: Duration in minutes
-    
-    Returns:
-        Formatted string like "1d 5h 30m", "2h 15m", or "45m"
-    """
-    if minutes < 0:
-        return "0m"
-    
-    total_minutes = int(minutes)
-    days = total_minutes // 1440
-    remaining_minutes = total_minutes % 1440
-    hours = remaining_minutes // 60
-    mins = remaining_minutes % 60
-    
-    parts = []
-    if days > 0:
-        parts.append(f"{days}d")
-    if hours > 0:
-        parts.append(f"{hours}h")
-    if mins > 0 or len(parts) == 0:
-        parts.append(f"{mins}m")
-    
-    return " ".join(parts)
-
-
 def _format_time_hhmm(minutes: float) -> str:
-    """Formats minutes into a hh:mm string."""
-    if minutes < 0:
-        return "00:00"
-    hours = int(minutes // 60)
-    mins = int(minutes % 60)
-    return f"{hours:02d}:{mins:02d}"
+    """Formats minutes into a hh:mm string. Using imported function."""
+    return format_time_hhmm(minutes)
 
 
 def _print_simulated_hos_breakdown(travel_time_minutes: float):
-    """
-    Print a simulated HoS breakdown for a travel segment.
-    This provides the visual breakdown the user wants when HoS timeline is not available.
-    
-    Args:
-        travel_time_minutes: Total travel time in minutes
-    """
-    if travel_time_minutes <= 0:
-        return
-    
-    # Simulate realistic HoS breakdown based on EU regulations
-    remaining_time = travel_time_minutes
-    segment_num = 1
-    
-    while remaining_time > 0:
-        if remaining_time <= 270:  # 4.5 hours or less - can drive continuously
-            drive_time = remaining_time
-            print(f"               {segment_num}: DRIVE - {_format_time_hhmm(drive_time)}")
-            break
-        else:
-            # Need break after 4.5 hours of driving
-            drive_time = 270  # 4.5 hours
-            print(f"               {segment_num}: DRIVE - {_format_time_hhmm(drive_time)}")
-            remaining_time -= drive_time
-            segment_num += 1
-            
-            if remaining_time > 0:
-                # Add mandatory break based on remaining time
-                if remaining_time > 540:  # More than 9 hours remaining - need long break
-                    if remaining_time > 660:  # More than 11 hours - daily rest required
-                        rest_time = 660  # 11-hour daily rest
-                        print(f"               {segment_num}: REST - {_format_time_hhmm(rest_time)} (daily rest)")
-                    else:
-                        rest_time = 540  # 9-hour rest
-                        print(f"               {segment_num}: REST - {_format_time_hhmm(rest_time)} (extended rest)")
-                else:
-                    rest_time = 45  # Standard 45-minute break
-                    print(f"               {segment_num}: REST - {_format_time_hhmm(rest_time)}")
-                
-                remaining_time -= rest_time
-                segment_num += 1
+    """Print a simulated HoS breakdown for a travel segment. Using imported function."""
+    print_simulated_hos_breakdown(travel_time_minutes)
 
 
 def _format_date_from_minutes(minutes: float, start_date=None) -> str:
-    """Formats minutes since start into a dd/MM date format."""
-    import datetime
-    # Use provided start date or default to current date (August 26, 2025)
-    if start_date is None:
-        start_date = datetime.date(2025, 8, 26)
-    days_offset = int(minutes // 1440)  # 1440 minutes per day
-    target_date = start_date + datetime.timedelta(days=days_offset)
-    return target_date.strftime("%d/%m")
+    """Formats minutes since start into a dd/MM date format. Using imported function."""
+    return format_date_from_minutes(minutes, start_date)
 
 
 def validate_time_window_status(arrival_time_minutes: float, task) -> str:
@@ -379,286 +400,9 @@ def validate_time_window_status(arrival_time_minutes: float, task) -> str:
     return "On time"
 
 
-def calculate_route_cost_and_profit(vehicle_id: str, route, vehicle=None, orders=None):
-    """
-    Calculate detailed cost and profit breakdown for a route.
-    
-    Costs:
-    - Driver cost: cost_per_hour * hours_worked
-    - Vehicle cost: cost_per_km * total_distance
-    
-    Profit:
-    - Per order: sum over all task pairs (price_per_km * km_between_pickup_and_delivery)
-    - Price per km: 0.8 for furgone (standard), 1.25 for camion (heavy)
-    
-    Args:
-        vehicle_id: Vehicle ID
-        route: Route object
-        vehicle: Vehicle object
-        orders: List of Order objects for profit calculation
-        
-    Returns:
-        Dictionary with cost and profit breakdown
-    """
-    # Default values
-    total_hours = 0.0
-    total_distance = 0.0
-    driver_cost_per_hour = 25.0  # Default driver cost per hour
-    vehicle_cost_per_km = 1.0    # Default vehicle cost per km
-    
-    # Calculate total hours from route timeline or estimate
-    if hasattr(route, 'hos_timeline') and route.hos_timeline:
-        # Use HoS timeline for accurate hours calculation
-        total_hours = route.hos_timeline[-1].end_time / 60.0 if route.hos_timeline else 0.0
-        # Calculate driving hours only (drivers are only paid for driving, not rest/work)
-        driving_hours = sum(e.duration for e in route.hos_timeline if e.event_type == 'DRIVE') / 60.0
-    else:
-        # Estimate from tasks (simplified calculation)
-        if route.tasks:
-            # Estimate: 30 min travel + 5 min service per task
-            estimated_minutes = len([t for t in route.tasks if not (hasattr(t, 'is_depot_start') and t.is_depot_start()) and not (hasattr(t, 'is_depot_return') and t.is_depot_return())]) * 35
-            total_hours = estimated_minutes / 60.0
-            # For estimated routes, assume 70% of time is driving
-            driving_hours = total_hours * 0.7
-    
-    # Get driver cost from route or use default
-    if hasattr(route, 'driver') and route.driver:
-        driver_cost_per_hour = getattr(route.driver, 'cost_per_hour', 25.0)
-    
-    # Get vehicle cost per km
-    if vehicle:
-        vehicle_cost_per_km = getattr(vehicle, 'cost_per_km', 1.0)
-    
-    # Calculate total distance (simplified - using Haversine estimates)
-    total_distance = estimate_route_distance(route)
-    
-    # Calculate costs - ONLY PAY DRIVERS FOR DRIVING HOURS
-    driver_cost = driver_cost_per_hour * driving_hours
-    vehicle_cost = vehicle_cost_per_km * total_distance
-    total_cost = driver_cost + vehicle_cost
-    
-    # Calculate profit per order
-    total_profit = 0.0
-    order_profits = {}
-    
-    if orders and vehicle:
-        # Determine price per km based on vehicle type
-        vehicle_type = getattr(vehicle, 'vehicle_type', 'standard')
-        if vehicle_type == 'heavy':
-            price_per_km = 1.25  # Camion
-        else:
-            price_per_km = 0.8   # Furgone
-        
-        # Calculate profit for each order in the route
-        for task in route.tasks:
-            if hasattr(task, 'order_id') and task.order_id:
-                order_id = task.order_id
-                if order_id not in order_profits:
-                    order_profits[order_id] = calculate_order_profit(order_id, orders, price_per_km)
-                    total_profit += order_profits[order_id]
-    
-    return {
-        'total_hours': total_hours,
-        'driving_hours': driving_hours,
-        'total_distance': total_distance,
-        'driver_cost_per_hour': driver_cost_per_hour,
-        'vehicle_cost_per_km': vehicle_cost_per_km,
-        'driver_cost': driver_cost,
-        'vehicle_cost': vehicle_cost,
-        'total_cost': total_cost,
-        'total_profit': total_profit,
-        'order_profits': order_profits,
-        'net_profit': total_profit - total_cost,
-        'price_per_km': price_per_km if 'price_per_km' in locals() else 0.8
-    }
-
-
-def estimate_route_distance(route):
-    """Estimate total distance for a route using simplified calculation."""
-    if not route or not route.tasks or len(route.tasks) < 2:
-        return 0.0
-    
-    total_distance = 0.0
-    try:
-        # Use simplified Haversine distance calculation
-        for i in range(len(route.tasks) - 1):
-            current_task = route.tasks[i]
-            next_task = route.tasks[i + 1]
-            
-            # Get coordinates
-            current_lat = getattr(current_task, 'lat', 44.9009)  # Default to Asti
-            current_lon = getattr(current_task, 'lon', 8.2057)
-            next_lat = getattr(next_task, 'lat', 44.9009)
-            next_lon = getattr(next_task, 'lon', 8.2057)
-            
-            # Calculate Haversine distance
-            distance = haversine_distance(current_lat, current_lon, next_lat, next_lon)
-            total_distance += distance
-            
-    except Exception:
-        # Fallback: estimate based on number of tasks
-        num_customer_tasks = len([t for t in route.tasks if not (hasattr(t, 'is_depot_start') and t.is_depot_start()) and not (hasattr(t, 'is_depot_return') and t.is_depot_return())])
-        total_distance = num_customer_tasks * 50.0  # 50km average per task
-    
-    return total_distance
-
-
-def haversine_distance(lat1, lon1, lat2, lon2):
-    """Calculate Haversine distance between two points in kilometers."""
-    import math
-    
-    R = 6371.0  # Earth radius in kilometers
-    
-    lat1_rad = math.radians(lat1)
-    lon1_rad = math.radians(lon1)
-    lat2_rad = math.radians(lat2)
-    lon2_rad = math.radians(lon2)
-    
-    dlat = lat2_rad - lat1_rad
-    dlon = lon2_rad - lon1_rad
-    
-    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    
-    return R * c
-
-
-def calculate_order_profit(order_id, orders, price_per_km):
-    """
-    Calculate profit for a specific order using the dedicated route model.
-    
-    Revenue = price_per_km × dedicated_route_distance
-    Where dedicated_route_distance = depot → order_tasks → depot
-    
-    Args:
-        order_id: ID of the order
-        orders: List of all orders
-        price_per_km: Price per kilometer for the vehicle type
-        
-    Returns:
-        Revenue for this order if served by dedicated route
-    """
-    try:
-        # Find the order
-        order = None
-        for o in orders:
-            if str(o.id) == str(order_id):
-                order = o
-                break
-        
-        if not order:
-            return 0.0
-        
-        # Get all tasks for this order
-        order_tasks = []
-        for task in order.get_all_tasks():
-            if not ((hasattr(task, 'is_depot_start') and task.is_depot_start()) or 
-                   (hasattr(task, 'is_depot_return') and task.is_depot_return())):
-                order_tasks.append(task)
-        
-        if not order_tasks:
-            return 0.0
-        
-        # Calculate dedicated route distance: depot → order_tasks → depot
-        depot_lat, depot_lon = 44.9009, 8.2057  # Default to Asti
-        dedicated_distance = 0.0
-        current_lat, current_lon = depot_lat, depot_lon
-        
-        # Sort tasks (pickups first, then deliveries)
-        pickups = [t for t in order_tasks if t.is_pickup()]
-        deliveries = [t for t in order_tasks if t.is_delivery()]
-        sorted_tasks = pickups + deliveries
-        
-        # Calculate distance through all tasks for this order
-        for task in sorted_tasks:
-            task_lat = getattr(task, 'lat', depot_lat)
-            task_lon = getattr(task, 'lon', depot_lon)
-            
-            # Distance from current position to this task
-            distance_km = haversine_distance(current_lat, current_lon, task_lat, task_lon)
-            dedicated_distance += distance_km
-            
-            # Update current position
-            current_lat, current_lon = task_lat, task_lon
-        
-        # Return to depot
-        return_distance = haversine_distance(current_lat, current_lon, depot_lat, depot_lon)
-        dedicated_distance += return_distance
-        
-        # Calculate revenue based on dedicated route
-        return dedicated_distance * price_per_km
-        
-    except Exception:
-        return 0.0
-
-
-def print_route_cost_breakdown(vehicle_id: str, route, vehicle=None, orders=None):
-    """Print detailed cost and profit breakdown for a route."""
-    global violation_tracker, profit_tracker
-    
-    breakdown = calculate_route_cost_and_profit(vehicle_id, route, vehicle, orders)
-    
-    print(f"\n       COST & PROFIT BREAKDOWN:")
-    print(f"      ============================")
-    print(f"       Operations:")
-    print(f"         • Total Hours: {breakdown['total_hours']:.1f}h")
-    print(f"         • Total Distance: {breakdown['total_distance']:.1f}km")
-    print(f"         • Vehicle Type: {'Camion (Heavy)' if breakdown['price_per_km'] == 1.25 else 'Furgone (Standard)'}")
-    
-    # Add constraint validation
-    vehicle_caps = get_vehicle_capabilities(vehicle)
-    order_reqs = get_route_order_requirements(orders, route)
-    violations = validate_constraints(vehicle_caps, order_reqs)
-    
-    print(f"       Vehicle Capabilities:")
-    print(f"         • Loader: {'YES' if vehicle_caps['loader'] else 'NO'}")
-    print(f"         • Low Temp: {'YES' if vehicle_caps['low_temp'] else 'NO'}")
-    print(f"         • Hangers: {'YES' if vehicle_caps['hangers'] else 'NO'}")
-    print(f"         • LIFO Required: {'YES' if vehicle_caps['lifo_required'] else 'NO'}")
-    if vehicle_caps['regulations']:
-        print(f"         • Regulations: {', '.join(vehicle_caps['regulations'])}")
-    
-    print(f"       Order Requirements:")
-    print(f"         • Needs Loader: {'YES' if order_reqs['loader'] else 'NO'}")
-    print(f"         • Needs Low Temp: {'YES' if order_reqs['low_temp'] else 'NO'}")
-    print(f"         • Needs Hangers: {'YES' if order_reqs['hangers'] else 'NO'}")
-    if order_reqs['special_requirements']:
-        print(f"         • Special: {', '.join(order_reqs['special_requirements'])}")
-    
-    print(f"       Constraint Validation:")
-    if violations:
-        print(f"         X VIOLATIONS: {', '.join(violations)}")
-        # Track capability violations
-        violation_tracker.add_capability_violations(vehicle_id, violations)
-    else:
-        print(f"         OK All constraints satisfied")
-    
-    # Track route processing and profit
-    violation_tracker.increment_routes_processed()
-    profit_tracker.add_route_profit(vehicle_id, breakdown)
-    
-    print(f"       Costs:")
-    print(f"         • Driver Cost: €{breakdown['driver_cost']:.2f} ({breakdown['driver_cost_per_hour']:.1f}€/h × {breakdown['driving_hours']:.1f}h driving)")
-    print(f"         • Vehicle Cost: €{breakdown['vehicle_cost']:.2f} ({breakdown['vehicle_cost_per_km']:.2f}€/km × {breakdown['total_distance']:.1f}km)")
-    print(f"         • Total Cost: €{breakdown['total_cost']:.2f}")
-    
-    print(f"       Revenue:")
-    print(f"         • Rate: {breakdown['price_per_km']:.2f}€/km")
-    print(f"         • Total Revenue: €{breakdown['total_profit']:.2f} (sum of dedicated route revenues)")
-    print(f"         • Revenue Model: Each order valued at dedicated route distance × rate")
-    
-    print(f"       Net Result:")
-    net_color = "Y" if breakdown['net_profit'] >= 0 else "N"
-    print(f"         {net_color} Net Profit: €{breakdown['net_profit']:.2f}")
-    
-    if breakdown['total_profit'] > 0:
-        margin = (breakdown['net_profit'] / breakdown['total_profit']) * 100
-        print(f"          Profit Margin: {margin:.1f}%")
-
-
 def _get_pallets_change(task):
-    """Get the pallet change for a task."""
-    return getattr(task, 'pallets', 0.0)
+    """Get the pallet change for a task. Using imported function."""
+    return get_pallets_change(task)
 
 
 def get_vehicle_capabilities(vehicle):
@@ -785,27 +529,14 @@ def get_route_order_requirements(orders, route):
     
     return requirements
 
+# Global tracker instance (imported from algo.analysis_utils)
+order_tracker = OrderTracker(orders_to_track=[1, 5, 6, 7, 8, 19])
 
-def validate_constraints(vehicle_capabilities, order_requirements):
-    """Check if vehicle capabilities match order requirements."""
-    violations = []
-    
-    # Check loader requirement
-    if order_requirements['loader'] and not vehicle_capabilities['loader']:
-        violations.append("Missing LOADER capability")
-    
-    # Check low temp requirement  
-    if order_requirements['low_temp'] and not vehicle_capabilities['low_temp']:
-        violations.append("Missing LOW_TEMP capability")
-    
-    # Check hangers requirement
-    if order_requirements['hangers'] and not vehicle_capabilities['hangers']:
-        violations.append("Missing HANGERS capability")
-    
-    return violations
+# Global trackers (imported from algo.analysis_utils)  
+violation_tracker = ViolationTracker()
+profit_tracker = ProfitTracker()
 
-
-class ViolationTracker:
+def print_comprehensive_final_report(solution=None, orders=None, vehicles=None):
     """Class to track various types of violations across all routes."""
     
     def __init__(self):
@@ -1846,7 +1577,7 @@ def print_detailed_route_breakdown(vehicle_id: str, route, vehicle=None, orders=
         print(f"\n      - Day {current_day + 1} ({_format_date_from_minutes(current_day * 1440)}): Drive: {_format_time_hhmm(daily_drive)}, Breaks: {_format_time_hhmm(daily_breaks)}, Salary: EUR{daily_salary:.2f}")
     
     # Add cost and profit breakdown
-    print_route_cost_breakdown(vehicle_id, route, vehicle, orders)
+    print_route_cost_breakdown(vehicle_id, route, vehicle, orders, violation_tracker, profit_tracker)
 
 
 def _print_hos_timeline_view(vehicle_id: str, route, timeline, vehicle=None, orders=None):
@@ -2281,7 +2012,7 @@ def _print_simplified_chronological_view(vehicle_id: str, route, vehicle=None, o
     print(f"      Total Load Changes: {current_weight:.1f}kg, {current_volume:.1f}m3, {current_pallets:.0f} pallets")
     
     # Add cost and profit breakdown
-    print_route_cost_breakdown(vehicle_id, route, vehicle, orders)
+    print_route_cost_breakdown(vehicle_id, route, vehicle, orders, violation_tracker, profit_tracker)
 
 
 def _print_proper_hos_breakdown(travel_time_minutes: float, current_time: float, 
@@ -6060,7 +5791,7 @@ def main():
             traceback.print_exc()
         
         # === FINAL COMPREHENSIVE REPORT ===
-        print_comprehensive_final_report(solution, orders, vehicles)
+        print_comprehensive_final_report(solution, orders, vehicles, violation_tracker, profit_tracker)
         
         # Final completion message - AFTER all phases and summaries are done
         print("\n" + "="*80)
