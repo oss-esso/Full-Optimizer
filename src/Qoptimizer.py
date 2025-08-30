@@ -72,10 +72,27 @@ class FoodProductionOptimizer:
         """Calculate optimization metrics."""
         metrics = {}
         
+        # Get weight parameters - be flexible with naming
+        weights = {}
+        if 'objective_weights' in self.parameters:
+            weights = self.parameters['objective_weights']
+        elif 'weights' in self.parameters:
+            weights = self.parameters['weights']
+        else:
+            # Default equal weights
+            weights = {
+                'nutritional_value': 0.2,
+                'nutrient_density': 0.2,
+                'environmental_impact': 0.2,
+                'affordability': 0.2,
+                'sustainability': 0.2
+            }
+            self.logger.warning("No weights found in parameters, using default equal weights for metrics calculation.")
+        
         # Calculate objective contributions
         for obj in OptimizationObjective:
             metrics[obj.value] = sum(
-                self.parameters['objective_weights'][obj.value] *
+                weights[obj.value] *
                 self.foods[c][obj.value] *
                 area
                 for (f, c), area in solution.items()

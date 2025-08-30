@@ -63,10 +63,26 @@ def optimize_with_quantum_inspired_benders(self):
         # Generate a good initial solution - same as in optimize_with_benders
         y_init = np.zeros((Ny, 1), dtype=float)
         
+        # Get weight parameters - be flexible with naming
+        weights = {}
+        if 'objective_weights' in self.parameters:
+            weights = self.parameters['objective_weights']
+        elif 'weights' in self.parameters:
+            weights = self.parameters['weights']
+        else:
+            # Default equal weights
+            weights = {
+                'nutritional_value': 0.2,
+                'nutrient_density': 0.2,
+                'environmental_impact': 0.2,
+                'affordability': 0.2,
+                'sustainability': 0.2
+            }
+            self.logger.warning("No weights found in parameters, using default equal weights.")
+        
         # Similar initialization as in optimize_with_benders
         food_scores = {}
         for food, attrs in self.foods.items():
-            weights = self.parameters['objective_weights']
             score = (
                 weights['nutritional_value'] * attrs['nutritional_value'] +
                 weights['nutrient_density'] * attrs['nutrient_density'] +
@@ -133,7 +149,6 @@ def optimize_with_quantum_inspired_benders(self):
                 pos = fi * C + food_idx
                 
                 food_data = self.foods[food]
-                weights = self.parameters['objective_weights']
                 
                 pos_score = (
                     weights['nutritional_value'] * food_data['nutritional_value'] +

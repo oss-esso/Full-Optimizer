@@ -228,7 +228,7 @@ RETURN_TO_DEPOT = True   # Enforce depot return
 ### Running the Complete Solution
 ```powershell
 # Navigate to the solver directory
-Set-Location "g:\Il mio Drive\OQI_Project\Full Optimizer\VRPExample\New_solvers"
+Set-Location "d:\Projects\OQI_Project\Full Optimizer\VRPExample\New_solvers"
 
 # Execute the main script
 python run_full_furgoni_solution.py

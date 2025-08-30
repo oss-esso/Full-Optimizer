@@ -74,13 +74,13 @@ class MaxCutProblem:
             Dictionary with solution and energy
         """
         try:
-            # Import qiskit components
+            # Import qiskit components (updated for Qiskit 1.x)
             from qiskit import Aer
-            from qiskit.algorithms.optimizers import COBYLA, SPSA, ADAM
+            from qiskit_algorithms.optimizers import COBYLA, SPSA, ADAM
             from qiskit.circuit.library import QAOAAnsatz
             from qiskit.primitives import Sampler
-            from qiskit.algorithms import QAOA
-            from qiskit_optimization.applications import MaxCut
+            from qiskit_algorithms import QAOA
+            from qiskit_optimization.applications import Maxcut
             
             # Create temporary graph with standard node indices
             temp_graph = nx.Graph()
@@ -91,8 +91,8 @@ class MaxCutProblem:
                 temp_graph.add_edge(node_mapping[i], node_mapping[j], weight=weight)
             
             # Create MaxCut instance
-            maxcut = MaxCut(temp_graph)
-            qubo = maxcut.to_qubo()
+            maxcut = Maxcut(temp_graph)
+            qubo = maxcut.to_quadratic_program()
             
             # Set up QAOA
             optimizer = None
@@ -105,16 +105,13 @@ class MaxCutProblem:
             else:
                 optimizer = COBYLA(maxiter=100)
             
-            # Initialize quantum backend
-            backend = Aer.get_backend('aer_simulator')
-            
-            # Create QAOA instance
+            # Create QAOA instance (updated for Qiskit 1.x)
+            sampler = Sampler()
             qaoa = QAOA(
-                sampler=Sampler(),
+                sampler=sampler,
                 optimizer=optimizer,
                 reps=p,
-                initial_point=None,
-                quantum_instance=backend
+                initial_point=None
             )
             
             # Solve MaxCut
@@ -632,10 +629,21 @@ class QAOASquared:
                 result = subproblem.solve_qaoa(p=self.p, optimization_method=optimization_method)
                 self.subproblem_results.append(result)
                 self.logger.info(f"  Energy: {result.get('energy', 'N/A')}")
+            except (ImportError, ModuleNotFoundError) as e:
+                self.logger.error(f"QAOA implementation not available for subproblem {i+1}: {e}")
+                # Use classical approximation if QAOA imports fail
+                self.logger.info("Using classical approximation due to missing QAOA implementation")
+                result = subproblem._solve_classical()
+                self.subproblem_results.append(result)
+                self.logger.info(f"  Classical energy: {result.get('energy', 'N/A')}")
             except Exception as e:
-                self.logger.error(f"Error solving subproblem {i+1}: {e}")
-                # Use classical approximation if QAOA fails
-                self.logger.info("Falling back to classical approximation")
+                self.logger.error(f"Error in QAOA computation for subproblem {i+1}: {e}")
+                self.logger.error(f"Error type: {type(e).__name__}")
+                # For debugging: show the full traceback for non-import errors
+                import traceback
+                self.logger.error(f"Full traceback: {traceback.format_exc()}")
+                # Use classical approximation for any other errors
+                self.logger.info("Falling back to classical approximation due to QAOA computation error")
                 result = subproblem._solve_classical()
                 self.subproblem_results.append(result)
                 self.logger.info(f"  Classical energy: {result.get('energy', 'N/A')}")

@@ -351,7 +351,7 @@ rec = adapter.get_complexity_recommendation(
 ### Running the Test Suite
 
 ```bash
-cd "h:\Il mio Drive\OQI_Project\Full Optimizer"
+cd "d:\Projects\OQI_Project\Full Optimizer"
 python Tests\test_dwave_cost_estimation.py
 ```
 

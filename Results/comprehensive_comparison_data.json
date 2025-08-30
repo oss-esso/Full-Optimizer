@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-06-01T19:34:41.476018",
+  "timestamp": "2025-08-30T17:44:04.966303",
   "problem_config": {
     "complexity_level": "simple",
     "farms": [
@@ -31,7 +31,7 @@
   "results": {
     "PuLP": {
       "status": "SUCCESS",
-      "runtime": 0.06418895721435547,
+      "runtime": 0.04400992393493652,
       "error": null,
       "objective_value": 50.525,
       "solution": {
@@ -66,7 +66,7 @@
     },
     "Basic_SA": {
       "status": "SUCCESS",
-      "runtime": 0.003099203109741211,
+      "runtime": 0.004000425338745117,
       "error": null,
       "objective_value": 73.12500000000001,
       "solution": {
@@ -101,7 +101,7 @@
         "utilization_Farm3": 1.0,
         "total_foods_selected": 3,
         "sa_iterations": 200,
-        "wall_time": 0.003099203109741211,
+        "wall_time": 0.0030002593994140625,
         "farms_count": 3,
         "foods_count": 6,
         "initial_temperature": 100.0,
@@ -113,7 +113,7 @@
     },
     "Enhanced_SA": {
       "status": "SUCCESS",
-      "runtime": 0.004651546478271484,
+      "runtime": 0.005001544952392578,
       "error": null,
       "objective_value": 73.12500000000001,
       "solution": {
@@ -148,7 +148,7 @@
         "utilization_Farm3": 1.0,
         "total_foods_selected": 3,
         "sa_iterations": 200,
-        "wall_time": 0.004116535186767578,
+        "wall_time": 0.004000663757324219,
         "farms_count": 3,
         "foods_count": 6,
         "initial_temperature": 100.0,
@@ -160,7 +160,7 @@
     },
     "Benders": {
       "status": "SUCCESS",
-      "runtime": 1.4230122566223145,
+      "runtime": 1.271491289138794,
       "error": null,
       "objective_value": 67.2374999874919,
       "solution": {
@@ -194,7 +194,7 @@
     "total_methods": 4,
     "successful_methods": 4,
     "best_objective": 73.12500000000001,
-    "fastest_runtime": 0.003099203109741211,
+    "fastest_runtime": 0.004000425338745117,
     "best_method": "Basic_SA",
     "fastest_method": "Basic_SA"
   }

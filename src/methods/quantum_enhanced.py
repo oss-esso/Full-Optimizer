@@ -324,6 +324,15 @@ def optimize_with_quantum_benders(self, use_qaoa_squared=True, max_qubits=20, fo
     y_sol = y_init.copy()
     quantum_bounds = {'lower': [], 'upper': []}
     
+    # Track QAOA² usage
+    qaoa_squared_usage = {
+        'total_iterations': 0,
+        'qaoa_squared_iterations': 0,
+        'standard_qaoa_iterations': 0,
+        'used_qaoa_squared': False,
+        'decomposition_details': []
+    }
+    
     # Set modified convergence parameters for the quantum approach
     quantum_eps = benders.eps * 1.5  # Tighter tolerance
     quantum_min_iterations = 3       # Reduced minimum iterations
@@ -334,6 +343,7 @@ def optimize_with_quantum_benders(self, use_qaoa_squared=True, max_qubits=20, fo
     for k in range(max_iterations):
         iteration_start = time.time()
         self.logger.info(f"Iteration {k+1}/{max_iterations}")
+        qaoa_squared_usage['total_iterations'] += 1
         
         # Solve subproblem for fixed y
         solved, dual_vars, obj_val_sub, extreme_ray = benders.solve_subproblem(y_sol)
@@ -365,6 +375,8 @@ def optimize_with_quantum_benders(self, use_qaoa_squared=True, max_qubits=20, fo
             if should_use_qaoa_squared:
                 # Use QAOA² for larger problems or when forced
                 self.logger.info(f"Using QAOA² for master problem (Ny={Ny}, max_qubits={max_qubits}, forced={force_qaoa_squared})")
+                qaoa_squared_usage['qaoa_squared_iterations'] += 1
+                qaoa_squared_usage['used_qaoa_squared'] = True
                 
                 # Adjust QAOA parameters based on iteration - more conservative
                 qaoa_squared_params = {
@@ -389,9 +401,17 @@ def optimize_with_quantum_benders(self, use_qaoa_squared=True, max_qubits=20, fo
                     max_qubits=max_qubits,
                     qaoa_params=qaoa_squared_params
                 )
+                
+                # Track decomposition details if available
+                if qaoa_master_result and 'decomposition_info' in qaoa_master_result:
+                    qaoa_squared_usage['decomposition_details'].append({
+                        'iteration': k+1,
+                        'decomposition_info': qaoa_master_result['decomposition_info']
+                    })
             else:
                 # Use standard QAOA for smaller problems
                 self.logger.info(f"Using standard QAOA for master problem (Ny={Ny}, max_qubits={max_qubits})")
+                qaoa_squared_usage['standard_qaoa_iterations'] += 1
                 
                 # Adjust QAOA parameters based on iteration - more conservative
                 qaoa_params = {
@@ -608,7 +628,9 @@ def optimize_with_quantum_benders(self, use_qaoa_squared=True, max_qubits=20, fo
         benders_data={
             'lower_bounds': quantum_bounds['lower'],
             'upper_bounds': quantum_bounds['upper'],
-            'iterations': len(quantum_bounds['lower'])
+            'iterations': len(quantum_bounds['lower']),
+            'qaoa_decomposition': qaoa_squared_usage,
+            'quantum_metrics': self.quantum_metrics if hasattr(self, 'quantum_metrics') else {}
         }
     )
     

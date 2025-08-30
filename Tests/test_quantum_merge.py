@@ -27,7 +27,7 @@ sys.path.insert(0, parent_dir)  # Add parent directory to path
 
 # Import optimizer
 try:
-    from src.optimizer import SimpleFoodOptimizer
+    from src.Qoptimizer import SimpleFoodOptimizer
     from src.data_models import OptimizationResult
 except ImportError as e:
     print(f"Error importing optimizer components: {e}")
@@ -53,7 +53,7 @@ def run_single_test(method: str) -> SolverResult:
     process = psutil.Process()
     initial_memory = process.memory_info().rss
     
-    optimizer = SimpleFoodOptimizer()
+    optimizer = SimpleFoodOptimizer(complexity_level='simple')
     optimizer.load_food_data()
     
     start_time = time.time()

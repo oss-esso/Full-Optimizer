@@ -230,7 +230,7 @@ def _load_full_food_data() -> Tuple[List[str], Dict[str, Dict[str, float]], Dict
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # Determine drive letter from the script directory (e.g., "G:" or "H:")
     drive = script_dir.split(os.sep)[0]
-    excel_path = os.path.join(drive, "\\Il mio Drive", "OQI_Project", "Inputs", "Combined_Food_Data.xlsx")
+    excel_path = os.path.join(drive, "\\Projects", "OQI_Project", "Inputs", "Combined_Food_Data.xlsx")
     print(f"Loading food data from: {excel_path}")
     
     # Read Excel

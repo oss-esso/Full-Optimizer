@@ -4,85 +4,102 @@
 
 ### Objective Values
 #### PuLP
-- Mean: 59.1295 ± 2.1915
-- Range: [55.5494, 61.5720]
+- Mean: 58.6026 ± 2.1129
+- Range: [56.3079, 61.3439]
 - Success Rate: 100.0%
 
 #### Benders
-- Mean: 67.4859 ± 0.0347
-- Range: [67.3698, 67.5000]
-- Success Rate: 62.0%
+- Mean: 67.4929 ± 0.0226
+- Range: [67.4286, 67.5000]
+- Success Rate: 40.0%
+
+#### Quantum-Inspired
+- Mean: 60.5600 ± 3.8794
+- Range: [54.9250, 68.3250]
+- Success Rate: 90.0%
 
 #### Quantum-Enhanced
-- Mean: 55.4190 ± 9.5029
-- Range: [17.1750, 66.1750]
-- Success Rate: 78.0%
+- Mean: 47.5225 ± 13.8623
+- Range: [22.2000, 60.5500]
+- Success Rate: 70.0%
 
 #### Quantum-Enhanced-Merge
-- Mean: 59.4970 ± 5.3218
-- Range: [39.3500, 63.9750]
-- Success Rate: 96.0%
+- Mean: 59.7425 ± 3.4449
+- Range: [54.2500, 63.9750]
+- Success Rate: 100.0%
 
 #### RQAOA
-- Mean: 44.4775 ± 8.7637
-- Range: [22.2000, 58.6250]
-- Success Rate: 30.0%
+- Mean: 46.9625 ± 7.7717
+- Range: [35.0750, 58.4500]
+- Success Rate: 40.0%
 
 ### Solution Differences (compared to PuLP)
 #### Benders
-- Gap: 0.1429 ± 0.0429
-- Max Violation: 20.5030 ± 2.3046
-- Infinity Norm X: 20.5030 ± 2.3046
-- One Norm Y: 84.3602 ± 8.8546
+- Gap: 0.1530 ± 0.0411
+- Max Violation: 19.8322 ± 2.5592
+- Infinity Norm X: 19.8322 ± 2.5592
+- One Norm Y: 76.3624 ± 7.9008
+
+#### Quantum-Inspired
+- Gap: 0.0553 ± 0.0654
+- Max Violation: 53.4172 ± 24.5842
+- Infinity Norm X: 53.4172 ± 24.5842
+- One Norm Y: 192.6259 ± 80.9491
 
 #### Quantum-Enhanced
-- Gap: 0.1082 ± 0.1354
-- Max Violation: 60.6828 ± 22.4852
-- Infinity Norm X: 60.6828 ± 22.4852
-- One Norm Y: 216.3103 ± 90.6768
+- Gap: 0.2089 ± 0.2175
+- Max Violation: 83.7061 ± 11.5852
+- Infinity Norm X: 83.7061 ± 11.5852
+- One Norm Y: 295.0157 ± 96.7583
 
 #### Quantum-Enhanced-Merge
-- Gap: 0.0741 ± 0.0668
-- Max Violation: 46.2915 ± 27.1628
-- Infinity Norm X: 46.2915 ± 27.1628
-- One Norm Y: 166.5009 ± 73.5134
+- Gap: 0.0465 ± 0.0480
+- Max Violation: 56.0872 ± 31.7906
+- Infinity Norm X: 56.0872 ± 31.7906
+- One Norm Y: 169.0319 ± 74.5851
 
 #### RQAOA
-- Gap: 0.2486 ± 0.1502
-- Max Violation: 78.6313 ± 14.5679
-- Infinity Norm X: 78.6313 ± 14.5679
-- One Norm Y: 317.4312 ± 75.3272
+- Gap: 0.2006 ± 0.1384
+- Max Violation: 84.0655 ± 13.8927
+- Infinity Norm X: 84.0655 ± 13.8927
+- One Norm Y: 322.0646 ± 65.3618
 
 ## Performance Metrics
 
 ### Runtime
 #### PuLP
-- Mean: 0.15 ± 0.03 seconds
+- Mean: 0.13 ± 0.02 seconds
 
 #### Benders
-- Mean: 2.87 ± 0.39 seconds
+- Mean: 2.71 ± 0.24 seconds
+
+#### Quantum-Inspired
+- Mean: 0.22 ± 0.03 seconds
 
 #### Quantum-Enhanced
-- Mean: 8.42 ± 1.03 seconds
+- Mean: 10.40 ± 0.18 seconds
 
 #### Quantum-Enhanced-Merge
-- Mean: 7.91 ± 1.15 seconds
+- Mean: 9.64 ± 0.12 seconds
 
 #### RQAOA
-- Mean: 2.02 ± 0.32 seconds
+- Mean: 2.00 ± 0.23 seconds
 
 ### Resource Utilization
 #### PuLP
-- Memory Peak: 0.10 ± 0.17 MB
+- Memory Peak: 0.30 ± 0.19 MB
 
 #### Benders
-- Memory Peak: 0.49 ± 0.87 MB
+- Memory Peak: 1.91 ± 0.08 MB
+
+#### Quantum-Inspired
+- Memory Peak: 1.73 ± 0.26 MB
 
 #### Quantum-Enhanced
-- Memory Peak: 136.03 ± 23.24 MB
+- Memory Peak: 178.75 ± 0.62 MB
 
 #### Quantum-Enhanced-Merge
-- Memory Peak: 136.48 ± 23.23 MB
+- Memory Peak: 179.32 ± 1.18 MB
 
 #### RQAOA
-- Memory Peak: 0.56 ± 0.86 MB
+- Memory Peak: 1.92 ± 0.31 MB
