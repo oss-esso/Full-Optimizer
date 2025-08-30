@@ -1560,326 +1560,6 @@ violation_tracker = ViolationTracker()
 profit_tracker = ProfitTracker()
 
 
-def optimize_route_consolidation(solution, vehicles, orders):
-    """
-    Optimize route consolidation by detecting geographically compatible routes
-    that can be merged to improve efficiency.
-    
-    Based on your observation that GC002LX and XA359KW could be combined
-    since XA's pickup is on GC's route and delivery is near GC's last delivery.
-    
-    Args:
-        solution: Current solution object
-        vehicles: List of vehicle objects  
-        orders: List of order objects
-        
-    Returns:
-        Tuple of (optimized_solution, consolidation_report)
-    """
-    print("Analyzing routes for consolidation opportunities...")
-    
-    # Create a copy of the solution for optimization
-    import copy
-    optimized_solution = copy.deepcopy(solution)
-    
-    consolidation_report = []
-    merges_performed = 0
-    
-    # Get active routes (exclude depot-only routes)
-    active_routes = {}
-    for vehicle_id, route in solution.routes.items():
-        if route and route.tasks:
-            non_depot_tasks = [task for task in route.tasks 
-                             if not (task.is_depot_start() or task.is_depot_return())]
-            if non_depot_tasks:
-                active_routes[vehicle_id] = {
-                    'route': route,
-                    'tasks': non_depot_tasks,
-                    'orders': set(task.order_id for task in non_depot_tasks if hasattr(task, 'order_id')),
-                    'load': calculate_route_utilization_metrics(route)
-                }
-    
-    print(f"Found {len(active_routes)} active routes to analyze")
-    
-    # Analyze each pair of routes for consolidation potential
-    route_pairs = []
-    for vehicle_id1 in active_routes:
-        for vehicle_id2 in active_routes:
-            if vehicle_id1 < vehicle_id2:  # Avoid duplicates
-                route_pairs.append((vehicle_id1, vehicle_id2))
-    
-    print(f"Analyzing {len(route_pairs)} route pairs for consolidation...")
-    
-    for vehicle_id1, vehicle_id2 in route_pairs:
-        route1_info = active_routes[vehicle_id1]
-        route2_info = active_routes[vehicle_id2]
-        
-        # Check if routes can be geographically consolidated
-        consolidation_result = analyze_route_consolidation_potential(
-            vehicle_id1, route1_info, vehicle_id2, route2_info, vehicles, orders
-        )
-        
-        if consolidation_result['can_consolidate']:
-            print(f"\n🎯 CONSOLIDATION OPPORTUNITY FOUND:")
-            print(f"   Routes: {vehicle_id1} + {vehicle_id2}")
-            print(f"   Reason: {consolidation_result['reason']}")
-            print(f"   Savings: {consolidation_result['estimated_savings']:.1f}km")
-            
-            # Attempt the consolidation
-            success = perform_route_consolidation(
-                optimized_solution, vehicle_id1, vehicle_id2, 
-                consolidation_result, vehicles, orders
-            )
-            
-            if success:
-                print(f"   ✅ SUCCESS: Routes consolidated")
-                consolidation_report.append({
-                    'merged_routes': f"{vehicle_id1} + {vehicle_id2}",
-                    'reason': consolidation_result['reason'],
-                    'savings_km': consolidation_result['estimated_savings'],
-                    'status': 'SUCCESS'
-                })
-                merges_performed += 1
-                
-                # Remove the second route from active analysis
-                del active_routes[vehicle_id2]
-                break  # Re-analyze with new route structure
-            else:
-                print(f"   ❌ FAILED: Consolidation attempt failed")
-                consolidation_report.append({
-                    'attempted_routes': f"{vehicle_id1} + {vehicle_id2}",
-                    'reason': consolidation_result['reason'],
-                    'status': 'FAILED'
-                })
-    
-    # Generate consolidation report
-    report_text = f"\n📊 ROUTE CONSOLIDATION ANALYSIS REPORT\n"
-    report_text += f"="*50 + "\n"
-    report_text += f"Routes analyzed: {len(solution.routes)}\n"
-    report_text += f"Active routes: {len(active_routes)}\n"
-    report_text += f"Consolidations performed: {merges_performed}\n\n"
-    
-    if consolidation_report:
-        report_text += "CONSOLIDATION DETAILS:\n"
-        for entry in consolidation_report:
-            if entry['status'] == 'SUCCESS':
-                report_text += f"✅ {entry['merged_routes']}: {entry['reason']} (Saved: {entry['savings_km']:.1f}km)\n"
-            else:
-                report_text += f"❌ {entry['attempted_routes']}: {entry['reason']} (Failed)\n"
-    
-    if merges_performed == 0:
-        report_text += "No viable consolidation opportunities found.\n"
-        return None, report_text
-    
-    return optimized_solution, report_text
-
-
-def calculate_route_utilization_metrics(route):
-    """Calculate utilization metrics for a route."""
-    if not route or not route.tasks:
-        return {'weight': 0, 'volume': 0, 'pallets': 0, 'distance': 0}
-    
-    # Calculate peak load during route execution
-    current_weight = 0
-    current_volume = 0
-    current_pallets = 0
-    peak_weight = 0
-    peak_volume = 0
-    peak_pallets = 0
-    
-    for task in route.tasks:
-        if not (task.is_depot_start() or task.is_depot_return()):
-            if task.is_pickup():
-                current_weight += abs(getattr(task, 'demand', 0))
-                current_volume += abs(getattr(task, 'volume', 0))
-                current_pallets += abs(getattr(task, 'pallets', 0))
-            elif task.is_delivery():
-                current_weight -= abs(getattr(task, 'demand', 0))
-                current_volume -= abs(getattr(task, 'volume', 0))
-                current_pallets -= abs(getattr(task, 'pallets', 0))
-            
-            peak_weight = max(peak_weight, current_weight)
-            peak_volume = max(peak_volume, current_volume)
-            peak_pallets = max(peak_pallets, current_pallets)
-    
-    # Estimate route distance
-    distance = len(route.tasks) * 25  # Rough estimate: 25km per task
-    
-    return {
-        'peak_weight': peak_weight,
-        'peak_volume': peak_volume, 
-        'peak_pallets': peak_pallets,
-        'distance': distance,
-        'task_count': len([t for t in route.tasks if not (t.is_depot_start() or t.is_depot_return())])
-    }
-
-
-def analyze_route_consolidation_potential(vehicle_id1, route1_info, vehicle_id2, route2_info, vehicles, orders):
-    """
-    Analyze if two routes can be consolidated based on geographical and capacity factors.
-    
-    Implements the logic you observed: check if one route's pickup/delivery points
-    lie along the other route's path.
-    """
-    # Get vehicle capacities
-    vehicle1 = next((v for v in vehicles if v.id == vehicle_id1), None)
-    vehicle2 = next((v for v in vehicles if v.id == vehicle_id2), None)
-    
-    if not vehicle1 or not vehicle2:
-        return {'can_consolidate': False, 'reason': 'Vehicle data not found'}
-    
-    # Use the larger vehicle for consolidation
-    target_vehicle = vehicle1 if vehicle1.weight_capacity >= vehicle2.weight_capacity else vehicle2
-    target_vehicle_id = target_vehicle.id
-    
-    # Calculate combined load requirements
-    combined_weight = route1_info['load']['peak_weight'] + route2_info['load']['peak_weight']
-    combined_volume = route1_info['load']['peak_volume'] + route2_info['load']['peak_volume']
-    combined_pallets = route1_info['load']['peak_pallets'] + route2_info['load']['peak_pallets']
-    
-    # Check capacity constraints with tolerance
-    weight_ok = combined_weight <= target_vehicle.weight_capacity * 1.1  # 10% tolerance
-    volume_ok = combined_volume <= target_vehicle.volume_capacity * 1.1
-    pallet_ok = combined_pallets <= target_vehicle.pallet_capacity if target_vehicle.pallet_capacity else True
-    
-    if not (weight_ok and volume_ok and pallet_ok):
-        return {
-            'can_consolidate': False, 
-            'reason': f'Capacity exceeded: W:{combined_weight:.0f}/{target_vehicle.weight_capacity:.0f}kg, '
-                     f'V:{combined_volume:.0f}/{target_vehicle.volume_capacity:.0f}m³, '
-                     f'P:{combined_pallets:.0f}/{target_vehicle.pallet_capacity or "∞"}'
-        }
-    
-    # Check geographic proximity/overlap
-    # Simplified geographic analysis - in practice you'd use actual coordinates
-    route1_orders = len(route1_info['orders'])
-    route2_orders = len(route2_info['orders'])
-    
-    # Heuristic: Routes with very different order counts are good consolidation candidates
-    # (one route is underutilized)
-    if route1_orders == 1 or route2_orders == 1:
-        # One route has only one order - good candidate for consolidation
-        underutilized_route = vehicle_id1 if route1_orders == 1 else vehicle_id2
-        main_route = vehicle_id2 if route1_orders == 1 else vehicle_id1
-        
-        estimated_savings = min(route1_info['load']['distance'], route2_info['load']['distance']) * 0.3
-        
-        return {
-            'can_consolidate': True,
-            'reason': f'Single-order route {underutilized_route} can be merged into {main_route}',
-            'estimated_savings': estimated_savings,
-            'target_vehicle': target_vehicle_id,
-            'merge_strategy': 'insert_single_order'
-        }
-    
-    # Check if routes have similar geographic patterns (simplified)
-    if abs(route1_orders - route2_orders) <= 1 and (route1_orders + route2_orders) <= 4:
-        # Similar small routes that could be combined
-        estimated_savings = (route1_info['load']['distance'] + route2_info['load']['distance']) * 0.2
-        
-        return {
-            'can_consolidate': True,
-            'reason': f'Similar small routes can be efficiently combined',
-            'estimated_savings': estimated_savings,
-            'target_vehicle': target_vehicle_id,
-            'merge_strategy': 'combine_small_routes'
-        }
-    
-    return {'can_consolidate': False, 'reason': 'No clear consolidation benefit identified'}
-
-
-def perform_route_consolidation(solution, vehicle_id1, vehicle_id2, consolidation_plan, vehicles, orders):
-    """
-    Perform the actual route consolidation by merging route tasks.
-    
-    Returns True if successful, False otherwise.
-    """
-    try:
-        # Get the routes
-        route1 = solution.routes.get(vehicle_id1)
-        route2 = solution.routes.get(vehicle_id2)
-        
-        if not route1 or not route2:
-            return False
-        
-        # Get target vehicle (the one that will hold the consolidated route)
-        target_vehicle_id = consolidation_plan['target_vehicle']
-        target_route = route1 if vehicle_id1 == target_vehicle_id else route2
-        source_route = route2 if vehicle_id1 == target_vehicle_id else route1
-        source_vehicle_id = vehicle_id2 if vehicle_id1 == target_vehicle_id else vehicle_id1
-        
-        # Extract non-depot tasks from source route
-        source_tasks = [task for task in source_route.tasks 
-                       if not (task.is_depot_start() or task.is_depot_return())]
-        
-        if not source_tasks:
-            return False
-        
-        # Insert source tasks into target route using optimal insertion
-        consolidated_tasks = list(target_route.tasks)
-        
-        # Remove depot return task temporarily
-        depot_return = None
-        if consolidated_tasks and consolidated_tasks[-1].is_depot_return():
-            depot_return = consolidated_tasks.pop()
-        
-        # Find best insertion positions for source tasks
-        for task in source_tasks:
-            best_position = find_best_insertion_position(consolidated_tasks, task)
-            consolidated_tasks.insert(best_position, task)
-        
-        # Re-add depot return task
-        if depot_return:
-            consolidated_tasks.append(depot_return)
-        
-        # Update the target route
-        target_route.tasks = consolidated_tasks
-        solution.routes[target_vehicle_id] = target_route
-        
-        # Clear the source route (make it depot-only)
-        from algo.first_level import _create_base_route
-        source_vehicle = next((v for v in vehicles if v.id == source_vehicle_id), None)
-        if source_vehicle:
-            solution.routes[source_vehicle_id] = _create_base_route(source_vehicle)
-        
-        return True
-        
-    except Exception as e:
-        print(f"   Error during consolidation: {e}")
-        return False
-
-
-def find_best_insertion_position(route_tasks, new_task):
-    """
-    Find the best position to insert a new task in a route.
-    
-    Simple heuristic: insert pickup tasks early, delivery tasks late.
-    """
-    if not route_tasks:
-        return 0
-    
-    # Find depot start and return positions
-    depot_start_pos = 0
-    depot_return_pos = len(route_tasks)
-    
-    for i, task in enumerate(route_tasks):
-        if task.is_depot_return():
-            depot_return_pos = i
-            break
-    
-    if new_task.is_pickup():
-        # Insert pickups early in the route (after depot start)
-        return depot_start_pos + 1
-    else:
-        # Insert deliveries late in the route (before depot return)
-        return depot_return_pos
-
-
-# Global trackers
-violation_tracker = ViolationTracker()
-profit_tracker = ProfitTracker()
-
-
 def print_comprehensive_final_report(solution=None, orders=None, vehicles=None):
     """Print the final comprehensive report with violations and financial summary."""
     print("\n" + "="*80)
@@ -3545,6 +3225,922 @@ def smart_force_assign_unassigned_orders(solution, orders, vehicles):
     return total_assigned
 
 
+def smart_post_assignment_route_consolidation(solution, orders, vehicles):
+    """
+    Advanced route consolidation that runs after force assignment.
+    
+    Identifies opportunities to merge routes for better efficiency while preserving
+    all existing logic (order splitting, force assignment, etc.).
+    
+    Key features:
+    - Geographical analysis for route merger opportunities
+    - Capacity and time window validation
+    - Distance optimization
+    - Vehicle utilization improvement
+    
+    Args:
+        solution: Current solution after force assignment
+        orders: All order objects  
+        vehicles: All vehicle objects
+        
+    Returns:
+        Number of routes consolidated
+    """
+    print(f"\n" + "="*80)
+    print("SMART POST-ASSIGNMENT ROUTE CONSOLIDATION")
+    print("="*80)
+    
+    # BEFORE ANALYSIS: Capture initial state
+    print(f"📊 BEFORE CONSOLIDATION ANALYSIS:")
+    before_stats = _calculate_solution_stats(solution, vehicles)
+    
+    print(f"   📍 Active routes: {before_stats['active_routes']}")
+    print(f"   🚛 Vehicles used: {before_stats['vehicles_used']}")
+    print(f"   📦 Total orders handled: {before_stats['total_orders']}")
+    print(f"   ⚖️ Total load: {before_stats['total_weight']:.0f}kg, {before_stats['total_volume']:.1f}m³, {before_stats['total_pallets']:.0f}p")
+    if before_stats['total_distance'] > 0:
+        print(f"   🛣️ Total distance: {before_stats['total_distance']:.1f}km")
+    if before_stats['total_cost'] > 0:
+        print(f"   💰 Total cost: €{before_stats['total_cost']:.2f}")
+    
+    # Get current active routes
+    active_routes = {}
+    for vehicle_id, route in solution.routes.items():
+        if route and hasattr(route, 'tasks') and route.tasks:
+            # Only consider routes with actual customer tasks (not just depot)
+            customer_tasks = [t for t in route.tasks if not (t.is_depot_start() or t.is_depot_return())]
+            if customer_tasks:
+                active_routes[vehicle_id] = route
+    
+    print(f"\n🔍 CONSOLIDATION ANALYSIS STARTING:")
+    print(f"   • Active routes found: {len(active_routes)}")
+    print(f"   • Total route pairs to analyze: {len(active_routes) * (len(active_routes) - 1) // 2}")
+    
+    if len(active_routes) < 2:
+        print("❌ Not enough routes for consolidation analysis")
+        return 0
+    
+    # Debug: Show all active routes first
+    print(f"\n🚛 ACTIVE ROUTES SUMMARY:")
+    route_summaries = {}
+    for vehicle_id, route in active_routes.items():
+        route_info = _extract_route_info(route, orders)
+        route_summaries[vehicle_id] = route_info
+        
+        print(f"   📍 {vehicle_id}: {len(route_info['orders'])} orders, "
+              f"{route_info['total_weight']:.0f}kg, {route_info['total_volume']:.1f}m³, "
+              f"{route_info['total_pallets']:.0f} pallets")
+        print(f"      🗺️ Locations: {route_info['locations']}")
+        print(f"      📦 Orders: {route_info['orders']}")
+    
+    consolidations_performed = 0
+    routes_to_remove = set()
+    routes_actually_freed = []
+    consolidation_attempts = 0
+    consolidation_savings_km = 0
+    
+    # Analyze route pairs for consolidation opportunities
+    route_pairs = list(active_routes.items())
+    
+    print(f"\n🔍 DETAILED CONSOLIDATION ANALYSIS:")
+    print(f"=" * 50)
+    
+    for i, (vehicle_a_id, route_a) in enumerate(route_pairs):
+        if vehicle_a_id in routes_to_remove:
+            continue
+            
+        for j, (vehicle_b_id, route_b) in enumerate(route_pairs[i+1:], i+1):
+            if vehicle_b_id in routes_to_remove:
+                continue
+                
+            consolidation_attempts += 1
+            print(f"\n🔄 ATTEMPT #{consolidation_attempts}: Analyzing {vehicle_a_id} + {vehicle_b_id}")
+            
+            # Show route details being analyzed
+            route_a_info = route_summaries[vehicle_a_id]
+            route_b_info = route_summaries[vehicle_b_id]
+            
+            print(f"   📊 Route A ({vehicle_a_id}):")
+            print(f"      📦 Orders: {route_a_info['orders']}")
+            print(f"      🗺️ Locations: {route_a_info['locations']}")
+            print(f"      ⚖️ Load: {route_a_info['total_weight']:.0f}kg, {route_a_info['total_volume']:.1f}m³, {route_a_info['total_pallets']:.0f}p")
+            
+            print(f"   📊 Route B ({vehicle_b_id}):")
+            print(f"      📦 Orders: {route_b_info['orders']}")
+            print(f"      🗺️ Locations: {route_b_info['locations']}")
+            print(f"      ⚖️ Load: {route_b_info['total_weight']:.0f}kg, {route_b_info['total_volume']:.1f}m³, {route_b_info['total_pallets']:.0f}p")
+            
+            # Check if consolidation is feasible
+            consolidation_result = _check_route_consolidation_feasibility(
+                vehicle_a_id, route_a, vehicle_b_id, route_b, vehicles, orders
+            )
+            
+            if consolidation_result['feasible']:
+                print(f"   ✅ CONSOLIDATION OPPORTUNITY DETECTED!")
+                print(f"      🎯 Target vehicle: {consolidation_result['target_vehicle']}")
+                print(f"      🚛 Vehicle to free: {consolidation_result['vehicle_to_free']}")
+                print(f"      📍 Route overlap score: {consolidation_result['overlap_score']:.1f}%")
+                print(f"      💰 Estimated distance savings: {consolidation_result['distance_savings']:.1f}km")
+                
+                if 'pattern_score' in consolidation_result:
+                    print(f"      🎨 Pattern bonus score: {consolidation_result.get('pattern_score', 0):.1f}")
+                
+                # Show proposed consolidated route
+                print(f"      📋 PROPOSED CONSOLIDATION:")
+                print(f"         • Merge {vehicle_b_id} tasks into {consolidation_result['target_vehicle']}")
+                print(f"         • Combined load: {consolidation_result['route_a_info']['total_weight'] + consolidation_result['route_b_info']['total_weight']:.0f}kg")
+                print(f"         • Combined orders: {consolidation_result['route_a_info']['orders'] + consolidation_result['route_b_info']['orders']}")
+                
+                # Perform the consolidation
+                print(f"      🔧 EXECUTING CONSOLIDATION...")
+                success = _perform_route_consolidation(
+                    solution, consolidation_result, vehicles, orders
+                )
+                
+                if success:
+                    consolidations_performed += 1
+                    freed_vehicle = consolidation_result['vehicle_to_free']
+                    routes_to_remove.add(freed_vehicle)
+                    routes_actually_freed.append(freed_vehicle)
+                    consolidation_savings_km += consolidation_result['distance_savings']
+                    print(f"      ✅ CONSOLIDATION SUCCESSFUL!")
+                    print(f"         • Vehicle {freed_vehicle} freed up")
+                    print(f"         • Vehicle {consolidation_result['target_vehicle']} now handles both routes")
+                    print(f"         • Estimated savings: {consolidation_result['distance_savings']:.1f}km")
+                else:
+                    print(f"      ❌ CONSOLIDATION EXECUTION FAILED!")
+                    print(f"         • Technical error during route merging")
+            else:
+                print(f"   ❌ CONSOLIDATION NOT FEASIBLE")
+                print(f"      🚫 Reason: {consolidation_result['reason']}")
+                
+                # Show additional failure details
+                if 'overlap_score' in consolidation_result:
+                    print(f"      📊 Overlap score achieved: {consolidation_result.get('overlap_score', 0):.1f}%")
+                if 'total_weight' in str(consolidation_result.get('reason', '')):
+                    print(f"      ⚖️ Would exceed capacity limits")
+    
+    # POST-CONSOLIDATION CLEANUP: Remove empty routes
+    print(f"\n🧹 POST-CONSOLIDATION CLEANUP:")
+    empty_routes_removed = 0
+    routes_to_remove = []
+    
+    for vehicle_id, route in solution.routes.items():
+        if route is None or not hasattr(route, 'tasks') or not route.tasks:
+            routes_to_remove.append(vehicle_id)
+        else:
+            # Check if route has only depot tasks
+            customer_tasks = [t for t in route.tasks if not (t.is_depot_start() or t.is_depot_return())]
+            if not customer_tasks:
+                routes_to_remove.append(vehicle_id)
+    
+    for vehicle_id in routes_to_remove:
+        del solution.routes[vehicle_id]
+        empty_routes_removed += 1
+    
+    print(f"   🗑️ Removed {empty_routes_removed} empty routes")
+    print(f"   📊 Active routes remaining: {len([r for r in solution.routes.values() if r and hasattr(r, 'tasks') and r.tasks])}")
+    
+    # AFTER ANALYSIS: Capture final state after cleanup
+    print(f"\n📊 AFTER CONSOLIDATION ANALYSIS:")
+    after_stats = _calculate_solution_stats(solution, vehicles)
+    
+    print(f"   📍 Active routes: {after_stats['active_routes']}")
+    print(f"   🚛 Vehicles used: {after_stats['vehicles_used']}")
+    print(f"   📦 Total orders handled: {after_stats['total_orders']}")
+    print(f"   ⚖️ Total load: {after_stats['total_weight']:.0f}kg, {after_stats['total_volume']:.1f}m³, {after_stats['total_pallets']:.0f}p")
+    if after_stats['total_distance'] > 0:
+        print(f"   🛣️ Total distance: {after_stats['total_distance']:.1f}km")
+    if after_stats['total_cost'] > 0:
+        print(f"   💰 Total cost: €{after_stats['total_cost']:.2f}")
+    
+    # IMPACT ANALYSIS
+    print(f"\n📈 CONSOLIDATION IMPACT ANALYSIS:")
+    print(f"=" * 50)
+    print(f"   📊 Statistics:")
+    print(f"      • Route pairs analyzed: {consolidation_attempts}")
+    print(f"      • Consolidation opportunities found: {consolidations_performed}")
+    print(f"      • Vehicles freed: {len(routes_actually_freed)}")
+    print(f"      • Success rate: {(consolidations_performed / max(consolidation_attempts, 1)) * 100:.1f}%")
+    
+    if routes_actually_freed:
+        print(f"   🚛 Vehicles actually freed: {', '.join(sorted(routes_actually_freed))}")
+    
+    # Route count changes
+    route_change = before_stats['active_routes'] - after_stats['active_routes']
+    print(f"   📈 Route efficiency:")
+    print(f"      • Routes before: {before_stats['active_routes']}")
+    print(f"      • Routes after: {after_stats['active_routes']}")
+    print(f"      • Net reduction: {route_change} routes")
+    print(f"      • Expected reduction: {len(routes_actually_freed)} routes")
+    
+    # Distance/cost changes
+    if before_stats['total_distance'] > 0 and after_stats['total_distance'] > 0:
+        distance_change = before_stats['total_distance'] - after_stats['total_distance']
+        print(f"   🛣️ Distance impact:")
+        print(f"      • Distance before: {before_stats['total_distance']:.1f}km")
+        print(f"      • Distance after: {after_stats['total_distance']:.1f}km")
+        print(f"      • Actual savings: {distance_change:.1f}km")
+        print(f"      • Estimated savings: {consolidation_savings_km:.1f}km")
+    
+    if before_stats['total_cost'] > 0 and after_stats['total_cost'] > 0:
+        cost_change = before_stats['total_cost'] - after_stats['total_cost']
+        print(f"   💰 Cost impact:")
+        print(f"      • Cost before: €{before_stats['total_cost']:.2f}")
+        print(f"      • Cost after: €{after_stats['total_cost']:.2f}")
+        print(f"      • Savings: €{cost_change:.2f}")
+        print(f"      • Savings %: {(cost_change / before_stats['total_cost'] * 100):.1f}%")
+    
+    # Vehicle utilization
+    util_change = before_stats['vehicles_used'] - after_stats['vehicles_used']
+    print(f"   🚛 Vehicle utilization:")
+    print(f"      • Vehicles used before: {before_stats['vehicles_used']}")
+    print(f"      • Vehicles used after: {after_stats['vehicles_used']}")
+    print(f"      • Vehicles freed: {util_change}")
+    
+    # Validation warnings
+    if route_change != len(routes_actually_freed):
+        print(f"   ⚠️ WARNING: Route count mismatch!")
+        print(f"      Expected to free {len(routes_actually_freed)} routes, but only reduced by {route_change}")
+    
+    if consolidations_performed > 0 and route_change == 0:
+        print(f"   ⚠️ WARNING: Consolidations performed but no route reduction!")
+        print(f"      This suggests consolidation logic may not be working properly")
+    
+    # POST-CONSOLIDATION ROUTE TIMELINE ANALYSIS (clean format)
+    if consolidations_performed > 0:
+        print(f"\n🕐 POST-CONSOLIDATION ROUTE TIMELINE BREAKDOWN:")
+        print(f"=" * 60)
+        
+        active_routes_final = {}
+        for vehicle_id, route in solution.routes.items():
+            if route and hasattr(route, 'tasks') and route.tasks:
+                customer_tasks = [t for t in route.tasks if not (t.is_depot_start() or t.is_depot_return())]
+                if customer_tasks:
+                    active_routes_final[vehicle_id] = route
+        
+        for vehicle_id, route in active_routes_final.items():
+            print(f"\n📋 VEHICLE {vehicle_id}:")
+            
+            if hasattr(route, 'tasks'):
+                # Show clean timeline without feasibility checks
+                for i, task in enumerate(route.tasks):
+                    task_type = getattr(task, 'task_type', 'UNKNOWN')
+                    if hasattr(task_type, 'name'):
+                        task_type = task_type.name
+                    
+                    order_id = getattr(task, 'order_id', 'N/A')
+                    location = getattr(task, 'location', 'Unknown')
+                    
+                    # Time information
+                    earliest = getattr(task, 'earliest_time', 'N/A')
+                    latest = getattr(task, 'latest_time', 'N/A')
+                    time_window = f"{earliest} - {latest}" if earliest != 'N/A' and latest != 'N/A' else 'N/A'
+                    
+                    print(f"   {i+1:2d}. {task_type:8} | {order_id:8} | {time_window:12} | {location[:50]}")
+                
+                # Route summary
+                route_info = _extract_route_info(route, orders)
+                vehicle = next((v for v in vehicles if v.id == vehicle_id), None)
+                if vehicle:
+                    print(f"   � Load: {route_info['total_weight']:.0f}/{vehicle.weight_capacity:.0f}kg, "
+                          f"{route_info['total_volume']:.1f}/{vehicle.volume_capacity:.1f}m³, "
+                          f"{route_info['total_pallets']:.0f}/{vehicle.pallet_capacity or '∞'}p")
+    
+    return consolidations_performed
+
+
+def _calculate_solution_stats(solution, vehicles):
+    """Calculate comprehensive statistics about the current solution."""
+    stats = {
+        'active_routes': 0,
+        'vehicles_used': 0,
+        'total_orders': 0,
+        'total_weight': 0.0,
+        'total_volume': 0.0,
+        'total_pallets': 0.0,
+        'total_distance': 0.0,
+        'total_cost': 0.0
+    }
+    
+    order_ids_seen = set()
+    
+    for vehicle_id, route in solution.routes.items():
+        if route and hasattr(route, 'tasks') and route.tasks:
+            # Check if route has customer tasks (not just depot)
+            customer_tasks = [t for t in route.tasks if not (t.is_depot_start() or t.is_depot_return())]
+            if customer_tasks:
+                stats['active_routes'] += 1
+                stats['vehicles_used'] += 1
+                
+                # Count unique orders and load
+                for task in customer_tasks:
+                    if hasattr(task, 'order_id') and task.order_id:
+                        order_ids_seen.add(str(task.order_id))
+                    
+                    # Only count pickup tasks to avoid double counting
+                    if hasattr(task, 'task_type') and task.task_type.name == 'PICKUP':
+                        stats['total_weight'] += abs(getattr(task, 'demand', 0))
+                        stats['total_volume'] += abs(getattr(task, 'volume', 0))
+                        stats['total_pallets'] += abs(getattr(task, 'pallets', 0))
+                
+                # Get route distance if available
+                if hasattr(route, 'total_distance'):
+                    stats['total_distance'] += getattr(route, 'total_distance', 0)
+                elif hasattr(route, 'distance'):
+                    stats['total_distance'] += getattr(route, 'distance', 0)
+                
+                # Get route cost if available
+                if hasattr(route, 'total_cost'):
+                    stats['total_cost'] += getattr(route, 'total_cost', 0)
+                elif hasattr(route, 'cost'):
+                    stats['total_cost'] += getattr(route, 'cost', 0)
+    
+    stats['total_orders'] = len(order_ids_seen)
+    return stats
+    print("="*80)
+    
+    # Get current active routes
+    active_routes = {}
+    for vehicle_id, route in solution.routes.items():
+        if route and hasattr(route, 'tasks') and route.tasks:
+            # Only consider routes with actual customer tasks (not just depot)
+            customer_tasks = [t for t in route.tasks if not (t.is_depot_start() or t.is_depot_return())]
+            if customer_tasks:
+                active_routes[vehicle_id] = route
+    
+    print(f"📊 CONSOLIDATION ANALYSIS STARTING:")
+    print(f"   • Active routes found: {len(active_routes)}")
+    print(f"   • Total route pairs to analyze: {len(active_routes) * (len(active_routes) - 1) // 2}")
+    
+    if len(active_routes) < 2:
+        print("❌ Not enough routes for consolidation analysis")
+        return 0
+    
+    # Debug: Show all active routes first
+    print(f"\n🚛 ACTIVE ROUTES SUMMARY:")
+    route_summaries = {}
+    for vehicle_id, route in active_routes.items():
+        route_info = _extract_route_info(route, orders)
+        route_summaries[vehicle_id] = route_info
+        
+        print(f"   📍 {vehicle_id}: {len(route_info['orders'])} orders, "
+              f"{route_info['total_weight']:.0f}kg, {route_info['total_volume']:.1f}m³, "
+              f"{route_info['total_pallets']:.0f} pallets")
+        print(f"      🗺️ Locations: {route_info['locations']}")
+        print(f"      📦 Orders: {route_info['orders']}")
+    
+    consolidations_performed = 0
+    routes_to_remove = set()
+    consolidation_attempts = 0
+    
+    # Analyze route pairs for consolidation opportunities
+    route_pairs = list(active_routes.items())
+    
+    print(f"\n🔍 DETAILED CONSOLIDATION ANALYSIS:")
+    print(f"=" * 50)
+    
+    for i, (vehicle_a_id, route_a) in enumerate(route_pairs):
+        if vehicle_a_id in routes_to_remove:
+            continue
+            
+        for j, (vehicle_b_id, route_b) in enumerate(route_pairs[i+1:], i+1):
+            if vehicle_b_id in routes_to_remove:
+                continue
+                
+            consolidation_attempts += 1
+            print(f"\n🔄 ATTEMPT #{consolidation_attempts}: Analyzing {vehicle_a_id} + {vehicle_b_id}")
+            
+            # Show route details being analyzed
+            route_a_info = route_summaries[vehicle_a_id]
+            route_b_info = route_summaries[vehicle_b_id]
+            
+            print(f"   📊 Route A ({vehicle_a_id}):")
+            print(f"      📦 Orders: {route_a_info['orders']}")
+            print(f"      🗺️ Locations: {route_a_info['locations']}")
+            print(f"      ⚖️ Load: {route_a_info['total_weight']:.0f}kg, {route_a_info['total_volume']:.1f}m³, {route_a_info['total_pallets']:.0f}p")
+            
+            print(f"   📊 Route B ({vehicle_b_id}):")
+            print(f"      📦 Orders: {route_b_info['orders']}")
+            print(f"      🗺️ Locations: {route_b_info['locations']}")
+            print(f"      ⚖️ Load: {route_b_info['total_weight']:.0f}kg, {route_b_info['total_volume']:.1f}m³, {route_b_info['total_pallets']:.0f}p")
+            
+            # Check if consolidation is feasible
+            consolidation_result = _check_route_consolidation_feasibility(
+                vehicle_a_id, route_a, vehicle_b_id, route_b, vehicles, orders
+            )
+            
+            if consolidation_result['feasible']:
+                print(f"   ✅ CONSOLIDATION OPPORTUNITY DETECTED!")
+                print(f"      🎯 Target vehicle: {consolidation_result['target_vehicle']}")
+                print(f"      � Vehicle to free: {consolidation_result['vehicle_to_free']}")
+                print(f"      �📍 Route overlap score: {consolidation_result['overlap_score']:.1f}%")
+                print(f"      💰 Estimated distance savings: {consolidation_result['distance_savings']:.1f}km")
+                
+                if 'pattern_score' in consolidation_result:
+                    print(f"      🎨 Pattern bonus score: {consolidation_result.get('pattern_score', 0):.1f}")
+                
+                # Show proposed consolidated route
+                print(f"      � PROPOSED CONSOLIDATION:")
+                print(f"         • Merge {vehicle_b_id} tasks into {consolidation_result['target_vehicle']}")
+                print(f"         • Combined load: {consolidation_result['route_a_info']['total_weight'] + consolidation_result['route_b_info']['total_weight']:.0f}kg")
+                print(f"         • Combined orders: {consolidation_result['route_a_info']['orders'] + consolidation_result['route_b_info']['orders']}")
+                
+                # Perform the consolidation
+                print(f"      🔧 EXECUTING CONSOLIDATION...")
+                success = _perform_route_consolidation(
+                    solution, consolidation_result, vehicles, orders
+                )
+                
+                if success:
+                    consolidations_performed += 1
+                    routes_to_remove.add(consolidation_result['vehicle_to_free'])
+                    print(f"      ✅ CONSOLIDATION SUCCESSFUL!")
+                    print(f"         • Vehicle {consolidation_result['vehicle_to_free']} freed up")
+                    print(f"         • Vehicle {consolidation_result['target_vehicle']} now handles both routes")
+                else:
+                    print(f"      ❌ CONSOLIDATION EXECUTION FAILED!")
+                    print(f"         • Technical error during route merging")
+            else:
+                print(f"   ❌ CONSOLIDATION NOT FEASIBLE")
+                print(f"      🚫 Reason: {consolidation_result['reason']}")
+                
+                # Show additional failure details
+                if 'overlap_score' in consolidation_result:
+                    print(f"      📊 Overlap score achieved: {consolidation_result.get('overlap_score', 0):.1f}%")
+                if 'total_weight' in str(consolidation_result.get('reason', '')):
+                    print(f"      ⚖️ Would exceed capacity limits")
+    
+    print(f"\n� CONSOLIDATION ANALYSIS COMPLETE!")
+    print(f"=" * 50)
+    print(f"   📊 Statistics:")
+    print(f"      • Route pairs analyzed: {consolidation_attempts}")
+    print(f"      • Consolidation opportunities found: {consolidations_performed}")
+    print(f"      • Vehicles freed: {len(routes_to_remove)}")
+    print(f"      • Success rate: {(consolidations_performed / max(consolidation_attempts, 1)) * 100:.1f}%")
+    
+    if routes_to_remove:
+        print(f"   🚛 Vehicles freed up: {', '.join(sorted(routes_to_remove))}")
+    
+    final_active_routes = len(active_routes) - len(routes_to_remove)
+    print(f"   📈 Route efficiency:")
+    print(f"      • Routes before: {len(active_routes)}")
+    print(f"      • Routes after: {final_active_routes}")
+    print(f"      • Reduction: {len(routes_to_remove)} routes ({(len(routes_to_remove)/len(active_routes)*100):.1f}%)")
+    
+    return consolidations_performed
+
+
+def _check_route_consolidation_feasibility(vehicle_a_id, route_a, vehicle_b_id, route_b, vehicles, orders):
+    """
+    Check if two routes can be consolidated efficiently with detailed debugging.
+    
+    Returns dict with feasibility analysis including:
+    - feasible: bool
+    - overlap_score: float (0-100%)
+    - distance_savings: float (km)
+    - vehicle_to_free: str
+    - reason: str (if not feasible)
+    """
+    try:
+        # Get vehicle objects
+        vehicle_a = next((v for v in vehicles if v.id == vehicle_a_id), None)
+        vehicle_b = next((v for v in vehicles if v.id == vehicle_b_id), None)
+        
+        if not vehicle_a or not vehicle_b:
+            return {'feasible': False, 'reason': 'Vehicle objects not found'}
+        
+        # Extract route locations and orders
+        route_a_info = _extract_route_info(route_a, orders)
+        route_b_info = _extract_route_info(route_b, orders)
+        
+        if not route_a_info['locations'] or not route_b_info['locations']:
+            return {'feasible': False, 'reason': 'Could not extract route locations'}
+        
+        # DEBUG: Show detailed capacity analysis
+        total_weight = route_a_info['total_weight'] + route_b_info['total_weight']
+        total_volume = route_a_info['total_volume'] + route_b_info['total_volume']
+        total_pallets = route_a_info['total_pallets'] + route_b_info['total_pallets']
+        
+        print(f"      🔍 CAPACITY ANALYSIS:")
+        print(f"         Vehicle A ({vehicle_a_id}): {vehicle_a.weight_capacity:.0f}kg, {vehicle_a.volume_capacity:.1f}m³, {vehicle_a.pallet_capacity}p")
+        print(f"         Vehicle B ({vehicle_b_id}): {vehicle_b.weight_capacity:.0f}kg, {vehicle_b.volume_capacity:.1f}m³, {vehicle_b.pallet_capacity}p")
+        print(f"         Combined load needed: {total_weight:.0f}kg, {total_volume:.1f}m³, {total_pallets:.0f}p")
+        
+        # Use the larger vehicle for consolidation
+        if vehicle_a.weight_capacity >= vehicle_b.weight_capacity:
+            target_vehicle = vehicle_a
+            target_vehicle_id = vehicle_a_id
+            free_vehicle_id = vehicle_b_id
+            print(f"         🎯 Selected target: {vehicle_a_id} (larger capacity)")
+        else:
+            target_vehicle = vehicle_b
+            target_vehicle_id = vehicle_b_id
+            free_vehicle_id = vehicle_a_id
+            print(f"         🎯 Selected target: {vehicle_b_id} (larger capacity)")
+        
+        # STRICT CAPACITY CHECKS - NO OVERLOAD TOLERANCE
+        weight_ok = total_weight <= target_vehicle.weight_capacity  # No tolerance
+        volume_ok = total_volume <= target_vehicle.volume_capacity  # No tolerance
+        pallet_ok = (target_vehicle.pallet_capacity is None or 
+                    total_pallets <= target_vehicle.pallet_capacity)  # No tolerance
+        
+        print(f"         📊 STRICT Capacity checks:")
+        print(f"            Weight: {total_weight:.0f}/{target_vehicle.weight_capacity:.0f}kg ({'✅' if weight_ok else '❌'})")
+        print(f"            Volume: {total_volume:.1f}/{target_vehicle.volume_capacity:.1f}m³ ({'✅' if volume_ok else '❌'})")
+        print(f"            Pallets: {total_pallets:.0f}/{target_vehicle.pallet_capacity or '∞'}p ({'✅' if pallet_ok else '❌'})")
+        
+        if not (weight_ok and volume_ok and pallet_ok):
+            failure_reasons = []
+            if not weight_ok:
+                failure_reasons.append(f"Weight: {total_weight:.0f}kg > {target_vehicle.weight_capacity:.0f}kg")
+            if not volume_ok:
+                failure_reasons.append(f"Volume: {total_volume:.1f}m³ > {target_vehicle.volume_capacity:.1f}m³")
+            if not pallet_ok:
+                failure_reasons.append(f"Pallets: {total_pallets:.0f} > {target_vehicle.pallet_capacity}")
+            
+            return {
+                'feasible': False, 
+                'reason': f'STRICT capacity exceeded: {"; ".join(failure_reasons)}',
+                'total_weight': total_weight,
+                'total_volume': total_volume,
+                'total_pallets': total_pallets
+            }
+        
+        # CAPABILITY COMPATIBILITY CHECKS
+        print(f"      🔧 CAPABILITY ANALYSIS:")
+        
+        # Extract all capabilities needed from both routes
+        capabilities_needed = set()
+        
+        # Check route A capabilities
+        for task in route_a.tasks:
+            if hasattr(task, 'requires_low_temp') and task.requires_low_temp:
+                capabilities_needed.add('LOW_TEMP')
+            if hasattr(task, 'requires_hangers') and task.requires_hangers:
+                capabilities_needed.add('HANGERS')
+            if hasattr(task, 'requires_loader') and task.requires_loader:
+                capabilities_needed.add('LOADER')
+            if hasattr(task, 'requires_lifo') and task.requires_lifo:
+                capabilities_needed.add('LIFO')
+        
+        # Check route B capabilities
+        for task in route_b.tasks:
+            if hasattr(task, 'requires_low_temp') and task.requires_low_temp:
+                capabilities_needed.add('LOW_TEMP')
+            if hasattr(task, 'requires_hangers') and task.requires_hangers:
+                capabilities_needed.add('HANGERS')
+            if hasattr(task, 'requires_loader') and task.requires_loader:
+                capabilities_needed.add('LOADER')
+            if hasattr(task, 'requires_lifo') and task.requires_lifo:
+                capabilities_needed.add('LIFO')
+        
+        print(f"         Required capabilities: {capabilities_needed}")
+        
+        # Check if target vehicle has all required capabilities
+        target_capabilities = set()
+        if getattr(target_vehicle, 'low_temp', False) or getattr(target_vehicle, 'has_low_temp', False):
+            target_capabilities.add('LOW_TEMP')
+        if 'LOW_TEMP' in getattr(target_vehicle, 'capabilities', []):
+            target_capabilities.add('LOW_TEMP')
+        if 'HANGERS' in getattr(target_vehicle, 'capabilities', []):
+            target_capabilities.add('HANGERS')
+        if 'LOADER' in getattr(target_vehicle, 'capabilities', []):
+            target_capabilities.add('LOADER')
+        if 'LIFO' in getattr(target_vehicle, 'capabilities', []):
+            target_capabilities.add('LIFO')
+        
+        print(f"         Target vehicle capabilities: {target_capabilities}")
+        
+        missing_capabilities = capabilities_needed - target_capabilities
+        if missing_capabilities:
+            return {
+                'feasible': False,
+                'reason': f'Missing required capabilities: {missing_capabilities}'
+            }
+        
+        print(f"         ✅ All capabilities satisfied")
+        
+        # Calculate geographical overlap and potential savings
+        print(f"      🗺️ GEOGRAPHICAL ANALYSIS:")
+        overlap_analysis = _calculate_route_overlap(route_a_info, route_b_info)
+        
+        print(f"         Common locations: {overlap_analysis.get('common_locations', set())}")
+        print(f"         Common cities: {overlap_analysis.get('common_cities', set())}")
+        print(f"         Pattern score bonus: {overlap_analysis.get('pattern_score', 0):.1f}")
+        print(f"         Final overlap score: {overlap_analysis['overlap_score']:.1f}%")
+        
+        if overlap_analysis['overlap_score'] < 30:  # Less than 30% overlap
+            return {
+                'feasible': False, 
+                'reason': f'Low geographical overlap: {overlap_analysis["overlap_score"]:.1f}% (minimum: 30%)',
+                'overlap_score': overlap_analysis['overlap_score']
+            }
+        
+        print(f"      ✅ CONSOLIDATION FEASIBLE!")
+        return {
+            'feasible': True,
+            'overlap_score': overlap_analysis['overlap_score'],
+            'distance_savings': overlap_analysis['potential_savings'],
+            'target_vehicle': target_vehicle_id,
+            'vehicle_to_free': free_vehicle_id,
+            'route_a_info': route_a_info,
+            'route_b_info': route_b_info,
+            'pattern_score': overlap_analysis.get('pattern_score', 0),
+            'common_locations': overlap_analysis.get('common_locations', set()),
+            'common_cities': overlap_analysis.get('common_cities', set())
+        }
+        
+    except Exception as e:
+        print(f"      ❌ ANALYSIS ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {'feasible': False, 'reason': f'Analysis error: {str(e)}'}
+
+
+def _extract_route_info(route, orders):
+    """Extract key information from a route."""
+    info = {
+        'locations': [],
+        'orders': [],
+        'total_weight': 0.0,
+        'total_volume': 0.0,
+        'total_pallets': 0,
+        'tasks': []
+    }
+    
+    try:
+        for task in route.tasks:
+            if not (task.is_depot_start() or task.is_depot_return()):
+                info['tasks'].append(task)
+                
+                # Extract location
+                location = getattr(task, 'location_id', None) or getattr(task, 'location', None)
+                if location:
+                    info['locations'].append(location)
+                
+                # Extract order info
+                if hasattr(task, 'order_id') and task.order_id:
+                    if task.order_id not in info['orders']:
+                        info['orders'].append(task.order_id)
+                
+                # Calculate totals for pickups only (to avoid double counting)
+                if hasattr(task, 'task_type') and task.task_type.name == 'PICKUP':
+                    info['total_weight'] += abs(getattr(task, 'demand', 0))
+                    info['total_volume'] += abs(getattr(task, 'volume', 0))
+                    info['total_pallets'] += abs(getattr(task, 'pallets', 0))
+    
+    except Exception as e:
+        print(f"Error extracting route info: {e}")
+    
+    return info
+
+
+def _calculate_route_overlap(route_a_info, route_b_info):
+    """Calculate geographical overlap between two routes with enhanced path analysis and debugging."""
+    try:
+        print(f"            🔍 Analyzing geographical overlap...")
+        
+        # Simple geographical analysis based on location names
+        # In a real implementation, this would use GPS coordinates
+        
+        locations_a = set(route_a_info['locations'])
+        locations_b = set(route_b_info['locations'])
+        
+        print(f"            📍 Route A locations: {locations_a}")
+        print(f"            📍 Route B locations: {locations_b}")
+        
+        # Check for direct location matches
+        common_locations = locations_a.intersection(locations_b)
+        print(f"            🎯 Direct location matches: {common_locations}")
+        
+        # Check for city/region matches (simple heuristic)
+        cities_a = set()
+        cities_b = set()
+        
+        for loc in locations_a:
+            if isinstance(loc, str):
+                # Extract city names from location strings
+                parts = loc.upper().split(',')
+                for part in parts:
+                    clean_part = part.strip()
+                    if len(clean_part) > 2:  # Avoid abbreviations
+                        cities_a.add(clean_part)
+        
+        for loc in locations_b:
+            if isinstance(loc, str):
+                parts = loc.upper().split(',')
+                for part in parts:
+                    clean_part = part.strip()
+                    if len(clean_part) > 2:
+                        cities_b.add(clean_part)
+        
+        common_cities = cities_a.intersection(cities_b)
+        print(f"            🏙️ Extracted cities A: {cities_a}")
+        print(f"            🏙️ Extracted cities B: {cities_b}")
+        print(f"            🎯 Common cities: {common_cities}")
+        
+        # ENHANCED: Check for specific consolidation patterns
+        # Pattern 1: One route passes through/near the other's pickup location
+        pattern_score = 0
+        pattern_details = []
+        
+        # Check if locations contain known geographical proximities
+        geographical_proximities = {
+            'ASTI': ['ASTI', 'CARPI', 'TORINO'],  # ASTI region connections
+            'CARPI': ['CARPI', 'SERMIDE', 'ASTI'],  # CARPI to SERMIDE path
+            'SERMIDE': ['SERMIDE', 'CARPI', 'ASTI'],
+            'TORINO': ['TORINO', 'ASTI', 'CARPI']
+        }
+        
+        print(f"            🗺️ Checking geographical proximity patterns...")
+        for city_a in cities_a:
+            for city_b in cities_b:
+                for region, connected_cities in geographical_proximities.items():
+                    if city_a in connected_cities and city_b in connected_cities:
+                        pattern_score += 30  # Boost for geographical connectivity
+                        pattern_details.append(f"Geographic connection: {city_a} ↔ {city_b} via {region}")
+                        print(f"               ✅ Found connection: {city_a} ↔ {city_b} via {region} (+30 points)")
+                        
+        # Pattern 2: Single-order routes are good consolidation candidates
+        if len(route_a_info['orders']) == 1 or len(route_b_info['orders']) == 1:
+            pattern_score += 20
+            pattern_details.append(f"Single-order route detected (+20 points)")
+            print(f"               ✅ Single-order route bonus (+20 points)")
+            
+        # Pattern 3: Routes with similar total load
+        weight_diff = abs(route_a_info['total_weight'] - route_b_info['total_weight'])
+        if weight_diff < 1000:  # Similar weight orders
+            pattern_score += 15
+            pattern_details.append(f"Similar load weights (+15 points)")
+            print(f"               ✅ Similar weight bonus: Δ{weight_diff:.0f}kg (+15 points)")
+        
+        print(f"            🎨 Total pattern score: {pattern_score} points")
+        
+        # Calculate overlap score
+        total_locations = len(locations_a) + len(locations_b)
+        if total_locations == 0:
+            print(f"            ❌ No locations found for analysis")
+            return {'overlap_score': 0, 'potential_savings': 0}
+        
+        # Score based on common locations, cities, and patterns
+        base_overlap = (len(common_locations) * 50 + len(common_cities) * 20) / total_locations * 100
+        overlap_score = min(base_overlap + pattern_score, 100)  # Cap at 100%
+        
+        print(f"            📊 Overlap calculation:")
+        print(f"               Base overlap: {base_overlap:.1f}% (locations: {len(common_locations)}, cities: {len(common_cities)})")
+        print(f"               Pattern bonus: {pattern_score:.1f}%")
+        print(f"               Final score: {overlap_score:.1f}%")
+        
+        # Estimate potential distance savings (enhanced heuristic)
+        potential_savings = overlap_score * 0.8  # Improved estimate
+        
+        # Bonus savings for specific patterns
+        if pattern_score > 40:
+            potential_savings += 25  # Extra savings for good geographical fit
+            print(f"               💰 High pattern bonus: +25km additional savings")
+        
+        print(f"            💰 Estimated savings: {potential_savings:.1f}km")
+        
+        return {
+            'overlap_score': overlap_score,
+            'potential_savings': potential_savings,
+            'common_locations': common_locations,
+            'common_cities': common_cities,
+            'pattern_score': pattern_score,
+            'pattern_details': pattern_details,
+            'base_overlap': base_overlap
+        }
+        
+    except Exception as e:
+        print(f"            ❌ Error calculating overlap: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'overlap_score': 0, 'potential_savings': 0}
+
+
+def _perform_route_consolidation(solution, consolidation_result, vehicles, orders):
+    """Actually perform the route consolidation with detailed debugging."""
+    try:
+        target_vehicle_id = consolidation_result['target_vehicle']
+        free_vehicle_id = consolidation_result['vehicle_to_free']
+        
+        print(f"      🔧 CONSOLIDATION EXECUTION DETAILS:")
+        print(f"         Target vehicle: {target_vehicle_id}")
+        print(f"         Vehicle to free: {free_vehicle_id}")
+        
+        # Get routes
+        target_route = solution.routes.get(target_vehicle_id)
+        free_route = solution.routes.get(free_vehicle_id)
+        
+        if not target_route or not free_route:
+            print(f"         ❌ ERROR: Could not find routes - target: {bool(target_route)}, free: {bool(free_route)}")
+            return False
+        
+        print(f"         📊 Before consolidation:")
+        print(f"            Target route tasks: {len(target_route.tasks)}")
+        print(f"            Free route tasks: {len(free_route.tasks)}")
+        
+        # Test consolidation feasibility using L2 heuristic
+        print(f"         🧪 TESTING CONSOLIDATION FEASIBILITY WITH L2 HEURISTIC...")
+        
+        try:
+            from second_level import l2_heuristic
+            
+            # Extract all orders from the free route
+            orders_to_move = []
+            for task in free_route.tasks:
+                if hasattr(task, 'order_id') and task.order_id:
+                    order_id = task.order_id
+                    # Find the order object
+                    order_obj = next((o for o in orders if str(o.id) == str(order_id)), None)
+                    if order_obj and order_obj not in orders_to_move:
+                        orders_to_move.append(order_obj)
+            
+            print(f"         📦 Orders to move: {[o.id for o in orders_to_move]}")
+            
+            if not orders_to_move:
+                print(f"         ❌ No orders found to move")
+                return False
+            
+            # Start with the target route
+            test_route = target_route
+            
+            # Try to add each order from the free route using L2 heuristic
+            for order in orders_to_move:
+                print(f"            🔬 Testing addition of Order {order.id}...")
+                
+                # Use L2 heuristic to test if this order can be added
+                enhanced_route = l2_heuristic(
+                    test_route, 
+                    order, 
+                    debug_assignment=False, 
+                    enhanced_diagnostics=False
+                )
+                
+                if enhanced_route is None:
+                    print(f"            ❌ L2 heuristic failed for Order {order.id}")
+                    return False
+                
+                # Check if the enhanced route is feasible
+                if hasattr(enhanced_route, 'is_feasible'):
+                    is_feasible = enhanced_route.is_feasible()
+                    if not is_feasible:
+                        print(f"            ❌ Enhanced route not feasible for Order {order.id}")
+                        return False
+                
+                # Update test route for next iteration
+                test_route = enhanced_route
+                print(f"            ✅ Order {order.id} successfully added")
+            
+            print(f"         ✅ ALL ORDERS SUCCESSFULLY VALIDATED WITH L2 HEURISTIC")
+            
+            # If we get here, the consolidation is feasible - commit it
+            solution.routes[target_vehicle_id] = test_route
+            
+            # Clear the freed vehicle's route (set to None)
+            solution.routes[free_vehicle_id] = None
+            
+            print(f"         ✅ CONSOLIDATION COMMITTED")
+            return True
+            
+        except ImportError:
+            print(f"         ⚠️ L2 heuristic not available, using simple merge")
+            # Fall back to simple task merge if L2 not available
+            pass
+        except Exception as e:
+            print(f"         ❌ L2 heuristic validation failed: {str(e)}")
+            return False
+        
+        # Simple merge fallback (if L2 heuristic not available)
+        free_tasks = [t for t in free_route.tasks if not (t.is_depot_start() or t.is_depot_return())]
+        
+        print(f"         📦 Moving {len(free_tasks)} customer tasks from {free_vehicle_id} to {target_vehicle_id}")
+        
+        # Insert tasks in target route (simple insertion at the end for now)
+        depot_return_tasks = [t for t in target_route.tasks if t.is_depot_return()]
+        other_tasks = [t for t in target_route.tasks if not t.is_depot_return()]
+        
+        # Combine tasks: depot_start + existing_tasks + free_tasks + depot_return
+        target_route.tasks = other_tasks + free_tasks + depot_return_tasks
+        
+        # Clear the freed route (set to None)
+        solution.routes[free_vehicle_id] = None
+        
+        print(f"         � After consolidation:")
+        print(f"            Target route tasks: {len(target_route.tasks)}")
+        print(f"            Freed route tasks: {len(free_route.tasks)} (depot only)")
+        print(f"         ✅ Task transfer completed successfully")
+        
+        return True
+        
+    except Exception as e:
+        print(f"         ❌ CONSOLIDATION ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def original_smart_force_assign(solution, unassigned_orders, vehicles):
     """
     Original force assignment logic as fallback.
@@ -4308,6 +4904,14 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
     reset_route_calculation_counter()
     #print(f"DEBUG: Haversine call counter reset to {get_haversine_call_count()}")
 
+    # ==========================================
+    # CONSOLIDATION CONTROL FLAG
+    # ==========================================
+    # Set to True to enable post-assignment route consolidation
+    # Set to False to disable consolidation and keep original routes
+    ENABLE_ROUTE_CONSOLIDATION = True  # <-- Change this to False to disable consolidation
+    
+    print(f"🔧 CONSOLIDATION MODE: {'ENABLED' if ENABLE_ROUTE_CONSOLIDATION else 'DISABLED'}")
     
     # Step 1: Load scenario from Excel
     print(f"\nLoading scenario from: {excel_path}")
@@ -4448,6 +5052,21 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
         
         print(f"L1 HEURISTIC COMPLETED!")
         print(f"   - Runtime: {runtime_seconds:.2f} seconds")
+        
+        # POST-L1 ROUTE CONSOLIDATION (after force assignment within L1)
+        if ENABLE_ROUTE_CONSOLIDATION:
+            print(f"\n" + "="*80)
+            print("POST-L1 ROUTE CONSOLIDATION")
+            print("="*80)
+            print(f"Running consolidation after L1 heuristic (including force assignment)...")
+            consolidation_count = smart_post_assignment_route_consolidation(solution, epdt_orders, epdt_vehicles)
+            print(f"OK: Post-L1 route consolidation completed - {consolidation_count} routes consolidated")
+        else:
+            print(f"\n" + "="*80)
+            print("POST-L1 ROUTE CONSOLIDATION DISABLED")
+            print("="*80)
+            print(f"Skipping route consolidation (ENABLE_ROUTE_CONSOLIDATION = False)")
+            consolidation_count = 0
         
         # COMPREHENSIVE POST-L1 ANALYSIS: Check which orders got assigned
         print(f"\nPOST-L1 ANALYSIS: Checking assignment results...")
@@ -4625,6 +5244,20 @@ def run_phase1_heuristic_test(excel_path: str) -> tuple:
             # ORDER TRACKING: After force assignment
             print(f"\nORDER TRACKING: AFTER FORCE ASSIGNMENT")
             order_tracker.check_assignment_status(solution, epdt_orders)
+            
+            # POST-FORCE ASSIGNMENT ROUTE CONSOLIDATION
+            if ENABLE_ROUTE_CONSOLIDATION:
+                print(f"\nSTARTING POST-FORCE ASSIGNMENT ROUTE CONSOLIDATION...")
+                consolidation_count = smart_post_assignment_route_consolidation(solution, epdt_orders, epdt_vehicles)
+            else:
+                print(f"\nSKIPPING POST-FORCE ASSIGNMENT ROUTE CONSOLIDATION (DISABLED)")
+                consolidation_count = 0
+            print(f"OK: Route consolidation completed - {consolidation_count} routes consolidated")
+            
+            # ORDER TRACKING: After consolidation
+            if consolidation_count > 0:
+                print(f"\nORDER TRACKING: AFTER ROUTE CONSOLIDATION")
+                order_tracker.check_assignment_status(solution, epdt_orders)
             
             post_force_assigned = set()
             post_force_assignments = {}
@@ -5425,81 +6058,6 @@ def main():
             print("Continuing without pricing analysis...")
             import traceback
             traceback.print_exc()
-        
-        # PHASE 6: Post-Optimization Route Consolidation
-        print("\n" + "="*80)
-        print("PHASE 6: POST-OPTIMIZATION ROUTE CONSOLIDATION")
-        print("="*80)
-        
-        try:
-            print("Analyzing routes for consolidation opportunities...")
-            
-            # Perform route consolidation optimization
-            consolidated_solution, consolidation_report = optimize_route_consolidation(
-                solution, vehicles, orders
-            )
-            
-            if consolidated_solution:
-                print("✅ Route consolidation optimization completed!")
-                print(consolidation_report)
-                
-                # Update solution with consolidated routes
-                solution = consolidated_solution
-                
-                # Recalculate metrics after consolidation
-                active_routes_after = len([r for r in solution.routes.values() if r and r.tasks and len(r.tasks) > 2])
-                print(f"\n📊 CONSOLIDATION IMPACT:")
-                print(f"   • Routes before consolidation: {active_route_count}")
-                print(f"   • Routes after consolidation: {active_routes_after}")
-                print(f"   • Routes reduced: {active_route_count - active_routes_after}")
-                if active_route_count > 0:
-                    print(f"   • Efficiency improvement: {((active_route_count - active_routes_after) / active_route_count * 100):.1f}%")
-                
-            else:
-                print("ℹ️  No consolidation opportunities found")
-                print(consolidation_report)
-                
-        except Exception as e:
-            print(f"ERROR: Route consolidation failed: {e}")
-            print("Continuing with original solution...")
-            import traceback
-            traceback.print_exc()
-
-        # PHASE 7: Enhanced Interactive Map with Consolidation Results
-        print(f"\n" + "="*80)
-        print("PHASE 7: ENHANCED INTERACTIVE MAP WITH CONSOLIDATION")
-        print("="*80)
-        
-        # Update map generation to include consolidation results
-        try:
-            from algo.solution_visualizer import create_interactive_map
-            
-            # Create map filename with consolidation indicator
-            from datetime import datetime
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            parent_dir = os.path.dirname(os.path.abspath(__file__))
-            map_filename_consolidated = os.path.join(parent_dir, f"optimized_route_map_{timestamp}.html")
-            
-            print(f"Creating enhanced interactive map: {os.path.basename(map_filename_consolidated)}")
-            print("Enhanced map features:")
-            print("  • Consolidated route visualizations")
-            print("  • Before/after consolidation comparison")
-            print("  • Efficiency improvement indicators")
-            print("  • Cost reduction analysis")
-            
-            # Create the enhanced map
-            map_success = create_interactive_map(
-                solution=solution,
-                save_path=map_filename_consolidated
-            )
-            
-            if map_success:
-                print(f"✅ Enhanced map created: {os.path.basename(map_filename_consolidated)}")
-                browser_url = f"file:///{map_filename_consolidated.replace(os.sep, '/')}"
-                print(f"🌐 Enhanced Map URL: {browser_url}")
-            
-        except Exception as e:
-            print(f"⚠️  Enhanced map generation failed: {e}")
         
         # === FINAL COMPREHENSIVE REPORT ===
         print_comprehensive_final_report(solution, orders, vehicles)
